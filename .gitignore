@@ -10,7 +10,9 @@
 
 # But don't ignore 3D mesh files in specific directories or contexts
 !*.mesh.obj
-!**/simulationApp/assets/*.obj
+!**/assets/*.obj
+
+!**/thirdParty/glfw/lib
 
 #build directory
 **/out/build/
@@ -32,7 +34,7 @@
 *.lai
 *.la
 *.a
-#*.lib
+*.lib
 
 # Executables
 *.exe
