@@ -2,14 +2,10 @@
 #extension GL_ARB_bindless_texture : require
 
 in vec2 TexCoord;
-
 out vec4 FragColor;
 
-layout(std430, binding = 4) buffer  textureHandles {
-    sampler2D BindlessTextures[];
-};
+uniform sampler2D BindlessTexture;
 
 void main() {
-
-    FragColor = texture(BindlessTextures[0], TexCoord);
+    FragColor = texture(BindlessTexture, TexCoord);
 }

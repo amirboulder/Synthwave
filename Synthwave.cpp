@@ -12,15 +12,15 @@ int main()
 
 	
 
-	initGLFW();
-	GLFWwindow* window = createWindow();
-	initGLAD();
+	//initGLFW();
+	//initGLAD();
+	//GLFWwindow* window = createWindow();
+	
+	Window window(1280, 720);
 
-	// hide cursor while controlling camera - allows for mouse to wrap around
-	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
-	//VSync
-	glfwSwapInterval(1);
+
+	
 
 	Scene scene(1);
 	scene.constructLevel1();
@@ -39,7 +39,7 @@ int main()
 	double fpsTimer = glfwGetTime();
 
 	cout << "Welcome to the simulation!\n";
-	while (!glfwWindowShouldClose(window)) {
+	while (!glfwWindowShouldClose(window.windowPtr)) {
 
 		double currentTime = glfwGetTime();
 		double deltaTime = currentTime - lastTime;
@@ -48,7 +48,7 @@ int main()
 		accumulator += deltaTime;
 		while (accumulator >= timeStep) {
 
-			ProcessInput(window, renderer.camera);
+			ProcessInput(window.windowPtr, renderer.camera);
 
 			//Do Physics and AI here
 
@@ -67,7 +67,7 @@ int main()
 			fpsTimer = currentTime;
 		}
 
-		glfwSwapBuffers(window);
+		glfwSwapBuffers(window.windowPtr);
 		glfwPollEvents();
 
 	}

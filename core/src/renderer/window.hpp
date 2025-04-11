@@ -7,8 +7,8 @@
 
 using std::cout;
 
-unsigned int windowWidth = 1920;
-unsigned int windowHeight = 1080;
+unsigned int windowWidth = 1280;
+unsigned int windowHeight = 720;
 
 
 float lastX = windowWidth / 2.0f;
@@ -23,6 +23,7 @@ float yoffset = 0.0f;
 
 void frameBuffer_size_callback(GLFWwindow* window, int width, int height)
 {
+	//TODO FIND A WAY TO ADD THIS BACK, IDEALLY WITHOUT HAVEING A CAMERA INSTANCE
 	//camera.SetAspectRatio((float)width / (float)height);
 	//projection = camera.getProjectionMatrix();
 	glViewport(0, 0, width, height);
@@ -113,7 +114,7 @@ GLFWwindow* createWindow()
 		return nullptr;
 	}
 
-	glfwSetWindowPos(window, 800, 200);
+	glfwSetWindowPos(window, 400, 50);
 	// make the window the main context on the current thread
 	glfwMakeContextCurrent(window);
 	glfwSetFramebufferSizeCallback(window, frameBuffer_size_callback);
@@ -142,3 +143,66 @@ int initGLAD()
 	return 0;
 }
 
+struct Window {
+
+	unsigned int winWidth = 1280;
+	unsigned int winHeight = 720;
+
+	GLFWwindow* windowPtr;
+
+	Window(unsigned int winWidthh, unsigned int winHeight)
+	:	winWidth(windowWidth),winHeight(windowHeight)
+	{
+
+
+		initGLFW();
+		windowPtr = createWindow(winWidth, winHeight);
+		initGLAD();
+
+		// hide cursor while controlling camera - allows for mouse to wrap around
+		glfwSetInputMode(windowPtr, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+
+		//VSync
+		glfwSwapInterval(1);
+
+	}
+
+	GLFWwindow* createWindow(unsigned int winWidth, unsigned int winHeight)
+	{
+		//create WINDOOW object
+		GLFWwindow* window = glfwCreateWindow(windowWidth, windowHeight, "Simulation", NULL, NULL);
+		if (!window) {
+			cout << "failed to create Window!\n";
+			glfwTerminate();
+			return nullptr;
+		}
+
+		glfwSetWindowPos(window, 400, 50);
+		// make the window the main context on the current thread
+		glfwMakeContextCurrent(window);
+		glfwSetFramebufferSizeCallback(window, frameBuffer_size_callback);
+		glfwSetCursorPosCallback(window, mouse_callback);
+
+		return window;
+	}
+
+	void initGLFW()
+	{
+		glfwInit();
+		glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+		glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
+		glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+	}
+
+
+	int initGLAD()
+	{
+		if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
+
+			cout << "failed to initlize glad!" << '\n';
+			return -1;
+		}
+		return 0;
+	}
+
+};

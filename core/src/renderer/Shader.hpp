@@ -36,12 +36,12 @@ public:
 
 		
 
-		GLuint vertexShader =  createVertexShader(vertexShaderCode.c_str());
-		GLuint fragmentShader = createFragmentShader(fragmentShaderCode.c_str());
+		GLuint vertexShader =  createVertexShader(vertexShaderCode.c_str(), vertexPath);
+		GLuint fragmentShader = createFragmentShader(fragmentShaderCode.c_str(),fragmentPath);
 
 		if (geometryPath != nullptr) {
 			string geometryShaderCode = readFile(geometryPath);
-			GLuint geometryShader = createGeometryShader(geometryShaderCode.c_str());
+			GLuint geometryShader = createGeometryShader(geometryShaderCode.c_str(), geometryPath);
 
 			hasGeometryShader = true;
 
@@ -56,7 +56,7 @@ public:
 
 	
 
-	GLuint createVertexShader(const char * vertexShaderSource) {
+	GLuint createVertexShader(const char * vertexShaderSource, const char * name) {
 
 
 		//GLuinit is unsigned int
@@ -69,12 +69,12 @@ public:
 		glCompileShader(vertexShader);
 
 		//checkSuccess(vertexShader, GL_COMPILE_STATUS);
-		checkCompileErrors(vertexShader, "VERTEX");
+		checkCompileErrors(vertexShader, "VERTEX", name);
 
 		return vertexShader;
 	}
 
-	GLuint createGeometryShader(const char * geometryShaderSource) {
+	GLuint createGeometryShader(const char * geometryShaderSource, const char * name) {
 
 
 		//Fragment shader
@@ -85,12 +85,12 @@ public:
 		glCompileShader(GeometryShader);
 
 		//checkSuccess(fragmentShader, GL_COMPILE_STATUS);
-		checkCompileErrors(GeometryShader, "Geometry Shader");
+		checkCompileErrors(GeometryShader, "Geometry Shader", name);
 
 		return GeometryShader;
 	}
 
-	GLuint createFragmentShader(const char* fragmentShaderSource) {
+	GLuint createFragmentShader(const char* fragmentShaderSource,const char * name) {
 
 
 		//Fragment shader
@@ -101,7 +101,7 @@ public:
 		glCompileShader(fragmentShader);
 
 		//checkSuccess(fragmentShader, GL_COMPILE_STATUS);
-		checkCompileErrors(fragmentShader, "Fragment Shader");
+		checkCompileErrors(fragmentShader, "Fragment Shader", name);
 
 		return fragmentShader;
 	}
@@ -219,7 +219,7 @@ public:
 	}
 
 
-	void checkCompileErrors(unsigned int shader, std::string type)
+	void checkCompileErrors(unsigned int shader, std::string type, const char * name = NULL)
 	{
 		int success;
 		char infoLog[1024];
@@ -228,8 +228,10 @@ public:
 			glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
 			if (!success)
 			{
+				std::cout << name << '\n';
 				glGetShaderInfoLog(shader, 1024, NULL, infoLog);
-				std::cout << "ERROR::SHADER_COMPILATION_ERROR of type: " << type << "\n" << infoLog << "\n -- --------------------------------------------------- -- " << std::endl;
+				std::cout << "ERROR::SHADER_COMPILATION_ERROR of type: " << type << "\n" << infoLog << "\n -- --------------------------------------------------- -- \n" ;
+				
 			}
 		}
 		else
