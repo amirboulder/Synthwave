@@ -84,14 +84,22 @@ target_include_directories(stb_image INTERFACE ${CMAKE_SOURCE_DIR}/thirdParty/st
 FetchContent_Declare(json URL https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz)
 FetchContent_MakeAvailable(json)
 
-# Include Jolt
+
+
+# Enable FetchContent for FreeType
+include(FetchContent)
 FetchContent_Declare(
-        JoltPhysics
-        GIT_REPOSITORY "https://github.com/jrouwe/JoltPhysics"
-        GIT_TAG "v5.3.0"
-		SOURCE_SUBDIR "Build"
+    freetype
+    GIT_REPOSITORY https://github.com/freetype/freetype.git
+    GIT_TAG VER-2-13-3 
 )
-FetchContent_MakeAvailable(JoltPhysics)
+add_custom_command(TARGET Synthwave POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        $<TARGET_FILE:freetype>
+        $<TARGET_FILE_DIR:Synthwave>
+)
+FetchContent_MakeAvailable(freetype)
+
 
 target_link_libraries(Synthwave PRIVATE 
 glad 
@@ -100,8 +108,7 @@ assimp
 glm::glm 
 stb_image 
 nlohmann_json::nlohmann_json
-Jolt
-
+freetype
 )
 
 
@@ -109,3 +116,4 @@ Jolt
 
 file(COPY core/src/renderer/shaders DESTINATION ${CMAKE_BINARY_DIR})
 file(COPY assets DESTINATION ${CMAKE_BINARY_DIR})
+file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/data)

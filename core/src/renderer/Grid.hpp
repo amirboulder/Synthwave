@@ -2,19 +2,17 @@
 #include <vector>
 #include <glm/glm.hpp>
 
-
 struct Grid {
 
 	std::vector<glm::vec3> gridVertices;
 	std::vector<unsigned int> GridIndices;
-
 
 	Shader gridShader;
 	GLuint VBO, VAO, EBO;
 	int rows,cols;
 
 
-	Grid(const char* vertexShaderPath, const char* fragmentShaderPath,int rows, int cols,bool mtn, const char* GeometryShaderPath = nullptr)
+	Grid(const char* vertexShaderPath, const char* fragmentShaderPath,int rows, int cols, const char* GeometryShaderPath = nullptr)
 		:	gridShader(vertexShaderPath,fragmentShaderPath, GeometryShaderPath),
 			rows(rows),
 			cols(cols)
@@ -84,7 +82,7 @@ struct Grid {
 		glGenBuffers(1, &VBO);
 		glGenBuffers(1, &EBO);
 
-		// BIND tje Vertex Array object
+		// BIND the Vertex Array object
 		glBindVertexArray(VAO);
 
 		// bind the vertex buffer object
@@ -104,11 +102,9 @@ struct Grid {
 	}
 
 	
-	void renderGrid() {
-
+	void draw() {
 
 		gridShader.use();
-
 
 		glBindVertexArray(VAO);
 

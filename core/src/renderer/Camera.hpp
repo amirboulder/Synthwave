@@ -32,13 +32,15 @@ public:
 
     // Camera parameters
     float fov;           // Field of view
-    float aspectRatio;   // Width/height ratio
     float nearPlane;     // Near clipping plane
     float farPlane;      // Far clipping plane
 
     // Camera movement
     float movementSpeed;
     float mouseSensitivity;
+
+
+
 private:
 
 public:
@@ -49,7 +51,6 @@ public:
         yaw(45.0f),
         pitch(0.0f),
         fov(45.0f),
-        aspectRatio(16.0f / 9.0f),
         nearPlane(0.1f),
         farPlane(1000.0f),
         movementSpeed(0.1),
@@ -65,12 +66,13 @@ public:
     }
 
     // Get projection matrix for OpenGL
-    glm::mat4 getProjectionMatrix() {
+    glm::mat4 getProjectionMatrix(float aspectRatio) {
+
         return glm::perspective(glm::radians(fov), aspectRatio, nearPlane, farPlane);
     }
 
-    void SetAspectRatio(float aspectRatio) {
-        this->aspectRatio = aspectRatio;
+    static void SetAspectRatio(float aspectRatio) {
+        
     }
 
     void processKeyboard(Camera_Movement direction)
@@ -86,19 +88,6 @@ public:
             position += right * velocity;
     }
 
-    //TODO REMOVE
-    void processKeyboard(Camera_Movement direction, float deltaTime)
-    {
-        float velocity = movementSpeed ;
-        if (direction == FORWARD)
-            position += front * velocity;
-        if (direction == BACKWARD)
-            position -= front * velocity;
-        if (direction == LEFT)
-            position -= right * velocity;
-        if (direction == RIGHT)
-            position += right * velocity;
-    }
 
     void processMouseMovement(float xoffset, float yoffset, bool constrainPitch = true) {
         xoffset *= mouseSensitivity;

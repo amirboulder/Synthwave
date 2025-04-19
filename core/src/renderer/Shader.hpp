@@ -118,7 +118,6 @@ public:
 		if (hasGeometryShader)
 		{
 			glAttachShader(m_shaderID, GeometryShader);
-			cout << "GEOSHADER CALLED \n";
 		}
 
 		glLinkProgram(m_shaderID);

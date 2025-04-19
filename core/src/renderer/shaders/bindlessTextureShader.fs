@@ -4,8 +4,10 @@
 in vec2 TexCoord;
 out vec4 FragColor;
 
-uniform sampler2D BindlessTexture;
+layout(std430, binding = 4) buffer textureHandles {
+    uvec2 BindlessTextures[]; 
+};
 
 void main() {
-    FragColor = texture(BindlessTexture, TexCoord);
+    FragColor = texture(sampler2D(BindlessTextures[0]), TexCoord);
 }

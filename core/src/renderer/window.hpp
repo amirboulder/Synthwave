@@ -1,35 +1,24 @@
 #pragma once
 #include <iostream>
-#include <glad/glad.h>
-#include "GLFW/glfw3.h"
+#include <vector>
+#include <functional>
 
+#include <glad/glad.h>
+
+#include "GLFW/glfw3.h"
+#include "../../game/src/userSettings.hpp"
 #include "Camera.hpp"
 
 using std::cout;
 
-unsigned int windowWidth = 1280;
-unsigned int windowHeight = 720;
-
-
-float lastX = windowWidth / 2.0f;
-float lastY = windowHeight / 2.0f;
-bool firstMouse = true;
-bool mouseMoved = false;
-
 float xoffset = 0.0f;
 float yoffset = 0.0f;
 
-//TODO make window part of the renderer
+float lastX =  0.0f;
+float lastY =  0.0f;
 
-void frameBuffer_size_callback(GLFWwindow* window, int width, int height)
-{
-	//TODO FIND A WAY TO ADD THIS BACK, IDEALLY WITHOUT HAVEING A CAMERA INSTANCE
-	//camera.SetAspectRatio((float)width / (float)height);
-	//projection = camera.getProjectionMatrix();
-	glViewport(0, 0, width, height);
-
-}
-
+bool firstMouse = true;
+bool mouseMoved = false;
 
 void mouse_callback(GLFWwindow* window, double xposIn, double yposIn)
 {
@@ -40,9 +29,6 @@ void mouse_callback(GLFWwindow* window, double xposIn, double yposIn)
 	int width, height;
 	glfwGetWindowSize(window, &width, &height);
 
-
-	// Check if mouse is at window edges and wrap if needed
-	//bool wrapped = false;
 	
 		// Initialize if it's the first movement
 	if (firstMouse) {
@@ -57,20 +43,30 @@ void mouse_callback(GLFWwindow* window, double xposIn, double yposIn)
 	xoffset = xpos - lastX;
 	yoffset = lastY - ypos; // reversed since y-coordinates go from bottom to top
 
-	// If we wrapped, skip this frame's movement to avoid camera jump
-	//if (!wrapped) {
-		mouseMoved = true;
-	//}
+	mouseMoved = true;
 
 	// Update last positions
 	lastX = xpos;
 	lastY = ypos;
 }
 
-void ProcessInput(GLFWwindow* window,Camera & camera) {
+
+//TODO create a proper inpute system
+// create an event based design via callback function
+void ProcessInput(GLFWwindow* window,Camera & camera, UserSettings settings) {
 
 	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
 		glfwSetWindowShouldClose(window, true);
+	}
+
+	//This get called a bunch of times everytime its pressed
+	if (glfwGetKey(window, GLFW_KEY_F5) == GLFW_PRESS) {
+
+		int width, height;
+		glfwGetWindowSize(window,&width, &height);
+		settings.windowWidth = width;
+		settings.windowHeight = height;
+		saveUserSettings(settings);
 	}
 
 	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
@@ -103,27 +99,6 @@ void ProcessInput(GLFWwindow* window,Camera & camera) {
 
 }
 
-
-GLFWwindow* createWindow()
-{
-	//create WINDOOW object
-	GLFWwindow* window = glfwCreateWindow(windowWidth, windowHeight, "Simulation", NULL, NULL);
-	if (!window) {
-		cout << "failed to create Window!\n";
-		glfwTerminate();
-		return nullptr;
-	}
-
-	glfwSetWindowPos(window, 400, 50);
-	// make the window the main context on the current thread
-	glfwMakeContextCurrent(window);
-	glfwSetFramebufferSizeCallback(window, frameBuffer_size_callback);
-	glfwSetCursorPosCallback(window, mouse_callback);
-
-	return window;
-}
-
-
 void initGLFW()
 {
 	glfwInit();
@@ -143,20 +118,21 @@ int initGLAD()
 	return 0;
 }
 
-struct Window {
-
-	unsigned int winWidth = 1280;
-	unsigned int winHeight = 720;
+class Window {
+public:
+	unsigned int width = 1280;
+	unsigned int height = 720;
 
 	GLFWwindow* windowPtr;
+	std::vector<std::function<void(int, int)>> resizeCallbacks;
 
-	Window(unsigned int winWidthh, unsigned int winHeight)
-	:	winWidth(windowWidth),winHeight(windowHeight)
+	Window(unsigned int width, unsigned int height)
+	:	width(width),height(height)
 	{
-
+		
 
 		initGLFW();
-		windowPtr = createWindow(winWidth, winHeight);
+		windowPtr = createWindow(width, height);
 		initGLAD();
 
 		// hide cursor while controlling camera - allows for mouse to wrap around
@@ -167,10 +143,31 @@ struct Window {
 
 	}
 
-	GLFWwindow* createWindow(unsigned int winWidth, unsigned int winHeight)
+	void addResizeCallback(std::function<void(int, int)> callback) {
+		resizeCallbacks.push_back(callback);
+	}
+
+	void handleResize(int width, int height) {
+		for (auto& callback : resizeCallbacks) {
+			callback(width, height);
+		}
+	}
+
+	//TODO is it ok for this to be a part of the window struct
+	static void frameBuffer_size_callback(GLFWwindow* window, int width, int height)
+	{
+		glViewport(0, 0, width, height);
+		// get curret window
+		Window* windowInstance = static_cast<Window*>(glfwGetWindowUserPointer(window));
+		windowInstance->handleResize(width, height);
+		
+	
+	}
+
+	GLFWwindow* createWindow(unsigned int width, unsigned int height)
 	{
 		//create WINDOOW object
-		GLFWwindow* window = glfwCreateWindow(windowWidth, windowHeight, "Simulation", NULL, NULL);
+		GLFWwindow* window = glfwCreateWindow(width, height, "Simulation", NULL, NULL);
 		if (!window) {
 			cout << "failed to create Window!\n";
 			glfwTerminate();
@@ -182,7 +179,7 @@ struct Window {
 		glfwMakeContextCurrent(window);
 		glfwSetFramebufferSizeCallback(window, frameBuffer_size_callback);
 		glfwSetCursorPosCallback(window, mouse_callback);
-
+		glfwSetWindowUserPointer(window, this);
 		return window;
 	}
 
@@ -206,3 +203,5 @@ struct Window {
 	}
 
 };
+
+

@@ -136,11 +136,11 @@ public:
 		glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, texCoords));
 		glEnableVertexAttribArray(2);
 
-		cout << "texture handlers size :" << textureHandlers.size() << '\n';
+		//cout << "texture handlers size :" << textureHandlers.size() << '\n';
 		
 		if (!textureHandlers.empty()) {
 			glGenBuffers(1, &ssbo);
-			cout << "SSBO : " << ssbo << '\n';
+			//cout << "SSBO : " << ssbo << '\n';
 			glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
 			glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(GLuint64) * textureHandlers.size(),
 				textureHandlers.data(), GL_STATIC_DRAW);

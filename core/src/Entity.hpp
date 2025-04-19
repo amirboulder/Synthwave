@@ -9,7 +9,6 @@ public:
 	Model model;
 
 	glm::vec3 position;
-
 	glm::vec3 veclocity;
 	float acceleration;
 
@@ -24,6 +23,7 @@ public:
 
 	}
 
+	//TODO REMOVE
 	void update() {
 
 		this->acceleration = glm::clamp(this->acceleration + 0.0001f, 0.0f, 1.0f);

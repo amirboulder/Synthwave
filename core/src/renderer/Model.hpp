@@ -152,8 +152,9 @@ public:
 		textureCache[texturePath] = textureHandle;
 		textureIDCache[texturePath] = textureID;  // Store texture ID for cleanup
 
-		std::cout << "Loaded Bindless Texture: " << texturePath
-			<< " Handle: " << textureHandle << std::endl;
+		//std::cout << "Loaded Bindless Texture: " << texturePath
+		//	<< " Handle: " << textureHandle << std::endl;
+		//	<< " Handle: " << textureHandle << std::endl;
 
 
 		return textureHandle;
