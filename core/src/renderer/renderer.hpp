@@ -31,6 +31,8 @@ struct Renderer {
 
 	void setup() {
 
+		//VSync
+		glfwSwapInterval(1);
 		
 		//OPENGL SETTINGS
 		glEnable(GL_DEPTH_TEST);
@@ -63,7 +65,8 @@ struct Renderer {
 		textRenderer.renderText(text, postion.x, postion.y, scale, color);
 	}
 
-	void draw(vector <Entity>& entities) {
+	/*
+	void draw( std::vector<std::unique_ptr<Entity>>& entities) {
 
 
 		view = camera.getViewMatrix();
@@ -82,12 +85,37 @@ struct Renderer {
 		glClearColor(r / 256.0f, g / 256.0f, b / 256.0f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		for (Entity& e : entities) {
-
-			e.draw();
-
+		for ( auto& entity : entities) {
+			entity->draw(); 
 		}
-	
+
+	}
+	*/
+
+
+	void draw(std::vector<Model>& models, std::vector<TransformData> & transforms) {
+
+
+		view = camera.getViewMatrix();
+
+		// Update View & Projection matrices
+		glBindBuffer(GL_UNIFORM_BUFFER, uboMatrices);
+		glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(glm::mat4), glm::value_ptr(view));
+		glBufferSubData(GL_UNIFORM_BUFFER, sizeof(glm::mat4), sizeof(glm::mat4), glm::value_ptr(projection));
+
+		glBindBuffer(GL_UNIFORM_BUFFER, 0);
+
+		float r = 47.0f;
+		float g = 34.0f;
+		float b = 88.0f;
+
+		glClearColor(r / 256.0f, g / 256.0f, b / 256.0f, 1.0f);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		for (auto& model : models) {
+			model.draw(transforms);
+		}
+
 	}
 
 	void handleWindowResize(int newWidth , int newHeight) {

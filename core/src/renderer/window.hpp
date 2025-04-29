@@ -138,8 +138,6 @@ public:
 		// hide cursor while controlling camera - allows for mouse to wrap around
 		glfwSetInputMode(windowPtr, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
-		//VSync
-		glfwSwapInterval(1);
 
 	}
 

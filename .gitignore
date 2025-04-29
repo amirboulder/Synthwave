@@ -10,7 +10,7 @@
 
 # But don't ignore 3D mesh files in specific directories or contexts
 !*.mesh.obj
-!**/assets/*.obj
+!**/assets/**/*.obj
 
 !**/thirdParty/glfw/lib
 

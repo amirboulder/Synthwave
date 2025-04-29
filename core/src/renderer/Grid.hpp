@@ -2,121 +2,186 @@
 #include <vector>
 #include <glm/glm.hpp>
 
-struct Grid {
+#include "../components.hpp"
 
-	std::vector<glm::vec3> gridVertices;
-	std::vector<unsigned int> GridIndices;
+// used for testing
+class Grid  {
+public:
 
-	Shader gridShader;
-	GLuint VBO, VAO, EBO;
-	int rows,cols;
+    std::vector<glm::vec3> gridVertices;
+    std::vector<unsigned int> gridIndices;
 
+    GLuint shaderID;
+    GLuint VAO;
+    //int rows, cols;
 
-	Grid(const char* vertexShaderPath, const char* fragmentShaderPath,int rows, int cols, const char* GeometryShaderPath = nullptr)
-		:	gridShader(vertexShaderPath,fragmentShaderPath, GeometryShaderPath),
-			rows(rows),
-			cols(cols)
+    //glm::vec3* vboPtr = nullptr;
+   // size_t vertexCount, indexCount;
 
-	{
+    Grid(GLuint shaderID , int rows, int cols)
 
-			generateGrid(rows, cols);
-	}
+       : shaderID(shaderID)
+      
+    {
+        generateGrid(rows, cols);
 
-	void generateGrid(int rows, int cols) {
+    }
 
-		
+    void generateGrid(int rows, int cols) {
 
-		// put a vertex in each integer
-		for (int r = 0; r <= rows; r++) {
-			for (int c = 0; c <= cols; c++) {
-				float x = static_cast<float>(c)  *4;
-				float y = 0.0f; // Y is up, grid is on XZ plane
-				float z = static_cast<float>(r) * 4; // Z instead of Y for depth
-				gridVertices.push_back({ x, y, z });
-			}
-		}
+        gridVertices.reserve((rows + 1) * (cols + 1));
 
-		// Step 2: Generate indices for GL_TRIANGLE_STRIP
-		for (int r = 0; r < rows; r++) {
-			if (r > 0) {
-				// Insert a degenerate triangle (repeat the last vertex of the previous row)
-				GridIndices.push_back((r * (cols + 1)) + cols);
-				GridIndices.push_back((r * (cols + 1)));
-			}
+        // Generate vertices
+        for (int r = 0; r <= rows; r++) {
+            for (int c = 0; c <= cols; c++) {
+                float x = static_cast<float>(c) * 4;
+                float y = 0.0f; // Y is up, grid is on XZ plane
+                float z = static_cast<float>(r) * 4; // Z instead of Y for depth
+                gridVertices.emplace_back(glm::vec3(x,y,z));
 
-			for (int c = 0; c <= cols; c++) {
-				int top = r * (cols + 1) + c;
-				int bottom = (r + 1) * (cols + 1) + c;
+            }
+        }
 
-				GridIndices.push_back(top);
-				GridIndices.push_back(bottom);
-			}
-		}
-		// Debugging: Print the vertex and index data
-		/*
-		std::cout << "Vertices: \n";
-		for (size_t i = 0; i < gridVertices.size(); i++) {
-			std::cout << "Vertex " << i << ": " << gridVertices[i].x << " "
-				<< gridVertices[i].y << " " << gridVertices[i].z << "\n";
-		}
+        gridIndices.reserve(rows * cols * 6);
 
+        // Generate indices for GL_TRIANGLES
+        for (int r = 0; r < rows; r++) {
+            for (int c = 0; c < cols; c++) {
+                // Define two triangles for each grid cell
+                int topLeft = r * (cols + 1) + c;
+                int topRight = topLeft + 1;
+                int bottomLeft = (r + 1) * (cols + 1) + c;
+                int bottomRight = bottomLeft + 1;
 
-		std::cout << "Indices: \n";
-		for (size_t i = 0; i < GridIndices.size(); i++) {
-			std::cout << "Index " << i << ": " << GridIndices[i] << "\n";
-		}
+                // First triangle (top-left, bottom-left, top-right)
+                gridIndices.emplace_back(topLeft);
+                gridIndices.emplace_back(bottomLeft);
+                gridIndices.emplace_back(topRight);
 
-		*/
-		//std::cout << "Size of Vertices: " << gridVertices.size() << '\n';
-		// std::cout << "Size of Indices: " << GridIndices.size() << "\n";
-
-		//TODO MAKE THIS A SEPRATE FUNCTION
-		for (int i = 0; i < gridVertices.size(); i++) {
-
-			gridVertices[i].x -= 50;
-			//gridVertices[i].y -= 10;
-			gridVertices[i].z -= 50;
-		}
-
-		glGenVertexArrays(1, &VAO);
-		glGenBuffers(1, &VBO);
-		glGenBuffers(1, &EBO);
-
-		// BIND the Vertex Array object
-		glBindVertexArray(VAO);
-
-		// bind the vertex buffer object
-		glBindBuffer(GL_ARRAY_BUFFER, VBO);
-		//configure the currently bound buffer
-
-		glBufferData(GL_ARRAY_BUFFER, gridVertices.size() * sizeof(glm::vec3), &gridVertices[0], GL_STATIC_DRAW);
-		//BiND ELEMENT buffer
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, GridIndices.size() * sizeof(unsigned int), &GridIndices[0], GL_STATIC_DRAW);
-		//tell open gl how to interprate the data
-		//position arrtibute
-		glEnableVertexAttribArray(0);
-		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
+                // Second triangle (top-right, bottom-left, bottom-right)
+                gridIndices.emplace_back(topRight);
+                gridIndices.emplace_back(bottomLeft);
+                gridIndices.emplace_back(bottomRight);
+            }
+        }
 
 
-	}
+        // Center the grid
+        //TODO turn these offsets into parameters
+        for (int i = 0; i < gridVertices.size(); i++) {
+            gridVertices[i].x -= 50;
+            gridVertices[i].z -= 50;
+        }
 
-	
-	void draw() {
+        GLuint VBO, EBO;
 
-		gridShader.use();
+        // Create buffers
+        glCreateVertexArrays(1, &VAO);
+        glCreateBuffers(1, &VBO);
+        glCreateBuffers(1, &EBO);
 
-		glBindVertexArray(VAO);
+        
+        // DSA buffers
+        glCreateVertexArrays(1, &VAO);
+        glCreateBuffers(1, &VBO);
+        glCreateBuffers(1, &EBO);
 
-		// Use GL_TRIANGLE_STRIP instead of GL_TRIANGLES
-		glDrawElements(GL_TRIANGLE_STRIP, GridIndices.size(), GL_UNSIGNED_INT, 0);
+        // Upload vertex data to VBO
+        glNamedBufferData(VBO, gridVertices.size() * sizeof(glm::vec3), gridVertices.data(), GL_STATIC_DRAW);
+        // Upload index data to EBO
+        glNamedBufferData(EBO, gridIndices.size() * sizeof(unsigned int), gridIndices.data(), GL_STATIC_DRAW);
 
-		glBindVertexArray(0);
+        glEnableVertexArrayAttrib(VAO, 0);
+        glVertexArrayAttribBinding(VAO, 0, 0);
+        glVertexArrayAttribFormat(VAO, 0, 3, GL_FLOAT, GL_FALSE, 0);
 
-	}
+        // Bind VBO to VAO for vertex data
+        glVertexArrayVertexBuffer(VAO, 0, VBO, 0, sizeof(glm::vec3));
 
+        // Bind EBO to VAO for index data
+        glVertexArrayElementBuffer(VAO, EBO);
+
+    }
+
+
+    void draw() {
+        glUseProgram(shaderID);
+        glBindVertexArray(VAO);
+        glDrawElements(GL_TRIANGLES, gridIndices.size(), GL_UNSIGNED_INT, 0);
+    }
+   
 };
 
+
+class GridGenerator  {
+public:
+
+    GridGenerator(){}
+
+    static void generateGrid(int rows, int cols, std::vector<VertexData> & vertices, std::vector <unsigned int> & indices) {
+
+        
+        // Generate vertices
+
+        // adding one to rows and cols becasuet the loops go to <=
+       vertices.reserve((rows+1) * (cols + 1));
+
+        for (int r = 0; r <= rows; r++) {
+            for (int c = 0; c <= cols; c++) {
+                float x = static_cast<float>(c) * 4;
+                float y = 0.0f; // Y is up, grid is on XZ plane
+                float z = static_cast<float>(r) * 4; // Z instead of Y for depth
+
+                vertices.emplace_back();
+                VertexData & currentVertex = vertices.back();
+
+                currentVertex.vertices.x = x;
+                currentVertex.vertices.y = y;
+                currentVertex.vertices.z = z;
+
+            }
+        }
+
+        indices.reserve(rows * cols * 6);
+
+        // Generate indices for GL_TRIANGLES
+        for (int r = 0; r < rows; r++) {
+            for (int c = 0; c < cols; c++) {
+                // Define two triangles for each grid cell
+                int topLeft = r * (cols + 1) + c;
+                int topRight = topLeft + 1;
+                int bottomLeft = (r + 1) * (cols + 1) + c;
+                int bottomRight = bottomLeft + 1;
+
+                // First triangle (top-left, bottom-left, top-right)
+                indices.emplace_back(topLeft);
+                indices.emplace_back(bottomLeft);
+                indices.emplace_back(topRight);
+
+                
+
+                // Second triangle (top-right, bottom-left, bottom-right)
+                indices.emplace_back(topRight);
+                indices.emplace_back(bottomLeft);
+                indices.emplace_back(bottomRight);
+            }
+        }
+
+        //TODO turn these offsets into parameters
+        /*
+        // Center the grid
+       
+        for (int i = 0; i < vertices.size(); i++) {
+            vertices[i].vertices.x -= 50;
+            vertices[i].vertices.z -= 50;
+        }
+        */
+
+    }
+
+ 
+   
+};
 
 
 

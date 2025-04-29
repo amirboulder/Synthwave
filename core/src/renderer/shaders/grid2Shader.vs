@@ -9,6 +9,8 @@ layout(std140, binding = 3) uniform Matrices {
     mat4 projection;
 };
 
+uniform mat4 model;
+
 out vec3 vertex;
 out vec3 cameraPos;
 
@@ -24,6 +26,10 @@ void main()
     cameraPos = -transpose(rotMat) * translationPart;
 
     vertex = aPos.xyz;
+
+    //model = projection * view * model * vec4(aPos, 1.0);
+
+
 
     gl_Position = projection * view *  vec4(aPos, 1.0);
 

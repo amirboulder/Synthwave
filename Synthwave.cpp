@@ -1,5 +1,5 @@
 ﻿#include "Synthwave.h"
-
+#include <chrono>
 using std::cout;
 
 int main()
@@ -8,19 +8,20 @@ int main()
 
 	Window window(settings.windowWidth, settings.windowHeight);
 
-	Scene scene(1);
-	scene.constructLevel1();
-
+	
 	Renderer renderer(window.width,window.height);
-
 	window.addResizeCallback([&renderer](int width, int height) {
-		renderer.handleWindowResize(width,height);
+		renderer.handleWindowResize(width, height);
 	});
 
-	Grid grid("shaders/grid2Shader.vs", "shaders/grid2Shader.fs", 1600, 1600);
-	
-	int tickRate = 144;
-	double timeStep = 1.0f / static_cast<double>(tickRate);
+
+	Fisiks fisiks;
+
+	Scene scene(1);
+	scene.constructLVL1(fisiks);
+
+
+	double timeStep = 1.0f / 120.0f;
 	double accumulator = 0.0f;
 	double lastTime = glfwGetTime();
 	int frameCount = 0;
@@ -29,6 +30,9 @@ int main()
 
 	cout << "Welcome to the simulation!\n";
 	while (!glfwWindowShouldClose(window.windowPtr)) {
+
+
+
 
 		double currentTime = glfwGetTime();
 		double deltaTime = currentTime - lastTime;
@@ -39,16 +43,16 @@ int main()
 
 			ProcessInput(window.windowPtr, renderer.camera, settings);
 
-			//Do Physics and AI here
+
+			fisiks.update(timeStep);
+			fisiks.updateTransforms(scene.transforms, scene.physicsCompoments);
 
 			accumulator -= timeStep;
 		}
 
 		//TODO INTERPOLATE ?????
 
-		renderer.draw(scene.entities);
-		//TODO make grid an entity like the rest
-		grid.draw();
+		renderer.draw(scene.models, scene.transforms);
 
 		renderer.drawText("Hello Synthwave", { 50.0f,50.0f }, 1, { 1.0f,1.0f,1.0f });
 
@@ -60,7 +64,6 @@ int main()
 		}
 		renderer.drawFps(fps);
 		
-
 		glfwSwapBuffers(window.windowPtr);
 		glfwPollEvents();
 
@@ -68,4 +71,5 @@ int main()
 
 	glfwTerminate();
 	cout << "Goodbye!\n";
+	return 0;
 }
