@@ -2,7 +2,6 @@
 // Jolt Physics Library (https://github.com/jrouwe/JoltPhysics)
 // SPDX-FileCopyrightText: 2025 Jorrit Rouwe
 // SPDX-License-Identifier: CC0-1.0
-// This file is in the public domain. It serves as an example to start building your own application using Jolt Physics. Feel free to copy paste without attribution!
 
 // The Jolt headers don't include Jolt.h. Always include Jolt.h before including any other Jolt header.
 // You can use Jolt.h in your precompiled header to speed up compilation.
@@ -23,10 +22,22 @@
 #include <Jolt/Physics/Body/BodyCreationSettings.h>
 #include <Jolt/Physics/Body/BodyActivationListener.h>
 
-// STL includes
+#include <Jolt/Physics/Character/Character.h>
+
+#include <glm/glm.hpp>
+#include <glm/gtc/quaternion.hpp>    
+#include <glm/gtx/quaternion.hpp>  
+
+#include <iostream>
+#include <iomanip> 
+
 #include <iostream>
 #include <cstdarg>
 #include <thread>
+
+#include <queue>
+
+#include "debugRenderer.hpp"
 
 // Disable common warnings triggered by Jolt, you can use JPH_SUPPRESS_WARNING_PUSH / JPH_SUPPRESS_WARNING_POP to store and restore the warning state
 JPH_SUPPRESS_WARNINGS
@@ -34,11 +45,15 @@ JPH_SUPPRESS_WARNINGS
 // All Jolt symbols are in the JPH namespace
 using namespace JPH;
 
-// If you want your code to compile using single or double precision write 0.0_r to get a Real value that compiles to double or float depending if JPH_DOUBLE_PRECISION is set or not.
+// If you want your code to compile using single or double precision write 0.0_r to get a Real value that compiles to double or float depending if JPH_DOUBLE_PRECISION is XX or not.
 using namespace JPH::literals;
 
 // We're also using STL classes in this example
-using namespace std;
+//using namespace std;
+
+
+
+std::queue<BodyID> myQueue;
 
 enum class PhysicsBodyShapes
 {
@@ -61,7 +76,7 @@ static void TraceImpl(const char* inFMT, ...)
 	va_end(list);
 
 	// Print to the TTY
-	cout << buffer << endl;
+	cout << buffer << '\n';
 }
 
 #ifdef JPH_ENABLE_ASSERTS
@@ -70,7 +85,7 @@ static void TraceImpl(const char* inFMT, ...)
 static bool AssertFailedImpl(const char* inExpression, const char* inMessage, const char* inFile, uint inLine)
 {
 	// Print to the TTY
-	cout << inFile << ":" << inLine << ": (" << inExpression << ") " << (inMessage != nullptr ? inMessage : "") << endl;
+	cout << inFile << ":" << inLine << ": (" << inExpression << ") " << (inMessage != nullptr ? inMessage : "") << '\n';
 
 	// Breakpoint
 	return true;
@@ -193,7 +208,23 @@ public:
 
 	virtual void			OnContactAdded(const Body& inBody1, const Body& inBody2, const ContactManifold& inManifold, ContactSettings& ioSettings) override
 	{
-		//cout << "A contact was added" << endl;
+		
+		
+		//cout << "A contact was added between body : " << inBody1.GetID().GetIndex() <<  " and body : " << inBody2.GetID().GetIndex() << endl;
+
+
+		/*
+		if (inBody1.IsDynamic()) {
+			myQueue.push(inBody1.GetID());
+		}
+		if (inBody2.IsDynamic()) {
+			myQueue.push(inBody2.GetID());
+		}
+		*/
+
+		
+
+			
 	}
 
 	virtual void			OnContactPersisted(const Body& inBody1, const Body& inBody2, const ContactManifold& inManifold, ContactSettings& ioSettings) override
@@ -213,12 +244,12 @@ class MyBodyActivationListener : public BodyActivationListener
 public:
 	virtual void		OnBodyActivated(const BodyID& inBodyID, uint64 inBodyUserData) override
 	{
-		cout << "A body got activated" << endl;
+		cout << "A body got activated" << '\n';
 	}
 
 	virtual void		OnBodyDeactivated(const BodyID& inBodyID, uint64 inBodyUserData) override
 	{
-		cout << "A body went to sleep" << endl;
+		cout << "A body went to sleep" << '\n';
 	}
 };
 
@@ -271,6 +302,7 @@ public:
 	JobSystemThreadPool* job_system;
 
 
+
 	Fisiks()
 		: broad_phase_layer_interface(),
 		object_vs_broadphase_layer_filter(),
@@ -279,6 +311,8 @@ public:
 		contact_listener(),
 		physics_system(),
 		bodyInterface(physics_system.GetBodyInterface())
+
+
 
 	{
 		// Register allocation hook. In this example we'll just let Jolt use 
@@ -334,82 +368,11 @@ public:
 		// A contact listener gets notified when bodies (are about to) collide, and when they separate again.
 		physics_system.SetContactListener(&contact_listener);
 
-		
-		/*
-
-		// Next we can create a rigid body to serve as the floor, we make a large box
-		// Create the settings for the collision volume (the shape).
-		// Note that for simple shapes (like boxes) you can also directly construct a BoxShape.
-		BoxShapeSettings floor_shape_settings(Vec3(100.0f, 1.0f, 100.0f));
-		floor_shape_settings.SetEmbedded(); // A ref counted object on the stack (base class RefTarget) should be marked as such to prevent it from being freed when its reference count goes to 0.
-
-		// Create the shape
-		ShapeSettings::ShapeResult floor_shape_result = floor_shape_settings.Create();
-		ShapeRefC floor_shape = floor_shape_result.Get(); // We don't expect an error here, but you can check floor_shape_result for HasError() / GetError()
-
-		// Create the settings for the body itself. Note that here you can also set other properties like the restitution / friction.
-		BodyCreationSettings floor_settings(floor_shape, RVec3(0.0_r, -1.0_r, 0.0_r), Quat::sIdentity(), EMotionType::Static, Layers::NON_MOVING);
-
-		// Create the actual rigid body
-		Body* floor = bodyInterface.CreateBody(floor_settings); // Note that if we run out of bodies this can return nullptr
-
-		// Add it to the world
-		bodyInterface.AddBody(floor->GetID(), EActivation::DontActivate);
-
-		*/
-
 
 		// Optional step: Before starting the physics simulation you can optimize the broad phase. This improves collision detection performance (it's pointless here because we only have 2 bodies).
 		// You should definitely not call this every frame or when e.g. streaming in a new level section as it is an expensive operation.
 		// Instead insert all new objects in batches instead of 1 at a time to keep the broad phase efficient.
 		physics_system.OptimizeBroadPhase();
-
-		/*
-		// Now create a dynamic body to bounce on the floor
-		// Note that this uses the shorthand version of creating and adding a body to the world
-		BodyCreationSettings sphere_settings(new SphereShape(0.5f), RVec3(0.0_r, 2.0_r, 0.0_r), Quat::sIdentity(), EMotionType::Dynamic, Layers::MOVING);
-		BodyID sphere_id = bodyInterface.CreateAndAddBody(sphere_settings, EActivation::Activate);
-
-		// Now you can interact with the dynamic body, in this case we're going to give it a velocity.
-		// (note that if we had used CreateBody then we could have set the velocity straight on the body before adding it to the physics system)
-		bodyInterface.SetLinearVelocity(sphere_id, Vec3(0.0f, -5.0f, 0.0f));
-
-		// We simulate the physics world in discrete time steps. 60 Hz is a good rate to update the physics system.
-		const float cDeltaTime = 1.0f / 60.0f;
-		*/
-		
-		/*
-		// Now we're ready to simulate the body, keep simulating until it goes to sleep
-		uint step = 0;
-		while (bodyInterface.IsActive(sphere_id))
-		{
-			// Next step
-			++step;
-
-			// Output current position and velocity of the sphere
-			RVec3 position = bodyInterface.GetCenterOfMassPosition(sphere_id);
-			Vec3 velocity = bodyInterface.GetLinearVelocity(sphere_id);
-			cout << "Step " << step << ": Position = (" << position.GetX() << ", " << position.GetY() << ", " << position.GetZ() << "), Velocity = (" << velocity.GetX() << ", " << velocity.GetY() << ", " << velocity.GetZ() << ")" << endl;
-
-			
-
-			// Step the world
-			physics_system.Update(cDeltaTime, cCollisionSteps, &temp_allocator, &job_system);
-		}
-
-		// Remove the sphere from the physics system. Note that the sphere itself keeps all of its state and can be re-added at any time.
-		bodyInterface.RemoveBody(sphere_id);
-
-		// Destroy the sphere. After this the sphere ID is no longer valid.
-		bodyInterface.DestroyBody(sphere_id);
-
-		// Remove and destroy the floor
-		bodyInterface.RemoveBody(floor->GetID());
-		bodyInterface.DestroyBody(floor->GetID());
-*/
-		
-
-		
 
 	}
 
@@ -425,7 +388,18 @@ public:
 
 		//cout << "Step " << step << ": Position = (" << position.GetX() << ", " << position.GetY() << ", " << position.GetZ() << "), Velocity = (" << velocity.GetX() << ", " << velocity.GetY() << ", " << velocity.GetZ() << ")" << endl;
 
+		/*
+		while (!myQueue.empty()) {
 
+
+			Vec3 velocity = bodyInterface.GetLinearVelocity(myQueue.front());
+			cout << "velocity : " << velocity.GetX() << " " << velocity.GetY() << " " << velocity.GetZ() << '\n';
+
+			velocity.SetY(velocity.GetY() * 0.5f);
+			bodyInterface.SetLinearVelocity(myQueue.front(), velocity);
+			myQueue.pop();
+		}
+		*/
 
 	}
 
@@ -447,15 +421,74 @@ public:
 		for (int i = 0; i < transforms.size(); i++) {
 
 
-			Vec3 pos = bodyInterface.GetPosition(physicsCompoments.at(i).bodyID);
 
-			transforms[i].currentMatrix[3][0] = pos.GetX();
-			transforms[i].currentMatrix[3][1] = pos.GetY();
-			transforms[i].currentMatrix[3][2] = pos.GetZ();
+
+			JPH::Vec3 pos;
+			JPH::Quat rotation;
+
+			bodyInterface.GetPositionAndRotation(physicsCompoments.at(i).bodyID, pos, rotation);
+
+			JPH::Mat44 center = bodyInterface.GetWorldTransform(physicsCompoments.at(i).bodyID);
+
+
+			// Convert JPH::Quat to glm::quat
+			glm::quat rot = glm::quat(rotation.GetW(), rotation.GetX(), rotation.GetY(), rotation.GetZ());
+
+			// Preserve scaling from the original transform matrix
+			glm::mat4 originalMatrix = transforms[i].currentMatrix;
+
+			// Extract scale from the original matrix
+			glm::vec3 scale;
+			scale.x = glm::length(glm::vec3(originalMatrix[0]));
+			scale.y = glm::length(glm::vec3(originalMatrix[1]));
+			scale.z = glm::length(glm::vec3(originalMatrix[2]));
+
+			// Create new matrix that preserves the scale
+			glm::mat4 rotationMatrix = glm::mat4_cast(rot);
+			glm::mat4 modelMatrix = rotationMatrix;
+
+			// Apply scale to the rotation matrix
+			modelMatrix[0] = rotationMatrix[0] * scale.x;
+			modelMatrix[1] = rotationMatrix[1] * scale.y;
+			modelMatrix[2] = rotationMatrix[2] * scale.z;
+
+			// Apply translation
+			modelMatrix[3] = glm::vec4(pos.GetX(), pos.GetY(), pos.GetZ(), 1.0f);
+
+			transforms[i].previousMatrix = transforms[i].currentMatrix;
+			transforms[i].currentMatrix = modelMatrix;
+
+
 		}
+
 
 	}
 
+
+	void PrintJPHMat4(const JPH::Mat44& mat, unsigned int index) {
+		std::cout << "JPH Matrix with index: " << index << "\n";
+		for (int row = 0; row < 4; ++row) {
+			std::cout << "| ";
+			for (int col = 0; col < 4; ++col) {
+				// Access matrix in column-major order, but print as row-major for readability
+				std::cout << std::setw(10) << std::setprecision(4)
+					<< std::fixed << mat.GetColumn4(col)[row] << " ";
+			}
+			std::cout << "|\n";
+		}
+		std::cout << "\n"; // Add newline for separation
+	}
+
+	void PrintGLMMat4(const glm::mat4& mat, const unsigned int index) {
+		std::cout << "GLM Matrix with index : " << index << ":\n";
+		for (int row = 0; row < 4; ++row) {
+			std::cout << "| ";
+			for (int col = 0; col < 4; ++col) {
+				std::cout << std::setw(10) << std::setprecision(4) << mat[col][row] << " ";
+			}
+			std::cout << "|\n";
+		}
+	}
 
 	~Fisiks() {
 
@@ -467,3 +500,5 @@ public:
 		Factory::sInstance = nullptr;
 	}
 };
+
+

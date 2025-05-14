@@ -2,8 +2,9 @@
 #include "../Entity.hpp"
 #include "Grid.hpp"
 #include "Camera.hpp"
-#include "window.hpp"
 #include "text/freeType.hpp"
+
+#include "../physics/debugRenderer.hpp"
 
 struct Renderer {
 
@@ -19,7 +20,7 @@ struct Renderer {
 
 
 	Renderer(int winWidth,int winHeight)
-		: camera(glm::vec3(0.0f, 10.0f, 0.0f)),
+		: camera(glm::vec3(-25.0f, 10.0f, -15.0f)),
 		textRenderer(winWidth, winHeight, "assets/fonts/Supermolot Light.otf"),
 		winWidth(winWidth),winHeight(winHeight)
 
@@ -32,12 +33,22 @@ struct Renderer {
 	void setup() {
 
 		//VSync
-		glfwSwapInterval(1);
+		//glfwSwapInterval(0);
 		
 		//OPENGL SETTINGS
 		glEnable(GL_DEPTH_TEST);
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+
+		//Backface culling
+		glEnable(GL_CULL_FACE);
+		glCullFace(GL_FRONT);
+		glFrontFace(GL_CW);
+
+		//TODO: MSAA
+		//TODO: FRAM BUFFER
+
 		
 		glGenBuffers(1, &uboMatrices);
 		glBindBuffer(GL_UNIFORM_BUFFER, uboMatrices);
@@ -99,6 +110,7 @@ struct Renderer {
 		view = camera.getViewMatrix();
 
 		// Update View & Projection matrices
+		//TODO simplify to 1 matrix
 		glBindBuffer(GL_UNIFORM_BUFFER, uboMatrices);
 		glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(glm::mat4), glm::value_ptr(view));
 		glBufferSubData(GL_UNIFORM_BUFFER, sizeof(glm::mat4), sizeof(glm::mat4), glm::value_ptr(projection));
@@ -112,9 +124,12 @@ struct Renderer {
 		glClearColor(r / 256.0f, g / 256.0f, b / 256.0f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+		
 		for (auto& model : models) {
 			model.draw(transforms);
 		}
+		
+
 
 	}
 

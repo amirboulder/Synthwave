@@ -1,5 +1,8 @@
 #pragma once
-
+#include <iostream>
+#include <vector>
+#include <algorithm>
+#include <float.h> 
 #include "Entity.hpp"
 
 #include <glm/glm.hpp>
@@ -33,14 +36,17 @@ public:
 
 	}
 
-	//TODO
-	void createSphereEntity() {
-
-	}
-
-	Entity createCapsuleEntity(const char* filePath, GLuint ShaderID, Fisiks& physick, glm::mat4 transform) {
+	Entity createPlayerEntity(Player & player,const char* filePath, GLuint ShaderID, Fisiks& fisiks, glm::mat4 transform) {
 
 		transforms.emplace_back(transform);
+
+		models.emplace_back(filePath, ShaderID, transforms.size() - 1);
+
+
+		float meshX;
+		float meshY;
+		float meshZ;
+		calculateMeshDimensions(models.back().meshes[0], meshX, meshY, meshZ);
 
 		// Decompose model matrix
 		glm::vec3 position, scale;
@@ -49,17 +55,74 @@ public:
 		glm::vec4 perspective;
 		glm::decompose(transform, scale, rotation, position, skew, perspective);
 
-		//TODO make these parameters
+
 		// Compute capsule dimensions
-		float modelRadius = 0.5f; // Unscaled model radius
-		float modelHeight = 2.0f; // Unscaled model total height
+		float modelRadius = meshX / 2.0f; // Unscaled model radius
+		float modelHeight = meshY; // Unscaled model total height
+		float physicsRadius = modelRadius * scale.x; // Scale radius (x-axis)
+		float physicsHalfHeight = (modelHeight / 2.0f - modelRadius) * scale.y; // Scale height (y-axis)
+
+		// Convert GLM to Jolt types
+		JPH::Vec3 joltPosition(position.x, position.y, position.z);
+		JPH::Quat joltRotation(rotation.x, rotation.y, rotation.z, rotation.w);
+		if (!joltRotation.IsNormalized()) {
+			joltRotation = joltRotation.Normalized();
+		}
+
+		player.CreatePlayer(fisiks.physics_system, joltPosition, joltRotation, physicsRadius, physicsHalfHeight);
+
+		physicsComponents.emplace_back(player.JoltCharacter->GetBodyID());
+
+		Entity temp(entityIDCounter, player.JoltCharacter->GetBodyID(), static_cast<uint32_t>(models.size() - 1));
+
+		entityIDCounter++;
+
+		return temp;
+
+
+	}
+
+	//TODO
+	void createSphereEntity() {
+
+	}
+
+	Entity createBoxEntity(const char* filePath, GLuint ShaderID, Fisiks& fisiks, glm::mat4 transform) {
+
+	}
+
+	Entity createCapsuleEntity(const char* filePath, GLuint ShaderID, Fisiks& fisiks, glm::mat4 transform) {
+
+		transforms.emplace_back(transform);
+
+		models.emplace_back(filePath, ShaderID, transforms.size() - 1);
+
+	
+		float meshX;
+		float meshY;
+		float meshZ;
+
+		calculateMeshDimensions(models.back().meshes[0], meshX, meshY, meshZ);
+
+		// Decompose model matrix
+		glm::vec3 position, scale;
+		glm::quat rotation;
+		glm::vec3 skew;
+		glm::vec4 perspective;
+		glm::decompose(transform, scale, rotation, position, skew, perspective);
+
+
+		// Compute capsule dimensions
+		float modelRadius = meshX / 2.0f; // Unscaled model radius
+		float modelHeight = meshY; // Unscaled model total height
 		float physicsRadius = modelRadius * scale.x; // Scale radius (x-axis)
 		float physicsHalfHeight = (modelHeight / 2.0f - modelRadius) * scale.y; // Scale height (y-axis)
 
 		JPH::CapsuleShape* capsuleShape = new JPH::CapsuleShape(physicsHalfHeight, physicsRadius);
 
+
 		// Convert GLM to Jolt types
-		JPH::Vec3 joltPosition(position.x, position.y, position.z);
+		JPH::Vec3 joltPosition(position.x, position.y , position.z );
 		JPH::Quat joltRotation(rotation.x, rotation.y, rotation.z, rotation.w);
 		if (!joltRotation.IsNormalized()) {
 			joltRotation = joltRotation.Normalized();
@@ -74,16 +137,17 @@ public:
 			Layers::MOVING
 		);
 
+		// bounciness
+		pillSettings.mRestitution = 0.88f;
 
-		models.emplace_back(filePath, ShaderID, transforms.size() - 1);
+
 
 		// Create and add body
-		BodyID physicsID = physick.bodyInterface.CreateAndAddBody(pillSettings, JPH::EActivation::Activate);
+		BodyID physicsID = fisiks.bodyInterface.CreateAndAddBody(pillSettings, JPH::EActivation::Activate);
 
 		physicsComponents.emplace_back(physicsID);
 
-		physick.bodyInterface.SetLinearVelocity(physicsID, Vec3(10.0f, 10.0f, 0.0f));
-
+	
 		Entity temp(entityIDCounter, physicsID, static_cast<uint32_t>(models.size() - 1));
 
 		entityIDCounter++;
@@ -92,7 +156,7 @@ public:
 	}
 
 
-	Entity createStaticMeshEntity(const char* filePath, GLuint ShaderID, Fisiks& physick, glm::mat4 transform) {
+	Entity createStaticMeshEntity(const char* filePath, GLuint ShaderID, Fisiks& fisiks, glm::mat4 transform) {
 
 		transforms.emplace_back(transform);
 
@@ -109,8 +173,8 @@ public:
 
 		// Scale vertices
 		VertexList scaledVertexList;
-		for (const VertexData vertex : models.back().meshes[0].vertices) {
-			glm::vec3 scaledVertex = vertex.vertices * scale; // Apply scale
+		for (const VertexData & vertexData : models.back().meshes[0].vertices) {
+			glm::vec3 scaledVertex = vertexData.vertex * scale; // Apply scale
 			scaledVertexList.push_back(Float3(scaledVertex.x, scaledVertex.y, scaledVertex.z));
 		}
 
@@ -147,7 +211,7 @@ public:
 		);
 
 		// Create and add body
-		BodyID physicsID = physick.bodyInterface.CreateAndAddBody(
+		BodyID physicsID = fisiks.bodyInterface.CreateAndAddBody(
 			meshBodySettings,
 			EActivation::DontActivate
 		);
@@ -163,7 +227,7 @@ public:
 	}
 
 	
-	Entity createGridEntity( GLuint ShaderID, Fisiks& physick, glm::mat4 transform,int rows , int cols) {
+	Entity createGridEntity( GLuint ShaderID, Fisiks& fisiks, glm::mat4 transform,int rows , int cols) {
 
 		transforms.emplace_back(transform);
 		
@@ -177,11 +241,8 @@ public:
 		glm::decompose(transform, scale, rotation, position, skew, perspective);
 
 		// Calculate box dimensions based on grid size and scale
-		// Assuming each grid cell is 1 unit in size; adjust scale accordingly
-		Vec3 boxHalfExtents(
-			(cols * 4) * 0.5f, // Half-width
-			0.5f * scale.y,          // Half-height (assuming thin box in Y)
-			(rows * 4) * 0.5f);  // Half-depth
+		// 0.01 for y breaks it
+		Vec3 boxHalfExtents(rows * 0.5,0.1, cols *  0.5);  
 
 		
 		// Create BoxShape
@@ -203,11 +264,16 @@ public:
 			Layers::NON_MOVING   
 		);
 
+		boxBodySettings.mRestitution = 0.0f; // High restitution for bounciness
+		boxBodySettings.mFriction = 1.0f;    // Low friction for sliding
+
 		
-		BodyID physicsID = physick.bodyInterface.CreateAndAddBody(
+		BodyID physicsID = fisiks.bodyInterface.CreateAndAddBody(
 			boxBodySettings,
 			EActivation::Activate
 		);
+
+
 
 		physicsComponents.emplace_back(physicsID);
 
@@ -219,6 +285,35 @@ public:
 
 	}
 
+
+	void calculateMeshDimensions(const Mesh& mesh, float& x, float& y,float & z) {
+		if (mesh.vertices.empty()) {
+			//width = 0.0f;
+			//height = 0.0f;
+			cout << "MESH DIMENSIONS ARE ZERO !!!\n";
+			return;
+		}
+
+		float minX = FLT_MAX, maxX = -FLT_MAX;
+		float minY = FLT_MAX, maxY = -FLT_MAX;
+		float minZ = FLT_MAX, maxZ = -FLT_MAX;
+
+		for (const auto& current : mesh.vertices) {
+
+			minX = std::min(minX, current.vertex.x);
+			maxX = std::max(maxX, current.vertex.x);
+
+			minY = std::min(minY, current.vertex.y);
+			maxY = std::max(maxY, current.vertex.y);
+
+			minZ = std::min(minZ, current.vertex.z);
+			maxZ = std::max(maxZ, current.vertex.z);
+		}
+
+		x = maxX - minX;
+		y = maxY - minY; 
+		z = maxZ - minZ;
+	}
 
 
 };

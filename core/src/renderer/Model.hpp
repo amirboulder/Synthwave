@@ -11,16 +11,19 @@ public:
 	vector <Mesh> meshes;
 	
 
-	TransformData* transform;
+
 	static std::unordered_map<std::string, GLuint64> textureCache;
 	static std::unordered_map<std::string, GLuint64> textureIDCache;
+
+	static std::unordered_map<std::string, GLuint> DSAtextureCache;
 
 	GLuint shaderID;
 
 	//TODO make const
 	uint32_t transformIndex;
 
-	static std::unordered_map<std::string, GLuint> DSAtextureCache;
+	TransformData* transform;
+	
 
 	Model() {
 	}
@@ -124,7 +127,11 @@ public:
 
 
 	// Copy constructor
-	Model(const Model& other) {
+	Model(const Model& other)
+		:shaderID(other.shaderID),
+		transformIndex(other.transformIndex),
+		meshes(other.meshes)
+	{
 		printf("\033[33mModel copy constructor called!\033[0m\n");
 	}
 
@@ -221,7 +228,7 @@ public:
 
 	}
 
-
+	/*
 	void draw() {
 
 
@@ -233,6 +240,8 @@ public:
 				//cout << "size of meshes : " << meshes.size() << '\n';
 		}
 	}
+	*/
+
 
 	void draw(std::vector<TransformData> & transforms) {
 
@@ -240,11 +249,23 @@ public:
 
 		meshes[i].draw(shaderID, transforms[transformIndex].currentMatrix);
 
-		//cout << "size of meshes : " << meshes.size() << '\n';
+		//PrintMat4(transforms[transformIndex].currentMatrix, transformIndex);
 
 		}
 	}
 
+	void PrintMat4(const glm::mat4& mat, const unsigned int index) {
+		std::cout << "GLM Matrix with index : " << index << ":\n";
+		for (int row = 0; row < 4; ++row) {
+			std::cout << "| ";
+			for (int col = 0; col < 4; ++col) {
+				std::cout << std::setw(10) << std::setprecision(4) << mat[col][row] << " ";
+			}
+			std::cout << "|\n";
+		}
+	}
+
+	/*
 	void drawDSA() {
 		
 
@@ -253,6 +274,7 @@ public:
 				meshes[i].drawDSA(shaderID, transform->currentMatrix);
 			}
 	}
+	*/
 
 	
 	// deprecate because Rendedoc does not support bindless textures 

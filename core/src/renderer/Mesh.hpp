@@ -21,16 +21,13 @@ class Mesh {
 public:
 	vector<VertexData> vertices;
 	vector <unsigned int> indices;
-	//vector<Texture2D> m_textures;
-
-	vector <GLuint64> textureHandlers;
+	
 
 	GLuint diffuseTextureID;
 	GLuint SpecularTextureID;
 
-	GLuint ssbo = 0;
 
-	// create vertex buffer , vertex array,  Element Buffer objects
+	//vertex buffer , vertex array,  Element Buffer objects
 	GLuint VBO, VAO, EBO;
 
 	Mesh(aiMesh* importedMesh, glm::mat4 localtransform = glm::mat4(1.0f)) {
@@ -42,9 +39,9 @@ public:
 			vertices.emplace_back();
 			VertexData& currentVertex = vertices.back();
 
-			currentVertex.vertices.x = importedMesh->mVertices[i].x;
-			currentVertex.vertices.y = importedMesh->mVertices[i].y;
-			currentVertex.vertices.z = importedMesh->mVertices[i].z;
+			currentVertex.vertex.x = importedMesh->mVertices[i].x;
+			currentVertex.vertex.y = importedMesh->mVertices[i].y;
+			currentVertex.vertex.z = importedMesh->mVertices[i].z;
 
 			if (importedMesh->HasNormals()) {
 				currentVertex.normal.x = importedMesh->mNormals[i].x;
@@ -75,6 +72,8 @@ public:
 
 		}
 
+		
+
 	}
 
 	
@@ -92,7 +91,16 @@ public:
 
 	}
 
-	Mesh(const Mesh& other) {
+	Mesh(const Mesh& other)
+	:	vertices(other.vertices),
+		indices(other.indices),
+		diffuseTextureID(other.diffuseTextureID),
+		SpecularTextureID(SpecularTextureID),
+		VBO(other.VAO),
+		VAO(other.VAO),
+		EBO(other.EBO)
+
+	{
 		printf("Mesh copy constructor called!\n");
 	}
 
@@ -145,18 +153,29 @@ public:
 
 	}
 	
+	void transfromMesh(glm::mat4 transfrom) {
+	
+		for (int i = 0; i < vertices.size(); i++) {
+			
+			glm::vec4 v4 = glm::vec4(vertices[i].vertex, 1.0f);
+
+			glm::vec4 transformedV4 = transfrom * v4;
+
+			vertices[i].vertex = glm::vec3(transformedV4);
+
+		}
+
+	}
 	
 
-	// TODO deprecate
 	void draw(GLuint & shaderID,glm::mat4 & meshMatrix) {
 
 		glUseProgram(shaderID);
 
 		Shader::setMat4("model", meshMatrix, shaderID);
 
-		// Bind texture to unit 0 (or whatever unit you prefer)
 		glBindTextureUnit(0, diffuseTextureID);
-		// Set uniform
+
 		glUniform1i(glGetUniformLocation(shaderID, "textureDiffuse"), 0);
 
 		glBindVertexArray(VAO);
@@ -171,19 +190,20 @@ public:
 
 		Shader::setMat4("model", meshMatrix, shaderID);
 
-		// Bind texture to unit 0 (or whatever unit you prefer)
 		glBindTextureUnit(0, diffuseTextureID);
-		// Set uniform
+
 		glUniform1i(glGetUniformLocation(shaderID, "textureDiffuse"), 0);
 
 		glBindVertexArray(VAO);
 		glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
+
 		glBindVertexArray(0);
 
 	}
 
 
-	// TODO deprecate
+
+	/*
 	void drawBindless(GLuint& shaderID, glm::mat4& meshMatrix) {
 		glUseProgram(shaderID);
 
@@ -199,6 +219,8 @@ public:
 		glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
 		glBindVertexArray(0);
 	}
+	*/
+
 
 	/*
 	const char* getFileExtension(const char* imagePath) {

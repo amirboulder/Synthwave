@@ -6,6 +6,7 @@
 #include <Jolt/Jolt.h>
 #include <Jolt/Physics/PhysicsSystem.h>
 
+#include <glad/glad.h>
 
 //TODO use this eventually as it fits inside a cache line 
 /*
@@ -29,11 +30,32 @@ struct TransformData {
 
 
 struct VertexData {
-	glm::vec3 vertices;
+	glm::vec3 vertex;
 	glm::uvec3 normal;
 	glm::vec2 texCoords;
 };
 
+struct meshData {
+	GLuint shaderID;
+	GLuint VAO;
+	GLuint diffuseTextureID;
+};
+
 struct PhysicsData {
 	JPH::BodyID bodyID;
+};
+
+
+struct PlayerInput {
+	glm::vec3 direction = glm::vec3(0);
+	float offsetX = 0.0f;
+	float offsetY = 0.0f;
+	bool jump = false;
+};
+
+
+struct PlayerData {
+	glm::vec3 Position = glm::vec3(0);
+	glm::vec3 direction = glm::vec3(0);
+	bool jump = false;              
 };

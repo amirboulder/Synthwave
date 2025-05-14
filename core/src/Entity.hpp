@@ -2,7 +2,7 @@
 
 #include "renderer/Model.hpp"
 #include "physics/physics.hpp"
-
+#include "core/src/player.hpp"
 
 class Entity {
 
@@ -30,9 +30,9 @@ private:
 		: id(id), physicsID(physicsID), modelIndex(modelIndex)
 
 	{
-		cout << "entity created in factory with id : " << id << '\n';
-		cout << "physicsID index : " << physicsID.GetIndex() << '\n';
-		cout << "Model id : " << modelIndex << '\n';
+		//cout << "entity created in factory with id : " << id << '\n';
+		//cout << "physicsID index : " << physicsID.GetIndex() << '\n';
+		//cout << "Model id : " << modelIndex << '\n';
 	}
 
 	Entity(const Entity& other)

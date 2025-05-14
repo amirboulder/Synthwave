@@ -44,7 +44,7 @@ public:
 private:
 
 public:
-    Camera(glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f))
+    Camera(glm::vec3 position = glm::vec3(-10.0f, 0.0f, -10.0f))
         : position(position),
         front(glm::vec3(7.0f, 0.0f, -1.0f)),
         worldUp(glm::vec3(0.0f, 1.0f, 0.0f)),
@@ -75,7 +75,7 @@ public:
         
     }
 
-    void processKeyboard(Camera_Movement direction)
+    void moveCamera(Camera_Movement direction)
     {
         float velocity = movementSpeed;
         if (direction == FORWARD)
@@ -88,8 +88,8 @@ public:
             position += right * velocity;
     }
 
-
-    void processMouseMovement(float xoffset, float yoffset, bool constrainPitch = true) {
+    
+    void rotateCamera(float xoffset, float yoffset, bool constrainPitch = true) {
         xoffset *= mouseSensitivity;
         yoffset *= mouseSensitivity;
 

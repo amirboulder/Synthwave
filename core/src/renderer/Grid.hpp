@@ -13,11 +13,7 @@ public:
 
     GLuint shaderID;
     GLuint VAO;
-    //int rows, cols;
-
-    //glm::vec3* vboPtr = nullptr;
-   // size_t vertexCount, indexCount;
-
+  
     Grid(GLuint shaderID , int rows, int cols)
 
        : shaderID(shaderID)
@@ -128,16 +124,17 @@ public:
 
         for (int r = 0; r <= rows; r++) {
             for (int c = 0; c <= cols; c++) {
-                float x = static_cast<float>(c) * 4;
-                float y = 0.0f; // Y is up, grid is on XZ plane
-                float z = static_cast<float>(r) * 4; // Z instead of Y for depth
+
+                float x = static_cast<float>(c) - (cols  / 2.0f);
+                float y = 0.0f;
+                float z = static_cast<float>(r)  - (rows  / 2.0f);
 
                 vertices.emplace_back();
                 VertexData & currentVertex = vertices.back();
 
-                currentVertex.vertices.x = x;
-                currentVertex.vertices.y = y;
-                currentVertex.vertices.z = z;
+                currentVertex.vertex.x = x;
+                currentVertex.vertex.y = y;
+                currentVertex.vertex.z = z;
 
             }
         }
@@ -166,22 +163,19 @@ public:
                 indices.emplace_back(bottomRight);
             }
         }
-
-        //TODO turn these offsets into parameters
-        /*
-        // Center the grid
-       
-        for (int i = 0; i < vertices.size(); i++) {
-            vertices[i].vertices.x -= 50;
-            vertices[i].vertices.z -= 50;
-        }
-        */
-
+ 
     }
 
- 
-   
 };
 
 
 
+//TODO turn these offsets into parameters
+       /*
+       // Center the grid
+
+       for (int i = 0; i < vertices.size(); i++) {
+           vertices[i].vertices.x -= 50;
+           vertices[i].vertices.z -= 50;
+       }
+       */

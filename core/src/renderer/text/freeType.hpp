@@ -4,8 +4,12 @@
 #include <map>
 #include <iostream>
 
+
+
+
+
 // Character info struct
-struct Character {
+struct TextCharacter {
     GLuint textureID;
     glm::ivec2 size;
     glm::ivec2 bearing;
@@ -19,7 +23,7 @@ private:
 
     GLuint VAO, VBO;
     glm::mat4 projection;
-    std::map<char, Character> characters;
+    std::map<char, TextCharacter> characters;
 
     Shader shader;
 
@@ -87,7 +91,7 @@ public:
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
             // Store character
-            Character character = {
+            TextCharacter character = {
                 texture,
                 glm::ivec2(face->glyph->bitmap.width, face->glyph->bitmap.rows),
                 glm::ivec2(face->glyph->bitmap_left, face->glyph->bitmap_top),
@@ -120,7 +124,7 @@ public:
 
         // Iterate through characters
         for (char c : text) {
-            Character ch = characters[c];
+            TextCharacter ch = characters[c];
 
             float xpos = x + ch.bearing.x * scale;
             float ypos = y - (ch.size.y - ch.bearing.y) * scale;
@@ -163,6 +167,7 @@ public:
     }
 
 };
+
 
 
 

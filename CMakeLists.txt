@@ -37,6 +37,16 @@ set_target_properties(glfw PROPERTIES
     INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_SOURCE_DIR}/thirdParty/glfw/include" # Path to headers
 )
 
+
+FetchContent_Declare(
+        SDL3
+        GIT_REPOSITORY "https://github.com/libsdl-org/SDL.git"
+        GIT_TAG release-3.2.12
+        EXCLUDE_FROM_ALL
+    )
+    FetchContent_MakeAvailable(SDL3)
+
+
 #assimp for importing assets
 FetchContent_Declare(
   assimp 
@@ -140,7 +150,8 @@ endif()
 
 
 target_link_libraries(Synthwave PRIVATE 
-glad 
+glad
+SDL3::SDL3
 glfw 
 assimp 
 glm::glm 
