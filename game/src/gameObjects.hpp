@@ -30,9 +30,9 @@ public:
 	
 	void constructLVL1(Fisiks & physik) {
 
-		transforms.reserve(1001);
-		models.reserve(1001);
-		physicsCompoments.reserve(1001);
+		transforms.reserve(1009);
+		models.reserve(1009);
+		physicsCompoments.reserve(1009);
 
 		EntityFactory factory(entities,physicsCompoments,models, transforms);
 
@@ -57,19 +57,20 @@ public:
 		capsuleMatrix = glm::translate(capsuleMatrix, { 2,7,2 });
 		capsuleMatrix = glm::scale(capsuleMatrix, { 1.0f,1.0f,1.0f });
 		
-		for (int i = 0; i < 1; i++) {
+		for (int i = 0; i < 100; i++) {
 
 			//factory.createCapsuleEntity("assets/pill.obj", shaders.back().m_shaderID, physik, capsuleMatrix);
 			//factory.createCapsuleEntity("assets/capsule.glb", shaders.back().m_shaderID, physik, capsuleMatrix);
 			//factory.createCapsuleEntity("assets/capsule2.glb", shaders.back().m_shaderID, physik, capsuleMatrix);
 			factory.createCapsuleEntity("assets/capsule3.glb", shaders.back().m_shaderID, physik, capsuleMatrix);
 
-			capsuleMatrix = glm::translate(capsuleMatrix, { 3,3,3 });
+			capsuleMatrix = glm::translate(capsuleMatrix, { 0,10,0 });
 
 
 		}
-
-		factory.createPlayerEntity(player,"assets/capsule3.glb", shaders.back().m_shaderID, physik, capsuleMatrix);
+		glm::mat4 capsuleMatrix2 = glm::mat4(1.0f);
+		capsuleMatrix2 = glm::translate(capsuleMatrix2, { 2,7,2 });
+		factory.createPlayerEntity(player,"assets/capsule3.glb", shaders.back().m_shaderID, physik, capsuleMatrix2);
 		
 		
 		// Mountains

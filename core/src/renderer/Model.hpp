@@ -1,8 +1,8 @@
 #pragma once
 
-#include "Mesh.hpp"
 #include <unordered_map>
 
+#include "Mesh.hpp"
 #include "../components.hpp"
 
 class Model {
@@ -10,29 +10,20 @@ class Model {
 public:
 	vector <Mesh> meshes;
 	
-
-
-	static std::unordered_map<std::string, GLuint64> textureCache;
-	static std::unordered_map<std::string, GLuint64> textureIDCache;
-
 	static std::unordered_map<std::string, GLuint> DSAtextureCache;
 
 	GLuint shaderID;
 
-	//TODO make const
 	uint32_t transformIndex;
 
-	TransformData* transform;
-	
 
-	Model() {
-	}
+	Model() {}
 
 	//TODO SAVE THE LOADED MODEL SO THAT WE ARE NOT IMPORTING THEM EVERYTIME
 	// Basically the model get loaded by assimp, we then copy all that data into our model/mesh class
-	Model(const char* filePath, GLuint shaderID, TransformData* transform)
-		: shaderID(shaderID),
-		transform(transform)
+	
+	Model(const char* filePath, GLuint shaderID, MeshData &  meshData)
+		: shaderID(shaderID)
 	{
 
 		Assimp::Importer importer;
@@ -61,11 +52,10 @@ public:
 			processObj(scene, filePath);
 			return;
 		}
-		
-		
-			
 
 	}
+	
+
 
 	// factory constructor
 	Model(const char* filePath, GLuint shaderID, uint32_t transformIndex)
@@ -109,8 +99,6 @@ public:
 				meshes.back().diffuseTextureID = loadTexturesDSA("assets/checkerboard.png");
 				meshes.back().processMesh();
 			}
-
-			
 
 		}
 
@@ -165,7 +153,7 @@ public:
 
 				cout << "Specular texture Path : " << path << '\n';
 
-				meshes.back().SpecularTextureID = loadTexturesDSA(path);
+				//meshes.back().SpecularTextureID = loadTexturesDSA(path);
 
 			}
 
@@ -209,7 +197,6 @@ public:
 				}
 			
 
-
 			//if no texture load in default checkerboard texture
 			// TODO check if this is correct by exporting a capsule as glb from blender
 			if (material->GetTextureCount(aiTextureType_DIFFUSE) == 0) {
@@ -249,88 +236,10 @@ public:
 
 		meshes[i].draw(shaderID, transforms[transformIndex].currentMatrix);
 
-		//PrintMat4(transforms[transformIndex].currentMatrix, transformIndex);
-
 		}
 	}
-
-	void PrintMat4(const glm::mat4& mat, const unsigned int index) {
-		std::cout << "GLM Matrix with index : " << index << ":\n";
-		for (int row = 0; row < 4; ++row) {
-			std::cout << "| ";
-			for (int col = 0; col < 4; ++col) {
-				std::cout << std::setw(10) << std::setprecision(4) << mat[col][row] << " ";
-			}
-			std::cout << "|\n";
-		}
-	}
-
-	/*
-	void drawDSA() {
-		
-
-			for (int i = 0; i < meshes.size(); i++) {
-
-				meshes[i].drawDSA(shaderID, transform->currentMatrix);
-			}
-	}
-	*/
 
 	
-	// deprecate because Rendedoc does not support bindless textures 
-	GLuint64 LoadBindlessTexture(const std::string& texturePath) {
-		// Check if texture is already loaded
-		if (textureCache.find(texturePath) != textureCache.end()) {
-			return textureCache[texturePath]; // Return existing handle
-		}
-
-		GLuint textureID;
-		glGenTextures(1, &textureID);
-		glBindTexture(GL_TEXTURE_2D, textureID);
-
-		// Set texture parameters
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-		// Load imageData
-		int width, height, nrChannels;
-		unsigned char* data = stbi_load(texturePath.c_str(), &width, &height, &nrChannels, 0);
-		if (!data) {
-			
-			std::cerr << "LoadBindlessTexture Failed to load texture: " << texturePath << std::endl;
-			glDeleteTextures(1, &textureID); // Cleanup
-			return 0;
-		}
-
-		
-		// Determine texture format
-		GLenum format = (nrChannels == 4) ? GL_RGBA : GL_RGB;
-		glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
-		glGenerateMipmap(GL_TEXTURE_2D);
-
-		// Free imageData memory
-		stbi_image_free(data);
-
-		printf("\033[33mgot HERE!\033[0m\n");
-		// Get Bindless Texture Handle
-		GLuint64 textureHandle = glGetTextureHandleARB(textureID);
-
-		glMakeTextureHandleResidentARB(textureHandle);
-
-		// Store texture handle in cache
-		textureCache[texturePath] = textureHandle;
-		textureIDCache[texturePath] = textureID;  // Store texture ID for cleanup
-
-		//std::cout << "Loaded Bindless Texture: " << texturePath
-		cout	<< " Handle: " << textureHandle << std::endl;
-		cout	<< " Handle: " << textureHandle << std::endl;
-
-
-		return textureHandle;
-	}
-
 
 	GLuint loadTexturesDSA(const std::string& texturePath) {
 
@@ -433,7 +342,6 @@ public:
 
 	}
 
-
 	const char* getFileExtension(const char* filePath) {
 		const char* dot = strrchr(filePath, '.'); // Find last '.'
 		if (!dot || dot == filePath) {
@@ -467,9 +375,5 @@ public:
 	}
 
 };
-
-std::unordered_map<std::string, GLuint64> Model::textureCache;
-std::unordered_map<std::string, GLuint64> Model::textureIDCache;
-
 
 std::unordered_map<std::string, GLuint> Model::DSAtextureCache;

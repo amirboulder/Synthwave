@@ -24,11 +24,9 @@ public:
 	
 
 	GLuint diffuseTextureID;
-	GLuint SpecularTextureID;
+	//GLuint SpecularTextureID;
 
-
-	//vertex buffer , vertex array,  Element Buffer objects
-	GLuint VBO, VAO, EBO;
+	GLuint VAO;
 
 	Mesh(aiMesh* importedMesh, glm::mat4 localtransform = glm::mat4(1.0f)) {
 
@@ -66,13 +64,10 @@ public:
 
 			for (int j = 0; j < importedMesh->mFaces[i].mNumIndices; j++) {
 				indices.emplace_back(importedMesh->mFaces[i].mIndices[j]);
-
 			}
 
 
 		}
-
-		
 
 	}
 
@@ -83,74 +78,55 @@ public:
 	{
 		GridGenerator::generateGrid(rows, cols, vertices, indices);
 
-		//cout << "vertices memory (used): " << vertices.size() * sizeof(VertexData) / 1'000'000 << " Megabytes\n";
-		//cout << "vertices memory (reserved): " << vertices.capacity() * sizeof(VertexData) / 1'000'000 << " Megabytes\n";
-
-		//cout << "indices memory (used): " << indices.size() * sizeof(unsigned int) / 1'000'000 << " Megabytes\n";
-		//cout << "indices memory (reserved): " << indices.capacity() * sizeof(unsigned int) / 1'000'000 << " Megabytes\n";
-
 	}
 
 	Mesh(const Mesh& other)
 	:	vertices(other.vertices),
 		indices(other.indices),
 		diffuseTextureID(other.diffuseTextureID),
-		SpecularTextureID(SpecularTextureID),
-		VBO(other.VAO),
-		VAO(other.VAO),
-		EBO(other.EBO)
+		//SpecularTextureID(SpecularTextureID),
+		//VBO(other.VAO),
+		
+		//EBO(other.EBO)
+		VAO(other.VAO)
 
 	{
 		printf("Mesh copy constructor called!\n");
 	}
 
 	void processMesh() {
+		GLuint VBO, EBO;
 
-		glGenVertexArrays(1, &VAO);
-		glGenBuffers(1, &VBO);
-		glGenBuffers(1, &EBO);
+		// Create VAO, VBO, and EBO
+		glCreateVertexArrays(1, &VAO);
+		glCreateBuffers(1, &VBO);
+		glCreateBuffers(1, &EBO);
 
-		// BIND tje VertexData Array object
-		glBindVertexArray(VAO);
+		// Upload vertex data to VBO
+		glNamedBufferData(VBO, vertices.size() * sizeof(VertexData), vertices.data(), GL_STATIC_DRAW);
+		// Upload index data to EBO
+		glNamedBufferData(EBO, indices.size() * sizeof(unsigned int), indices.data(), GL_STATIC_DRAW);
 
-		// bind the vertex buffer object
-		glBindBuffer(GL_ARRAY_BUFFER, VBO);
-		//configure the currently bound buffer
+		// Bind VBO to VAO
+		glVertexArrayVertexBuffer(VAO, 0, VBO, 0, sizeof(VertexData));
 
-		glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(VertexData), &vertices[0], GL_STATIC_DRAW);
+		// Bind EBO to VAO
+		glVertexArrayElementBuffer(VAO, EBO);
 
-		//BiND ELEMENT buffer
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int), &indices[0], GL_STATIC_DRAW);
+		// Position attribute (index 0)
+		glEnableVertexArrayAttrib(VAO, 0);
+		glVertexArrayAttribBinding(VAO, 0, 0);
+		glVertexArrayAttribFormat(VAO, 0, 3, GL_FLOAT, GL_FALSE, offsetof(VertexData, vertex));
 
-		//tell open gl how to interprate the data
-		//position arrtibute
-		glEnableVertexAttribArray(0);
-		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(VertexData), (void*)0);
+		// Normal attribute (index 1)
+		glEnableVertexArrayAttrib(VAO, 1);
+		glVertexArrayAttribBinding(VAO, 1, 0);
+		glVertexArrayAttribFormat(VAO, 1, 3, GL_FLOAT, GL_FALSE, offsetof(VertexData, normal));
 
-
-		//VERTEX NARMAL !!!
-		glEnableVertexAttribArray(1);
-		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(VertexData), (void*)offsetof(VertexData, normal));
-
-
-		//texture attribute
-		glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(VertexData), (void*)offsetof(VertexData, texCoords));
-		glEnableVertexAttribArray(2);
-
-		
-		// deprecating bindless textures because renderdoc does not support them
-		/*
-		if (!textureHandlers.empty()) {
-			glGenBuffers(1, &ssbo);
-			//cout << "SSBO : " << ssbo << '\n';
-			glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
-			glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(GLuint64) * textureHandlers.size(),
-				textureHandlers.data(), GL_STATIC_DRAW);
-			glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
-		}
-		*/
-
+		// Texture coordinates attribute (index 2)
+		glEnableVertexArrayAttrib(VAO, 2);
+		glVertexArrayAttribBinding(VAO, 2, 0);
+		glVertexArrayAttribFormat(VAO, 2, 2, GL_FLOAT, GL_FALSE, offsetof(VertexData, texCoords));
 	}
 	
 	void transfromMesh(glm::mat4 transfrom) {
@@ -167,7 +143,6 @@ public:
 
 	}
 	
-
 	void draw(GLuint & shaderID,glm::mat4 & meshMatrix) {
 
 		glUseProgram(shaderID);
@@ -180,57 +155,7 @@ public:
 
 		glBindVertexArray(VAO);
 		glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
-		glBindVertexArray(0);
+		//glBindVertexArray(0)
 	}
-
-	void drawDSA(GLuint& shaderID, glm::mat4& meshMatrix) {
-
-		glUseProgram(shaderID);
-
-
-		Shader::setMat4("model", meshMatrix, shaderID);
-
-		glBindTextureUnit(0, diffuseTextureID);
-
-		glUniform1i(glGetUniformLocation(shaderID, "textureDiffuse"), 0);
-
-		glBindVertexArray(VAO);
-		glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
-
-		glBindVertexArray(0);
-
-	}
-
-
-
-	/*
-	void drawBindless(GLuint& shaderID, glm::mat4& meshMatrix) {
-		glUseProgram(shaderID);
-
-		// Bind SSBO to binding point (match this in your shader)
-		if (ssbo) {
-
-			glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, ssbo);
-		}
-
-		Shader::setMat4("model", meshMatrix, shaderID);
-
-		glBindVertexArray(VAO);
-		glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
-		glBindVertexArray(0);
-	}
-	*/
-
-
-	/*
-	const char* getFileExtension(const char* imagePath) {
-		const char* dot = strrchr(imagePath, '.'); // Find last '.'
-		if (!dot || dot == imagePath) {
-			return NULL; // No extension found
-		}
-		return dot + 1; // Skip the dot and return the extension
-	}
-	*/
-
 
 };

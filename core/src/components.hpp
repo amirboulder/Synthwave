@@ -1,6 +1,8 @@
 #pragma once
 
 #include<glm/glm.hpp>
+#include <glm/gtc/quaternion.hpp>
+#include <glm/gtx/quaternion.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
 #include <Jolt/Jolt.h>
@@ -9,14 +11,14 @@
 #include <glad/glad.h>
 
 //TODO use this eventually as it fits inside a cache line 
-/*
-struct TransformData {
+
+struct TransformData2 {
 	glm::vec3 prevPosition;   // 12 bytes
 	glm::quat prevRotation;   // 16 bytes
 	glm::vec3 currPosition;   // 12 bytes
 	glm::quat currRotation;   // 16 bytes
+	float scale;			  // 4 bytes
 };
-*/
 
 struct TransformData {
 	glm::mat4 previousMatrix;
@@ -35,10 +37,14 @@ struct VertexData {
 	glm::vec2 texCoords;
 };
 
-struct meshData {
+struct MeshData {
+	glm::vec3 position; 
+	glm::quat rotation;
+	float scale;
 	GLuint shaderID;
 	GLuint VAO;
 	GLuint diffuseTextureID;
+	uint32_t indicesSize;
 };
 
 struct PhysicsData {

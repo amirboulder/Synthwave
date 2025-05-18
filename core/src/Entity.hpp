@@ -19,10 +19,7 @@ public:
 
 private:
 
-	Entity()
-	{
-
-	}
+	Entity(){}
 
 
 	// factory constructor

@@ -4,6 +4,10 @@
 #include "Camera.hpp"
 #include "text/freeType.hpp"
 
+#include <glm/gtc/quaternion.hpp>
+#include <glm/gtx/quaternion.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+
 #include "../physics/debugRenderer.hpp"
 
 struct Renderer {
@@ -47,7 +51,7 @@ struct Renderer {
 		glFrontFace(GL_CW);
 
 		//TODO: MSAA
-		//TODO: FRAM BUFFER
+		//TODO: FRAME BUFFER
 
 		
 		glGenBuffers(1, &uboMatrices);
@@ -76,13 +80,14 @@ struct Renderer {
 		textRenderer.renderText(text, postion.x, postion.y, scale, color);
 	}
 
-	/*
-	void draw( std::vector<std::unique_ptr<Entity>>& entities) {
 
+	void draw(std::vector<Model>& models, std::vector<TransformData> & transforms) {
 
+	
 		view = camera.getViewMatrix();
-		
+
 		// Update View & Projection matrices
+		//TODO simplify to 1 matrix
 		glBindBuffer(GL_UNIFORM_BUFFER, uboMatrices);
 		glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(glm::mat4), glm::value_ptr(view));
 		glBufferSubData(GL_UNIFORM_BUFFER, sizeof(glm::mat4), sizeof(glm::mat4), glm::value_ptr(projection));
@@ -96,16 +101,14 @@ struct Renderer {
 		glClearColor(r / 256.0f, g / 256.0f, b / 256.0f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		for ( auto& entity : entities) {
-			entity->draw(); 
+
+		for (auto& model : models) {
+			model.draw(transforms);
 		}
 
 	}
-	*/
 
-
-	void draw(std::vector<Model>& models, std::vector<TransformData> & transforms) {
-
+	void drawDOD(std::vector<MeshData>& meshDataDynamicArray) {
 
 		view = camera.getViewMatrix();
 
@@ -124,12 +127,25 @@ struct Renderer {
 		glClearColor(r / 256.0f, g / 256.0f, b / 256.0f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		
-		for (auto& model : models) {
-			model.draw(transforms);
-		}
-		
 
+		for (auto& data : meshDataDynamicArray) {
+
+			glUseProgram(data.shaderID);
+
+			glm::mat4 transformMatrix = glm::translate(glm::mat4(1.0f), data.position) *
+				glm::toMat4(data.rotation) *
+				glm::scale(glm::mat4(1.0f), glm::vec3(data.scale));
+
+			Shader::setMat4("model", transformMatrix, data.shaderID);
+
+			glBindTextureUnit(0, data.diffuseTextureID);
+
+			glUniform1i(glGetUniformLocation(data.shaderID, "textureDiffuse"), 0);
+
+			glBindVertexArray(data.VAO);
+			glDrawElements(GL_TRIANGLES, data.indicesSize, GL_UNSIGNED_INT, 0);
+			glBindVertexArray(0);
+		}
 
 	}
 

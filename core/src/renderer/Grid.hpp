@@ -15,12 +15,9 @@ public:
     GLuint VAO;
   
     Grid(GLuint shaderID , int rows, int cols)
-
        : shaderID(shaderID)
-      
     {
         generateGrid(rows, cols);
-
     }
 
     void generateGrid(int rows, int cols) {
@@ -34,7 +31,6 @@ public:
                 float y = 0.0f; // Y is up, grid is on XZ plane
                 float z = static_cast<float>(r) * 4; // Z instead of Y for depth
                 gridVertices.emplace_back(glm::vec3(x,y,z));
-
             }
         }
 
@@ -61,7 +57,6 @@ public:
             }
         }
 
-
         // Center the grid
         //TODO turn these offsets into parameters
         for (int i = 0; i < gridVertices.size(); i++) {
@@ -72,12 +67,6 @@ public:
         GLuint VBO, EBO;
 
         // Create buffers
-        glCreateVertexArrays(1, &VAO);
-        glCreateBuffers(1, &VBO);
-        glCreateBuffers(1, &EBO);
-
-        
-        // DSA buffers
         glCreateVertexArrays(1, &VAO);
         glCreateBuffers(1, &VBO);
         glCreateBuffers(1, &EBO);
@@ -99,7 +88,6 @@ public:
 
     }
 
-
     void draw() {
         glUseProgram(shaderID);
         glBindVertexArray(VAO);
@@ -116,10 +104,8 @@ public:
 
     static void generateGrid(int rows, int cols, std::vector<VertexData> & vertices, std::vector <unsigned int> & indices) {
 
-        
         // Generate vertices
-
-        // adding one to rows and cols becasuet the loops go to <=
+       // adding one to rows and cols becasuet the loops go to <=
        vertices.reserve((rows+1) * (cols + 1));
 
         for (int r = 0; r <= rows; r++) {
@@ -167,15 +153,3 @@ public:
     }
 
 };
-
-
-
-//TODO turn these offsets into parameters
-       /*
-       // Center the grid
-
-       for (int i = 0; i < vertices.size(); i++) {
-           vertices[i].vertices.x -= 50;
-           vertices[i].vertices.z -= 50;
-       }
-       */

@@ -1,5 +1,5 @@
 ﻿#include "Synthwave.h"
-
+ 
 
 using std::cout;
 
@@ -20,8 +20,6 @@ int main(int argc, char* argv[])
 
 	Scene scene(1);
 	scene.constructLVL1(fisiks);
-
-	//Player player(fisiks.physics_system);                                       
 
 
 	float timeStep = 1.0f / 120.0f;

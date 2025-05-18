@@ -1,7 +1,4 @@
-﻿# CMakeList.txt : CMake project for Synthwave, include source and define
-# project specific logic here.
-#
-cmake_minimum_required (VERSION 3.28)
+﻿cmake_minimum_required (VERSION 3.28)
 
 project ("Synthwave")
 
@@ -27,15 +24,6 @@ add_executable (Synthwave "Synthwave.cpp" "Synthwave.h" )
 # Create GLAD static library
 add_library(glad STATIC thirdParty/glad/src/glad.c )
 target_include_directories(glad PUBLIC ${CMAKE_SOURCE_DIR}/thirdParty/glad/include)
-
-
-
-# Define GLFW as an imported static library
-add_library(glfw STATIC IMPORTED)
-set_target_properties(glfw PROPERTIES
-    IMPORTED_LOCATION "${CMAKE_SOURCE_DIR}/thirdParty/glfw/lib/glfw3.lib" # Path to dll
-    INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_SOURCE_DIR}/thirdParty/glfw/include" # Path to headers
-)
 
 
 FetchContent_Declare(
@@ -147,12 +135,9 @@ if(NOT JoltPhysics_POPULATED)
 endif()
 
 
-
-
 target_link_libraries(Synthwave PRIVATE 
 glad
 SDL3::SDL3
-glfw 
 assimp 
 glm::glm 
 stb_image 

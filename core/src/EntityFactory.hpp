@@ -138,7 +138,7 @@ public:
 		);
 
 		// bounciness
-		pillSettings.mRestitution = 0.88f;
+		pillSettings.mRestitution = 0.08f;
 
 
 

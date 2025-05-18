@@ -244,12 +244,12 @@ class MyBodyActivationListener : public BodyActivationListener
 public:
 	virtual void		OnBodyActivated(const BodyID& inBodyID, uint64 inBodyUserData) override
 	{
-		cout << "A body got activated" << '\n';
+		//cout << "A body got activated" << '\n';
 	}
 
 	virtual void		OnBodyDeactivated(const BodyID& inBodyID, uint64 inBodyUserData) override
 	{
-		cout << "A body went to sleep" << '\n';
+		//cout << "A body went to sleep" << '\n';
 	}
 };
 
@@ -406,22 +406,15 @@ public:
 	void updateTransforms(std::vector<TransformData> & transforms, std::vector<PhysicsData> &  physicsCompoments) {
 
 		// TODO find a better way to do this
-
-
 		if (transforms.size() != physicsCompoments.size()) {
 
 			cout << "size of transfroms : " << transforms.size() << '\n';
 			cout << "size of physicsCompoments : " << physicsCompoments.size() << '\n';
-
 			std::cerr << "You fucked UP!!" << '\n';
-
 			return;
 		}
 
 		for (int i = 0; i < transforms.size(); i++) {
-
-
-
 
 			JPH::Vec3 pos;
 			JPH::Quat rotation;
@@ -429,7 +422,6 @@ public:
 			bodyInterface.GetPositionAndRotation(physicsCompoments.at(i).bodyID, pos, rotation);
 
 			JPH::Mat44 center = bodyInterface.GetWorldTransform(physicsCompoments.at(i).bodyID);
-
 
 			// Convert JPH::Quat to glm::quat
 			glm::quat rot = glm::quat(rotation.GetW(), rotation.GetX(), rotation.GetY(), rotation.GetZ());
@@ -458,9 +450,34 @@ public:
 			transforms[i].previousMatrix = transforms[i].currentMatrix;
 			transforms[i].currentMatrix = modelMatrix;
 
-
 		}
 
+	}
+
+	void syncTransfroms(std::vector<TransformData2>& transforms, std::vector<PhysicsData>& physicsCompoments) {
+
+		if (transforms.size() != physicsCompoments.size()) {
+
+			cout << "size of transfroms : " << transforms.size() << '\n';
+			cout << "size of physicsCompoments : " << physicsCompoments.size() << '\n';
+			std::cerr << "You fucked UP!!" << '\n';
+			return;
+		}
+
+		for (int i = 0; i < transforms.size(); i++) {
+
+			JPH::Vec3 pos;
+			JPH::Quat rotation;
+
+			bodyInterface.GetPositionAndRotation(physicsCompoments.at(i).bodyID, pos, rotation);
+
+			// convert JPJ::Vec3 to glm::vec3;
+			transforms[i].currPosition = *reinterpret_cast<glm::vec3*>(&pos);
+
+			// Convert JPH::Quat to glm::quat
+			transforms[i].currRotation = *reinterpret_cast<glm::quat*>(&rotation);
+
+		}
 
 	}
 
