@@ -19,10 +19,15 @@
 #include <Jolt/Physics/Collision/Shape/CapsuleShape.h>
 #include <Jolt/Physics/Collision/Shape/MeshShape.h>
 #include <Jolt/Physics/Collision/Shape/EmptyShape.h>
+#include <Jolt/Physics/Collision/Shape/StaticCompoundShape.h>
 #include <Jolt/Physics/Body/BodyCreationSettings.h>
 #include <Jolt/Physics/Body/BodyActivationListener.h>
+#include <Jolt/Physics/Ragdoll/Ragdoll.h>
+
 
 #include <Jolt/Physics/Character/Character.h>
+#include <Jolt/Physics/Collision/RayCast.h>
+#include <Jolt/Physics/Collision/CastResult.h>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>    
@@ -38,6 +43,9 @@
 #include <queue>
 
 #include "debugRenderer.hpp"
+
+
+#include "optick.h"
 
 // Disable common warnings triggered by Jolt, you can use JPH_SUPPRESS_WARNING_PUSH / JPH_SUPPRESS_WARNING_POP to store and restore the warning state
 JPH_SUPPRESS_WARNINGS
@@ -369,7 +377,7 @@ public:
 		physics_system.SetContactListener(&contact_listener);
 
 
-		// Optional step: Before starting the physics simulation you can optimize the broad phase. This improves collision detection performance (it's pointless here because we only have 2 bodies).
+		// Optional step: Before starting the physics simulation you can optimize the broad phase. This improves collision detection performance
 		// You should definitely not call this every frame or when e.g. streaming in a new level section as it is an expensive operation.
 		// Instead insert all new objects in batches instead of 1 at a time to keep the broad phase efficient.
 		physics_system.OptimizeBroadPhase();
@@ -381,6 +389,8 @@ public:
 	}
 
 	void update(double cDeltaTime) {
+
+		//OPTICK_EVENT();
 
 		//cout << "delta time : " << cDeltaTime << "  cCollisionSteps " << cCollisionSteps << "\n";
 
@@ -405,6 +415,7 @@ public:
 
 	void updateTransforms(std::vector<TransformData> & transforms, std::vector<PhysicsData> &  physicsCompoments) {
 
+		//OPTICK_EVENT();
 		// TODO find a better way to do this
 		if (transforms.size() != physicsCompoments.size()) {
 
@@ -447,7 +458,7 @@ public:
 			// Apply translation
 			modelMatrix[3] = glm::vec4(pos.GetX(), pos.GetY(), pos.GetZ(), 1.0f);
 
-			transforms[i].previousMatrix = transforms[i].currentMatrix;
+			//transforms[i].previousMatrix = transforms[i].currentMatrix;
 			transforms[i].currentMatrix = modelMatrix;
 
 		}
@@ -460,7 +471,6 @@ public:
 
 			cout << "size of transfroms : " << transforms.size() << '\n';
 			cout << "size of physicsCompoments : " << physicsCompoments.size() << '\n';
-			std::cerr << "You fucked UP!!" << '\n';
 			return;
 		}
 
@@ -472,10 +482,10 @@ public:
 			bodyInterface.GetPositionAndRotation(physicsCompoments.at(i).bodyID, pos, rotation);
 
 			// convert JPJ::Vec3 to glm::vec3;
-			transforms[i].currPosition = *reinterpret_cast<glm::vec3*>(&pos);
+			transforms[i].position = *reinterpret_cast<glm::vec3*>(&pos);
 
 			// Convert JPH::Quat to glm::quat
-			transforms[i].currRotation = *reinterpret_cast<glm::quat*>(&rotation);
+			transforms[i].rotation = *reinterpret_cast<glm::quat*>(&rotation);
 
 		}
 
@@ -506,6 +516,7 @@ public:
 			std::cout << "|\n";
 		}
 	}
+
 
 	~Fisiks() {
 

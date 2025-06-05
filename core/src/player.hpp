@@ -5,6 +5,7 @@
 #include "renderer/Model.hpp"
 #include "renderer/Camera.hpp"
 
+#include "optick.h"
 
 using namespace JPH;
 
@@ -23,15 +24,14 @@ public:
 		// Character settings
 		JPH::CharacterSettings settings;
 		settings.mShape = new CapsuleShape(halfHeight, Radius); // Capsule: 1m tall, 0.5m radius
-		settings.mMass = 70.0f; // Player mass
+		settings.mMass = 7000.0f; // Player mass
 		settings.mMaxSlopeAngle = DegreesToRadians(45.0f); // Max walkable slope
-		//settings.mGravityFactor = 1;
 		settings.mLayer = Layers::MOVING;
+		settings.mGravityFactor = 2;
 
 		JoltCharacter = new JPH::Character(&settings, position, rotation, 69, &physics_system);
 
 		JoltCharacter->AddToPhysicsSystem(JPH::EActivation::Activate);
-
 
 	}
 
@@ -39,73 +39,49 @@ public:
 	Uint32 jumpCooldownStart = 0;
 
 	void update(PlayerInput input, Camera& camera) {
+
+		//OPTICK_EVENT();
+
 		float moveSpeed = 10.1f;
 		float jumpStrength = 7.5f;
-
-		
-		
-		const Uint32 jumpCooldownDuration = 1000;
-		Uint32 now = SDL_GetTicks();
 
 		// Perform character post-simulation update this has to happen before anything JoltCharacter related is updated
 		JoltCharacter->PostSimulation(0.1f);
 
+		JPH::Vec3 characterPosition = JoltCharacter->GetPosition();
 
-		// Get the character's current position
-		JPH::RVec3 characterPosition = JoltCharacter->GetPosition();
+		JPH::Vec3 currentVelocity = JoltCharacter->GetLinearVelocity();
 
 		bool isGrounded = JoltCharacter->IsSupported();
 
-		if (isGrounded) {
+		// Convert input.direction (glm::vec3) to Jolt's Vec3
+		JPH::Vec3 worldDirection(input.direction.x, 0.0f, input.direction.z);
 
-
-			// Convert input.direction (glm::vec3) to Jolt's Vec3
-			JPH::Vec3 worldDirection(input.direction.x, 0.0f, input.direction.z);
-
-			// Normalize direction (already normalized in input handler, but ensure consistency)
-			if (worldDirection.LengthSq() > 0.0f) {
-				worldDirection = worldDirection.Normalized();
-			}
-
-			JPH::Vec3 desiredVelocity = worldDirection * moveSpeed;
-
-			// Get current velocity
-			JPH::Vec3 currentVelocity = JoltCharacter->GetLinearVelocity();
+		// Normalize direction (already normalized in input handler, but ensure consistency)
+		if (worldDirection.LengthSq() > 0.0f) {
+			worldDirection = worldDirection.Normalized();
+		}
 
 		
-			// Reset vertical velocity when grounded (unless jumping)
-			if (!input.jump) {
-				desiredVelocity.SetY(0.0f); // Clear any climbing-induced velocity
-			}
-			else {
-				// Preserve vertical velocity during jump
-				desiredVelocity.SetY(currentVelocity.GetY());
-			}
+		JPH::Vec3 desiredVelocity = worldDirection * moveSpeed;
+		
+		if (isGrounded) {
 
-
-			// Apply the velocity
+			if (input.jump) {
+				desiredVelocity.SetY(jumpStrength);
+			}
 			JoltCharacter->SetLinearVelocity(desiredVelocity);
-
-			// Handle jumping
-			if (input.jump && !jumpOnCooldown) {
-				JPH::Vec3 jumpVelocity = currentVelocity + JPH::Vec3(0.0f, jumpStrength, 0.0f);
-
-					
-				JoltCharacter->SetLinearVelocity(jumpVelocity);
-
-				// Start cooldown
-				jumpCooldownStart = now;
-				jumpOnCooldown = true;
-
-			}
-			
-			// Check if cooldown is over
-			if (jumpOnCooldown && (now - jumpCooldownStart >= jumpCooldownDuration)) {
-				jumpOnCooldown = false;
-			}
-			
-
 		}
+		//if player is not grounded let them fall 
+		else
+		{
+			//TODO add some intertia when changing direction when while jumping
+			
+			JPH::Vec3 dir(desiredVelocity.GetX(), currentVelocity.GetY(), desiredVelocity.GetZ());
+
+			JoltCharacter->SetLinearVelocity(dir);
+		}
+
 		// Update camera rotation (yaw and pitch)
 		camera.rotateCamera(input.offsetX, input.offsetY);
 
@@ -119,7 +95,8 @@ public:
 		JPH::Vec3 offsetJolt(offset.x, offset.y, offset.z);
 		JPH::Vec3 rotatedOffset = rotationMatrix.Multiply3x3(offsetJolt);
 		camera.position = characterPosGLM + glm::vec3(rotatedOffset.GetX(), rotatedOffset.GetY(), rotatedOffset.GetZ());
-	
+
 	}
+
 };
 

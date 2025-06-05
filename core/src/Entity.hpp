@@ -21,6 +21,7 @@ private:
 
 	Entity(){}
 
+public:
 
 	// factory constructor
 	Entity(uint32_t id, BodyID physicsID, uint32_t modelIndex)

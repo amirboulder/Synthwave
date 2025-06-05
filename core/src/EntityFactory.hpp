@@ -3,13 +3,15 @@
 #include <vector>
 #include <algorithm>
 #include <float.h> 
+
 #include "Entity.hpp"
+#include "ecs/archetypes.hpp"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtx/matrix_decompose.hpp>
 
-typedef std::vector<std::unique_ptr<Entity>>  EntityVector;
+typedef std::vector<Entity>  EntityVector;
 typedef std::vector<Model> modelVector;
 typedef	std::vector<TransformData> TransformVector;
 typedef std::vector<PhysicsData> PhysicsVector;
@@ -18,9 +20,9 @@ class EntityFactory {
 
 public:
 
-	static uint32 entityIDCounter;
+	static uint32_t entityIDCounter;
 
-	EntityVector& entities;
+	std::vector<Entity> & entities;
 
 	modelVector& models;
 
@@ -30,7 +32,7 @@ public:
 
 
 
-	EntityFactory(EntityVector& entities, PhysicsVector & physicsComponents,modelVector& models, TransformVector& transforms)
+	EntityFactory(std::vector<Entity> & entities, PhysicsVector & physicsComponents,modelVector& models, TransformVector& transforms)
 		: entities(entities), physicsComponents(physicsComponents), models(models), transforms(transforms)
 	{
 
@@ -83,15 +85,98 @@ public:
 	}
 
 	//TODO
-	void createSphereEntity() {
+	void createHumanoidEntity(const char* filePath, GLuint ShaderID, Fisiks& fisiks, glm::mat4 transform) {
+
+
+		transforms.emplace_back(transform);
+
+		models.emplace_back(filePath, ShaderID, transforms.size() - 1);
+
+		/*
+		// Decompose model matrix
+		glm::vec3 position, scale;
+		glm::quat rotation;
+		glm::vec3 skew;
+		glm::vec4 perspective;
+		glm::decompose(transform, scale, rotation, position, skew, perspective);
+
+		StaticCompoundShapeSettings shapeSettings;
+
+
+
+		Ref<Shape> humanoidShape = new StaticCompoundShape();
+
+		BodyCreationSettings boxBodySettings(
+			humanoidShape,
+			joltPosition,
+			joltRotation,
+			EMotionType::Dynamic,
+			Layers::MOVING
+		);
+		*/
+
 
 	}
 
-	Entity createBoxEntity(const char* filePath, GLuint ShaderID, Fisiks& fisiks, glm::mat4 transform) {
+	void createBoxEntity(const char* filePath, GLuint ShaderID, Fisiks& fisiks, glm::mat4 transform) {
+
+		transforms.emplace_back(transform);
+
+		models.emplace_back(filePath, ShaderID, transforms.size() - 1);
+
+		float meshXsize;
+		float meshYsize;
+		float meshZsize;
+
+		calculateMeshDimensions(models.back().meshes[0], meshXsize, meshYsize, meshZsize);
+
+		// Decompose model matrix
+		glm::vec3 position, scale;
+		glm::quat rotation;
+		glm::vec3 skew;
+		glm::vec4 perspective;
+		glm::decompose(transform, scale, rotation, position, skew, perspective);
+
+		// Calculate box dimensions based on grid size and scale
+		
+		Vec3 boxHalfExtents(meshXsize * 0.5, meshYsize * 0.5, meshZsize * 0.5);
+
+
+		// Create BoxShape
+		Ref<Shape> boxShape = new BoxShape(boxHalfExtents);
+
+		// Convert GLM to Jolt types
+		Vec3 joltPosition(position.x, position.y, position.z);
+		Quat joltRotation(rotation.x, rotation.y, rotation.z, rotation.w);
+		if (!joltRotation.IsNormalized()) {
+			joltRotation = joltRotation.Normalized();
+		}
+
+		// Create BodyCreationSettings
+		BodyCreationSettings boxBodySettings(
+			boxShape,
+			joltPosition,
+			joltRotation,
+			EMotionType::Dynamic,
+			Layers::MOVING
+		);
+
+		boxBodySettings.mRestitution = 0.1f; // High restitution = more bounciness
+		boxBodySettings.mFriction = 1.0f;    
+
+		BodyID physicsID = fisiks.bodyInterface.CreateAndAddBody(
+			boxBodySettings,
+			EActivation::Activate );
+
+		physicsComponents.emplace_back(physicsID);
+
+		entities.emplace_back(entityIDCounter, physicsID, static_cast<uint32_t>(models.size() - 1));
+
+		entityIDCounter++;
 
 	}
 
-	Entity createCapsuleEntity(const char* filePath, GLuint ShaderID, Fisiks& fisiks, glm::mat4 transform) {
+	void createCapsuleEntity(const char* filePath, GLuint ShaderID, Fisiks& fisiks, glm::mat4 transform) {
 
 		transforms.emplace_back(transform);
 
@@ -147,12 +232,10 @@ public:
 
 		physicsComponents.emplace_back(physicsID);
 
-	
-		Entity temp(entityIDCounter, physicsID, static_cast<uint32_t>(models.size() - 1));
+		entities.emplace_back(entityIDCounter,  physicsID, static_cast<uint32_t>(models.size() - 1));
 
 		entityIDCounter++;
-
-		return temp;
+	
 	}
 
 

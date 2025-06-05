@@ -2,7 +2,7 @@
 #include <vector>
 #include <glm/glm.hpp>
 
-#include "../components.hpp"
+#include "../ecs/components.hpp"
 
 // used for testing
 class Grid  {

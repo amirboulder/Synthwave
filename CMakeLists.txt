@@ -135,6 +135,16 @@ if(NOT JoltPhysics_POPULATED)
 endif()
 
 
+#optick for profiling
+include(FetchContent)
+FetchContent_Declare(
+    optick
+    GIT_REPOSITORY https://github.com/bombomby/optick.git
+    GIT_TAG 1.4.0.0
+)
+FetchContent_MakeAvailable(optick)
+
+
 target_link_libraries(Synthwave PRIVATE 
 glad
 SDL3::SDL3
@@ -144,6 +154,7 @@ stb_image
 nlohmann_json::nlohmann_json
 freetype
 Jolt
+OptickCore
 )
 
 

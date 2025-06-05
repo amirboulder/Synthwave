@@ -13,3 +13,5 @@
 #include "core/src/physics/physics.hpp"
 
 #include "core/src/InputSystem/InputManager.hpp"
+
+#include "optick.h"

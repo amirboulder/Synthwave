@@ -1,5 +1,4 @@
 ﻿#include "Synthwave.h"
- 
 
 using std::cout;
 
@@ -8,7 +7,7 @@ int main(int argc, char* argv[])
 
 	UserSettings settings = loadUserSettings();
 
-	SDLWindow sdlWindow(settings.windowWidth, settings.windowHeight);
+	Window window(settings.windowWidth, settings.windowHeight);
 
 	InputManager inputManager;
 	
@@ -21,6 +20,16 @@ int main(int argc, char* argv[])
 	Scene scene(1);
 	scene.constructLVL1(fisiks);
 
+	//Shader triangleShader("shaders/physicsDebug/triangleShader.vs", "shaders/physicsDebug/triangleShader.fs");
+	//MyDebugRenderer fisiksRender(triangleShader.m_shaderID);
+
+	//BodyManager::DrawSettings fiskisDrawSettings;
+
+	//fiskisDrawSettings.mDrawBoundingBox = true;
+	//fiskisDrawSettings.mDrawShapeWireframe = true;
+	//fiskisDrawSettings.mDrawShape = true;
+	//fiskisDrawSettings.mDrawCenterOfMassTransform = true;
+	//fiskisDrawSettings.mDrawVelocity = true;
 
 	float timeStep = 1.0f / 120.0f;
 	float accumulator = 0.0f;
@@ -30,10 +39,12 @@ int main(int argc, char* argv[])
 	uint64_t fpsTimer = SDL_GetTicks();
 
 	cout << "Welcome to the simulation!\n";
-	
+
 	bool running = true;
 	SDL_Event event;
 	while (running) {
+
+		OPTICK_FRAME("MainThread");
 
 		while (SDL_PollEvent(&event)) {
 			if (event.type == SDL_EVENT_QUIT) {
@@ -55,20 +66,23 @@ int main(int argc, char* argv[])
 			scene.player.update(input,renderer.camera);
 			
 			accumulator -= timeStep;
+
+			//scene.LVL1Script(fisiks.physics_system, scene.player.JoltCharacter->GetPosition());
 		}
 
 		//TODO INTERPOLATE ?????
 
 		renderer.draw(scene.models, scene.transforms);
 
-		renderer.drawText("Hello Synthwave", { 50.0f,50.0f }, 1, { 1.0f,1.0f,1.0f });
+		JPH::Vec3 playerPos =  scene.player.JoltCharacter->GetPosition();
+
+		string posText = std::to_string(playerPos.GetX()) + " " + std::to_string(playerPos.GetY()) + " " + std::to_string(playerPos.GetZ());
+		renderer.drawText(posText, { 50.0f,50.0f }, 1, { 1.0f,1.0f,1.0f });
 
 		//RVec3Arg camPos(renderer.camera.position.x, renderer.camera.position.y, renderer.camera.position.z);
 		//fisiksRender.SetCameraPos(camPos);
 		//fisiks.physics_system.DrawBodies(fiskisDrawSettings, &fisiksRender);
-		//fisiksRender.drawAllLines();
 		
-
 		frameCount++;
 		if (SDL_GetTicks() - fpsTimer >= 1000.0) {
 			fps = frameCount;
@@ -77,13 +91,11 @@ int main(int argc, char* argv[])
 		}
 		renderer.drawFps(fps);
 		
-		
-		SDL_GL_SwapWindow(sdlWindow.window);
+		SDL_GL_SwapWindow(window.window);
 
 	}
 
-
-	sdlWindow.destroy();
+	window.destroy();
 	cout << "Goodbye!\n";
 	return 0;
 }

@@ -3,12 +3,12 @@
 #include <unordered_map>
 
 #include "Mesh.hpp"
-#include "../components.hpp"
 
 class Model {
 
 public:
 	vector <Mesh> meshes;
+	std::vector<aiMatrix4x4> meshTransforms;
 	
 	static std::unordered_map<std::string, GLuint> DSAtextureCache;
 
@@ -22,7 +22,7 @@ public:
 	//TODO SAVE THE LOADED MODEL SO THAT WE ARE NOT IMPORTING THEM EVERYTIME
 	// Basically the model get loaded by assimp, we then copy all that data into our model/mesh class
 	
-	Model(const char* filePath, GLuint shaderID, MeshData &  meshData)
+	Model(const char* filePath)
 		: shaderID(shaderID)
 	{
 
@@ -48,9 +48,13 @@ public:
 			ProcessGLB(scene);
 			return;
 		}
-		if (fileExtention == "obj") {
-			processObj(scene, filePath);
-			return;
+		if (fileExtention == "gltf") {
+
+			//TODO handle
+			cout << "gltf handling not yet implemented\n";
+		}
+		else {
+			cout << "we don't support " << fileExtention << "files!\n";
 		}
 
 	}
@@ -62,46 +66,44 @@ public:
 		:shaderID(shaderID),
 		transformIndex(transformIndex)
 	{
-		//transform->currentMatrix = modelMatrix;
-
 		Assimp::Importer importer;
 		const aiScene* scene = importer.ReadFile(filePath, aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_FlipUVs | aiProcess_CalcTangentSpace);
-
 		if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
 		{
 			cout << "ERROR::ASSIMP:: " << importer.GetErrorString() << '\n';
 			return;
 		}
+		cout << "number of meshes for " << filePath << " is " << scene->mNumMeshes << '\n';
 
+		
 		meshes.reserve(scene->mNumMeshes);
+		meshTransforms.resize(scene->mNumMeshes); 
+
+		// Extract all mesh transforms first
+		ExtractMeshTransforms(scene->mRootNode, aiMatrix4x4(), scene);
+
+		// Process meshes with their transforms
 		for (int i = 0; i < scene->mNumMeshes; i++) {
 			meshes.emplace_back(scene->mMeshes[i]);
-
 			aiMesh* importedMesh = scene->mMeshes[i];
 
+			
+			meshes.back().localTransform = ConvertMatrix(meshTransforms[i]);
+
+			// Process materials and textures
 			aiMaterial* material = scene->mMaterials[importedMesh->mMaterialIndex];
-
 			aiString texturePath;
-
 			if (material->GetTexture(aiTextureType_DIFFUSE, 0, &texturePath) == AI_SUCCESS) {
-
 				string path = getFileFolder(filePath);
 				path.append(texturePath.C_Str());
-
-
-				//meshes.back().textureHandlers.emplace_back(loadTexturesDSA(path));
 				meshes.back().diffuseTextureID = loadTexturesDSA(path);
 				meshes.back().processMesh();
 			}
-			//if no texture load in default checkerboard texture
 			else {
-				//meshes.back().textureHandlers.emplace_back(loadTexturesDSA("assets/checkerboard.png"));
 				meshes.back().diffuseTextureID = loadTexturesDSA("assets/checkerboard.png");
 				meshes.back().processMesh();
 			}
-
 		}
-
 	}
 
 	// Generated model constructor
@@ -214,20 +216,6 @@ public:
 		}
 
 	}
-
-	/*
-	void draw() {
-
-
-		for (int i = 0; i < meshes.size(); i++) {
-
-			//meshes[i].meshMatrix = transform->currentMatrix; 
-				meshes[i].draw(shaderID, transform->currentMatrix);
-
-				//cout << "size of meshes : " << meshes.size() << '\n';
-		}
-	}
-	*/
 
 
 	void draw(std::vector<TransformData> & transforms) {
@@ -373,6 +361,33 @@ public:
 
 		return folderPath; // Return the dynamically allocated folder path
 	}
+
+	void ExtractMeshTransforms(const aiNode* node, const aiMatrix4x4& parentTransform, const aiScene* scene) {
+		// Calculate current node's world transform
+		aiMatrix4x4 currentTransform = parentTransform * node->mTransformation;
+
+		// Process all meshes in this node
+		for (unsigned int i = 0; i < node->mNumMeshes; i++) {
+			unsigned int meshIndex = node->mMeshes[i];
+			meshTransforms[meshIndex] = currentTransform;
+		}
+
+		// Recursively process child nodes
+		for (unsigned int i = 0; i < node->mNumChildren; i++) {
+			ExtractMeshTransforms(node->mChildren[i], currentTransform, scene);
+		}
+	}
+
+	// Convert aiMatrix4x4 to your matrix type (adjust based on your math library)
+	glm::mat4 ConvertMatrix(const aiMatrix4x4& aiMat) {
+		return glm::mat4(
+			aiMat.a1, aiMat.b1, aiMat.c1, aiMat.d1,
+			aiMat.a2, aiMat.b2, aiMat.c2, aiMat.d2,
+			aiMat.a3, aiMat.b3, aiMat.c3, aiMat.d3,
+			aiMat.a4, aiMat.b4, aiMat.c4, aiMat.d4
+		);
+	}
+
 
 };
 

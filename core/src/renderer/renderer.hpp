@@ -10,6 +10,8 @@
 
 #include "../physics/debugRenderer.hpp"
 
+#include "optick.h"
+
 struct Renderer {
 
 	TextRenderer textRenderer;
@@ -37,7 +39,7 @@ struct Renderer {
 	void setup() {
 
 		//VSync
-		//glfwSwapInterval(0);
+		SDL_GL_SetSwapInterval(1);
 		
 		//OPENGL SETTINGS
 		glEnable(GL_DEPTH_TEST);
@@ -72,17 +74,18 @@ struct Renderer {
 	}
 
 	void drawFps(int fps) {
-		
+		//OPTICK_EVENT();
 		textRenderer.renderText(std::to_string(fps), 0.0, winHeight - 60, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f));
 	}
 
 	void drawText(std::string text, glm::vec2 postion, float scale, glm::vec3 color) {
+		//OPTICK_EVENT();
 		textRenderer.renderText(text, postion.x, postion.y, scale, color);
 	}
 
 
 	void draw(std::vector<Model>& models, std::vector<TransformData> & transforms) {
-
+		//OPTICK_EVENT();
 	
 		view = camera.getViewMatrix();
 
@@ -100,54 +103,13 @@ struct Renderer {
 
 		glClearColor(r / 256.0f, g / 256.0f, b / 256.0f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-
+		
 		for (auto& model : models) {
 			model.draw(transforms);
 		}
 
 	}
 
-	void drawDOD(std::vector<MeshData>& meshDataDynamicArray) {
-
-		view = camera.getViewMatrix();
-
-		// Update View & Projection matrices
-		//TODO simplify to 1 matrix
-		glBindBuffer(GL_UNIFORM_BUFFER, uboMatrices);
-		glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(glm::mat4), glm::value_ptr(view));
-		glBufferSubData(GL_UNIFORM_BUFFER, sizeof(glm::mat4), sizeof(glm::mat4), glm::value_ptr(projection));
-
-		glBindBuffer(GL_UNIFORM_BUFFER, 0);
-
-		float r = 47.0f;
-		float g = 34.0f;
-		float b = 88.0f;
-
-		glClearColor(r / 256.0f, g / 256.0f, b / 256.0f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-
-		for (auto& data : meshDataDynamicArray) {
-
-			glUseProgram(data.shaderID);
-
-			glm::mat4 transformMatrix = glm::translate(glm::mat4(1.0f), data.position) *
-				glm::toMat4(data.rotation) *
-				glm::scale(glm::mat4(1.0f), glm::vec3(data.scale));
-
-			Shader::setMat4("model", transformMatrix, data.shaderID);
-
-			glBindTextureUnit(0, data.diffuseTextureID);
-
-			glUniform1i(glGetUniformLocation(data.shaderID, "textureDiffuse"), 0);
-
-			glBindVertexArray(data.VAO);
-			glDrawElements(GL_TRIANGLES, data.indicesSize, GL_UNSIGNED_INT, 0);
-			glBindVertexArray(0);
-		}
-
-	}
 
 	void handleWindowResize(int newWidth , int newHeight) {
 

@@ -7,7 +7,7 @@
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
 
-#include "../components.hpp"
+#include "../ecs/components.hpp"
 #include "Shader.hpp"
 #include "Grid.hpp"
 
@@ -16,12 +16,23 @@
 
 using std::vector, std::string;
 
+void PrintGLMMat4(const glm::mat4& mat, const char * name) {
+	std::cout << "GLM Matrix with index : " << name << ":\n";
+	for (int row = 0; row < 4; ++row) {
+		std::cout << "| ";
+		for (int col = 0; col < 4; ++col) {
+			std::cout << std::setw(10) << std::setprecision(4) << mat[col][row] << " ";
+		}
+		std::cout << "|\n";
+	}
+}
 
 class Mesh {
 public:
 	vector<VertexData> vertices;
 	vector <unsigned int> indices;
 	
+	glm::mat4 localTransform;
 
 	GLuint diffuseTextureID;
 	//GLuint SpecularTextureID;
@@ -143,11 +154,16 @@ public:
 
 	}
 	
-	void draw(GLuint & shaderID,glm::mat4 & meshMatrix) {
+	void draw(GLuint & shaderID,glm::mat4 & modelMatrix) {
 
 		glUseProgram(shaderID);
 
-		Shader::setMat4("model", meshMatrix, shaderID);
+		glm::mat4 transfrom = modelMatrix * localTransform;
+
+		//PrintGLMMat4(modelMatrix, "model transfrom");
+		//PrintGLMMat4(localTransform, "mesh transfrom");
+		
+		Shader::setMat4("model", transfrom, shaderID);
 
 		glBindTextureUnit(0, diffuseTextureID);
 
@@ -159,3 +175,5 @@ public:
 	}
 
 };
+
+

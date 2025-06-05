@@ -8,7 +8,8 @@
 
 #include "../renderer/Camera.hpp"
 
-#include "../components.hpp"
+#include "../ecs/components.hpp"
+
 
 
 enum InputContext

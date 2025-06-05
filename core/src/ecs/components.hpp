@@ -8,26 +8,21 @@
 #include <Jolt/Jolt.h>
 #include <Jolt/Physics/PhysicsSystem.h>
 
-#include <glad/glad.h>
 
-//TODO use this eventually as it fits inside a cache line 
-
-struct TransformData2 {
-	glm::vec3 prevPosition;   // 12 bytes
-	glm::quat prevRotation;   // 16 bytes
-	glm::vec3 currPosition;   // 12 bytes
-	glm::quat currRotation;   // 16 bytes
-	float scale;			  // 4 bytes
-};
 
 struct TransformData {
-	glm::mat4 previousMatrix;
+	//glm::mat4 previousMatrix;
 	glm::mat4 currentMatrix;
-	glm::mat4 interpolatedMatrix;
+	//glm::mat4 interpolatedMatrix;
 
-	TransformData(const glm::mat4& m)
-		: previousMatrix(m), currentMatrix(m), interpolatedMatrix(m) {
-	}
+};
+
+
+//for static meshes
+struct TransformData2 {
+	glm::vec3 position;  
+	glm::quat rotation;   
+	glm::vec3 scale;		
 };
 
 
@@ -37,14 +32,18 @@ struct VertexData {
 	glm::vec2 texCoords;
 };
 
-struct MeshData {
-	glm::vec3 position; 
-	glm::quat rotation;
-	float scale;
+struct MeshInstanceData {
+
 	GLuint shaderID;
 	GLuint VAO;
 	GLuint diffuseTextureID;
+	GLuint SpecularTextureID;
 	uint32_t indicesSize;
+};
+
+struct MaterialData {
+	GLuint diffuseTextureID;
+	GLuint SpecularTextureID;
 };
 
 struct PhysicsData {
@@ -65,3 +64,4 @@ struct PlayerData {
 	glm::vec3 direction = glm::vec3(0);
 	bool jump = false;              
 };
+

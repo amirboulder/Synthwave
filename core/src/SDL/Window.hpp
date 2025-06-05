@@ -2,19 +2,17 @@
 #include <glad/glad.h>
 #include <iostream>
 
-class SDLWindow {
+class Window {
 
 public:
 
 	SDL_Window* window;
 
-	SDLWindow(int width,int height) {
+	Window(int width,int height) {
 
-		
         init();
         createWindow(width,height);
 		
-
 	}
 
     int init() {
@@ -29,14 +27,12 @@ public:
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 6);
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
         SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
-
-
     }
 
 	int createWindow(int width, int height) {
 
         window = SDL_CreateWindow(
-            "An SDL3 window",                  // window title
+            "Synthwave",                  // window title
             width,                               // width, in pixels
             height,                               // height, in pixels
             SDL_WINDOW_OPENGL                  // flags - see below
@@ -64,12 +60,10 @@ public:
         return 0;
 	}
 
-
     void destroy() {
 
         SDL_DestroyWindow(window);
         SDL_Quit();
     }
 
-    
 };
