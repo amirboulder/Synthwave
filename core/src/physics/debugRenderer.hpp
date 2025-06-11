@@ -2,23 +2,15 @@
 
 #include <Jolt/Jolt.h>
 
-#ifndef JPH_DEBUG_RENDERER
-#error This file should only be included when JPH_DEBUG_RENDERER is defined
-#endif // !JPH_DEBUG_RENDERER
+#ifdef JPH_DEBUG_RENDERER
 
 #include <Jolt/Renderer/DebugRenderer.h>
 
-//#include "physicsUtil.hpp"
+JPH_NAMESPACE_BEGIN
 
 #include "../renderer/Shader.hpp"
 
 using namespace JPH;
-
-struct cv3 {
-	JPH::Vec3 vec;
-	JPH::ColorArg color;
-};
-
 
 
 class MyDebugRenderer : public JPH::DebugRenderer
@@ -45,13 +37,13 @@ class MyDebugRenderer : public JPH::DebugRenderer
 	private:
 		atomic<uint32>			mRefCount = 0;
 	};
-	
+
 public:
 	MyDebugRenderer(GLuint triangleShaderID)
-		:	triangleShaderID(triangleShaderID)
+		: triangleShaderID(triangleShaderID)
 	{
 		Initialize();
-		
+
 	}
 
 	void SetCameraPos(RVec3Arg inCameraPos)
@@ -76,17 +68,17 @@ public:
 	}
 
 	virtual Batch CreateTriangleBatch(const Triangle* inTriangles, int inTriangleCount) override {
-		
+
 		BatchImpl* batch = new BatchImpl;
 		if (inTriangles == nullptr || inTriangleCount == 0)
 			return batch;
 
 		batch->mTriangles.assign(inTriangles, inTriangles + inTriangleCount);
 		return batch;
-		
+
 	};
 
-	virtual Batch CreateTriangleBatch(const VertexData* inVertices, int inVertexCount, const uint32* inIndices, int inIndexCount) override {
+	virtual Batch CreateTriangleBatch(const Vertex* inVertices, int inVertexCount, const uint32* inIndices, int inIndexCount) override {
 
 		BatchImpl* batch = new BatchImpl;
 		if (inVertices == nullptr || inVertexCount == 0 || inIndices == nullptr || inIndexCount == 0)
@@ -151,14 +143,14 @@ public:
 			return;
 		}
 
-		
+
 		size_t totalVertices = batch->mTriangles.size() * 3; // 3 vertices per triangle
-		size_t bufferSize = totalVertices * sizeof(VertexData);
+		size_t bufferSize = totalVertices * sizeof(Vertex);
 
 		glNamedBufferData(VBO, bufferSize, nullptr, GL_STATIC_DRAW);
 
 		// Copy vertex data from triangles to buffer
-		VertexData* mappedBuffer = static_cast<VertexData*>(glMapNamedBuffer(VBO, GL_WRITE_ONLY));
+		Vertex* mappedBuffer = static_cast<Vertex*>(glMapNamedBuffer(VBO, GL_WRITE_ONLY));
 		if (mappedBuffer) {
 			size_t vertexIndex = 0;
 			for (const auto& triangle : batch->mTriangles) {
@@ -172,33 +164,33 @@ public:
 			// Fallback: use glNamedBufferSubData
 			size_t offset = 0;
 			for (const auto& triangle : batch->mTriangles) {
-				glNamedBufferSubData(VBO, offset, sizeof(VertexData) * 3, triangle.mV);
-				offset += sizeof(VertexData) * 3;
+				glNamedBufferSubData(VBO, offset, sizeof(Vertex) * 3, triangle.mV);
+				offset += sizeof(Vertex) * 3;
 			}
 		}
 
 		// Configure VAO with proper vertex attributes for VertexData
-		glVertexArrayVertexBuffer(VAO, 0, VBO, 0, sizeof(VertexData));
+		glVertexArrayVertexBuffer(VAO, 0, VBO, 0, sizeof(Vertex));
 
 		// Attribute 0: Position (Float3 - 3 floats)
 		glEnableVertexArrayAttrib(VAO, 0);
 		glVertexArrayAttribBinding(VAO, 0, 0);
-		glVertexArrayAttribFormat(VAO, 0, 3, GL_FLOAT, GL_FALSE, offsetof(VertexData, mPosition));
+		glVertexArrayAttribFormat(VAO, 0, 3, GL_FLOAT, GL_FALSE, offsetof(Vertex, mPosition));
 
 		// Attribute 1: Normal (Float3 - 3 floats)
 		glEnableVertexArrayAttrib(VAO, 1);
 		glVertexArrayAttribBinding(VAO, 1, 0);
-		glVertexArrayAttribFormat(VAO, 1, 3, GL_FLOAT, GL_FALSE, offsetof(VertexData, mNormal));
+		glVertexArrayAttribFormat(VAO, 1, 3, GL_FLOAT, GL_FALSE, offsetof(Vertex, mNormal));
 
 		// Attribute 2: UV (Float2 - 2 floats)
 		glEnableVertexArrayAttrib(VAO, 2);
 		glVertexArrayAttribBinding(VAO, 2, 0);
-		glVertexArrayAttribFormat(VAO, 2, 2, GL_FLOAT, GL_FALSE, offsetof(VertexData, mUV));
+		glVertexArrayAttribFormat(VAO, 2, 2, GL_FLOAT, GL_FALSE, offsetof(Vertex, mUV));
 
 		// Attribute 3: Color (Color - assuming 4 floats RGBA)
 		glEnableVertexArrayAttrib(VAO, 3);
 		glVertexArrayAttribBinding(VAO, 3, 0);
-		glVertexArrayAttribFormat(VAO, 3, 4, GL_FLOAT, GL_FALSE, offsetof(VertexData, mColor));
+		glVertexArrayAttribFormat(VAO, 3, 4, GL_FLOAT, GL_FALSE, offsetof(Vertex, mColor));
 
 
 		// Use shader and bind VAO
@@ -240,3 +232,6 @@ public:
 };
 
 
+JPH_NAMESPACE_END
+
+#endif // JPH_DEBUG_RENDERER

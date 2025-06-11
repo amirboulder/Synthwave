@@ -3,18 +3,19 @@
 #include "Grid.hpp"
 #include "Camera.hpp"
 #include "text/freeType.hpp"
+#include "text/textRenderer.hpp"
 
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtx/quaternion.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-#include "../physics/debugRenderer.hpp"
+//#include "../physics/debugRenderer.hpp"
 
 #include "optick.h"
 
 struct Renderer {
 
-	TextRenderer textRenderer;
+	//TextRenderer textRenderer;
 	Camera camera;
 	GLuint uboMatrices;
 	glm::mat4 view;
@@ -27,7 +28,7 @@ struct Renderer {
 
 	Renderer(int winWidth,int winHeight)
 		: camera(glm::vec3(-25.0f, 10.0f, -15.0f)),
-		textRenderer(winWidth, winHeight, "assets/fonts/Supermolot Light.otf"),
+		//textRenderer(winWidth, winHeight, "assets/fonts/Supermolot Light.otf"),
 		winWidth(winWidth),winHeight(winHeight)
 
 	{
@@ -75,12 +76,12 @@ struct Renderer {
 
 	void drawFps(int fps) {
 		//OPTICK_EVENT();
-		textRenderer.renderText(std::to_string(fps), 0.0, winHeight - 60, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f));
+		//textRenderer.renderText(std::to_string(fps), 0.0, winHeight - 60, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f));
 	}
 
 	void drawText(std::string text, glm::vec2 postion, float scale, glm::vec3 color) {
 		//OPTICK_EVENT();
-		textRenderer.renderText(text, postion.x, postion.y, scale, color);
+		//textRenderer.renderText(text, postion.x, postion.y, scale, color);
 	}
 
 
@@ -116,7 +117,7 @@ struct Renderer {
 		winWidth = newWidth;
 		winHeight = newHeight;
 		projection = camera.getProjectionMatrix(static_cast<float>(newWidth) / static_cast<float>(newHeight));
-		textRenderer.updateProjection(newWidth, newHeight);
+		//textRenderer.updateProjection(newWidth, newHeight);
 
 	}
 

@@ -1,12 +1,10 @@
-#include <ft2build.h>
-#include FT_FREETYPE_H
+//#include <ft2build.h>
+//#include FT_FREETYPE_H
 #include "../Shader.hpp"
 #include <map>
 #include <iostream>
 
-
-
-
+/*
 
 // Character info struct
 struct TextCharacter {
@@ -169,5 +167,6 @@ public:
 };
 
 
+*/
 
 

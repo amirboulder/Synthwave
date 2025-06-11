@@ -1,8 +1,16 @@
 ﻿cmake_minimum_required (VERSION 3.28)
 
+# Set C++ standard
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+
 project ("Synthwave")
 
 include(FetchContent)
+set(FETCHCONTENT_QUIET FALSE)
 include(CheckIPOSupported)
 
 # Enable Hot Reload for MSVC compilers if supported.
@@ -11,97 +19,108 @@ if (POLICY CMP0141)
   set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<IF:$<AND:$<C_COMPILER_ID:MSVC>,$<CXX_COMPILER_ID:MSVC>>,$<$<CONFIG:Debug,RelWithDebInfo>:EditAndContinue>,$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>>")
 endif()
 
-# Set C++ standard
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}" )
-
 
 # Add source to this project's executable.
 add_executable (Synthwave "Synthwave.cpp" "Synthwave.h" )
 
-
+#=============================================
 # Create GLAD static library
+#=============================================
 add_library(glad STATIC thirdParty/glad/src/glad.c )
 target_include_directories(glad PUBLIC ${CMAKE_SOURCE_DIR}/thirdParty/glad/include)
 
-
+#=============================================
+#SDL
+#=============================================
 FetchContent_Declare(
         SDL3
         GIT_REPOSITORY "https://github.com/libsdl-org/SDL.git"
         GIT_TAG release-3.2.12
+        GIT_SHALLOW TRUE
         EXCLUDE_FROM_ALL
     )
-    FetchContent_MakeAvailable(SDL3)
+FetchContent_MakeAvailable(SDL3)
+set_property(DIRECTORY "${SDL_image_SOURCE_DIR}" PROPERTY EXCLUDE_FROM_ALL TRUE)
+#=============================================
+#SDL_IMAGE
+#=============================================
+FetchContent_Declare(
+    SDL_image
+    GIT_REPOSITORY https://github.com/libsdl-org/SDL_image.git
+    GIT_TAG release-3.2.4
+)
+set(SDL3_IMAGE_AVIF OFF CACHE BOOL "Disable AVIF support" FORCE)
+set(SDLIMAGE_AVIF OFF)	# disable formats we don't use to make the build faster and smaller.
+set(SDLIMAGE_BMP OFF)
+set(SDLIMAGE_JPEG OFF)
+set(SDLIMAGE_WEBP OFF)
+FetchContent_MakeAvailable(SDL_image)
+set_property(DIRECTORY "${SDL_image_SOURCE_DIR}" PROPERTY EXCLUDE_FROM_ALL TRUE)
+
+#=============================================
+#SDL TTF
+#=============================================
+FetchContent_Declare(
+        SDL_ttf
+        GIT_REPOSITORY "https://github.com/libsdl-org/SDL_ttf.git"
+        GIT_TAG release-3.2.2
+        GIT_SHALLOW TRUE
+    )
+FetchContent_MakeAvailable(SDL_ttf)
+set_property(DIRECTORY "${SDL_image_SOURCE_DIR}" PROPERTY EXCLUDE_FROM_ALL TRUE)
 
 
+#=============================================
+#Slang
+#=============================================
+
+
+
+#=============================================
 #assimp for importing assets
+#=============================================
 FetchContent_Declare(
   assimp 
   GIT_REPOSITORY https://github.com/assimp/assimp.git
   GIT_TAG v5.2.5 # Use a specific, stable tag or commit hash
+  GIT_SHALLOW TRUE
 )
-set(BUILD_SHARED_LIBS ON CACHE BOOL "Build Assimp as shared library")
+
 FetchContent_MakeAvailable(assimp)
 
-
-#Set the DLL directory
-set(ASSIMP_DLL_DIR "${CMAKE_BINARY_DIR}/_deps/assimp-build/bin")
-
-# Conditionally set the DLL name based on build type
-if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    set(ASSIMP_DLL_NAME "assimp-vc143-mtd.dll")
-else()
-    set(ASSIMP_DLL_NAME "assimp-vc143-mt.dll")
-endif()
-
-# Copy the appropriate DLL
-add_custom_command(TARGET Synthwave POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${ASSIMP_DLL_DIR}/${ASSIMP_DLL_NAME}"
-        $<TARGET_FILE_DIR:Synthwave>
-    COMMENT "Copying Assimp DLL to executable directory"
-)
-
-
+#=============================================
 #glm
+#=============================================
 FetchContent_Declare(
 	glm
 	GIT_REPOSITORY	https://github.com/g-truc/glm.git
 	GIT_TAG 	bf71a834948186f4097caa076cd2663c69a10e1e #refs/tags/1.0.1
+    GIT_SHALLOW TRUE
 )
 
 FetchContent_MakeAvailable(glm)
 
+#=============================================
 # Create an interface library for stb_image
+#=============================================
 add_library(stb_image INTERFACE)
 target_include_directories(stb_image INTERFACE ${CMAKE_SOURCE_DIR}/thirdParty/stb)
 
+#=============================================
 #nlohmann_json
+#=============================================
 FetchContent_Declare(json URL https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz)
 FetchContent_MakeAvailable(json)
 
-# Enable FetchContent for FreeType
-include(FetchContent)
-FetchContent_Declare(
-    freetype
-    GIT_REPOSITORY https://github.com/freetype/freetype.git
-    GIT_TAG VER-2-13-3 
-)
-add_custom_command(TARGET Synthwave POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        $<TARGET_FILE:freetype>
-        $<TARGET_FILE_DIR:Synthwave>
-)
-FetchContent_MakeAvailable(freetype)
-
-
-
+#=============================================
+#JOLT physics
+#=============================================
 FetchContent_Declare(
         JoltPhysics
         GIT_REPOSITORY "https://github.com/jrouwe/JoltPhysics"
-        GIT_TAG "v5.2.0"
+        GIT_TAG "v5.3.0"
         UPDATE_DISCONNECTED TRUE
+        GIT_SHALLOW TRUE
         SOURCE_SUBDIR "Jolt"
 )
 check_ipo_supported(RESULT IS_IPO_SUPPORTED)
@@ -134,29 +153,35 @@ if(NOT JoltPhysics_POPULATED)
   endif()
 endif()
 
-
+#=============================================
 #optick for profiling
-include(FetchContent)
+#=============================================
 FetchContent_Declare(
     optick
     GIT_REPOSITORY https://github.com/bombomby/optick.git
     GIT_TAG 1.4.0.0
+    GIT_SHALLOW TRUE
 )
 FetchContent_MakeAvailable(optick)
 
 
-target_link_libraries(Synthwave PRIVATE 
+#=============================================
+#=============================================
+#=============================================
+
+target_link_libraries(Synthwave PUBLIC
 glad
 SDL3::SDL3
+SDL3_image::SDL3_image
+SDL3_ttf::SDL3_ttf
 assimp 
 glm::glm 
 stb_image 
 nlohmann_json::nlohmann_json
-freetype
 Jolt
 OptickCore
-)
 
+)
 
 file(COPY core/src/renderer/shaders DESTINATION ${CMAKE_BINARY_DIR})
 file(COPY assets DESTINATION ${CMAKE_BINARY_DIR})

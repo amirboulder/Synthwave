@@ -8,8 +8,8 @@ using json = nlohmann::json;
 std::string settingsFilePath = "data/userSettings.json";
 
 struct UserSettings {
-    int windowWidth = 1280;
-    int windowHeight = 720;
+    int windowWidth = 1920;
+    int windowHeight = 1080;
 };
 
 json userSettingsJson = {
@@ -25,7 +25,7 @@ UserSettings loadUserSettings() {
 
     std::ifstream file(settingsFilePath);
     if (!file) {
-        std::cout << "Error opening file! loading with default settings \n";
+        std::cout << settingsFilePath <<" does not exist! loading with default settings \n";
 
         return settings;
     }

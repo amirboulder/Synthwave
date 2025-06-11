@@ -56,6 +56,7 @@ public:
 		capsuleMatrix = glm::translate(capsuleMatrix, { 18,6,13 });
 		capsuleMatrix = glm::scale(capsuleMatrix, { 1.0f,1.0f,1.0f });
 		factory.createCapsuleEntity("assets/capsule4.glb", shaders.back().m_shaderID, physik, capsuleMatrix);
+		factory.createCapsuleEntity("assets/capsule4.glb", shaders.back().m_shaderID, physik, capsuleMatrix);
 
 		
 		//Box
