@@ -4,26 +4,32 @@ using std::cout;
 
 int main(int argc, char* argv[])
 {
-	//uint64_t totalMemorySize = Clay_MinMemorySize();
+	bool running = true;
 
-	UserSettings settings = loadUserSettings();
+	Renderer renderer(1920, 1080);
 
-	
-	Window window(settings.windowWidth, settings.windowHeight);
+	//renderer init
+	running = renderer.createWindow();
+	running = renderer.createAndClaimGPU();
+	running = renderer.createDepthTexture();
 
-	InputManager inputManager;
-	
-	PlayerInput input;
-
-	/*
-	
-	Renderer renderer(settings.windowWidth, settings.windowHeight);
+	running = renderer.createSampler();
 
 	Fisiks fisiks;
 
-	Scene scene(1);
-	scene.constructLVL1(fisiks);
+	Scene scene(fisiks, renderer);
 
+
+	FreeCam camera(glm::vec3(-2.0f, -2.0f, 0.0f), glm::vec3(0.0f, 1.0f, 1.0f));
+	camera.aspectRatio = static_cast<float>(renderer.winWidth) / static_cast<float>(renderer.winHeight);
+	camera.mouseSensitivity = 0.1;
+
+	InputManager inputManager;
+
+	PlayerInput input;
+	Player player;
+
+	
 	/*
 	Shader triangleShader("shaders/physicsDebug/triangleShader.vs", "shaders/physicsDebug/triangleShader.fs");
 	MyDebugRenderer fisiksRender(triangleShader.m_shaderID);
@@ -45,9 +51,7 @@ int main(int argc, char* argv[])
 	int fps = 0;
 	uint64_t fpsTimer = SDL_GetTicks();
 
-	cout << "Welcome to the simulation!\n";
-
-	bool running = true;
+	printf("\033[35mWelcome to the simulation!\033[0m\n");
 	SDL_Event event;
 	while (running) {
 
@@ -59,7 +63,7 @@ int main(int argc, char* argv[])
 			}
 		}
 
-		window.render();
+		//window.render();
 
 		float deltaTime = (SDL_GetTicks() - lastTime) / 1000.0f;
 		lastTime = SDL_GetTicks();
@@ -67,7 +71,11 @@ int main(int argc, char* argv[])
 		while (accumulator >= timeStep) {
 
 			
-			//inputManager.ProccesInput(running, renderer.camera, input);
+			inputManager.processFreeCamInput(running, camera);
+			camera.updateVectors();
+			
+
+			
 			//fisiks.update(timeStep);
 			//fisiks.updateTransforms(scene.transforms, scene.physicsCompoments);
 			//scene.player.update(input,renderer.camera);
@@ -77,7 +85,7 @@ int main(int argc, char* argv[])
 
 		//TODO INTERPOLATE ?????
 
-		//renderer.draw(scene.models, scene.transforms);
+		renderer.draw(camera.generateview(),camera.generateProj());
 
 		//JPH::Vec3 playerPos =  scene.player.JoltCharacter->GetPosition();
 
@@ -96,13 +104,10 @@ int main(int argc, char* argv[])
 			frameCount = 0;
 			fpsTimer = SDL_GetTicks();
 		}
+		//printf("FPS: %d\n", fps);
 		//renderer.drawFps(fps);
-		
-		SDL_GL_SwapWindow(window.window);
-
 	}
 
-	window.destroy();
-	cout << "Goodbye!\n";
+	printf("\033[35mGoodbye!\033[0m\n");
 	return 0;
 }

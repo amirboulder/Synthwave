@@ -4,17 +4,18 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-class Camera {
+
+class FreeCam {
 
 public:
 
     glm::vec3 position;
-
-    // Camera orientation vectors
-    glm::vec3 front;     // Direction camera is looking
+    glm::vec3 front; // Direction camera is looking (normalized target - position)
+   
     glm::vec3 up;        // Up vector
     glm::vec3 right;     // Right vector
-   // glm::vec3 worldUp;   // World up vector (usually 0,1,0)
+
+    float aspectRatio = 1;
 
     // Euler angles
     float yaw;           // Rotation around Y-axis
@@ -26,41 +27,59 @@ public:
     float farPlane;      // Far clipping plane
 
     // Camera movement
-    //float movementSpeed;
+    float movementSpeed = 0.1f;
     float mouseSensitivity;
 
-
-private:
-
-public:
-    Camera(glm::vec3 position = glm::vec3(-10.0f, 0.0f, -10.0f))
+    FreeCam(glm::vec3 position, glm::vec3 front)
         : position(position),
-        front(glm::vec3(7.0f, 0.0f, -1.0f)),
-       // worldUp(glm::vec3(0.0f, 1.0f, 0.0f)),
+        front(front),
         yaw(45.0f),
         pitch(0.0f),
         fov(45.0f),
         nearPlane(0.1f),
         farPlane(1000.0f),
-      //  movementSpeed(0.1),
         mouseSensitivity(0.5f)
     {
-        
-        updateCameraVectors();
+        updateVectors();
     }
 
+    void updateVectors() {
+        front.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
+        front.y = sin(glm::radians(pitch));
+        front.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
+        front = glm::normalize(front);
 
-    glm::mat4 getViewMatrix() {
-        return glm::lookAt(position, position + front, up);
+        // World up vector is (0,1,0)
+        right = glm::normalize(glm::cross(front, glm::vec3(0.0f, 1.0f, 0.0f)));
+        up = glm::normalize(glm::cross(right, front));
     }
 
-    glm::mat4 getProjectionMatrix(float aspectRatio) {
+    glm::mat4 generateview() {
 
-        return glm::perspective(glm::radians(fov), aspectRatio, nearPlane, farPlane);
+        glm::mat4 view = glm::lookAt(position, position + front, up);
+        return view;
+    }
+    glm::mat4 generateProj() {
+
+        glm::mat4 proj = glm::perspectiveRH_ZO(glm::radians(fov), aspectRatio, nearPlane, farPlane);
+        proj[1][1] *= -1; // Flip Y for Vulkan
+        return proj;
     }
 
+    // Calculate the front, right and up vectors from euler angles
+    glm::mat4 generateviewProj() {
+
+        glm::mat4 view = glm::lookAt(position, position + front, up);
+        glm::mat4 proj = glm::perspectiveRH_ZO(glm::radians(fov), aspectRatio, nearPlane, farPlane);
+        proj[1][1] *= -1; // Flip Y for Vulkan
+
+        return proj * view;
+    }
 
     void rotateCamera(float xoffset, float yoffset, bool constrainPitch = true) {
+
+        // Constraint for pitch to prevent camera flipping
+        const float PITCH_LIMIT = 89.0f;
         xoffset *= mouseSensitivity;
         yoffset *= mouseSensitivity;
 
@@ -75,20 +94,6 @@ public:
                 pitch = -PITCH_LIMIT;
         }
 
-        updateCameraVectors();
     }
-
-    // Constraints for pitch to prevent camera flipping
-    const float PITCH_LIMIT = 89.0f;
-
-    // Calculate the front, right and up vectors from euler angles
-    void updateCameraVectors() {
-        front.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
-        front.y = sin(glm::radians(pitch));
-        front.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
-        front = glm::normalize(front);
-
-        right = glm::normalize(glm::cross(front, glm::vec3(0.0f, 1.0f, 0.0f)));
-        up = glm::normalize(glm::cross(right, front));
-    }
+    
 };

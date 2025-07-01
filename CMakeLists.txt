@@ -30,6 +30,54 @@ add_library(glad STATIC thirdParty/glad/src/glad.c )
 target_include_directories(glad PUBLIC ${CMAKE_SOURCE_DIR}/thirdParty/glad/include)
 
 #=============================================
+#Slang
+#=============================================
+
+FetchContent_Declare(Slang
+    GIT_REPOSITORY https://github.com/shader-slang/slang.git
+    GIT_TAG "v2025.10.2"
+    GIT_SHALLOW ON
+    GIT_PROGRESS TRUE
+    OVERRIDE_FIND_PACKAGE
+    EXCLUDE_FROM_ALL
+    SYSTEM
+)
+
+set(SLANG_EMBED_CORE_MODULE ON)
+set(SLANG_EMBED_CORE_MODULE_SOURCE ON)
+set(SLANG_ENABLE_DXIL OFF)
+set(SLANG_ENABLE_ASAN OFF)
+set(SLANG_ENABLE_FULL_IR_VALIDATION OFF)
+set(SLANG_ENABLE_IR_BREAK_ALLOC OFF)
+set(SLANG_ENABLE_GFX OFF) 
+set(SLANG_ENABLE_SLANGD OFF)
+set(SLANG_ENABLE_SLANGC OFF)
+set(SLANG_ENABLE_SLANGRT OFF)
+set(SLANG_ENABLE_SLANG_GLSLANG OFF)
+set(SLANG_ENABLE_TESTS OFF)
+set(SLANG_ENABLE_EXAMPLES OFF)
+set(SLANG_LIB_TYPE "SHARED")
+set(SLANG_ENABLE_RELEASE_DEBUG_INFO OFF)
+set(SLANG_ENABLE_SPLIT_DEBUG_INFO OFF)
+set(SLANG_SLANG_LLVM_FLAVOR "DISABLE")
+
+set(SLANG_ENABLE_CUDA OFF)
+set(SLANG_ENABLE_OPTIX OFF)
+set(SLANG_ENABLE_NVAPI OFF)
+set(SLANG_ENABLE_AFTERMATH OFF)
+set(SLANG_ENABLE_XLIB OFF)
+
+set(SLANG_ENABLE_DX_ON_VK OFF)
+set(SLANG_ENABLE_SLANG_RHI OFF)
+set(SLANG_USE_SYSTEM_MINIZ OFF)
+set(SLANG_USE_SYSTEM_LZ4 OFF)
+set(SLANG_USE_SYSTEM_VULKAN_HEADERS ON)
+set(SLANG_USE_SYSTEM_SPIRV_HEADERS OFF)
+set(SLANG_USE_SYSTEM_UNORDERED_DENSE OFF)
+
+FetchContent_MakeAvailable(Slang)
+
+#=============================================
 #SDL
 #=============================================
 FetchContent_Declare(
@@ -40,22 +88,15 @@ FetchContent_Declare(
         EXCLUDE_FROM_ALL
     )
 FetchContent_MakeAvailable(SDL3)
-set_property(DIRECTORY "${SDL_image_SOURCE_DIR}" PROPERTY EXCLUDE_FROM_ALL TRUE)
+set_property(DIRECTORY "${SDL3_SOURCE_DIR}" PROPERTY EXCLUDE_FROM_ALL TRUE)
+
+
+
 #=============================================
 #SDL_IMAGE
 #=============================================
-FetchContent_Declare(
-    SDL_image
-    GIT_REPOSITORY https://github.com/libsdl-org/SDL_image.git
-    GIT_TAG release-3.2.4
-)
-set(SDL3_IMAGE_AVIF OFF CACHE BOOL "Disable AVIF support" FORCE)
-set(SDLIMAGE_AVIF OFF)	# disable formats we don't use to make the build faster and smaller.
-set(SDLIMAGE_BMP OFF)
-set(SDLIMAGE_JPEG OFF)
-set(SDLIMAGE_WEBP OFF)
-FetchContent_MakeAvailable(SDL_image)
-set_property(DIRECTORY "${SDL_image_SOURCE_DIR}" PROPERTY EXCLUDE_FROM_ALL TRUE)
+
+
 
 #=============================================
 #SDL TTF
@@ -65,14 +106,9 @@ FetchContent_Declare(
         GIT_REPOSITORY "https://github.com/libsdl-org/SDL_ttf.git"
         GIT_TAG release-3.2.2
         GIT_SHALLOW TRUE
+        EXCLUDE_FROM_ALL
     )
 FetchContent_MakeAvailable(SDL_ttf)
-set_property(DIRECTORY "${SDL_image_SOURCE_DIR}" PROPERTY EXCLUDE_FROM_ALL TRUE)
-
-
-#=============================================
-#Slang
-#=============================================
 
 
 
@@ -172,7 +208,7 @@ FetchContent_MakeAvailable(optick)
 target_link_libraries(Synthwave PUBLIC
 glad
 SDL3::SDL3
-SDL3_image::SDL3_image
+slang
 SDL3_ttf::SDL3_ttf
 assimp 
 glm::glm 

@@ -1,8 +1,6 @@
 
 #include "core/src/Entity.hpp"
-
 #include "core/src/EntityFactory.hpp"
-
 #include "core/src/physics/physicsUtil.hpp"
 
 using std::vector;
@@ -11,111 +9,129 @@ class Scene {
 
 public:
 	
-	vector<Entity> entities;
-
-	vector <Shader>  shaders;
-
-	vector<TransformData> transforms;
-	vector<PhysicsData> physicsCompoments;
-
-	vector<Model> models;
-
-
-
-	vector<TransformData2> StaticEntTransfroms;
-	vector<PhysicsData> staticEntPhysics;
-
+	Entities dynamicEnts;
+	Entities staticEnts;
+	
 	Player player;
 	
-	Scene(int levelNum) {
+	Scene(Fisiks& fisiks, Renderer& renderer) {
 
-		//TODO add switch statment for more levels
+		//=========== creating shaders
+		// 
+		//reserve multiple to avoid reallocation
+		renderer.pipelines.reserve(2);
+		//create BP pipeline 
+		renderer.pipelines.emplace_back(dynamicEnts.models, dynamicEnts.transforms);
+		Pipeline& pipelineBP = renderer.pipelines[0];
+
+		//shader::generateSpirvShaders("shaders/slang/shaders.slang", "shaders/compiled/VertexShader.spv", "shaders/compiled/FragmentShader.spv");
+		pipelineBP.loadVertexShader(renderer.device, "shaders/compiled/VertexShader.spv", 0, 2, 0, 0);
+		pipelineBP.loadFragmentShader(renderer.device, "shaders/compiled/FragmentShader.spv", 1, 0, 0, 0);
+		renderer.createPipeline(pipelineBP.vertexShader, pipelineBP.fragmentShader, pipelineBP.pipeline);
+
+		renderer.pipelines.emplace_back(staticEnts.models, staticEnts.transforms);
+		Pipeline& pipelineGrid = renderer.pipelines[1];
+
+		//shader::generateSpirvShaders("shaders/slang/gridshader.slang", "shaders/compiled/grid.vert.spv", "shaders/compiled/grid.frag.spv");
+		pipelineGrid.loadVertexShader(renderer.device, "shaders/compiled/grid.vert.spv", 0, 2, 0, 0);
+		pipelineGrid.loadFragmentShader(renderer.device, "shaders/compiled/grid.frag.spv", 0, 0, 0, 0);
+		renderer.createPipeline(pipelineGrid.vertexShader, pipelineGrid.fragmentShader, pipelineGrid.pipeline);
+
+
+
+		constructLVL1(fisiks, renderer);
 
 	}
 
-	void constructLVL1(Fisiks & physik) {
+	bool constructLVL1(Fisiks& fisiks, Renderer& renderer) {
 
 		int reserveSize = 50;
 
-		entities.reserve(reserveSize);
-		transforms.reserve(reserveSize);
-		models.reserve(reserveSize);
-		physicsCompoments.reserve(reserveSize);
+		//create Model Sources
+		//robot
+		ModelSource robotSource("assets/robot4Wheels.glb", renderer.device);
+		//capsule
+		ModelSource capsuleSource("assets/capsule4.glb", renderer.device);
+		//Mountain
+		ModelSource mtn("assets/mtn2.obj", renderer.device);
+		//Grid
+		ModelSource gridSource(256, 256, renderer.device);
 
-		EntityFactory factory(entities,physicsCompoments,models, transforms);
-
-		shaders.emplace_back("shaders/shadersDSA/simpleShader.vs", "shaders/shadersDSA/simpleShader.fs");
-
-		//Player
-		glm::mat4 playerMatrix = glm::mat4(1.0f);
-		playerMatrix = glm::translate(playerMatrix, { 2,7,2 });
-		factory.createPlayerEntity(player, "assets/capsule4.glb", shaders.back().m_shaderID, physik, playerMatrix);
-
-		//Capsule
-		glm::mat4 capsuleMatrix = glm::mat4(1.0f);
-		capsuleMatrix = glm::translate(capsuleMatrix, { 18,6,13 });
-		capsuleMatrix = glm::scale(capsuleMatrix, { 1.0f,1.0f,1.0f });
-		factory.createCapsuleEntity("assets/capsule4.glb", shaders.back().m_shaderID, physik, capsuleMatrix);
-		factory.createCapsuleEntity("assets/capsule4.glb", shaders.back().m_shaderID, physik, capsuleMatrix);
 
 		
-		//Box
-		glm::mat4 boxMatrix = glm::mat4(1.0f);
-		boxMatrix = glm::translate(boxMatrix, { 10,6,10 });
-		boxMatrix = glm::scale(boxMatrix, { 1.0f,1.0f,1.0f });
-		factory.createBoxEntity("assets/cube.obj", shaders.back().m_shaderID, physik, boxMatrix);
+		//Create instances
 
-		// Mountains
-		shaders.emplace_back("shaders/wireframeShader.vs", "shaders/wireframeShader.fs",
-			"shaders/wireframeShader.gs");
-		glm::mat4 mtnMatrix = glm::mat4(1.0f);
-		mtnMatrix = glm::scale(mtnMatrix, { 1.0,1.0,1.0 });
-		mtnMatrix = glm::translate(mtnMatrix, { 50,-50.0,50 });
-		stbi_set_flip_vertically_on_load(true);
-		factory.createStaticMeshEntity("assets/mtn2.obj", shaders.back().m_shaderID, physik, mtnMatrix);
-		
+		//Robot1
+		dynamicEnts.models.emplace_back();
+		dynamicEnts.transforms.emplace_back();
+		Transform& robot1Transform = dynamicEnts.transforms.back();
+		robot1Transform.position = glm::vec3(1.0f);
+		robot1Transform.rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
+		robot1Transform.scale = glm::vec3(1.0f);
+		robotSource.createInstance(dynamicEnts.models.back());
 
-		//GRID
-		shaders.emplace_back("shaders/grid2Shader.vs", "shaders/grid2Shader.fs");
-		glm::mat4 gridMatrix = glm::mat4(1.0f);
-		Entity grid = factory.createGridEntity(shaders.back().m_shaderID, physik, gridMatrix,256,256);
-		
+		//Capsule1
+		dynamicEnts.models.emplace_back();
+		dynamicEnts.transforms.emplace_back();
+		Transform& capsule1Transfrom = dynamicEnts.transforms.back();
+		capsule1Transfrom.position = glm::vec3(1.0f);
+		capsule1Transfrom.rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
+		capsule1Transfrom.scale = glm::vec3(1.0f);
+		capsuleSource.createInstance(dynamicEnts.models.back());
+
+		dynamicEnts.models.emplace_back();
+		dynamicEnts.transforms.emplace_back();
+		Transform& capsule2Transfrom = dynamicEnts.transforms.back();
+		capsule2Transfrom.position = glm::vec3(5.0f, -2.0f, 5.0f);
+		capsule2Transfrom.rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
+		capsule2Transfrom.scale = glm::vec3(1.0f);
+		capsuleSource.createInstance(dynamicEnts.models.back());
+
+		//Grid
+		staticEnts.models.emplace_back();
+		staticEnts.transforms.emplace_back();
+		Transform& gridTransfrom = staticEnts.transforms.back();
+		gridTransfrom.rotation = glm::quat(0.0f, 0.0f, 1.0f, 0.0f);
+
+		gridSource.createInstance(staticEnts.models.back());
+
+		return true;
 	}
 
-	void LVL1Script(PhysicsSystem & physicsSystem, JPH::Vec3Arg playerPos) {
+	//void LVL1Script(PhysicsSystem & physicsSystem, JPH::Vec3Arg playerPos) {
 
-		float moveSpeed = 3;
+	//	float moveSpeed = 3;
 
-		BodyInterface& bodyInterface = physicsSystem.GetBodyInterface();
+	//	BodyInterface& bodyInterface = physicsSystem.GetBodyInterface();
 
-		for (Entity& ent : entities) {
+	//	for (Entity& ent : entities) {
 
-			JPH::Vec3 entityPos = bodyInterface.GetPosition(ent.physicsID);
+	//		JPH::Vec3 entityPos = bodyInterface.GetPosition(ent.physicsID);
 
-			JPH::Quat entityRot = bodyInterface.GetRotation(ent.physicsID);
-			JPH::Quat UprightRot = JPH::Quat(0,0,0,1);
+	//		JPH::Quat entityRot = bodyInterface.GetRotation(ent.physicsID);
+	//		JPH::Quat UprightRot = JPH::Quat(0,0,0,1);
 
-			//JPH::TransformedShape entityShape = bodyInterface.GetTransformedShape(ent.physicsID);
-			JPH::AABox entityAABOX = bodyInterface.GetTransformedShape(ent.physicsID).GetWorldSpaceBounds();
-			JPH::Vec3 entityExtent =  entityAABOX.GetExtent();
+	//		//JPH::TransformedShape entityShape = bodyInterface.GetTransformedShape(ent.physicsID);
+	//		JPH::AABox entityAABOX = bodyInterface.GetTransformedShape(ent.physicsID).GetWorldSpaceBounds();
+	//		JPH::Vec3 entityExtent =  entityAABOX.GetExtent();
 
-			FUtil::GroundInfo groundInfo = FUtil::CheckGround(physicsSystem,entityPos,entityAABOX,entityExtent, ent.physicsID);
+	//		FUtil::GroundInfo groundInfo = FUtil::CheckGround(physicsSystem,entityPos,entityAABOX,entityExtent, ent.physicsID);
 
-			if (groundInfo.isGrounded ) {
+	//		if (groundInfo.isGrounded ) {
 
-				JPH::Vec3 direction(playerPos.GetX() - entityPos.GetX(), 0, playerPos.GetZ() - entityPos.GetZ());
+	//			JPH::Vec3 direction(playerPos.GetX() - entityPos.GetX(), 0, playerPos.GetZ() - entityPos.GetZ());
 
-				if (direction.LengthSq() > 0.0f) {
-					direction = direction.Normalized();
-				}
+	//			if (direction.LengthSq() > 0.0f) {
+	//				direction = direction.Normalized();
+	//			}
 
-				JPH::Vec3 desiredVelocity = direction * moveSpeed;
+	//			JPH::Vec3 desiredVelocity = direction * moveSpeed;
 
-				bodyInterface.SetLinearVelocity(ent.physicsID, desiredVelocity);
+	//			bodyInterface.SetLinearVelocity(ent.physicsID, desiredVelocity);
 
-				bodyInterface.SetRotation(ent.physicsID,entityRot, JPH::EActivation::Activate);
-			}
-		}
-	}
+	//			bodyInterface.SetRotation(ent.physicsID,entityRot, JPH::EActivation::Activate);
+	//		}
+	//	}
+	//}
 
 };

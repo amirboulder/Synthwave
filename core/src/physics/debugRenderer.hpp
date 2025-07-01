@@ -20,8 +20,7 @@ class MyDebugRenderer : public JPH::DebugRenderer
 	RVec3						mCameraPos;
 	bool						mCameraPosSet = false;
 
-	GLuint triangleShaderID;
-	//GLuint textShaderID;
+	
 
 	/// Implementation specific batch object
 	class BatchImpl : public RefTargetVirtual
@@ -39,8 +38,8 @@ class MyDebugRenderer : public JPH::DebugRenderer
 	};
 
 public:
-	MyDebugRenderer(GLuint triangleShaderID)
-		: triangleShaderID(triangleShaderID)
+	MyDebugRenderer()
+		
 	{
 		Initialize();
 
@@ -108,110 +107,7 @@ public:
 		ECastShadow inCastShadow = ECastShadow::Off,
 		EDrawMode inDrawMode = EDrawMode::Solid) override
 	{
-		// Select LOD
-		const LOD* lod = inGeometry->mLODs.data();
-		if (mCameraPosSet)
-			lod = &inGeometry->GetLOD(Vec3(mCameraPos), inWorldSpaceBounds, inLODScaleSq);
-		if (!lod)
-			return;
 
-		const BatchImpl* batch = static_cast<const BatchImpl*>(lod->mTriangleBatch.GetPtr());
-		if (!batch || batch->mTriangles.empty())
-			return;
-
-		// Set draw mode BEFORE drawing
-		switch (inDrawMode)
-		{
-		case EDrawMode::Wireframe:
-			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-			break;
-		case EDrawMode::Solid:
-		default:
-			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-			break;
-		}
-
-		GLuint VBO, VAO;
-		glCreateVertexArrays(1, &VAO);
-		glCreateBuffers(1, &VBO);
-
-		// Check if OpenGL objects were created successfully
-		if (VAO == 0 || VBO == 0) {
-			if (VAO != 0) glDeleteVertexArrays(1, &VAO);
-			if (VBO != 0) glDeleteBuffers(1, &VBO);
-			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); // Restore polygon mode
-			return;
-		}
-
-
-		size_t totalVertices = batch->mTriangles.size() * 3; // 3 vertices per triangle
-		size_t bufferSize = totalVertices * sizeof(Vertex);
-
-		glNamedBufferData(VBO, bufferSize, nullptr, GL_STATIC_DRAW);
-
-		// Copy vertex data from triangles to buffer
-		Vertex* mappedBuffer = static_cast<Vertex*>(glMapNamedBuffer(VBO, GL_WRITE_ONLY));
-		if (mappedBuffer) {
-			size_t vertexIndex = 0;
-			for (const auto& triangle : batch->mTriangles) {
-				mappedBuffer[vertexIndex++] = triangle.mV[0];
-				mappedBuffer[vertexIndex++] = triangle.mV[1];
-				mappedBuffer[vertexIndex++] = triangle.mV[2];
-			}
-			glUnmapNamedBuffer(VBO);
-		}
-		else {
-			// Fallback: use glNamedBufferSubData
-			size_t offset = 0;
-			for (const auto& triangle : batch->mTriangles) {
-				glNamedBufferSubData(VBO, offset, sizeof(Vertex) * 3, triangle.mV);
-				offset += sizeof(Vertex) * 3;
-			}
-		}
-
-		// Configure VAO with proper vertex attributes for VertexData
-		glVertexArrayVertexBuffer(VAO, 0, VBO, 0, sizeof(Vertex));
-
-		// Attribute 0: Position (Float3 - 3 floats)
-		glEnableVertexArrayAttrib(VAO, 0);
-		glVertexArrayAttribBinding(VAO, 0, 0);
-		glVertexArrayAttribFormat(VAO, 0, 3, GL_FLOAT, GL_FALSE, offsetof(Vertex, mPosition));
-
-		// Attribute 1: Normal (Float3 - 3 floats)
-		glEnableVertexArrayAttrib(VAO, 1);
-		glVertexArrayAttribBinding(VAO, 1, 0);
-		glVertexArrayAttribFormat(VAO, 1, 3, GL_FLOAT, GL_FALSE, offsetof(Vertex, mNormal));
-
-		// Attribute 2: UV (Float2 - 2 floats)
-		glEnableVertexArrayAttrib(VAO, 2);
-		glVertexArrayAttribBinding(VAO, 2, 0);
-		glVertexArrayAttribFormat(VAO, 2, 2, GL_FLOAT, GL_FALSE, offsetof(Vertex, mUV));
-
-		// Attribute 3: Color (Color - assuming 4 floats RGBA)
-		glEnableVertexArrayAttrib(VAO, 3);
-		glVertexArrayAttribBinding(VAO, 3, 0);
-		glVertexArrayAttribFormat(VAO, 3, 4, GL_FLOAT, GL_FALSE, offsetof(Vertex, mColor));
-
-
-		// Use shader and bind VAO
-		glUseProgram(triangleShaderID);
-		Shader::setMat4("model", ConvertToGLMMat4(inModelMatrix), triangleShaderID);
-
-		unsigned int location = glGetUniformLocation(triangleShaderID, "color");
-		glUniform3f(location, inModelColor.r, inModelColor.g, inModelColor.b);
-
-		glBindVertexArray(VAO);
-
-		// Draw triangles
-		glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(totalVertices));
-
-		// Cleanup
-		glBindVertexArray(0);
-		glDeleteBuffers(1, &VBO);
-		glDeleteVertexArrays(1, &VAO);
-
-		// Restore polygon mode to default
-		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 	}
 
 	glm::mat4 ConvertToGLMMat4(const RMat44Arg& inModelMatrix)

@@ -12,10 +12,10 @@
 #include <glm/gtx/matrix_decompose.hpp>
 
 typedef std::vector<Entity>  EntityVector;
-typedef std::vector<Model> modelVector;
 typedef	std::vector<TransformData> TransformVector;
 typedef std::vector<PhysicsData> PhysicsVector;
 
+/*
 class EntityFactory {
 
 public:
@@ -113,7 +113,7 @@ public:
 			EMotionType::Dynamic,
 			Layers::MOVING
 		);
-		*/
+		
 
 
 	}
@@ -402,3 +402,7 @@ public:
 };
 
 uint32 EntityFactory::entityIDCounter = 0;
+
+*/
+
+

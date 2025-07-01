@@ -27,21 +27,44 @@ void PrintGLMMat4(const glm::mat4& mat, const char * name) {
 	}
 }
 
-class Mesh {
+class MeshSource {
+
 public:
-	vector<VertexData> vertices;
-	vector <unsigned int> indices;
-	
-	glm::mat4 localTransform;
 
-	GLuint diffuseTextureID;
-	//GLuint SpecularTextureID;
+	std::vector<VertexData> vertices;
+	std::vector <unsigned int> indices;
 
-	GLuint VAO;
+	Transform  transform;
 
-	Mesh(aiMesh* importedMesh, glm::mat4 localtransform = glm::mat4(1.0f)) {
+	SDL_GPUBuffer* vertexBuffer = NULL;
+	SDL_GPUBuffer* indexBuffer = NULL;
+
+	bool processMesh(const char* filePath) {
+
+		Assimp::Importer importer;
+		const aiScene* scene = importer.ReadFile(filePath, aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_FlipUVs | aiProcess_CalcTangentSpace);
+
+		if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
+		{
+			cout << "ERROR::ASSIMP:: " << importer.GetErrorString() << '\n';
+			return false;
+		}
+		cout << "processsing model : " << filePath << '\n';
+
+		if (scene->mNumMeshes == 0) {
+			std::cerr << "No meshes found in file." << std::endl;
+			return false;
+		}
+
+		aiMesh* importedMesh = scene->mMeshes[0];
 
 		vertices.reserve(importedMesh->mNumVertices);
+
+		float r = 0.0f;
+		float g = 0.0f;
+		float b = 0.0f;
+
+		int count = 1;
 
 		for (int i = 0; i < importedMesh->mNumVertices; i++) {
 
@@ -59,121 +82,245 @@ public:
 			}
 
 			//Mesh can have multiple texture coordinates we're just using the first one for now.
-			importedMesh->mTextureCoords;
-			if (importedMesh->mTextureCoords[0]) 
+			//cout << "texture coords" << importedMesh->HasTextureCoords(0) << '\n';
+			if (importedMesh->HasTextureCoords(0) || importedMesh->mTextureCoords[0])
 			{
 				currentVertex.texCoords.x = importedMesh->mTextureCoords[0][i].x;
 				currentVertex.texCoords.y = importedMesh->mTextureCoords[0][i].y;
 			}
 
+			if (count > 3) {
+				count = 1;
+				r = 0;
+				g = 0;
+				b = 0;
+
+			}
+
+			if (count == 1) {
+				r = 1.0;
+				g = 0.0;
+				b = 0.0;
+			}
+
+			if (count == 2) {
+				r = 0.0;
+				g = 1.0;
+				b = 0.0;
+			}
+
+			if (count == 3) {
+				r = 0.0;
+				g = 0.0;
+				b = 1.0;
+			}
+
+			currentVertex.color.x = r;
+			currentVertex.color.y = g;
+			currentVertex.color.z = b;
+			currentVertex.color.w = 1.0f;
+
+			count++;
 		}
 
 		indices.reserve(importedMesh->mNumFaces * 3);
 
 		for (int i = 0; i < importedMesh->mNumFaces; i++) {
 
+			for (int j = 0; j < importedMesh->mFaces[i].mNumIndices; j++) {
+				indices.emplace_back(importedMesh->mFaces[i].mIndices[j]);
+			}
+
+		}
+
+		cout << "size of vertices : " << vertices.size() << "\n";
+		cout << "size of indices : " << indices.size() << "\n";
+
+		return true;
+	}
+
+	bool processMesh(aiMesh* importedMesh) {
+
+		vertices.reserve(importedMesh->mNumVertices);
+
+		float r = 0.0f;
+		float g = 0.0f;
+		float b = 0.0f;
+
+		int count = 1;
+
+		for (int i = 0; i < importedMesh->mNumVertices; i++) {
+
+			vertices.emplace_back();
+			VertexData& currentVertex = vertices.back();
+
+			currentVertex.vertex.x = importedMesh->mVertices[i].x;
+			currentVertex.vertex.y = importedMesh->mVertices[i].y;
+			currentVertex.vertex.z = importedMesh->mVertices[i].z;
+
+			if (importedMesh->HasNormals()) {
+				currentVertex.normal.x = importedMesh->mNormals[i].x;
+				currentVertex.normal.y = importedMesh->mNormals[i].y;
+				currentVertex.normal.z = importedMesh->mNormals[i].z;
+			}
+
+			//Mesh can have multiple texture coordinates we're just using the first one for now.
+			//cout << "texture coords" << importedMesh->HasTextureCoords(0) << '\n';
+			if (importedMesh->HasTextureCoords(0) || importedMesh->mTextureCoords[0])
+			{
+				currentVertex.texCoords.x = importedMesh->mTextureCoords[0][i].x;
+				currentVertex.texCoords.y = importedMesh->mTextureCoords[0][i].y;
+			}
+
+			if (count > 3) {
+				count = 1;
+				r = 0;
+				g = 0;
+				b = 0;
+
+			}
+
+			if (count == 1) {
+				r = 1.0;
+				g = 0.0;
+				b = 0.0;
+			}
+
+			if (count == 2) {
+				r = 0.0;
+				g = 1.0;
+				b = 0.0;
+			}
+
+			if (count == 3) {
+				r = 0.0;
+				g = 0.0;
+				b = 1.0;
+			}
+
+			currentVertex.color.x = r;
+			currentVertex.color.y = g;
+			currentVertex.color.z = b;
+			currentVertex.color.w = 1.0f;
+
+			count++;
+		}
+
+		indices.reserve(importedMesh->mNumFaces * 3);
+
+		for (int i = 0; i < importedMesh->mNumFaces; i++) {
 
 			for (int j = 0; j < importedMesh->mFaces[i].mNumIndices; j++) {
 				indices.emplace_back(importedMesh->mFaces[i].mIndices[j]);
 			}
 
-
 		}
 
-	}
-
-	
-	// for generated meshes
-	Mesh(int rows,int cols)
-		
-	{
-		GridGenerator::generateGrid(rows, cols, vertices, indices);
+		return true;
 
 	}
 
-	Mesh(const Mesh& other)
-	:	vertices(other.vertices),
-		indices(other.indices),
-		diffuseTextureID(other.diffuseTextureID),
-		//SpecularTextureID(SpecularTextureID),
-		//VBO(other.VAO),
-		
-		//EBO(other.EBO)
-		VAO(other.VAO)
+	bool createVertexBuffer(SDL_GPUDevice* device) {
 
-	{
-		printf("Mesh copy constructor called!\n");
-	}
+		//create vertex buffer
+		SDL_GPUBufferCreateInfo bufferCreateInfo = {};
+		bufferCreateInfo.usage = SDL_GPU_BUFFERUSAGE_VERTEX;
+		bufferCreateInfo.size = vertices.size() * sizeof(VertexData);
 
-	void processMesh() {
-		GLuint VBO, EBO;
-
-		// Create VAO, VBO, and EBO
-		glCreateVertexArrays(1, &VAO);
-		glCreateBuffers(1, &VBO);
-		glCreateBuffers(1, &EBO);
-
-		// Upload vertex data to VBO
-		glNamedBufferData(VBO, vertices.size() * sizeof(VertexData), vertices.data(), GL_STATIC_DRAW);
-		// Upload index data to EBO
-		glNamedBufferData(EBO, indices.size() * sizeof(unsigned int), indices.data(), GL_STATIC_DRAW);
-
-		// Bind VBO to VAO
-		glVertexArrayVertexBuffer(VAO, 0, VBO, 0, sizeof(VertexData));
-
-		// Bind EBO to VAO
-		glVertexArrayElementBuffer(VAO, EBO);
-
-		// Position attribute (index 0)
-		glEnableVertexArrayAttrib(VAO, 0);
-		glVertexArrayAttribBinding(VAO, 0, 0);
-		glVertexArrayAttribFormat(VAO, 0, 3, GL_FLOAT, GL_FALSE, offsetof(VertexData, vertex));
-
-		// Normal attribute (index 1)
-		glEnableVertexArrayAttrib(VAO, 1);
-		glVertexArrayAttribBinding(VAO, 1, 0);
-		glVertexArrayAttribFormat(VAO, 1, 3, GL_FLOAT, GL_FALSE, offsetof(VertexData, normal));
-
-		// Texture coordinates attribute (index 2)
-		glEnableVertexArrayAttrib(VAO, 2);
-		glVertexArrayAttribBinding(VAO, 2, 0);
-		glVertexArrayAttribFormat(VAO, 2, 2, GL_FLOAT, GL_FALSE, offsetof(VertexData, texCoords));
-	}
-	
-	void transfromMesh(glm::mat4 transfrom) {
-	
-		for (int i = 0; i < vertices.size(); i++) {
-			
-			glm::vec4 v4 = glm::vec4(vertices[i].vertex, 1.0f);
-
-			glm::vec4 transformedV4 = transfrom * v4;
-
-			vertices[i].vertex = glm::vec3(transformedV4);
-
+		vertexBuffer = SDL_CreateGPUBuffer(device, &bufferCreateInfo);
+		if (!vertexBuffer) {
+			std::cerr << "Failed to create vertex buffer: " << SDL_GetError() << std::endl;
+			return false;
 		}
 
+		//create index buffer
+		SDL_GPUBufferCreateInfo idxCreateInfo = {};
+		idxCreateInfo.usage = SDL_GPU_BUFFERUSAGE_INDEX;
+		idxCreateInfo.size = indices.size() * sizeof(unsigned int);
+
+		indexBuffer = SDL_CreateGPUBuffer(device, &idxCreateInfo);
+		if (!indexBuffer) {
+			std::cerr << "Failed to create index buffer: " << SDL_GetError() << std::endl;
+			return false;
+		}
+
+		// Upload vertex data
+		SDL_GPUTransferBufferCreateInfo transferBufferCreateInfo = {};
+		transferBufferCreateInfo.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
+		transferBufferCreateInfo.size = bufferCreateInfo.size;
+
+		// upload index data:
+		SDL_GPUTransferBufferCreateInfo idxTransferInfo = {};
+		idxTransferInfo.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
+		idxTransferInfo.size = idxCreateInfo.size;
+
+
+		SDL_GPUTransferBuffer* transferBuffer = SDL_CreateGPUTransferBuffer(device, &transferBufferCreateInfo);
+		if (!transferBuffer) {
+			std::cerr << "Failed to create transfer buffer: " << SDL_GetError() << std::endl;
+			return false;
+		}
+
+		SDL_GPUTransferBuffer* idxTransfer = SDL_CreateGPUTransferBuffer(device, &idxTransferInfo);
+		void* idxMap = SDL_MapGPUTransferBuffer(device, idxTransfer, false);
+		memcpy(idxMap, indices.data(), idxCreateInfo.size);
+		SDL_UnmapGPUTransferBuffer(device, idxTransfer);
+
+		// Copy into GPU buffer
+		auto cmdBufIndex = SDL_AcquireGPUCommandBuffer(device);
+		auto copyPassIndex = SDL_BeginGPUCopyPass(cmdBufIndex);
+		SDL_GPUTransferBufferLocation srcLoc{ idxTransfer, 0 };
+		SDL_GPUBufferRegion dstRegion{ indexBuffer, 0, idxCreateInfo.size };
+		SDL_UploadToGPUBuffer(copyPassIndex, &srcLoc, &dstRegion, false);
+		SDL_EndGPUCopyPass(copyPassIndex);
+		SDL_SubmitGPUCommandBuffer(cmdBufIndex);
+		SDL_ReleaseGPUTransferBuffer(device, idxTransfer);
+
+
+		// Map and copy data
+		void* mappedData = SDL_MapGPUTransferBuffer(device, transferBuffer, false);
+		if (!mappedData) {
+			std::cerr << "Failed to map transfer buffer: " << SDL_GetError() << std::endl;
+			SDL_ReleaseGPUTransferBuffer(device, transferBuffer);
+			return false;
+		}
+
+		memcpy(mappedData, vertices.data(), vertices.size() * sizeof(VertexData));
+		SDL_UnmapGPUTransferBuffer(device, transferBuffer);
+
+		// Copy from transfer buffer to vertex buffer
+		SDL_GPUCommandBuffer* uploadCommandBuffer = SDL_AcquireGPUCommandBuffer(device);
+		SDL_GPUCopyPass* copyPass = SDL_BeginGPUCopyPass(uploadCommandBuffer);
+
+		SDL_GPUTransferBufferLocation transferLocation = {};
+		transferLocation.transfer_buffer = transferBuffer;
+		transferLocation.offset = 0;
+
+		SDL_GPUBufferRegion bufferRegion = {};
+		bufferRegion.buffer = vertexBuffer;
+		bufferRegion.offset = 0;
+		bufferRegion.size = bufferCreateInfo.size;
+
+		SDL_UploadToGPUBuffer(copyPass, &transferLocation, &bufferRegion, false);
+		SDL_EndGPUCopyPass(copyPass);
+		SDL_SubmitGPUCommandBuffer(uploadCommandBuffer);
+
+		SDL_ReleaseGPUTransferBuffer(device, transferBuffer);
+		return true;
 	}
-	
-	void draw(GLuint & shaderID,glm::mat4 & modelMatrix) {
 
-		glUseProgram(shaderID);
-
-		glm::mat4 transfrom = modelMatrix * localTransform;
-
-		//PrintGLMMat4(modelMatrix, "model transfrom");
-		//PrintGLMMat4(localTransform, "mesh transfrom");
-		
-		Shader::setMat4("model", transfrom, shaderID);
-
-		glBindTextureUnit(0, diffuseTextureID);
-
-		glUniform1i(glGetUniformLocation(shaderID, "textureDiffuse"), 0);
-
-		glBindVertexArray(VAO);
-		glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
-		//glBindVertexArray(0)
-	}
 
 };
+
+struct MeshInstance {
+
+	Transform  transform;
+
+	SDL_GPUBuffer* vertexBuffer = NULL;
+	SDL_GPUBuffer* indexBuffer = NULL;
+
+	Uint32 indicesNum = 0;
+};
+
 
 

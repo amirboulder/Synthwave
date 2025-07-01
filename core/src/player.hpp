@@ -38,6 +38,7 @@ public:
 	bool jumpOnCooldown = false;
 	Uint32 jumpCooldownStart = 0;
 
+	/*
 	void update(PlayerInput input, Camera& camera) {
 
 		//OPTICK_EVENT();
@@ -97,6 +98,7 @@ public:
 		camera.position = characterPosGLM + glm::vec3(rotatedOffset.GetX(), rotatedOffset.GetY(), rotatedOffset.GetZ());
 
 	}
+	*/
 
 };
 

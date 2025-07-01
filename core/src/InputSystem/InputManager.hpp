@@ -40,21 +40,45 @@ public:
 
 	int prevMouseX = 1920/2, prevMouseY = 1080/2;
 
+
+	void processFreeCamInput(bool& running, FreeCam& camera) {
+
+		const bool* keystates = SDL_GetKeyboardState(NULL);
+
+		if (keystates[SDL_SCANCODE_END]) {running = false;}
+
 	
+		// Handle WASD movement
+		if (keystates[SDL_SCANCODE_W]) {
+			camera.position += camera.front  * camera.movementSpeed;
+		}
+		if (keystates[SDL_SCANCODE_S]) {
+			camera.position -= camera.front * camera.movementSpeed;
+		}
+		if (keystates[SDL_SCANCODE_D]) {
+			camera.position += camera.right * camera.movementSpeed;
+		}
+		if (keystates[SDL_SCANCODE_A]) {
+			camera.position -= camera.right * camera.movementSpeed;
+		}
 
+		// Handle mouse input for rotation
+		float deltaX, deltaY;
+		SDL_GetRelativeMouseState(&deltaX, &deltaY);
 
+		float smoothingFactor = 0.7f; // Adjust between 0-1 (lower = smoother)
+		static float smoothedXOffset = 0.0f, smoothedYOffset = 0.0f;
 
-	void ProccesInput(bool & running,Camera& camera, PlayerInput& input) {
+		// Apply smoothing
+		smoothedXOffset = smoothedXOffset * (1.0f - smoothingFactor) + deltaX * smoothingFactor;
+		smoothedYOffset = smoothedYOffset * (1.0f - smoothingFactor) + deltaY * smoothingFactor;
 
-
-		processKeyboardGameInput(running, camera, input);
-
-		//handlePlayerInput(running, input);
+		camera.rotateCamera(smoothedXOffset, smoothedYOffset);
 
 	}
 
 
-	void processKeyboardGameInput(bool& running, Camera& camera, PlayerInput& input) {
+	void processKeyboardGameInput(bool& running, FreeCam& camera, PlayerInput& input) {
 
 		const bool* keystates = SDL_GetKeyboardState(NULL);
 
@@ -70,21 +94,21 @@ public:
 		input.offsetY = 0.0f;
 
 		// Use camera orientation for movement direction
-		glm::vec3 camForward = camera.front;
-		glm::vec3 camRight = camera.right;
+		//glm::vec3 camForward = camera.target;
+		//glm::vec3 camRight = camera.right;
 
 		// Handle WASD movement
 		if (keystates[SDL_SCANCODE_W]) {
-			input.direction += camForward;
+			input.direction += camera.front;
 		}
 		if (keystates[SDL_SCANCODE_S]) {
-			input.direction -= camForward;
+			input.direction -= camera.front;
 		}
 		if (keystates[SDL_SCANCODE_D]) {
-			input.direction += camRight;
+			input.direction += camera.right;
 		}
 		if (keystates[SDL_SCANCODE_A]) {
-			input.direction -= camRight;
+			input.direction -= camera.right;
 		}
 
 		// Normalize direction to prevent faster diagonal movement
@@ -110,6 +134,9 @@ public:
 
 		input.offsetX = smoothedXOffset;
 		input.offsetY = -smoothedYOffset; // Negate Y for consistent pitch
+
+
+
 	}
 
 
@@ -154,7 +181,7 @@ public:
 
 	}
 
-	void procesKeyboardsMenuInput(bool& running, Camera& camera, PlayerInput& input) {
+	void procesKeyboardsMenuInput(bool& running, FreeCam& camera, PlayerInput& input) {
 
 		const bool* keystates = SDL_GetKeyboardState(NULL);
 

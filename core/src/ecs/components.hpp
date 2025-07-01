@@ -9,7 +9,6 @@
 #include <Jolt/Physics/PhysicsSystem.h>
 
 
-
 struct TransformData {
 	//glm::mat4 previousMatrix;
 	glm::mat4 currentMatrix;
@@ -28,22 +27,21 @@ struct TransformData2 {
 
 struct VertexData {
 	glm::vec3 vertex;
-	glm::uvec3 normal;
+	glm::vec3 normal;
 	glm::vec2 texCoords;
+	glm::vec4 color;
 };
 
-struct MeshInstanceData {
+//struct MaterialData {
+//	GLuint diffuseTextureID;
+//	GLuint SpecularTextureID;
+//};
 
-	GLuint shaderID;
-	GLuint VAO;
-	GLuint diffuseTextureID;
-	GLuint SpecularTextureID;
-	uint32_t indicesSize;
-};
+struct Transform {
+	glm::vec3 position = glm::vec3(1);
+	glm::quat rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
+	glm::vec3 scale = glm::vec3(1);
 
-struct MaterialData {
-	GLuint diffuseTextureID;
-	GLuint SpecularTextureID;
 };
 
 struct PhysicsData {
@@ -65,3 +63,7 @@ struct PlayerData {
 	bool jump = false;              
 };
 
+
+struct Material {
+
+};
