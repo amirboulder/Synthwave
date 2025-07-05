@@ -12,6 +12,8 @@
 #include "Shader.hpp"
 #include "pipeline.hpp"
 
+#include "optick.h"
+
 //#include "../physics/debugRenderer.hpp"
 
 using std::vector;
@@ -22,8 +24,6 @@ struct CameraUniforms {
 	glm::mat4 viewProjection;
 };
 
-
-#include "optick.h"
 
 struct Renderer {
 
@@ -40,6 +40,11 @@ struct Renderer {
 
 	SDL_GPUTexture* depthTexture = NULL;
 
+	SDL_GPUSampleCount sampleCountMSAA = SDL_GPU_SAMPLECOUNT_8;
+
+	SDL_GPUTexture* msaaColorTarget;
+	SDL_GPUTexture* resolveTarget;
+
 
 	int winWidth, winHeight;
 
@@ -49,7 +54,6 @@ struct Renderer {
 		: winWidth(winWidth),winHeight(winHeight)
 	{
 
-		
 
 	}
 
@@ -89,7 +93,6 @@ struct Renderer {
 		SDL_SetGPUSwapchainParameters(device, window, SDL_GPU_SWAPCHAINCOMPOSITION_SDR, SDL_GPU_PRESENTMODE_IMMEDIATE);
 
 		return true;
-
 	}
 
 
@@ -256,6 +259,12 @@ struct Renderer {
 		.enable_depth_write = true,
 		};
 
+		//MSAA
+		pipeInfo.multisample_state = {
+			.sample_count = sampleCountMSAA,  // Enable MSAA in pipeline
+			.sample_mask = 0  // Use all samples
+		};
+
 		pipeInfo.vertex_input_state = vertexInputState;
 
 		pipeInfo.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_FILL;
@@ -333,6 +342,7 @@ struct Renderer {
 			.height = static_cast<Uint32>(imageData1->h),
 			.layer_count_or_depth = 1, //maybe 2 ?
 			.num_levels = 1,
+
 		};
 		defaultTexture = SDL_CreateGPUTexture(device, &textureCreateInfo);
 
@@ -388,7 +398,7 @@ struct Renderer {
 		
 	}
 
-	bool createDepthTexture() {
+	bool createRenderTargets() {
 
 		SDL_GPUTextureCreateInfo depthTextureCreateInfo = {
 		 .type = SDL_GPU_TEXTURETYPE_2D,
@@ -398,7 +408,7 @@ struct Renderer {
 		 .height = static_cast<uint32_t>(winHeight),
 		 .layer_count_or_depth = 1,
 		 .num_levels = 1,
-		 // .sample_count = msaaSampleCount,
+		.sample_count = sampleCountMSAA,
 		};
 		this->depthTexture = SDL_CreateGPUTexture(device, &depthTextureCreateInfo);
 
@@ -406,6 +416,42 @@ struct Renderer {
 			SDL_Log("Failed to create depth texture: %s", SDL_GetError());
 			return false;
 		}
+
+		// Color render target with MSAA
+		SDL_GPUTextureCreateInfo colorTextureInfo = {
+			.type = SDL_GPU_TEXTURETYPE_2D,
+			.format = SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM, 
+			.usage = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET,
+			.width = static_cast<uint32_t>(winWidth),
+			.height = static_cast<uint32_t>(winHeight),
+			.layer_count_or_depth = 1,
+			.num_levels = 1,
+			.sample_count = sampleCountMSAA  // Key addition!
+		};
+
+		msaaColorTarget = SDL_CreateGPUTexture(device, &colorTextureInfo);
+		if (!msaaColorTarget) {
+			SDL_Log("Failed to create MSAA color target: %s", SDL_GetError());
+			return false;
+		}
+
+		SDL_GPUTextureCreateInfo resolveTextureInfo = {
+		.type = SDL_GPU_TEXTURETYPE_2D,
+		.format = SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM,
+		.usage = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET | SDL_GPU_TEXTUREUSAGE_SAMPLER,
+		.width = static_cast<uint32_t>(winWidth),
+		.height = static_cast<uint32_t>(winHeight),
+		.layer_count_or_depth = 1,
+		.num_levels = 1,
+		.sample_count = SDL_GPU_SAMPLECOUNT_1  // Always 1x for resolve target
+		};
+
+		resolveTarget = SDL_CreateGPUTexture(device, &resolveTextureInfo);
+		if (!resolveTarget) {
+			SDL_Log("Failed to create resolve target: %s", SDL_GetError());
+			return false;
+		}
+
 		return true;
 	}
 
@@ -421,7 +467,8 @@ struct Renderer {
 
 		// Acquire swapchain texture
 		SDL_GPUTexture* swapchainTexture;
-		if (!SDL_WaitAndAcquireGPUSwapchainTexture(commandBuffer, window, &swapchainTexture, nullptr, nullptr)) {
+		Uint32 swapchainWidth, swapchainHeight;
+		if (!SDL_WaitAndAcquireGPUSwapchainTexture(commandBuffer, window, &swapchainTexture, &swapchainWidth, &swapchainHeight)) {
 			std::cerr << "Failed to acquire swapchain texture: " << SDL_GetError() << std::endl;
 			return;
 		}
@@ -431,18 +478,25 @@ struct Renderer {
 		}
 
 
-		// Color target info
-		SDL_GPUColorTargetInfo colorTargetInfo = {};
-		colorTargetInfo.texture = swapchainTexture;
-		colorTargetInfo.clear_color = { 0.0f, 0.0f, 1.0f, 1.0f }; 
-		colorTargetInfo.load_op = SDL_GPU_LOADOP_CLEAR;
-		colorTargetInfo.store_op = SDL_GPU_STOREOP_STORE;
 
+		// Color target info
+		SDL_GPUColorTargetInfo colorTargetInfo = {
+		.texture = msaaColorTarget,
+		.clear_color = { 0.0f, 0.0f, 1.0f, 1.0f },
+		.load_op = SDL_GPU_LOADOP_CLEAR,
+		.store_op = SDL_GPU_STOREOP_RESOLVE,
+		.resolve_texture = resolveTarget
+
+		
+		};
+		
 		SDL_GPUDepthStencilTargetInfo depthTargetInfo = { 0 };
 		depthTargetInfo.texture = depthTexture;
 		depthTargetInfo.clear_depth = 1.0f;
 		depthTargetInfo.load_op = SDL_GPU_LOADOP_CLEAR;
-		depthTargetInfo.store_op = SDL_GPU_STOREOP_STORE;
+		depthTargetInfo.store_op = SDL_GPU_STOREOP_DONT_CARE;
+
+
 
 
 		// Begin render pass
@@ -514,7 +568,7 @@ struct Renderer {
 
 					SDL_DrawGPUIndexedPrimitives(renderPass, mesh.indicesNum, 1, 0, 0, 0);
 				}
-			
+				
 
 			}
 			
@@ -523,6 +577,22 @@ struct Renderer {
 
 		// End render pass
 		SDL_EndGPURenderPass(renderPass);
+
+		SDL_GPUBlitInfo blitInfo = {};
+		blitInfo.source.texture = resolveTarget;
+		blitInfo.source.x = 0;
+		blitInfo.source.y = 0;
+		blitInfo.source.w = winWidth;
+		blitInfo.source.h = winHeight;
+		blitInfo.destination.texture = swapchainTexture;
+		blitInfo.destination.x = 0;
+		blitInfo.destination.y = 0;
+		blitInfo.destination.w = swapchainWidth;
+		blitInfo.destination.h = swapchainHeight;
+		blitInfo.load_op = SDL_GPU_LOADOP_DONT_CARE;
+		blitInfo.filter = SDL_GPU_FILTER_LINEAR;
+
+		SDL_BlitGPUTexture(commandBuffer, &blitInfo);
 
 		// Submit command buffer
 		SDL_SubmitGPUCommandBuffer(commandBuffer);

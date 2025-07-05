@@ -11,7 +11,7 @@ int main(int argc, char* argv[])
 	//renderer init
 	running = renderer.createWindow();
 	running = renderer.createAndClaimGPU();
-	running = renderer.createDepthTexture();
+	running = renderer.createRenderTargets();
 
 	running = renderer.createSampler();
 
