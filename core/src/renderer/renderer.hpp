@@ -18,16 +18,19 @@
 
 using std::vector;
 
-struct CameraUniforms {
+struct FrameDataUniforms {
 	glm::mat4 view;
 	glm::mat4 projection;
 	glm::mat4 viewProjection;
 };
 
 
+
 struct Renderer {
 
 	vector<Pipeline> pipelines;
+
+	//Pipeline & mtnPipeline;
 
 
 	SDL_Window* window = NULL;
@@ -90,7 +93,7 @@ struct Renderer {
 			return false;
 		}
 
-		SDL_SetGPUSwapchainParameters(device, window, SDL_GPU_SWAPCHAINCOMPOSITION_SDR, SDL_GPU_PRESENTMODE_IMMEDIATE);
+	//	SDL_SetGPUSwapchainParameters(device, window, SDL_GPU_SWAPCHAINCOMPOSITION_SDR, SDL_GPU_PRESENTMODE_IMMEDIATE);
 
 		return true;
 	}
@@ -106,6 +109,7 @@ struct Renderer {
 		//textRenderer.renderText(text, postion.x, postion.y, scale, color);
 	}
 
+	/*
 	bool createVertexBuffer(MeshSource & mesh) {
 
 		//create vertex buffer
@@ -194,9 +198,12 @@ struct Renderer {
 		SDL_ReleaseGPUTransferBuffer(device, transferBuffer);
 		return true;
 	}
+	*/
 
 	
-	bool createPipeline(SDL_GPUShader* vertexShader, SDL_GPUShader* fragmentShader, SDL_GPUGraphicsPipeline* & pipeline) {
+	bool createPipeline(SDL_GPUShader* vertexShader, SDL_GPUShader* fragmentShader,
+		SDL_GPUGraphicsPipeline* & pipeline,bool line = false)
+	{
 
 		// Vertex input state
 		SDL_GPUVertexAttribute vertexAttributes[4] = {};
@@ -278,26 +285,17 @@ struct Renderer {
 			return false;
 		}
 
-		pipeInfo.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_LINE;
-		SDL_GPUGraphicsPipeline* pipelineLine = SDL_CreateGPUGraphicsPipeline(device, &pipeInfo);
-		if (!pipelineLine) {
-			SDL_Log("Failed to create line pipeline: %s", SDL_GetError());
-			return false;
+		if (line) {
+			pipeInfo.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_LINE;
+			pipeline = SDL_CreateGPUGraphicsPipeline(device, &pipeInfo);
+			if (!pipeline) {
+				SDL_Log("Failed to create line pipeline: %s", SDL_GetError());
+				return false;
+			}
+
 		}
 
-		SDL_Log("Built pipelines");
-
-		//SDL_GPUTextureCreateInfo depthTextureCreateInfo = {
-		// .type = SDL_GPU_TEXTURETYPE_2D,
-		// .format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT,
-		// .usage = SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET,
-		// .width = static_cast<uint32_t>(winWidth),
-		// .height = static_cast<uint32_t>(winHeight),
-		// .layer_count_or_depth = 1,
-		// .num_levels = 1,
-		// // .sample_count = msaaSampleCount,
-		//};
-		//depthTexture = SDL_CreateGPUTexture(device, &depthTextureCreateInfo);
+		SDL_Log("Built pipeline");
 
 		return true;
 	}
@@ -477,8 +475,6 @@ struct Renderer {
 			return; // Window is probably minimized
 		}
 
-
-
 		// Color target info
 		SDL_GPUColorTargetInfo colorTargetInfo = {
 		.texture = msaaColorTarget,
@@ -497,8 +493,6 @@ struct Renderer {
 		depthTargetInfo.store_op = SDL_GPU_STOREOP_DONT_CARE;
 
 
-
-
 		// Begin render pass
 		SDL_GPURenderPass* renderPass = SDL_BeginGPURenderPass(
 			commandBuffer,
@@ -507,7 +501,7 @@ struct Renderer {
 		);
 
 
-		CameraUniforms uniforms;
+		FrameDataUniforms uniforms;
 		uniforms.view = view;
 		uniforms.projection = proj;
 		uniforms.viewProjection = proj * view;
@@ -520,57 +514,9 @@ struct Renderer {
 
 			Pipeline& pipeline = pipelines[i];
 
-			SDL_BindGPUGraphicsPipeline(renderPass, pipeline.pipeline);
-
 			SDL_BindGPUFragmentSamplers(renderPass, 0, &sampler, 1);
 
-		
-			for (int i = 0; i < pipeline.models.size(); i++) {
-
-
-				ModelInstance& model = pipeline.models[i];
-				Transform& transform = pipeline.transforms[i];
-
-				glm::mat4 modelTranslation = glm::translate(glm::mat4(1.0f), transform.position);
-				glm::mat4 modelRototaion = glm::toMat4(transform.rotation);
-				glm::mat4 modelScale = glm::scale(glm::mat4(1.0f), transform.scale);
-				glm::mat4 modelMat = modelTranslation * modelRototaion * modelScale;
-
-
-				for (int j = 0; j < model.meshes.size(); j++) {
-
-					MeshInstance & mesh = model.meshes[j];
-
-					SDL_GPUBufferBinding vertexBufferBinding = {};
-					vertexBufferBinding.buffer = mesh.vertexBuffer;
-					vertexBufferBinding.offset = 0;
-
-					SDL_GPUBufferBinding indexBufferBinding = {};
-					indexBufferBinding.buffer = mesh.indexBuffer;
-					indexBufferBinding.offset = 0;
-
-					SDL_BindGPUVertexBuffers(renderPass, 0, &vertexBufferBinding, 1);
-					SDL_BindGPUIndexBuffer(renderPass, &indexBufferBinding, SDL_GPU_INDEXELEMENTSIZE_32BIT);
-
-					
-					glm::mat4 meshTrans = glm::translate(glm::mat4(1.0f), mesh.transform.position);
-					glm::mat4 meshRot = glm::toMat4(mesh.transform.rotation);
-					glm::mat4 meshScale = glm::scale(glm::mat4(1.0f), mesh.transform.scale);
-					glm::mat4 meshMat = meshTrans * meshRot * meshScale;
-					
-					meshMat = modelMat * meshMat;
-
-					glm::mat4 mvp = uniforms.viewProjection * meshMat;
-
-					mvp = glm::transpose(mvp);
-
-					SDL_PushGPUVertexUniformData(commandBuffer, 1, &mvp, sizeof(mvp));
-
-					SDL_DrawGPUIndexedPrimitives(renderPass, mesh.indicesNum, 1, 0, 0, 0);
-				}
-				
-
-			}
+			pipeline.draw(renderPass,commandBuffer, uniforms.viewProjection);
 			
 
 		}

@@ -79,6 +79,7 @@ public:
 				currentVertex.normal.x = importedMesh->mNormals[i].x;
 				currentVertex.normal.y = importedMesh->mNormals[i].y;
 				currentVertex.normal.z = importedMesh->mNormals[i].z;
+
 			}
 
 			//Mesh can have multiple texture coordinates we're just using the first one for now.
@@ -220,6 +221,62 @@ public:
 
 	}
 
+	bool processMeshVertsOnly(aiMesh* importedMesh) {
+
+		vertices.reserve(importedMesh->mNumVertices);
+
+
+		//Using Color for barycentrcic coords
+
+		for (unsigned int i = 0; i < importedMesh->mNumFaces; ++i) {
+			const aiFace& face = importedMesh->mFaces[i];
+
+
+			for (int j = 0; j < 3; ++j) {
+				unsigned int index = face.mIndices[j];
+
+				vertices.emplace_back();
+				VertexData& v = vertices.back();
+
+				v.vertex.x = importedMesh->mVertices[index].x;
+				v.vertex.y = importedMesh->mVertices[index].y;
+				v.vertex.z = importedMesh->mVertices[index].z;
+
+				if (importedMesh->HasNormals())
+				{
+					v.normal.x = importedMesh->mNormals[index].x;
+					v.normal.y = importedMesh->mNormals[index].y;
+					v.normal.z = importedMesh->mNormals[index].z;
+				}
+					
+
+				if (importedMesh->HasTextureCoords(0))
+				{
+					v.texCoords.x = importedMesh->mTextureCoords[0][index].x;
+					v.texCoords.y = importedMesh->mTextureCoords[0][index].y;
+				}
+					
+
+				// Using color to Assign barycentric for wireframe
+				switch (j) {
+				case 0:
+					v.color = glm::vec4(1, 0, 0, 0);
+					break;
+				case 1:
+					v.color = glm::vec4(0, 1, 0, 0);
+					break;
+				case 2:
+					v.color = glm::vec4(0, 0, 1, 0);
+					break;
+				}
+
+			}
+		}
+
+		return true;
+	}
+
+
 	bool createVertexBuffer(SDL_GPUDevice* device) {
 
 		//create vertex buffer
@@ -309,6 +366,65 @@ public:
 		return true;
 	}
 
+	// NO indices!!
+	bool createVBuffer(SDL_GPUDevice* device) {
+
+		//create vertex buffer
+		SDL_GPUBufferCreateInfo bufferCreateInfo = {};
+		bufferCreateInfo.usage = SDL_GPU_BUFFERUSAGE_VERTEX;
+		bufferCreateInfo.size = vertices.size() * sizeof(VertexData);
+
+		vertexBuffer = SDL_CreateGPUBuffer(device, &bufferCreateInfo);
+		if (!vertexBuffer) {
+			std::cerr << "Failed to create vertex buffer: " << SDL_GetError() << std::endl;
+			return false;
+		}
+
+		// Upload vertex data
+		SDL_GPUTransferBufferCreateInfo transferBufferCreateInfo = {};
+		transferBufferCreateInfo.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
+		transferBufferCreateInfo.size = bufferCreateInfo.size;
+
+		
+		SDL_GPUTransferBuffer* transferBuffer = SDL_CreateGPUTransferBuffer(device, &transferBufferCreateInfo);
+		if (!transferBuffer) {
+			std::cerr << "Failed to create transfer buffer: " << SDL_GetError() << std::endl;
+			return false;
+		}
+
+
+		// Map and copy data
+		void* mappedData = SDL_MapGPUTransferBuffer(device, transferBuffer, false);
+		if (!mappedData) {
+			std::cerr << "Failed to map transfer buffer: " << SDL_GetError() << std::endl;
+			SDL_ReleaseGPUTransferBuffer(device, transferBuffer);
+			return false;
+		}
+
+		memcpy(mappedData, vertices.data(), vertices.size() * sizeof(VertexData));
+		SDL_UnmapGPUTransferBuffer(device, transferBuffer);
+
+		// Copy from transfer buffer to vertex buffer
+		SDL_GPUCommandBuffer* uploadCommandBuffer = SDL_AcquireGPUCommandBuffer(device);
+		SDL_GPUCopyPass* copyPass = SDL_BeginGPUCopyPass(uploadCommandBuffer);
+
+		SDL_GPUTransferBufferLocation transferLocation = {};
+		transferLocation.transfer_buffer = transferBuffer;
+		transferLocation.offset = 0;
+
+		SDL_GPUBufferRegion bufferRegion = {};
+		bufferRegion.buffer = vertexBuffer;
+		bufferRegion.offset = 0;
+		bufferRegion.size = bufferCreateInfo.size;
+
+		SDL_UploadToGPUBuffer(copyPass, &transferLocation, &bufferRegion, false);
+		SDL_EndGPUCopyPass(copyPass);
+		SDL_SubmitGPUCommandBuffer(uploadCommandBuffer);
+
+		SDL_ReleaseGPUTransferBuffer(device, transferBuffer);
+		return true;
+	}
+
 
 };
 
@@ -319,7 +435,7 @@ struct MeshInstance {
 	SDL_GPUBuffer* vertexBuffer = NULL;
 	SDL_GPUBuffer* indexBuffer = NULL;
 
-	Uint32 indicesNum = 0;
+	Uint32 size = 0;
 };
 
 

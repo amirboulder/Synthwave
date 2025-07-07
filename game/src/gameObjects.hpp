@@ -11,6 +11,7 @@ public:
 	
 	Entities dynamicEnts;
 	Entities staticEnts;
+	Entities mtnEnts;
 	
 	Player player;
 	
@@ -19,24 +20,32 @@ public:
 		//=========== creating shaders
 		// 
 		//reserve multiple to avoid reallocation
-		renderer.pipelines.reserve(2);
+		renderer.pipelines.reserve(3);
 		//create BP pipeline 
 		renderer.pipelines.emplace_back(dynamicEnts.models, dynamicEnts.transforms);
 		Pipeline& pipelineBP = renderer.pipelines[0];
 
 		//shader::generateSpirvShaders("shaders/slang/shaders.slang", "shaders/compiled/VertexShader.spv", "shaders/compiled/FragmentShader.spv");
-		pipelineBP.loadVertexShader(renderer.device, "shaders/compiled/VertexShader.spv", 0, 2, 0, 0);
-		pipelineBP.loadFragmentShader(renderer.device, "shaders/compiled/FragmentShader.spv", 1, 0, 0, 0);
+		PL::loadVertexShader(renderer.device, pipelineBP.vertexShader,"shaders/compiled/VertexShader.spv", 0, 2, 0, 0);
+		PL::loadFragmentShader(renderer.device, pipelineBP.fragmentShader,"shaders/compiled/FragmentShader.spv", 1, 0, 0, 0);
 		renderer.createPipeline(pipelineBP.vertexShader, pipelineBP.fragmentShader, pipelineBP.pipeline);
 
 		renderer.pipelines.emplace_back(staticEnts.models, staticEnts.transforms);
 		Pipeline& pipelineGrid = renderer.pipelines[1];
 
 		//shader::generateSpirvShaders("shaders/slang/gridshader.slang", "shaders/compiled/grid.vert.spv", "shaders/compiled/grid.frag.spv");
-		pipelineGrid.loadVertexShader(renderer.device, "shaders/compiled/grid.vert.spv", 0, 2, 0, 0);
-		pipelineGrid.loadFragmentShader(renderer.device, "shaders/compiled/grid.frag.spv", 0, 0, 0, 0);
+		PL::loadVertexShader(renderer.device, pipelineGrid.vertexShader,"shaders/compiled/grid.vert.spv", 0, 2, 0, 0);
+		PL::loadFragmentShader(renderer.device, pipelineGrid.fragmentShader,"shaders/compiled/grid.frag.spv", 0, 0, 0, 0);
 		renderer.createPipeline(pipelineGrid.vertexShader, pipelineGrid.fragmentShader, pipelineGrid.pipeline);
 
+		renderer.pipelines.emplace_back(mtnEnts.models, mtnEnts.transforms);
+		Pipeline& pipelineMtn = renderer.pipelines[2];
+
+		shader::generateSpirvShaders("shaders/slang/wireframe.slang", "shaders/compiled/wireframe.vert.spv", "shaders/compiled/wireframe.frag.spv");
+		PL::loadVertexShader(renderer.device, pipelineMtn.vertexShader,"shaders/compiled/wireframe.vert.spv", 0, 2, 0, 0);
+		PL::loadFragmentShader(renderer.device, pipelineMtn.fragmentShader,"shaders/compiled/wireframe.frag.spv", 0, 0, 0, 0);
+		pipelineMtn.createPipeline(renderer.window,renderer.device,renderer.sampleCountMSAA);
+		pipelineMtn.drawType = 1;
 
 
 		constructLVL1(fisiks, renderer);
@@ -53,7 +62,7 @@ public:
 		//capsule
 		ModelSource capsuleSource("assets/capsule4.glb", renderer.device);
 		//Mountain
-		ModelSource mtn("assets/mtn2.obj", renderer.device);
+		ModelSource mtnSource("assets/mtn2.obj", renderer.device,true);
 		//Grid
 		ModelSource gridSource(256, 256, renderer.device);
 
@@ -92,8 +101,17 @@ public:
 		staticEnts.transforms.emplace_back();
 		Transform& gridTransfrom = staticEnts.transforms.back();
 		gridTransfrom.rotation = glm::quat(0.0f, 0.0f, 1.0f, 0.0f);
-
 		gridSource.createInstance(staticEnts.models.back());
+
+
+		//mtn
+		mtnEnts.models.emplace_back();
+		mtnEnts.transforms.emplace_back();
+		Transform& mtnTransfrom = mtnEnts.transforms.back();
+		mtnTransfrom.position = glm::vec3(0.0f, 50.0f, 0.0f);
+		mtnSource.createInstance(mtnEnts.models.back());
+		mtnEnts.models.back().meshes[0].size = mtnSource.meshes[0].vertices.size();
+
 
 		return true;
 	}

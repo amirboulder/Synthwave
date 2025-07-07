@@ -61,6 +61,7 @@ public:
 
 	}
 
+	// for GRID
 	ModelSource(int rows, int cols,SDL_GPUDevice* device) {
 
 		meshes.emplace_back();
@@ -70,6 +71,45 @@ public:
 		GridGenerator::generateGrid(256, 256, mesh.vertices, mesh.indices);
 
 		mesh.createVertexBuffer(device);
+	}
+
+	//for Wireframe Mountains
+	ModelSource(const char* filePath, SDL_GPUDevice* device, bool mtn) {
+
+		Assimp::Importer importer;
+		const aiScene* scene = importer.ReadFile(filePath, aiProcess_Triangulate | aiProcess_GenSmoothNormals );
+
+		if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
+		{
+			cout << "ERROR::ASSIMP:: " << importer.GetErrorString() << '\n';
+			return;
+		}
+
+		cout << "processsing model : " << filePath << '\n';
+		//cout << "Number of meshes : " << scene->mNumMeshes << '\n';
+
+		aiMeshTransforms.resize(scene->mNumMeshes);
+		// Extract all mesh transforms first
+		ExtractMeshTransforms(scene->mRootNode, aiMatrix4x4(), scene);
+
+		meshes.reserve(scene->mNumMeshes);
+
+		for (int i = 0; i < scene->mNumMeshes; i++) {
+
+			aiMesh* importedMesh = scene->mMeshes[i];
+			meshes.emplace_back();
+			meshes.back().processMeshVertsOnly(importedMesh);
+
+			// set mesh transfrom
+			Transform temp;
+			decomposeModelMatrix(ConvertMatrix(aiMeshTransforms[i]), temp);
+
+			meshes.back().transform = temp;
+
+			meshes.back().createVBuffer(device);
+
+		}
+
 	}
 
 	// Copy constructor
@@ -113,10 +153,6 @@ public:
 		return glm::decompose(matrix, tranfrom.scale, tranfrom.rotation, tranfrom.position, skew, perspective);
 	}
 
-	bool getTransfromFromMat4(const glm::mat4& matrix) {
-
-	}
-
 	bool createInstance(ModelInstance & instance) {
 
 		instance.meshes.resize(meshes.size());
@@ -128,7 +164,7 @@ public:
 			instance.meshes[i].vertexBuffer = meshes[i].vertexBuffer;
 			instance.meshes[i].indexBuffer = meshes[i].indexBuffer;
 
-			instance.meshes[i].indicesNum = meshes[i].indices.size();
+			instance.meshes[i].size = meshes[i].indices.size();
 
 		}
 
