@@ -5,7 +5,7 @@ layout(set = 1, binding = 0) cbuffer FrameData {
 };
 
 layout(set = 1, binding = 1) cbuffer PerModel {
-    //float4x4 model;
+    float4x4 model;
     float4x4 mvp;
 };
 

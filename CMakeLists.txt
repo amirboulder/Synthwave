@@ -23,11 +23,7 @@ endif()
 # Add source to this project's executable.
 add_executable (Synthwave "Synthwave.cpp" "Synthwave.h" )
 
-#=============================================
-# Create GLAD static library
-#=============================================
-add_library(glad STATIC thirdParty/glad/src/glad.c )
-target_include_directories(glad PUBLIC ${CMAKE_SOURCE_DIR}/thirdParty/glad/include)
+
 
 #=============================================
 #Slang
@@ -206,7 +202,6 @@ FetchContent_MakeAvailable(optick)
 #=============================================
 
 target_link_libraries(Synthwave PUBLIC
-glad
 SDL3::SDL3
 slang
 SDL3_ttf::SDL3_ttf
