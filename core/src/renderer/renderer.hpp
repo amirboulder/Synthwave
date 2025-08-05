@@ -1,3 +1,5 @@
+#pragma once
+
 #include <vector>
 #include "../Entity.hpp"
 #include "Grid.hpp"
@@ -32,10 +34,13 @@ struct Renderer {
 
 	//Pipeline & mtnPipeline;
 
-
 	SDL_Window* window = NULL;
 	SDL_Renderer* renderer = NULL;
 	SDL_GPUDevice* device = NULL;
+
+	SDL_GPUCommandBuffer* commandBuffer;
+	SDL_GPUTexture* swapchainTexture;
+	Uint32 swapchainWidth, swapchainHeight;
 
 
 	SDL_GPUTexture* defaultTexture = NULL;
@@ -66,7 +71,7 @@ struct Renderer {
 			return false;
 		}
 
-		window = SDL_CreateWindow("Synthwave", winWidth, winHeight, SDL_WINDOW_VULKAN);
+		window = SDL_CreateWindow("Synthwave", winWidth, winHeight, NULL);
 		if (!window) {
 			SDL_Log("Failed to create window!");
 			return false;
@@ -80,7 +85,7 @@ struct Renderer {
 
 	bool createAndClaimGPU() {
 
-		device = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV, true, NULL);
+		device = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV, false, NULL);
 		if (!device)
 		{
 			SDL_Log("GPUCreateDevice failed: %s", SDL_GetError());
@@ -93,7 +98,9 @@ struct Renderer {
 			return false;
 		}
 
-	//	SDL_SetGPUSwapchainParameters(device, window, SDL_GPU_SWAPCHAINCOMPOSITION_SDR, SDL_GPU_PRESENTMODE_IMMEDIATE);
+		
+
+		SDL_SetGPUSwapchainParameters(device, window, SDL_GPU_SWAPCHAINCOMPOSITION_SDR, SDL_GPU_PRESENTMODE_VSYNC);
 
 		return true;
 	}
@@ -424,7 +431,7 @@ struct Renderer {
 			.height = static_cast<uint32_t>(winHeight),
 			.layer_count_or_depth = 1,
 			.num_levels = 1,
-			.sample_count = sampleCountMSAA  // Key addition!
+			.sample_count = sampleCountMSAA  
 		};
 
 		msaaColorTarget = SDL_CreateGPUTexture(device, &colorTextureInfo);
@@ -457,15 +464,13 @@ struct Renderer {
 	void draw(glm::mat4 view, glm::mat4 proj) {
 		
 		// Begin command buffer
-		SDL_GPUCommandBuffer* commandBuffer = SDL_AcquireGPUCommandBuffer(device);
+		commandBuffer = SDL_AcquireGPUCommandBuffer(device);
 		if (!commandBuffer) {
 			std::cerr << "Failed to acquire command buffer: " << SDL_GetError() << std::endl;
 			return;
 		}
 
-		// Acquire swapchain texture
-		SDL_GPUTexture* swapchainTexture;
-		Uint32 swapchainWidth, swapchainHeight;
+		
 		if (!SDL_WaitAndAcquireGPUSwapchainTexture(commandBuffer, window, &swapchainTexture, &swapchainWidth, &swapchainHeight)) {
 			std::cerr << "Failed to acquire swapchain texture: " << SDL_GetError() << std::endl;
 			return;
@@ -524,6 +529,14 @@ struct Renderer {
 		// End render pass
 		SDL_EndGPURenderPass(renderPass);
 
+
+		
+
+
+	}
+
+	void submitCommandBuffer() {
+
 		SDL_GPUBlitInfo blitInfo = {};
 		blitInfo.source.texture = resolveTarget;
 		blitInfo.source.x = 0;
@@ -535,13 +548,15 @@ struct Renderer {
 		blitInfo.destination.y = 0;
 		blitInfo.destination.w = swapchainWidth;
 		blitInfo.destination.h = swapchainHeight;
-		blitInfo.load_op = SDL_GPU_LOADOP_DONT_CARE;
+		blitInfo.load_op = SDL_GPU_LOADOP_CLEAR;
 		blitInfo.filter = SDL_GPU_FILTER_LINEAR;
 
 		SDL_BlitGPUTexture(commandBuffer, &blitInfo);
+		
 
 		// Submit command buffer
 		SDL_SubmitGPUCommandBuffer(commandBuffer);
+
 	}
 
 	void drawModel(SDL_GPURenderPass* renderPass,

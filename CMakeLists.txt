@@ -214,6 +214,6 @@ OptickCore
 
 )
 
-file(COPY core/src/renderer/shaders DESTINATION ${CMAKE_BINARY_DIR})
+file(COPY core/src/renderer/shaders/slang DESTINATION ${CMAKE_BINARY_DIR}/shader/slang)
 file(COPY assets DESTINATION ${CMAKE_BINARY_DIR})
 file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/data)

@@ -353,26 +353,3 @@ public:
 
 
 };
-
-
-class PipelineMtn {
-
-public:
-
-	SDL_GPUGraphicsPipeline* pipeline = NULL;
-
-	SDL_GPUShader* vertexShader = NULL;
-	SDL_GPUShader* fragmentShader = NULL;
-
-	vector <ModelInstance>& models;
-	vector<Transform>& transforms;
-
-	PipelineMtn(vector <ModelInstance>& models, vector<Transform>& transforms)
-		: models(models),
-		transforms(transforms)
-	{
-
-	}
-};
-
-

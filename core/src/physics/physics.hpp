@@ -382,6 +382,9 @@ public:
 		// Instead insert all new objects in batches instead of 1 at a time to keep the broad phase efficient.
 		physics_system.OptimizeBroadPhase();
 
+		//Gravity is positve because VULKAN!
+		physics_system.SetGravity(JPH::Vec3(0, 9.81f, 0));
+
 	}
 
 	void init() {
@@ -413,59 +416,8 @@ public:
 
 	}
 
-	void updateTransforms(std::vector<TransformData> & transforms, std::vector<PhysicsData> &  physicsCompoments) {
 
-		//OPTICK_EVENT();
-		// TODO find a better way to do this
-		if (transforms.size() != physicsCompoments.size()) {
-
-			cout << "size of transfroms : " << transforms.size() << '\n';
-			cout << "size of physicsCompoments : " << physicsCompoments.size() << '\n';
-			std::cerr << "You fucked UP!!" << '\n';
-			return;
-		}
-
-		for (int i = 0; i < transforms.size(); i++) {
-
-			JPH::Vec3 pos;
-			JPH::Quat rotation;
-
-			bodyInterface.GetPositionAndRotation(physicsCompoments.at(i).bodyID, pos, rotation);
-
-			JPH::Mat44 center = bodyInterface.GetWorldTransform(physicsCompoments.at(i).bodyID);
-
-			// Convert JPH::Quat to glm::quat
-			glm::quat rot = glm::quat(rotation.GetW(), rotation.GetX(), rotation.GetY(), rotation.GetZ());
-
-			// Preserve scaling from the original transform matrix
-			glm::mat4 originalMatrix = transforms[i].currentMatrix;
-
-			// Extract scale from the original matrix
-			glm::vec3 scale;
-			scale.x = glm::length(glm::vec3(originalMatrix[0]));
-			scale.y = glm::length(glm::vec3(originalMatrix[1]));
-			scale.z = glm::length(glm::vec3(originalMatrix[2]));
-
-			// Create new matrix that preserves the scale
-			glm::mat4 rotationMatrix = glm::mat4_cast(rot);
-			glm::mat4 modelMatrix = rotationMatrix;
-
-			// Apply scale to the rotation matrix
-			modelMatrix[0] = rotationMatrix[0] * scale.x;
-			modelMatrix[1] = rotationMatrix[1] * scale.y;
-			modelMatrix[2] = rotationMatrix[2] * scale.z;
-
-			// Apply translation
-			modelMatrix[3] = glm::vec4(pos.GetX(), pos.GetY(), pos.GetZ(), 1.0f);
-
-			//transforms[i].previousMatrix = transforms[i].currentMatrix;
-			transforms[i].currentMatrix = modelMatrix;
-
-		}
-
-	}
-
-	void syncTransfroms(std::vector<TransformData2>& transforms, std::vector<PhysicsData>& physicsCompoments) {
+	void syncTransfroms(vector<Transform> & transforms, std::vector<PhysicsData>& physicsCompoments) {
 
 		if (transforms.size() != physicsCompoments.size()) {
 
@@ -482,10 +434,17 @@ public:
 			bodyInterface.GetPositionAndRotation(physicsCompoments.at(i).bodyID, pos, rotation);
 
 			// convert JPJ::Vec3 to glm::vec3;
-			transforms[i].position = *reinterpret_cast<glm::vec3*>(&pos);
+			//transforms[i].position = *reinterpret_cast<glm::vec3*>(&pos);
+			transforms[i].position.x = pos.GetX();
+			transforms[i].position.y = pos.GetY();
+			transforms[i].position.z = pos.GetZ();
 
 			// Convert JPH::Quat to glm::quat
-			transforms[i].rotation = *reinterpret_cast<glm::quat*>(&rotation);
+			//transforms[i].rotation = *reinterpret_cast<glm::quat*>(&rotation);
+			transforms[i].rotation.x = rotation.GetX();
+			transforms[i].rotation.y = rotation.GetY();
+			transforms[i].rotation.z = rotation.GetZ();
+			transforms[i].rotation.w = rotation.GetW();
 
 		}
 

@@ -12,7 +12,7 @@ struct Entities {
 
 	vector<Transform> transforms;
 	vector<ModelInstance> models;
-	vector<PhysicsData> physicsCompoments;
+	vector<PhysicsData> physicsComponents;
 
 };
 

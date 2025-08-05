@@ -30,17 +30,23 @@ int main(int argc, char* argv[])
 	Player player;
 
 	
-	/*
-	Shader triangleShader("shaders/physicsDebug/triangleShader.vs", "shaders/physicsDebug/triangleShader.fs");
-	MyDebugRenderer fisiksRender(triangleShader.m_shaderID);
+	
+	//Shader triangleShader("shaders/physicsDebug/triangleShader.vs", "shaders/physicsDebug/triangleShader.fs");
+	MyDebugRenderer fisiksRender(renderer.device,renderer.window,renderer.resolveTarget,renderer.msaaColorTarget,renderer.depthTexture);
+
+	shader::generateSpirvShaders("shaders/slang/physicsRender.slang", "shaders/compiled/physicsRenderVS.spv", "shaders/compiled/physicsRenderFS.spv");
+	PL::loadVertexShader(renderer.device, fisiksRender.vertexShader, "shaders/compiled/physicsRenderVS.spv", 0, 2, 0, 0);
+	PL::loadFragmentShader(renderer.device, fisiksRender.fragmentShader, "shaders/compiled/physicsRenderFS.spv", 0, 0, 0, 0);
+
+	fisiksRender.createPipeline();
 
 	BodyManager::DrawSettings fiskisDrawSettings;
-	fiskisDrawSettings.mDrawBoundingBox = true;
-	fiskisDrawSettings.mDrawShapeWireframe = true;
+	//fiskisDrawSettings.mDrawBoundingBox = true;
+	//fiskisDrawSettings.mDrawShapeWireframe = false;
 	//fiskisDrawSettings.mDrawShape = true;
 	//fiskisDrawSettings.mDrawCenterOfMassTransform = true;
 	//fiskisDrawSettings.mDrawVelocity = true;
-	*/
+	
 
 	
 
@@ -63,8 +69,7 @@ int main(int argc, char* argv[])
 			}
 		}
 
-		//window.render();
-
+	
 		float deltaTime = (SDL_GetTicks() - lastTime) / 1000.0f;
 		lastTime = SDL_GetTicks();
 		accumulator += deltaTime;
@@ -76,27 +81,26 @@ int main(int argc, char* argv[])
 			
 
 			
-			//fisiks.update(timeStep);
-			//fisiks.updateTransforms(scene.transforms, scene.physicsCompoments);
+			fisiks.update(timeStep);
+			fisiks.syncTransfroms(scene.dynamicEnts.transforms, scene.dynamicEnts.physicsComponents);
 			//scene.player.update(input,renderer.camera);
 			accumulator -= timeStep;
 			//scene.LVL1Script(fisiks.physics_system, scene.player.JoltCharacter->GetPosition());
 		}
 
 		//TODO INTERPOLATE ?????
-
 		renderer.draw(camera.generateview(),camera.generateProj());
 
-		//JPH::Vec3 playerPos =  scene.player.JoltCharacter->GetPosition();
-
-		//string posText = std::to_string(playerPos.GetX()) + " " + std::to_string(playerPos.GetY()) + " " + std::to_string(playerPos.GetZ());
-	//	renderer.drawText(posText, { 50.0f,50.0f }, 1, { 1.0f,1.0f,1.0f });
-
-		/*
-		RVec3Arg camPos(renderer.camera.position.x, renderer.camera.position.y, renderer.camera.position.z);
-		fisiksRender.SetCameraPos(camPos);
+		RVec3Arg camPos(camera.position.x, camera.position.y, camera.position.z);
+		fisiksRender.setCameraUnifroms(camPos, camera.generateview(), camera.generateProj());
+		fisiksRender.beginRenderPass(renderer.commandBuffer,renderer.swapchainTexture,renderer.swapchainWidth,renderer.swapchainHeight);
 		fisiks.physics_system.DrawBodies(fiskisDrawSettings, &fisiksRender);
-		*/
+		fisiksRender.endRenderPass();
+		renderer.submitCommandBuffer();
+		
+		//JPH::Vec3 playerPos =  scene.player.JoltCharacter->GetPosition();
+		//string posText = std::to_string(playerPos.GetX()) + " " + std::to_string(playerPos.GetY()) + " " + std::to_string(playerPos.GetZ());
+		//renderer.drawText(posText, { 50.0f,50.0f }, 1, { 1.0f,1.0f,1.0f });
 
 		frameCount++;
 		if (SDL_GetTicks() - fpsTimer >= 1000.0) {

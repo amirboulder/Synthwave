@@ -15,13 +15,14 @@ typedef std::vector<Entity>  EntityVector;
 typedef	std::vector<TransformData> TransformVector;
 typedef std::vector<PhysicsData> PhysicsVector;
 
-/*
+
 class EntityFactory {
 
 public:
 
 	static uint32_t entityIDCounter;
 
+	/*
 	std::vector<Entity> & entities;
 
 	modelVector& models;
@@ -29,15 +30,16 @@ public:
 	TransformVector& transforms;
 
 	PhysicsVector & physicsComponents;
+	*/
 
 
 
-	EntityFactory(std::vector<Entity> & entities, PhysicsVector & physicsComponents,modelVector& models, TransformVector& transforms)
-		: entities(entities), physicsComponents(physicsComponents), models(models), transforms(transforms)
+	EntityFactory()
 	{
 
 	}
 
+	/*
 	Entity createPlayerEntity(Player & player,const char* filePath, GLuint ShaderID, Fisiks& fisiks, glm::mat4 transform) {
 
 		transforms.emplace_back(transform);
@@ -83,8 +85,11 @@ public:
 
 
 	}
+	*/
+
 
 	//TODO
+	/*
 	void createHumanoidEntity(const char* filePath, GLuint ShaderID, Fisiks& fisiks, glm::mat4 transform) {
 
 
@@ -92,7 +97,7 @@ public:
 
 		models.emplace_back(filePath, ShaderID, transforms.size() - 1);
 
-		/*
+		
 		// Decompose model matrix
 		glm::vec3 position, scale;
 		glm::quat rotation;
@@ -117,7 +122,10 @@ public:
 
 
 	}
+	*/
 
+
+	/*
 	void createBoxEntity(const char* filePath, GLuint ShaderID, Fisiks& fisiks, glm::mat4 transform) {
 
 		transforms.emplace_back(transform);
@@ -175,40 +183,41 @@ public:
 		entityIDCounter++;
 
 	}
+	*/
 
-	void createCapsuleEntity(const char* filePath, GLuint ShaderID, Fisiks& fisiks, glm::mat4 transform) {
+	
+	void createCapsuleEntity(Entities& ents, Fisiks& fisiks, ModelSource& modelSource,Transform transform) {
 
-		transforms.emplace_back(transform);
+		// Flip Y for Vulkan
+		transform.position.y *= -1;
 
-		models.emplace_back(filePath, ShaderID, transforms.size() - 1);
+		ents.transforms.emplace_back(transform);
+
+		ents.models.emplace_back();
+
+		modelSource.createInstance(ents.models.back());
 
 	
 		float meshX;
 		float meshY;
 		float meshZ;
 
-		calculateMeshDimensions(models.back().meshes[0], meshX, meshY, meshZ);
+		calculateMeshDimensions(modelSource.meshes[0], meshX, meshY, meshZ);
 
-		// Decompose model matrix
-		glm::vec3 position, scale;
-		glm::quat rotation;
-		glm::vec3 skew;
-		glm::vec4 perspective;
-		glm::decompose(transform, scale, rotation, position, skew, perspective);
-
+		
 
 		// Compute capsule dimensions
 		float modelRadius = meshX / 2.0f; // Unscaled model radius
 		float modelHeight = meshY; // Unscaled model total height
-		float physicsRadius = modelRadius * scale.x; // Scale radius (x-axis)
-		float physicsHalfHeight = (modelHeight / 2.0f - modelRadius) * scale.y; // Scale height (y-axis)
+		float physicsRadius = modelRadius * transform.scale.x; // Scale radius (x-axis)
+		float physicsHalfHeight = (modelHeight / 2.0f - modelRadius) * transform.scale.y; // Scale height (y-axis)
 
 		JPH::CapsuleShape* capsuleShape = new JPH::CapsuleShape(physicsHalfHeight, physicsRadius);
 
 
 		// Convert GLM to Jolt types
-		JPH::Vec3 joltPosition(position.x, position.y , position.z );
-		JPH::Quat joltRotation(rotation.x, rotation.y, rotation.z, rotation.w);
+		JPH::Vec3 joltPosition(transform.position.x, transform.position.y , transform.position.z );
+		JPH::Quat joltRotation(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
 		if (!joltRotation.IsNormalized()) {
 			joltRotation = joltRotation.Normalized();
 		}
@@ -223,22 +232,21 @@ public:
 		);
 
 		// bounciness
-		pillSettings.mRestitution = 0.08f;
+		pillSettings.mRestitution = 0.5f;
 
 
 
 		// Create and add body
 		BodyID physicsID = fisiks.bodyInterface.CreateAndAddBody(pillSettings, JPH::EActivation::Activate);
 
-		physicsComponents.emplace_back(physicsID);
+		ents.physicsComponents.emplace_back(physicsID);
 
-		entities.emplace_back(entityIDCounter,  physicsID, static_cast<uint32_t>(models.size() - 1));
-
-		entityIDCounter++;
 	
 	}
+	
 
 
+	/*
 	Entity createStaticMeshEntity(const char* filePath, GLuint ShaderID, Fisiks& fisiks, glm::mat4 transform) {
 
 		transforms.emplace_back(transform);
@@ -308,23 +316,23 @@ public:
 		return temp;
 
 	}
+	*/
 
 	
-	Entity createGridEntity( GLuint ShaderID, Fisiks& fisiks, glm::mat4 transform,int rows , int cols) {
+	bool createGridEntity(Entities & ents,Fisiks& fisiks, ModelSource & gridSource, Transform & transform,int rows , int cols) {
 
-		transforms.emplace_back(transform);
+		// Flip Y for Vulkan
+		transform.position.y *= -1;
+
+		ents.transforms.emplace_back(transform);
+
+		ents.models.emplace_back();
+
+		gridSource.createInstance(ents.models.back());
 		
-		models.emplace_back(ShaderID, transforms.size() - 1,rows, cols);
-
-		// Decompose model matrix
-		glm::vec3 position, scale;
-		glm::quat rotation;
-		glm::vec3 skew;
-		glm::vec4 perspective;
-		glm::decompose(transform, scale, rotation, position, skew, perspective);
 
 		// Calculate box dimensions based on grid size and scale
-		// 0.01 for y breaks it
+		// 0.01 or lower for y breaks it
 		Vec3 boxHalfExtents(rows * 0.5,0.1, cols *  0.5);  
 
 		
@@ -332,8 +340,8 @@ public:
 		Ref<Shape> boxShape = new BoxShape(boxHalfExtents);
 
 		// Convert GLM to Jolt types
-		Vec3 joltPosition(position.x, position.y, position.z);
-		Quat joltRotation(rotation.x, rotation.y, rotation.z, rotation.w);
+		Vec3 joltPosition(transform.position.x, transform.position.y, transform.position.z);
+		Quat joltRotation(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
 		if (!joltRotation.IsNormalized()) {
 			joltRotation = joltRotation.Normalized();
 		}
@@ -347,7 +355,7 @@ public:
 			Layers::NON_MOVING   
 		);
 
-		boxBodySettings.mRestitution = 0.0f; // High restitution for bounciness
+		boxBodySettings.mRestitution = 0.9f; // High restitution for bounciness
 		boxBodySettings.mFriction = 1.0f;    // Low friction for sliding
 
 		
@@ -356,20 +364,14 @@ public:
 			EActivation::Activate
 		);
 
+		ents.physicsComponents.emplace_back(physicsID);
 
-
-		physicsComponents.emplace_back(physicsID);
-
-		Entity temp(entityIDCounter, physicsID, static_cast<uint32_t>(models.size() - 1));
-
-		entityIDCounter++;
-
-		return temp;
+		return true;
 
 	}
 
-
-	void calculateMeshDimensions(const Mesh& mesh, float& x, float& y,float & z) {
+	
+	void calculateMeshDimensions(const MeshSource& mesh, float& x, float& y,float & z) {
 		if (mesh.vertices.empty()) {
 			//width = 0.0f;
 			//height = 0.0f;
@@ -397,12 +399,13 @@ public:
 		y = maxY - minY; 
 		z = maxZ - minZ;
 	}
+	
 
 
 };
 
 uint32 EntityFactory::entityIDCounter = 0;
 
-*/
+
 
 

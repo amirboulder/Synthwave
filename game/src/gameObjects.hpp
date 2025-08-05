@@ -1,4 +1,3 @@
-
 #include "core/src/Entity.hpp"
 #include "core/src/EntityFactory.hpp"
 #include "core/src/physics/physicsUtil.hpp"
@@ -20,12 +19,12 @@ public:
 		//=========== creating shaders
 		// 
 		//reserve multiple to avoid reallocation
-		renderer.pipelines.reserve(3);
+		renderer.pipelines.reserve(4);
 		//create BP pipeline 
 		renderer.pipelines.emplace_back(dynamicEnts.models, dynamicEnts.transforms);
 		Pipeline& pipelineBP = renderer.pipelines[0];
 
-		shader::generateSpirvShaders("shaders/slang/shaders.slang", "shaders/compiled/VertexShader.spv", "shaders/compiled/FragmentShader.spv");
+		//shader::generateSpirvShaders("shaders/slang/shaders.slang", "shaders/compiled/VertexShader.spv", "shaders/compiled/FragmentShader.spv");
 		PL::loadVertexShader(renderer.device, pipelineBP.vertexShader,"shaders/compiled/VertexShader.spv", 0, 2, 0, 0);
 		PL::loadFragmentShader(renderer.device, pipelineBP.fragmentShader,"shaders/compiled/FragmentShader.spv", 1, 0, 0, 0);
 		renderer.createPipeline(pipelineBP.vertexShader, pipelineBP.fragmentShader, pipelineBP.pipeline);
@@ -33,7 +32,7 @@ public:
 		renderer.pipelines.emplace_back(staticEnts.models, staticEnts.transforms);
 		Pipeline& pipelineGrid = renderer.pipelines[1];
 
-		shader::generateSpirvShaders("shaders/slang/gridshader.slang", "shaders/compiled/grid.vert.spv", "shaders/compiled/grid.frag.spv");
+		//shader::generateSpirvShaders("shaders/slang/gridshader.slang", "shaders/compiled/grid.vert.spv", "shaders/compiled/grid.frag.spv");
 		PL::loadVertexShader(renderer.device, pipelineGrid.vertexShader,"shaders/compiled/grid.vert.spv", 0, 2, 0, 0);
 		PL::loadFragmentShader(renderer.device, pipelineGrid.fragmentShader,"shaders/compiled/grid.frag.spv", 0, 0, 0, 0);
 		renderer.createPipeline(pipelineGrid.vertexShader, pipelineGrid.fragmentShader, pipelineGrid.pipeline);
@@ -48,7 +47,9 @@ public:
 		pipelineMtn.drawType = 1;
 
 
-		constructLVL1(fisiks, renderer);
+		constructLVL2(fisiks, renderer);
+
+
 
 	}
 
@@ -111,6 +112,57 @@ public:
 		mtnTransfrom.position = glm::vec3(0.0f, 50.0f, 0.0f);
 		mtnSource.createInstance(mtnEnts.models.back());
 		mtnEnts.models.back().meshes[0].size = mtnSource.meshes[0].vertices.size();
+
+
+		return true;
+	}
+
+	bool constructLVL2(Fisiks& fisiks, Renderer& renderer) {
+
+		EntityFactory factory;
+
+
+		//create Model Sources
+		//robot
+		ModelSource robotSource("assets/robot4Wheels.glb", renderer.device);
+		//capsule
+		ModelSource capsuleSource("assets/capsule4.glb", renderer.device);
+		//Grid
+		ModelSource gridSource(256, 256, renderer.device);
+
+
+		////Robot1
+		//dynamicEnts.models.emplace_back();
+		//dynamicEnts.transforms.emplace_back();
+		//Transform& robot1Transform = dynamicEnts.transforms.back();
+		//robot1Transform.position = glm::vec3(1.0f);
+		//robot1Transform.rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
+		//robot1Transform.scale = glm::vec3(1.0f);
+		//robotSource.createInstance(dynamicEnts.models.back());
+
+
+		//Capsule1
+		
+		Transform capsule1Transfrom;
+		capsule1Transfrom.position = glm::vec3(1.0f,5.0f,0.0f);
+		capsule1Transfrom.rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
+		capsule1Transfrom.scale = glm::vec3(1.0f);
+		factory.createCapsuleEntity(dynamicEnts, fisiks,capsuleSource, capsule1Transfrom);
+
+
+		//Capsule2
+		Transform capsule2Transfrom;
+		capsule2Transfrom.position = glm::vec3(1.0f, 19.0f, 0.0f);
+		capsule2Transfrom.rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
+		capsule2Transfrom.scale = glm::vec3(1.0f);
+		factory.createCapsuleEntity(dynamicEnts, fisiks, capsuleSource, capsule2Transfrom);
+
+
+
+		//Grid
+		Transform gridTransfrom;
+		gridTransfrom.rotation = glm::quat(0.0f, 0.0f, 1.0f, 0.0f);
+		factory.createGridEntity(staticEnts, fisiks, gridSource, gridTransfrom, 256, 256);
 
 
 		return true;
