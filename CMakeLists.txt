@@ -144,11 +144,6 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(glm)
 
-#=============================================
-# Create an interface library for stb_image
-#=============================================
-add_library(stb_image INTERFACE)
-target_include_directories(stb_image INTERFACE ${CMAKE_SOURCE_DIR}/thirdParty/stb)
 
 #=============================================
 #nlohmann_json
@@ -220,7 +215,6 @@ SDL3_image::SDL3_image
 SDL3_ttf::SDL3_ttf
 assimp 
 glm::glm 
-stb_image 
 nlohmann_json::nlohmann_json
 Jolt
 OptickCore

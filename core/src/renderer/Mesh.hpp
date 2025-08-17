@@ -11,8 +11,6 @@
 #include "Shader.hpp"
 #include "Grid.hpp"
 
-#define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
 
 using std::vector, std::string;
 
