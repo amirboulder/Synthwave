@@ -25,6 +25,10 @@ struct FrameDataUniforms {
 	glm::mat4 projection;
 	glm::mat4 viewProjection;
 };
+ 
+struct RenderProps {
+	SDL_GPUDevice* device = NULL;
+};
 
 
 
@@ -116,98 +120,8 @@ struct Renderer {
 		//textRenderer.renderText(text, postion.x, postion.y, scale, color);
 	}
 
-	/*
-	bool createVertexBuffer(MeshSource & mesh) {
-
-		//create vertex buffer
-		SDL_GPUBufferCreateInfo bufferCreateInfo = {};
-		bufferCreateInfo.usage = SDL_GPU_BUFFERUSAGE_VERTEX;
-		bufferCreateInfo.size = mesh.vertices.size() * sizeof(VertexData);
-
-		mesh.vertexBuffer = SDL_CreateGPUBuffer(device, &bufferCreateInfo);
-		if (!mesh.vertexBuffer) {
-			std::cerr << "Failed to create vertex buffer: " << SDL_GetError() << std::endl;
-			return false;
-		}
-
-		//create index buffer
-		SDL_GPUBufferCreateInfo idxCreateInfo = {};
-		idxCreateInfo.usage = SDL_GPU_BUFFERUSAGE_INDEX;
-		idxCreateInfo.size = mesh.indices.size() * sizeof(unsigned int);
-
-		mesh.indexBuffer = SDL_CreateGPUBuffer(device, &idxCreateInfo);
-		if (!mesh.indexBuffer) {
-			std::cerr << "Failed to create index buffer: " << SDL_GetError() << std::endl;
-			return false;
-		}
-
-		// Upload vertex data
-		SDL_GPUTransferBufferCreateInfo transferBufferCreateInfo = {};
-		transferBufferCreateInfo.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
-		transferBufferCreateInfo.size = bufferCreateInfo.size;
-
-		// upload index data:
-		SDL_GPUTransferBufferCreateInfo idxTransferInfo = {};
-		idxTransferInfo.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
-		idxTransferInfo.size = idxCreateInfo.size;
-
-
-		SDL_GPUTransferBuffer* transferBuffer = SDL_CreateGPUTransferBuffer(device, &transferBufferCreateInfo);
-		if (!transferBuffer) {
-			std::cerr << "Failed to create transfer buffer: " << SDL_GetError() << std::endl;
-			return false;
-		}
-
-		SDL_GPUTransferBuffer* idxTransfer = SDL_CreateGPUTransferBuffer(device, &idxTransferInfo);
-		void* idxMap = SDL_MapGPUTransferBuffer(device, idxTransfer, false);
-		memcpy(idxMap, mesh.indices.data(), idxCreateInfo.size);
-		SDL_UnmapGPUTransferBuffer(device, idxTransfer);
-
-		// Copy into GPU buffer
-		auto cmdBufIndex = SDL_AcquireGPUCommandBuffer(device);
-		auto copyPassIndex = SDL_BeginGPUCopyPass(cmdBufIndex);
-		SDL_GPUTransferBufferLocation srcLoc{ idxTransfer, 0 };
-		SDL_GPUBufferRegion dstRegion{ mesh.indexBuffer, 0, idxCreateInfo.size };
-		SDL_UploadToGPUBuffer(copyPassIndex, &srcLoc, &dstRegion, false);
-		SDL_EndGPUCopyPass(copyPassIndex);
-		SDL_SubmitGPUCommandBuffer(cmdBufIndex);
-		SDL_ReleaseGPUTransferBuffer(device, idxTransfer);
-
-
-		// Map and copy data
-		void* mappedData = SDL_MapGPUTransferBuffer(device, transferBuffer, false);
-		if (!mappedData) {
-			std::cerr << "Failed to map transfer buffer: " << SDL_GetError() << std::endl;
-			SDL_ReleaseGPUTransferBuffer(device, transferBuffer);
-			return false;
-		}
-
-		memcpy(mappedData, mesh.vertices.data(), mesh.vertices.size() * sizeof(VertexData));
-		SDL_UnmapGPUTransferBuffer(device, transferBuffer);
-
-		// Copy from transfer buffer to vertex buffer
-		SDL_GPUCommandBuffer* uploadCommandBuffer = SDL_AcquireGPUCommandBuffer(device);
-		SDL_GPUCopyPass* copyPass = SDL_BeginGPUCopyPass(uploadCommandBuffer);
-
-		SDL_GPUTransferBufferLocation transferLocation = {};
-		transferLocation.transfer_buffer = transferBuffer;
-		transferLocation.offset = 0;
-
-		SDL_GPUBufferRegion bufferRegion = {};
-		bufferRegion.buffer = mesh.vertexBuffer;
-		bufferRegion.offset = 0;
-		bufferRegion.size = bufferCreateInfo.size;
-
-		SDL_UploadToGPUBuffer(copyPass, &transferLocation, &bufferRegion, false);
-		SDL_EndGPUCopyPass(copyPass);
-		SDL_SubmitGPUCommandBuffer(uploadCommandBuffer);
-
-		SDL_ReleaseGPUTransferBuffer(device, transferBuffer);
-		return true;
-	}
-	*/
-
 	
+
 	bool createPipeline(SDL_GPUShader* vertexShader, SDL_GPUShader* fragmentShader,
 		SDL_GPUGraphicsPipeline* & pipeline,bool line = false)
 	{
@@ -307,16 +221,16 @@ struct Renderer {
 		return true;
 	}
 
-	bool createSampler() {
+	bool createSamplerAndDefaultTexture() {
 
 
 		SDL_GPUSamplerCreateInfo samplerCreateInfo{
 		.min_filter = SDL_GPU_FILTER_LINEAR,
 		.mag_filter = SDL_GPU_FILTER_LINEAR,
 		.mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_LINEAR,
-		.address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
-		.address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
-		.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
+		.address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
+		.address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
+		.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
 		};
 
 		defaultSampler = SDL_CreateGPUSampler(device, &samplerCreateInfo);
@@ -337,7 +251,6 @@ struct Renderer {
 
 		// Set up texture data
 		const Uint32 imageSizeInBytes = imageData1->w * imageData1->h * 4;
-
 
 		SDL_GPUTextureCreateInfo textureCreateInfo = {
 			.type = SDL_GPU_TEXTURETYPE_2D,
@@ -402,6 +315,7 @@ struct Renderer {
 
 		
 	}
+
 
 	bool createRenderTargets() {
 
@@ -521,7 +435,7 @@ struct Renderer {
 
 			SDL_BindGPUFragmentSamplers(renderPass, 0, &sampler, 1);
 
-			pipeline.draw(renderPass,commandBuffer, uniforms.viewProjection);
+			pipeline.draw(renderPass,commandBuffer, uniforms.viewProjection,defaultTexture,defaultSampler);
 			
 
 		}
@@ -571,6 +485,8 @@ struct Renderer {
 		
 	}
 
+
+	//TODO move to Material.hpp
 	SDL_Surface* LoadImage(const char* path, int desiredChannels)
 	{
 		//char fullPath[256];

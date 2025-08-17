@@ -127,14 +127,14 @@ public:
 	}
 
 
-	void draw(SDL_GPURenderPass* renderPass, SDL_GPUCommandBuffer* commandBuffer, glm::mat4 viewProj) {
+	void draw(SDL_GPURenderPass* renderPass, SDL_GPUCommandBuffer* commandBuffer, glm::mat4 viewProj, SDL_GPUTexture* defaultTexture, SDL_GPUSampler* defaultSampler) {
 
 		switch (drawType) {
 		case 0:
-			drawIndexed(renderPass, commandBuffer, viewProj);
+			drawIndexed(renderPass, commandBuffer, viewProj, defaultTexture, defaultSampler);
 			break;
 		case 1:
-			drawVerts(renderPass, commandBuffer, viewProj);
+			drawVerts(renderPass, commandBuffer, viewProj, defaultTexture, defaultSampler);
 			break;
 		}
 
@@ -241,7 +241,7 @@ public:
 	}
 
 
-	void drawVerts(SDL_GPURenderPass* renderPass, SDL_GPUCommandBuffer* commandBuffer,glm::mat4 viewProj) {
+	void drawVerts(SDL_GPURenderPass* renderPass, SDL_GPUCommandBuffer* commandBuffer,glm::mat4 viewProj, SDL_GPUTexture* defaultTexture, SDL_GPUSampler* defaultSampler) {
 
 		SDL_BindGPUGraphicsPipeline(renderPass, pipeline);
 
@@ -293,9 +293,11 @@ public:
 
 	}
 
-	void drawIndexed(SDL_GPURenderPass* renderPass, SDL_GPUCommandBuffer* commandBuffer, glm::mat4 viewProj) {
+	void drawIndexed(SDL_GPURenderPass* renderPass, SDL_GPUCommandBuffer* commandBuffer, glm::mat4 viewProj, SDL_GPUTexture* defaultTexture, SDL_GPUSampler* defaultSampler) {
 
 		SDL_BindGPUGraphicsPipeline(renderPass, pipeline);
+
+
 
 		for (int i = 0; i < models.size(); i++) {
 
@@ -312,6 +314,18 @@ public:
 			for (int j = 0; j < model.meshes.size(); j++) {
 
 				MeshInstance& mesh = model.meshes[j];
+
+				if (mesh.diffuseTexture != nullptr) {
+					SDL_GPUTextureSamplerBinding sampler = { .texture = mesh.diffuseTexture, .sampler = defaultSampler };
+					SDL_BindGPUFragmentSamplers(renderPass, 0, &sampler, 1);
+				}
+				
+				else {
+					SDL_GPUTextureSamplerBinding sampler = { .texture = defaultTexture, .sampler = defaultSampler };
+					SDL_BindGPUFragmentSamplers(renderPass, 0, &sampler, 1);
+				}
+
+				
 
 				SDL_GPUBufferBinding vertexBufferBinding = {};
 				vertexBufferBinding.buffer = mesh.vertexBuffer;

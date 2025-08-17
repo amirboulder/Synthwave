@@ -13,7 +13,7 @@ int main(int argc, char* argv[])
 	running = renderer.createAndClaimGPU();
 	running = renderer.createRenderTargets();
 
-	running = renderer.createSampler();
+	running = renderer.createSamplerAndDefaultTexture();
 
 	Fisiks fisiks;
 
@@ -29,18 +29,16 @@ int main(int argc, char* argv[])
 	PlayerInput input;
 	Player player;
 
-	
-	
 	//Shader triangleShader("shaders/physicsDebug/triangleShader.vs", "shaders/physicsDebug/triangleShader.fs");
-	MyDebugRenderer fisiksRender(renderer.device,renderer.window,renderer.resolveTarget,renderer.msaaColorTarget,renderer.depthTexture);
+	//MyDebugRenderer fisiksRender(renderer.device,renderer.window,renderer.resolveTarget,renderer.msaaColorTarget,renderer.depthTexture);
 
-	shader::generateSpirvShaders("shaders/slang/physicsRender.slang", "shaders/compiled/physicsRenderVS.spv", "shaders/compiled/physicsRenderFS.spv");
-	PL::loadVertexShader(renderer.device, fisiksRender.vertexShader, "shaders/compiled/physicsRenderVS.spv", 0, 2, 0, 0);
-	PL::loadFragmentShader(renderer.device, fisiksRender.fragmentShader, "shaders/compiled/physicsRenderFS.spv", 0, 0, 0, 0);
+	//shader::generateSpirvShaders("shaders/slang/physicsRender.slang", "shaders/compiled/physicsRenderVS.spv", "shaders/compiled/physicsRenderFS.spv");
+	//PL::loadVertexShader(renderer.device, fisiksRender.vertexShader, "shaders/compiled/physicsRenderVS.spv", 0, 2, 0, 0);
+	//PL::loadFragmentShader(renderer.device, fisiksRender.fragmentShader, "shaders/compiled/physicsRenderFS.spv", 0, 0, 0, 0);
 
-	fisiksRender.createPipeline();
+	//fisiksRender.createPipeline();
 
-	BodyManager::DrawSettings fiskisDrawSettings;
+	//BodyManager::DrawSettings fiskisDrawSettings;
 	//fiskisDrawSettings.mDrawBoundingBox = true;
 	//fiskisDrawSettings.mDrawShapeWireframe = false;
 	//fiskisDrawSettings.mDrawShape = true;
@@ -91,11 +89,13 @@ int main(int argc, char* argv[])
 		//TODO INTERPOLATE ?????
 		renderer.draw(camera.generateview(),camera.generateProj());
 
+		/*
 		RVec3Arg camPos(camera.position.x, camera.position.y, camera.position.z);
 		fisiksRender.setCameraUnifroms(camPos, camera.generateview(), camera.generateProj());
 		fisiksRender.beginRenderPass(renderer.commandBuffer,renderer.swapchainTexture,renderer.swapchainWidth,renderer.swapchainHeight);
 		fisiks.physics_system.DrawBodies(fiskisDrawSettings, &fisiksRender);
 		fisiksRender.endRenderPass();
+		*/
 		renderer.submitCommandBuffer();
 		
 		//JPH::Vec3 playerPos =  scene.player.JoltCharacter->GetPosition();

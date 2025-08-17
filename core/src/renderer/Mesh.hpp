@@ -39,106 +39,8 @@ public:
 	SDL_GPUBuffer* vertexBuffer = NULL;
 	SDL_GPUBuffer* indexBuffer = NULL;
 
-	bool processMesh(const char* filePath) {
+	SDL_GPUTexture* diffuseTexture;
 
-		Assimp::Importer importer;
-		const aiScene* scene = importer.ReadFile(filePath, aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_FlipUVs | aiProcess_CalcTangentSpace);
-
-		if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
-		{
-			cout << "ERROR::ASSIMP:: " << importer.GetErrorString() << '\n';
-			return false;
-		}
-		cout << "processsing model : " << filePath << '\n';
-
-		if (scene->mNumMeshes == 0) {
-			std::cerr << "No meshes found in file." << std::endl;
-			return false;
-		}
-
-		aiMesh* importedMesh = scene->mMeshes[0];
-
-		vertices.reserve(importedMesh->mNumVertices);
-
-		float r = 0.0f;
-		float g = 0.0f;
-		float b = 0.0f;
-
-		int count = 1;
-
-		for (int i = 0; i < importedMesh->mNumVertices; i++) {
-
-			vertices.emplace_back();
-			VertexData& currentVertex = vertices.back();
-
-			currentVertex.vertex.x = importedMesh->mVertices[i].x;
-			currentVertex.vertex.y = importedMesh->mVertices[i].y;
-			currentVertex.vertex.z = importedMesh->mVertices[i].z;
-
-			if (importedMesh->HasNormals()) {
-				currentVertex.normal.x = importedMesh->mNormals[i].x;
-				currentVertex.normal.y = importedMesh->mNormals[i].y;
-				currentVertex.normal.z = importedMesh->mNormals[i].z;
-
-			}
-
-			//Mesh can have multiple texture coordinates we're just using the first one for now.
-			//cout << "texture coords" << importedMesh->HasTextureCoords(0) << '\n';
-			if (importedMesh->HasTextureCoords(0) || importedMesh->mTextureCoords[0])
-			{
-				currentVertex.texCoords.x = importedMesh->mTextureCoords[0][i].x;
-				currentVertex.texCoords.y = importedMesh->mTextureCoords[0][i].y;
-			}
-
-			if (count > 3) {
-				count = 1;
-				r = 0;
-				g = 0;
-				b = 0;
-
-			}
-
-			if (count == 1) {
-				r = 1.0;
-				g = 0.0;
-				b = 0.0;
-			}
-
-			if (count == 2) {
-				r = 0.0;
-				g = 1.0;
-				b = 0.0;
-			}
-
-			if (count == 3) {
-				r = 0.0;
-				g = 0.0;
-				b = 1.0;
-			}
-
-			currentVertex.color.x = r;
-			currentVertex.color.y = g;
-			currentVertex.color.z = b;
-			currentVertex.color.w = 1.0f;
-
-			count++;
-		}
-
-		indices.reserve(importedMesh->mNumFaces * 3);
-
-		for (int i = 0; i < importedMesh->mNumFaces; i++) {
-
-			for (int j = 0; j < importedMesh->mFaces[i].mNumIndices; j++) {
-				indices.emplace_back(importedMesh->mFaces[i].mIndices[j]);
-			}
-
-		}
-
-		cout << "size of vertices : " << vertices.size() << "\n";
-		cout << "size of indices : " << indices.size() << "\n";
-
-		return true;
-	}
 
 	bool processMesh(aiMesh* importedMesh) {
 
@@ -147,10 +49,11 @@ public:
 		float r = 0.0f;
 		float g = 0.0f;
 		float b = 0.0f;
-
 		int count = 1;
 
+
 		for (int i = 0; i < importedMesh->mNumVertices; i++) {
+
 
 			vertices.emplace_back();
 			VertexData& currentVertex = vertices.back();
@@ -425,6 +328,11 @@ public:
 		return true;
 	}
 
+	//TODO
+	bool assignMaterial() {
+
+	}
+
 
 };
 
@@ -434,6 +342,8 @@ struct MeshInstance {
 
 	SDL_GPUBuffer* vertexBuffer = NULL;
 	SDL_GPUBuffer* indexBuffer = NULL;
+
+	SDL_GPUTexture* diffuseTexture;
 
 	Uint32 size = 0;
 };

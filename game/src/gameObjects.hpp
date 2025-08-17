@@ -130,6 +130,11 @@ public:
 		//Grid
 		ModelSource gridSource(256, 256, renderer.device);
 
+		//buildings
+		//ModelSource buildingSource("assets/realistic_chicago_buildings.glb", renderer.device);
+		//buildings
+		//ModelSource sponzaSource("assets/Sponza/sponza.obj", renderer.device);
+
 
 		////Robot1
 		//dynamicEnts.models.emplace_back();
@@ -163,6 +168,16 @@ public:
 		Transform gridTransfrom;
 		gridTransfrom.rotation = glm::quat(0.0f, 0.0f, 1.0f, 0.0f);
 		factory.createGridEntity(staticEnts, fisiks, gridSource, gridTransfrom, 256, 256);
+
+		//buildings
+		/*Transform buildingTransform;
+		factory.createRenderableEntity(dynamicEnts, fisiks, buildingSource, buildingTransform);*/
+
+		/*Transform sponzaTransform;
+		sponzaTransform.scale.x = 0.1;
+		sponzaTransform.scale.y = 0.1;
+		sponzaTransform.scale.z = 0.1;
+		factory.createRenderableEntity(dynamicEnts, fisiks, sponzaSource, sponzaTransform);*/
 
 
 		return true;

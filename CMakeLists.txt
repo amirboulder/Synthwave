@@ -92,6 +92,18 @@ set_property(DIRECTORY "${SDL3_SOURCE_DIR}" PROPERTY EXCLUDE_FROM_ALL TRUE)
 #SDL_IMAGE
 #=============================================
 
+FetchContent_Declare(
+    SDL_image
+    GIT_REPOSITORY https://github.com/libsdl-org/SDL_image.git
+    GIT_TAG release-3.2.4
+)
+set(SDL3_IMAGE_AVIF OFF CACHE BOOL "Disable AVIF support" FORCE)
+set(SDLIMAGE_AVIF OFF)	# disable formats we don't use to make the build faster and smaller.
+set(SDLIMAGE_BMP OFF)
+set(SDLIMAGE_JPEG OFF)
+set(SDLIMAGE_WEBP OFF)
+FetchContent_MakeAvailable(SDL_image)
+set_property(DIRECTORY "${SDL_image_SOURCE_DIR}" PROPERTY EXCLUDE_FROM_ALL TRUE)
 
 
 #=============================================
@@ -204,6 +216,7 @@ FetchContent_MakeAvailable(optick)
 target_link_libraries(Synthwave PUBLIC
 SDL3::SDL3
 slang
+SDL3_image::SDL3_image
 SDL3_ttf::SDL3_ttf
 assimp 
 glm::glm 

@@ -22,17 +22,6 @@ public:
 
 	static uint32_t entityIDCounter;
 
-	/*
-	std::vector<Entity> & entities;
-
-	modelVector& models;
-
-	TransformVector& transforms;
-
-	PhysicsVector & physicsComponents;
-	*/
-
-
 
 	EntityFactory()
 	{
@@ -222,6 +211,8 @@ public:
 			joltRotation = joltRotation.Normalized();
 		}
 
+		
+
 		// Create body settings
 		JPH::BodyCreationSettings pillSettings(
 			capsuleShape,
@@ -244,21 +235,54 @@ public:
 	
 	}
 	
+	void createRenderableEntity(Entities& ents, Fisiks& fisiks, ModelSource& modelSource, Transform transform) {
+
+
+		// Flip Y for Vulkan
+		transform.position.y *= -1;
+
+		ents.transforms.emplace_back(transform);
+
+		ents.models.emplace_back();
+
+		modelSource.createInstance(ents.models.back());
+
+
+
+
+		JPH::EmptyShape* emptyShape = new JPH::EmptyShape();
+		BodyCreationSettings emptyShapeSettings(
+			emptyShape,
+			RVec3(0, 0, 0),
+			JPH::Quat(1,0,0,0),
+			JPH::EMotionType::Static,
+			Layers::NON_MOVING);
+
+		BodyID physicsID = fisiks.bodyInterface.CreateAndAddBody(emptyShapeSettings, EActivation::DontActivate);
+
+		ents.physicsComponents.emplace_back(physicsID);
+	}
 
 
 	/*
-	Entity createStaticMeshEntity(const char* filePath, GLuint ShaderID, Fisiks& fisiks, glm::mat4 transform) {
+	void createStaticMeshEntity(Entities& ents, Fisiks& fisiks, ModelSource& modelSource, Transform transform) {
 
-		transforms.emplace_back(transform);
 
-		models.emplace_back(filePath, ShaderID, transforms.size() - 1);
+		// Flip Y for Vulkan
+		transform.position.y *= -1;
 
-		// Decompose model matrix
-		glm::vec3 position, scale;
-		glm::quat rotation;
-		glm::vec3 skew;
-		glm::vec4 perspective;
-		glm::decompose(transform, scale, rotation, position, skew, perspective);
+		ents.transforms.emplace_back(transform);
+
+		ents.models.emplace_back();
+
+		modelSource.createInstance(ents.models.back());
+
+
+		float meshX;
+		float meshY;
+		float meshZ;
+
+		calculateMeshDimensions(modelSource.meshes[0], meshX, meshY, meshZ);
 
 
 
@@ -317,6 +341,7 @@ public:
 
 	}
 	*/
+
 
 	
 	bool createGridEntity(Entities & ents,Fisiks& fisiks, ModelSource & gridSource, Transform & transform,int rows , int cols) {

@@ -5,8 +5,20 @@
 #include "Mesh.hpp"
 #include <glm/gtx/matrix_decompose.hpp>
 
+#include "Material.hpp"
+
+
+
 using std::vector;
 
+
+struct LoadedTexture {
+	SDL_Surface* surface;
+	std::string name;
+	std::string format;
+	int width;
+	int height;
+};
 
 struct ModelInstance {
 	vector <MeshInstance> meshes;
@@ -18,50 +30,72 @@ class ModelSource {
 
 public:
 
-	//Transform transform;
-
 	vector <MeshSource> meshes;
 	vector<aiMatrix4x4> aiMeshTransforms;
+	 
+	std::vector<MaterialSMPL> materials;
+
 
 	ModelSource(const char * filePath,SDL_GPUDevice* device)
 	{
 
+		// init assimp and load the file
 		Assimp::Importer importer;
 		const aiScene* scene = importer.ReadFile(filePath, aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_FlipUVs | aiProcess_CalcTangentSpace);
-
 		if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
 		{
 			cout << "ERROR::ASSIMP:: " << importer.GetErrorString() << '\n';
 			return;
 		}
 
+		//TODO change to sdl log
 		cout << "processsing model : " << filePath << '\n';
+		
 
+		// using resize instead of reserve to set the transforms to identity matrix 
 		aiMeshTransforms.resize(scene->mNumMeshes);
 		// Extract all mesh transforms first
 		ExtractMeshTransforms(scene->mRootNode, aiMatrix4x4(), scene);
 
 		meshes.reserve(scene->mNumMeshes);
 
+
+		MaterialLoader matLoader;
+		matLoader.loadMaterials(scene, materials,filePath, device);
+		
+
 		for (int i = 0; i < scene->mNumMeshes; i++) {
 
-			aiMesh* importedMesh = scene->mMeshes[i];
-			meshes.emplace_back();
-			meshes.back().processMesh(importedMesh);
+			aiMesh* importedMeshCurrent = scene->mMeshes[i];
 
-			// set mesh transfrom
+			meshes.emplace_back();
+			MeshSource& currentMesh = meshes.back();
+
+			currentMesh.processMesh(importedMeshCurrent);
+
+			// use the aiMeshTransforms we extracted using ExtractMeshTransforms to set the mesh matrix
 			Transform temp;
 			decomposeModelMatrix(ConvertMatrix(aiMeshTransforms[i]), temp);
 
-			meshes.back().transform = temp;
+			currentMesh.transform = temp;
 
-			meshes.back().createVertexBuffer(device);
+			currentMesh.createVertexBuffer(device);
 
+	
+			//get the first diffuse texture of the material which this mesh uses
+			// the string str only contains the index to the texture
+			aiString str;
+			if (scene->mMaterials[importedMeshCurrent->mMaterialIndex]->GetTexture(aiTextureType_DIFFUSE, 0, &str) == aiReturn_SUCCESS) {
+
+				currentMesh.diffuseTexture = materials[importedMeshCurrent->mMaterialIndex].diffuseTexture;
+
+			}
 		}
 
 	}
 
 	// for GRID
+	// for generated meshes
 	ModelSource(int rows, int cols,SDL_GPUDevice* device) {
 
 		meshes.emplace_back();
@@ -165,6 +199,8 @@ public:
 			instance.meshes[i].indexBuffer = meshes[i].indexBuffer;
 
 			instance.meshes[i].size = meshes[i].indices.size();
+
+			instance.meshes[i].diffuseTexture = meshes[i].diffuseTexture;
 
 		}
 
