@@ -75,8 +75,37 @@ public:
 
 		camera.rotateCamera(smoothedXOffset, smoothedYOffset);
 
+		camera.updateVectors();
+
 	}
 
+	void handleEvents(bool& running, FreeCam& camera,SDL_Event event,RendererConfig& config) {
+
+		if (event.type == SDL_EVENT_KEY_UP && event.key.repeat == 0 && event.key.scancode == SDL_SCANCODE_F1) {
+
+			config.FreeCamFront = camera.front;
+			config.FreeCamPos = camera.position;
+
+			config.FreeCamYaw = camera.yaw;
+			config.FreeCamPitch = camera.pitch;
+
+			//TODO modify function so the path is not hardcoded
+			config.saveRendererConfigINI("config/renderConfig.ini");
+		}
+
+		if (event.type == SDL_EVENT_QUIT) {
+			running = false;
+		}
+
+		//TO be used for switching between menu and in game
+		if (event.type == SDL_EVENT_KEY_DOWN && event.key.repeat == 0 && event.key.scancode == SDL_SCANCODE_ESCAPE) {
+
+			context = InputContext::game;
+			cout << "JEET!\n";
+
+		}
+
+	}
 
 	void processKeyboardGameInput(bool& running, FreeCam& camera, PlayerInput& input) {
 
@@ -174,22 +203,6 @@ public:
 
 	void processMouseGameInput() {
 
-
-	}
-
-	void processGamepadInput() {
-
-	}
-
-	void procesKeyboardsMenuInput(bool& running, FreeCam& camera, PlayerInput& input) {
-
-		const bool* keystates = SDL_GetKeyboardState(NULL);
-
-		if (keystates[SDL_SCANCODE_ESCAPE] ) {
-
-			context = InputContext::game;
-			cout << "JEET!\n";
-		}
 
 	}
 

@@ -4,6 +4,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+#include "RendererConfig.hpp"
 
 class FreeCam {
 
@@ -30,18 +31,26 @@ public:
     float movementSpeed = 0.1f;
     float mouseSensitivity;
 
-    FreeCam(glm::vec3 position, glm::vec3 front)
-        : position(position),
-        front(front),
-        yaw(45.0f),
-        pitch(0.0f),
-        fov(45.0f),
-        nearPlane(0.1f),
-        farPlane(1000.0f),
-        mouseSensitivity(0.5f)
+    FreeCam(RendererConfig & config)
+        : position(config.FreeCamPos)
+
     {
+        position = config.FreeCamPos;
+        front = config.FreeCamFront;
+
+        yaw = config.FreeCamYaw;
+        pitch = config.FreeCamPitch;
+
+        fov = config.freeCamFov;
+        nearPlane = config.freeCamNearPlane;
+        farPlane = config.freeCamFarPlane;
+        mouseSensitivity = config.FreeCamMouseSensitivity;
+
         updateVectors();
+
     }
+
+
 
     void updateVectors() {
         front.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));

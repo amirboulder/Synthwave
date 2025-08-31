@@ -43,7 +43,7 @@ public:
 		//shader::generateSpirvShaders("shaders/slang/wireframe.slang", "shaders/compiled/wireframe.vert.spv", "shaders/compiled/wireframe.frag.spv");
 		PL::loadVertexShader(renderer.device, pipelineMtn.vertexShader,"shaders/compiled/wireframe.vert.spv", 0, 2, 0, 0);
 		PL::loadFragmentShader(renderer.device, pipelineMtn.fragmentShader,"shaders/compiled/wireframe.frag.spv", 0, 0, 0, 0);
-		pipelineMtn.createPipeline(renderer.window,renderer.device,renderer.sampleCountMSAA);
+		pipelineMtn.createPipeline(renderer.window,renderer.device,renderer.config.sampleCountMSAA);
 		pipelineMtn.drawType = 1;
 
 

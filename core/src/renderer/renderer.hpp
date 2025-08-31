@@ -1,18 +1,23 @@
 #pragma once
 
 #include <vector>
-#include "../Entity.hpp"
-#include "Grid.hpp"
-#include "Camera.hpp"
-#include "text/freeType.hpp"
-#include "text/textRenderer.hpp"
 
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtx/quaternion.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
+#include "../Entity.hpp"
+#include "Grid.hpp"
+#include "RendererConfig.hpp"
+#include "Camera.hpp"
+#include "text/freeType.hpp"
+#include "text/textRenderer.hpp"
+
+
+
 #include "Shader.hpp"
 #include "pipeline.hpp"
+
 
 #include "optick.h"
 
@@ -31,12 +36,10 @@ struct RenderProps {
 };
 
 
-
 struct Renderer {
 
 	vector<Pipeline> pipelines;
 
-	//Pipeline & mtnPipeline;
 
 	SDL_Window* window = NULL;
 	SDL_Renderer* renderer = NULL;
@@ -52,22 +55,25 @@ struct Renderer {
 
 	SDL_GPUTexture* depthTexture = NULL;
 
-	SDL_GPUSampleCount sampleCountMSAA = SDL_GPU_SAMPLECOUNT_8;
+	//SDL_GPUSampleCount sampleCountMSAA = SDL_GPU_SAMPLECOUNT_8;
 
 	SDL_GPUTexture* msaaColorTarget;
 	SDL_GPUTexture* resolveTarget;
 
 
-	int winWidth, winHeight;
+	//int winWidth, winHeight;
+
+	RendererConfig& config;
 
 
 
-	Renderer(int winWidth,int winHeight)
-		: winWidth(winWidth),winHeight(winHeight)
+	Renderer(RendererConfig renderConfig)
+		:	config(renderConfig)
 	{
-
+		
 
 	}
+
 
 	bool createWindow() {
 		if (!SDL_Init(SDL_INIT_VIDEO)) {
@@ -75,12 +81,12 @@ struct Renderer {
 			return false;
 		}
 
-		window = SDL_CreateWindow("Synthwave", winWidth, winHeight, NULL);
+		window = SDL_CreateWindow("Synthwave", config.windowWidth, config.windowHeight, NULL);
 		if (!window) {
 			SDL_Log("Failed to create window!");
 			return false;
 		}
-		SDL_GetWindowSizeInPixels(window, &winWidth, &winHeight);
+		
 
 		SDL_SetWindowRelativeMouseMode(window, true);
 
@@ -189,7 +195,7 @@ struct Renderer {
 
 		//MSAA
 		pipeInfo.multisample_state = {
-			.sample_count = sampleCountMSAA,  // Enable MSAA in pipeline
+			.sample_count = config.sampleCountMSAA,  // Enable MSAA in pipeline
 			.sample_mask = 0  // Use all samples
 		};
 
@@ -323,11 +329,11 @@ struct Renderer {
 		 .type = SDL_GPU_TEXTURETYPE_2D,
 		 .format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT,
 		 .usage = SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET,
-		 .width = static_cast<uint32_t>(winWidth),
-		 .height = static_cast<uint32_t>(winHeight),
+		 .width = static_cast<uint32_t>(config.windowWidth),
+		 .height = static_cast<uint32_t>(config.windowHeight),
 		 .layer_count_or_depth = 1,
 		 .num_levels = 1,
-		.sample_count = sampleCountMSAA,
+		.sample_count = config.sampleCountMSAA,
 		};
 		this->depthTexture = SDL_CreateGPUTexture(device, &depthTextureCreateInfo);
 
@@ -341,11 +347,11 @@ struct Renderer {
 			.type = SDL_GPU_TEXTURETYPE_2D,
 			.format = SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM, 
 			.usage = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET,
-			.width = static_cast<uint32_t>(winWidth),
-			.height = static_cast<uint32_t>(winHeight),
+			.width = static_cast<uint32_t>(config.windowWidth),
+			.height = static_cast<uint32_t>(config.windowHeight),
 			.layer_count_or_depth = 1,
 			.num_levels = 1,
-			.sample_count = sampleCountMSAA  
+			.sample_count = config.sampleCountMSAA
 		};
 
 		msaaColorTarget = SDL_CreateGPUTexture(device, &colorTextureInfo);
@@ -358,8 +364,8 @@ struct Renderer {
 		.type = SDL_GPU_TEXTURETYPE_2D,
 		.format = SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM,
 		.usage = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET | SDL_GPU_TEXTUREUSAGE_SAMPLER,
-		.width = static_cast<uint32_t>(winWidth),
-		.height = static_cast<uint32_t>(winHeight),
+		.width = static_cast<uint32_t>(config.windowWidth),
+		.height = static_cast<uint32_t>(config.windowHeight),
 		.layer_count_or_depth = 1,
 		.num_levels = 1,
 		.sample_count = SDL_GPU_SAMPLECOUNT_1  // Always 1x for resolve target
@@ -455,8 +461,8 @@ struct Renderer {
 		blitInfo.source.texture = resolveTarget;
 		blitInfo.source.x = 0;
 		blitInfo.source.y = 0;
-		blitInfo.source.w = winWidth;
-		blitInfo.source.h = winHeight;
+		blitInfo.source.w = config.windowWidth;
+		blitInfo.source.h = config.windowHeight;
 		blitInfo.destination.texture = swapchainTexture;
 		blitInfo.destination.x = 0;
 		blitInfo.destination.y = 0;
@@ -523,14 +529,5 @@ struct Renderer {
 		return result;
 	}
 
-
-	void handleWindowResize(int newWidth , int newHeight) {
-
-		winWidth = newWidth;
-		winHeight = newHeight;
-		//projection = camera.getProjectionMatrix(static_cast<float>(newWidth) / static_cast<float>(newHeight));
-		//textRenderer.updateProjection(newWidth, newHeight);
-
-	}
 
 };

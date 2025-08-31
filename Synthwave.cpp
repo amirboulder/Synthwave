@@ -6,7 +6,9 @@ int main(int argc, char* argv[])
 {
 	bool running = true;
 
-	Renderer renderer(1920, 1080);
+	RendererConfig renderConfig("config/renderConfig.ini");
+
+	Renderer renderer(renderConfig);
 
 	//renderer init
 	running = renderer.createWindow();
@@ -19,9 +21,9 @@ int main(int argc, char* argv[])
 
 	Scene scene(fisiks, renderer);
 
-
-	FreeCam camera(glm::vec3(-2.0f, -2.0f, 0.0f), glm::vec3(0.0f, 1.0f, 1.0f));
-	camera.aspectRatio = static_cast<float>(renderer.winWidth) / static_cast<float>(renderer.winHeight);
+	
+	FreeCam camera(renderConfig);
+	camera.aspectRatio = static_cast<float>(renderConfig.windowWidth) / static_cast<float>(renderConfig.windowHeight);
 	camera.mouseSensitivity = 0.1;
 
 	InputManager inputManager;
@@ -62,9 +64,8 @@ int main(int argc, char* argv[])
 		//OPTICK_FRAME("MainThread");
 
 		while (SDL_PollEvent(&event)) {
-			if (event.type == SDL_EVENT_QUIT) {
-				running = false;
-			}
+			
+			inputManager.handleEvents(running,camera,event, renderConfig);
 		}
 
 	
@@ -75,10 +76,6 @@ int main(int argc, char* argv[])
 
 			
 			inputManager.processFreeCamInput(running, camera);
-			camera.updateVectors();
-			
-
-			
 			fisiks.update(timeStep);
 			fisiks.syncTransfroms(scene.dynamicEnts.transforms, scene.dynamicEnts.physicsComponents);
 			//scene.player.update(input,renderer.camera);

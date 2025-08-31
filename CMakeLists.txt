@@ -205,6 +205,27 @@ FetchContent_MakeAvailable(optick)
 
 
 #=============================================
+#inih for congig files
+#=============================================
+FetchContent_Declare(
+    inih
+    GIT_REPOSITORY https://github.com/benhoyt/inih.git
+    GIT_TAG r61
+
+)
+set(INIH_BUILD_TESTS OFF CACHE INTERNAL "")
+set(INIH_BUILD_EXAMPLES OFF CACHE INTERNAL "")
+FetchContent_MakeAvailable(inih)
+
+add_library(inih STATIC 
+    ${inih_SOURCE_DIR}/ini.c
+    ${inih_SOURCE_DIR}/cpp/INIReader.cpp
+)
+
+# Include INIReader header
+target_include_directories(Synthwave PRIVATE ${inih_SOURCE_DIR}/cpp)
+
+#=============================================
 #=============================================
 #=============================================
 
@@ -218,9 +239,12 @@ glm::glm
 nlohmann_json::nlohmann_json
 Jolt
 OptickCore
-
+inih
 )
+
+
 
 file(COPY core/src/renderer/shaders/slang DESTINATION ${CMAKE_BINARY_DIR}/shader/slang)
 file(COPY assets DESTINATION ${CMAKE_BINARY_DIR})
 file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/data)
+file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/config)
