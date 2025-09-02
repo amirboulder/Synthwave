@@ -1,8 +1,5 @@
 #pragma once
-
 #include <Jolt/Jolt.h>
-
-//#include "../renderer/renderer.hpp"
 
 #ifdef JPH_DEBUG_RENDERER
 
@@ -25,14 +22,12 @@ struct PerModelUniforms2 {
 };
 
 
-class MyDebugRenderer : public JPH::DebugRenderer
+class fisiksDebugRenderer : public JPH::DebugRenderer
 {
 
 	/// Last provided camera position
 	RVec3						mCameraPos;
 	bool						mCameraPosSet = false;
-
-	
 
 	/// Implementation specific batch object
 	class BatchImpl : public RefTargetVirtual
@@ -60,31 +55,30 @@ public:
 	SDL_GPUShader* vertexShader = NULL;
 	SDL_GPUShader* fragmentShader = NULL;
 
-
 	SDL_GPUBuffer* vertexBuffer = NULL;
 
-	SDL_GPUTexture* depthTexture = NULL;
-
 	SDL_GPUSampleCount sampleCountMSAA = SDL_GPU_SAMPLECOUNT_8;
-	SDL_GPUTexture* msaaColorTarget;
-	SDL_GPUTexture* resolveTarget;
-
 
 	SDL_GPUCommandBuffer* commandBuffer = NULL;
 	SDL_GPURenderPass* renderPass = NULL;
-	SDL_GPUTexture* swapchainTexture;
-	Uint32 swapchainWidth, swapchainHeight;
+
+
+	BodyManager::DrawSettings drawSettings;
+
+	PhysicsSystem & physicsSystem;
 
 	glm::mat4 view;
 	glm::mat4 proj;
 
-	MyDebugRenderer(SDL_GPUDevice* device, SDL_Window* window, SDL_GPUTexture* resolveTarget, SDL_GPUTexture* msaaColorTarget, SDL_GPUTexture* depthTexture)
-		: device(device),window(window),
-		resolveTarget(resolveTarget),
-		msaaColorTarget(msaaColorTarget),
-		depthTexture(depthTexture)
-		
+
+	fisiksDebugRenderer(SDL_GPUDevice* device, SDL_Window* window, bool drawBoundingBox, bool drawShapeWireframe,PhysicsSystem& physicsSystem)
+		: device(device),
+		window(window),
+		physicsSystem(physicsSystem)
 	{
+		drawSettings.mDrawBoundingBox = drawBoundingBox;
+		drawSettings.mDrawShapeWireframe = drawShapeWireframe;
+
 		//required by jolt
 		Initialize();
 	}
@@ -102,6 +96,7 @@ public:
 	virtual void DrawLine(JPH::RVec3Arg inFrom, JPH::RVec3Arg inTo, JPH::ColorArg inColor) override
 	{
 		// NO
+		//TODO collect all lines so that we can draw wireframes!
 	}
 
 	virtual void DrawTriangle(JPH::RVec3Arg inV1, JPH::RVec3Arg inV2, JPH::RVec3Arg inV3, JPH::ColorArg inColor, ECastShadow inCastShadow) override
@@ -141,7 +136,6 @@ public:
 			triangle.mV[2] = inVertices[inIndices[t * 3 + 2]];
 		}
 
-
 		return batch;
 	}
 
@@ -156,8 +150,6 @@ public:
 		ECastShadow inCastShadow = ECastShadow::Off,
 		EDrawMode inDrawMode = EDrawMode::Solid) override
 	{
-
-
 
 		// Select LOD
 		const LOD* lod = inGeometry->mLODs.data();
@@ -281,6 +273,16 @@ public:
 
 	}
 
+	void configDrawSettings(bool drawBoundingBox,bool drawShapeWireframe) {
+
+		drawSettings.mDrawBoundingBox = drawBoundingBox;
+		drawSettings.mDrawShapeWireframe = drawShapeWireframe;
+		//fiskisDrawSettings.mDrawShape = true;
+		//fiskisDrawSettings.mDrawCenterOfMassTransform = true;
+		//fiskisDrawSettings.mDrawVelocity = true;
+
+	}
+
 
 	void createPipeline(EDrawMode inDrawMode = EDrawMode::Wireframe) {
 
@@ -334,11 +336,11 @@ public:
 
 		pipeInfo.vertex_input_state = vertexInputState;
 
-		if (inDrawMode == EDrawMode::Solid) {
-			pipeInfo.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_FILL;
+		if (drawSettings.mDrawShapeWireframe ) {
+			pipeInfo.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_LINE;
 		}
 		else {
-			pipeInfo.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_LINE;
+			pipeInfo.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_FILL;
 		}
 
 		pipeInfo.rasterizer_state.cull_mode = SDL_GPU_CULLMODE_BACK;
@@ -353,61 +355,6 @@ public:
 
 		SDL_Log("Successfully created pipeline");
 	}
-
-	void beginRenderPass(SDL_GPUCommandBuffer* commandBuffer, SDL_GPUTexture* swapchainTexture, Uint32 swapchainWidth, Uint32 swapchainHeight) {
-
-
-		this->commandBuffer = commandBuffer;
-
-		this->swapchainTexture = swapchainTexture;
-		this->swapchainWidth = swapchainWidth;
-		this->swapchainHeight = swapchainHeight;
-
-
-
-		SDL_GPUColorTargetInfo physicsColorTargetInfo = {
-			.texture = msaaColorTarget,
-			.load_op = SDL_GPU_LOADOP_LOAD,
-			.store_op = SDL_GPU_STOREOP_RESOLVE,
-			.resolve_texture = resolveTarget,
-		};
-
-		SDL_GPUDepthStencilTargetInfo depthTargetInfo = { 0 };
-		depthTargetInfo.texture = depthTexture;
-		depthTargetInfo.clear_depth = 1.0f;
-		depthTargetInfo.load_op = SDL_GPU_LOADOP_CLEAR;
-		depthTargetInfo.store_op = SDL_GPU_STOREOP_DONT_CARE;
-
-
-		// Begin render pass
-		renderPass = SDL_BeginGPURenderPass(
-			commandBuffer,
-			&physicsColorTargetInfo, 1,
-			&depthTargetInfo
-		);
-
-
-		FrameDataUniforms2 uniforms;
-		uniforms.view = view;
-		uniforms.projection = proj;
-		uniforms.viewProjection = proj * view;
-
-		SDL_PushGPUVertexUniformData(commandBuffer, 0, &uniforms, sizeof(uniforms));
-
-
-		SDL_BindGPUGraphicsPipeline(renderPass, pipeline);
-
-		
-
-	}
-
-
-	void endRenderPass() {
-
-		// End render pass
-		SDL_EndGPURenderPass(renderPass);
-	};
-
 
 	glm::mat4 ConvertToGLMMat4(const RMat44Arg& inModelMatrix)
 	{

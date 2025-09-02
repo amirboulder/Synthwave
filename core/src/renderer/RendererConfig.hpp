@@ -93,7 +93,9 @@
                 reader.GetInteger("renderer", "sampleCountMSAA", sampleCountMSAA)
                 );
 
-            RendererPhysics = reader.GetBoolean("renderer", "enablePhysics", true);
+            RendererPhysics = reader.GetBoolean("renderer", "RendererPhysics", RendererPhysics);
+            DrawBoundingBoxPhysics = reader.GetBoolean("renderer", "DrawBoundingBoxPhysics", DrawBoundingBoxPhysics);
+            DrawShapeWireframePhysics = reader.GetBoolean("renderer", "DrawShapeWireframePhysics", DrawShapeWireframePhysics);
 
 
             FreeCamPos = parseVec3(

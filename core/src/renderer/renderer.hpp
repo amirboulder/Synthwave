@@ -13,15 +13,10 @@
 #include "text/freeType.hpp"
 #include "text/textRenderer.hpp"
 
-
-
 #include "Shader.hpp"
 #include "pipeline.hpp"
 
-
 #include "optick.h"
-
-//#include "../physics/debugRenderer.hpp"
 
 using std::vector;
 
@@ -55,22 +50,31 @@ struct Renderer {
 
 	SDL_GPUTexture* depthTexture = NULL;
 
-	//SDL_GPUSampleCount sampleCountMSAA = SDL_GPU_SAMPLECOUNT_8;
 
 	SDL_GPUTexture* msaaColorTarget;
 	SDL_GPUTexture* resolveTarget;
 
 
-	//int winWidth, winHeight;
-
 	RendererConfig& config;
 
+	
+	std::unique_ptr<fisiksDebugRenderer> fisiksRenderer; // Deferred construction
 
-
-	Renderer(RendererConfig renderConfig)
-		:	config(renderConfig)
+	Renderer(RendererConfig renderConfig, PhysicsSystem& physicsSystem)
+		:	config(renderConfig), fisiksRenderer(nullptr)
 	{
+
+
+		createWindow();
+		createAndClaimGPU();
+		createRenderTargets();
+
+		createSamplerAndDefaultTexture();
 		
+		if (config.RendererPhysics) {
+			initFisisksRenderer(physicsSystem);
+
+		}
 
 	}
 
@@ -381,7 +385,7 @@ struct Renderer {
 	}
 
 
-	void draw(glm::mat4 view, glm::mat4 proj) {
+	void draw(glm::mat4 view, glm::mat4 proj,FreeCam & camera) {
 		
 		// Begin command buffer
 		commandBuffer = SDL_AcquireGPUCommandBuffer(device);
@@ -399,6 +403,8 @@ struct Renderer {
 		if (!swapchainTexture) {
 			return; // Window is probably minimized
 		}
+
+		
 
 		// Color target info
 		SDL_GPUColorTargetInfo colorTargetInfo = {
@@ -435,6 +441,7 @@ struct Renderer {
 
 		SDL_GPUTextureSamplerBinding sampler = { .texture = defaultTexture, .sampler = defaultSampler };
 
+
 		for (int i = 0; i < pipelines.size(); i++) {
 
 			Pipeline& pipeline = pipelines[i];
@@ -443,14 +450,28 @@ struct Renderer {
 
 			pipeline.draw(renderPass,commandBuffer, uniforms.viewProjection,defaultTexture,defaultSampler);
 			
-
 		}
 
-		// End render pass
+
+		if (config.RendererPhysics) {
+
+			RVec3Arg camPos(camera.position.x, camera.position.y, camera.position.z);
+			fisiksRenderer->setCameraUnifroms(camPos, camera.generateview(), camera.generateProj());
+
+			// The following maybe updated everyframe so we need to pass them to fisiksRenderer
+			// here instead of during construction
+			fisiksRenderer->renderPass = renderPass;
+			fisiksRenderer->commandBuffer = commandBuffer;
+
+			SDL_BindGPUGraphicsPipeline(renderPass, fisiksRenderer->pipeline);
+
+			fisiksRenderer->physicsSystem.DrawBodies(fisiksRenderer->drawSettings, &*fisiksRenderer);
+			
+		}
+
 		SDL_EndGPURenderPass(renderPass);
 
-
-		
+		submitCommandBuffer();
 
 
 	}
@@ -479,18 +500,20 @@ struct Renderer {
 
 	}
 
-	void drawModel(SDL_GPURenderPass* renderPass,
-		SDL_GPUGraphicsPipeline* pipeline,
-		SDL_GPUCommandBuffer* commandBuffer,
-		std::vector<ModelSource> models,
-		glm::mat4& viewProj
-		) {
+	void initFisisksRenderer(PhysicsSystem& physicsSystem) {
 
-		SDL_BindGPUGraphicsPipeline(renderPass, pipeline);
+		SDL_Log("initFisisksRenderer()");
 
-		
+		if (!fisiksRenderer) {
+			fisiksRenderer = std::make_unique<fisiksDebugRenderer>(device,window,config.DrawBoundingBoxPhysics,config.DrawShapeWireframePhysics,physicsSystem);
+
+			//shader::generateSpirvShaders("shaders/slang/physicsRender.slang", "shaders/compiled/physicsRenderVS.spv", "shaders/compiled/physicsRenderFS.spv");
+			PL::loadVertexShader(device, fisiksRenderer->vertexShader, "shaders/compiled/physicsRenderVS.spv", 0, 2, 0, 0);
+			PL::loadFragmentShader(device, fisiksRenderer->fragmentShader, "shaders/compiled/physicsRenderFS.spv", 0, 0, 0, 0);
+
+			fisiksRenderer->createPipeline();
+		}
 	}
-
 
 	//TODO move to Material.hpp
 	SDL_Surface* LoadImage(const char* path, int desiredChannels)

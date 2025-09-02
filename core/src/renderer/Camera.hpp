@@ -46,6 +46,8 @@ public:
         farPlane = config.freeCamFarPlane;
         mouseSensitivity = config.FreeCamMouseSensitivity;
 
+        aspectRatio = static_cast<float>(config.windowWidth) / static_cast<float>(config.windowHeight);
+
         updateVectors();
 
     }
