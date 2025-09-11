@@ -54,10 +54,10 @@ struct Renderer {
 	SDL_GPUTexture* msaaColorTarget;
 	SDL_GPUTexture* resolveTarget;
 
+	Camera* activeCamera;
 
 	RendererConfig& config;
 
-	
 	std::unique_ptr<fisiksDebugRenderer> fisiksRenderer; // Deferred construction
 
 	Renderer(RendererConfig renderConfig, PhysicsSystem& physicsSystem)
@@ -385,7 +385,7 @@ struct Renderer {
 	}
 
 
-	void draw(glm::mat4 view, glm::mat4 proj,FreeCam & camera) {
+	void draw() {
 		
 		// Begin command buffer
 		commandBuffer = SDL_AcquireGPUCommandBuffer(device);
@@ -433,9 +433,9 @@ struct Renderer {
 
 
 		FrameDataUniforms uniforms;
-		uniforms.view = view;
-		uniforms.projection = proj;
-		uniforms.viewProjection = proj * view;
+		uniforms.view = activeCamera->generateview();
+		uniforms.projection = activeCamera->generateProj();
+		uniforms.viewProjection = uniforms.projection * uniforms.view;
 
 		SDL_PushGPUVertexUniformData(commandBuffer, 0, &uniforms, sizeof(uniforms));
 
@@ -455,8 +455,8 @@ struct Renderer {
 
 		if (config.RendererPhysics) {
 
-			RVec3Arg camPos(camera.position.x, camera.position.y, camera.position.z);
-			fisiksRenderer->setCameraUnifroms(camPos, camera.generateview(), camera.generateProj());
+			RVec3Arg camPos(activeCamera->position.x, activeCamera->position.y, activeCamera->position.z);
+			fisiksRenderer->setCameraUnifroms(camPos, activeCamera->generateview(), activeCamera->generateProj());
 
 			// The following maybe updated everyframe so we need to pass them to fisiksRenderer
 			// here instead of during construction

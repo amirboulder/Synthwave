@@ -3,6 +3,8 @@
 #include <iostream>
 
 #include "core/src/renderer/renderer.hpp"
+#include "core/src/renderer/cameraManager.hpp"
+
 
 #include "game/src/gameObjects.hpp"
 

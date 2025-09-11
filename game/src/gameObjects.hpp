@@ -47,6 +47,7 @@ public:
 		pipelineMtn.drawType = 1;
 
 
+
 		constructLVL2(fisiks, renderer);
 
 
@@ -97,6 +98,9 @@ public:
 		capsule2Transfrom.scale = glm::vec3(1.0f);
 		capsuleSource.createInstance(dynamicEnts.models.back());
 
+
+
+
 		//Grid
 		staticEnts.models.emplace_back();
 		staticEnts.transforms.emplace_back();
@@ -146,6 +150,11 @@ public:
 		//robotSource.createInstance(dynamicEnts.models.back());
 
 
+		//Player
+		player.CreatePlayer(fisiks.physics_system, JPH::Vec3(1.0f, -15.0f, 0.0f), JPH::Quat(0.0f, 0.0f, 0.0f, 1.0f), 1.0f, 2.5f);
+
+
+
 		//Capsule1
 		
 		Transform capsule1Transfrom;
@@ -161,6 +170,14 @@ public:
 		capsule2Transfrom.rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
 		capsule2Transfrom.scale = glm::vec3(1.0f);
 		factory.createCapsuleEntity(dynamicEnts, fisiks, capsuleSource, capsule2Transfrom);
+
+		//Capsule2
+		Transform capsule3Transfrom;
+		capsule3Transfrom.position = glm::vec3(1.0f, 29.0f, 0.0f);
+		capsule3Transfrom.rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
+		capsule3Transfrom.scale = glm::vec3(1.0f);
+		factory.createCapsuleEntity(dynamicEnts, fisiks, capsuleSource, capsule2Transfrom);
+
 
 
 

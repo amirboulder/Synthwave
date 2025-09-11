@@ -116,15 +116,15 @@
                 reader.GetReal("camera", "FreeCamPitch", FreeCamPitch)
                 );
 
-            FreeCamPitch = static_cast<float>(
+            freeCamFov = static_cast<float>(
                 reader.GetReal("camera", "freeCamFov", freeCamFov)
                 );
 
-            FreeCamPitch = static_cast<float>(
+            freeCamNearPlane = static_cast<float>(
                 reader.GetReal("camera", "freeCamNearPlane", freeCamNearPlane)
                 );
 
-            FreeCamPitch = static_cast<float>(
+            freeCamFarPlane = static_cast<float>(
                 reader.GetReal("camera", "freeCamFarPlane", freeCamFarPlane)
                 );
 

@@ -12,16 +12,20 @@ int main(int argc, char* argv[])
 
 	Renderer renderer(renderConfig, fisiks.physics_system);
 
-	FreeCam camera(renderConfig);
+	CameraManager cameraManager(renderConfig);
+
+	cameraManager.renderer = &renderer;
+	renderer.activeCamera = &cameraManager.freeCam;
 
 	Scene scene(fisiks, renderer);
 
-	InputManager inputManager;
+	
+	InputManager inputManager(AppContext::freeCam,cameraManager);
 
 	PlayerInput input;
-	Player player;
-
-
+	
+	
+	
 	float timeStep = 1.0f / 120.0f;
 	float accumulator = 0.0f;
 	uint64_t lastTime = SDL_GetTicks();
@@ -37,7 +41,7 @@ int main(int argc, char* argv[])
 
 		while (SDL_PollEvent(&event)) {
 			
-			inputManager.handleEvents(running,camera,event, renderConfig);
+			inputManager.handleEvents(running,event,renderConfig);
 		}
 
 	
@@ -46,19 +50,22 @@ int main(int argc, char* argv[])
 		accumulator += deltaTime;
 		while (accumulator >= timeStep) {
 
-			
-			inputManager.processFreeCamInput(running, camera);
+			inputManager.handleInput(input);
+
+
 			fisiks.update(timeStep);
 			fisiks.syncTransfroms(scene.dynamicEnts.transforms, scene.dynamicEnts.physicsComponents);
-			//scene.player.update(input,renderer.camera);
-			accumulator -= timeStep;
+
+			scene.player.update(input, cameraManager.playerCam);
 			//scene.LVL1Script(fisiks.physics_system, scene.player.JoltCharacter->GetPosition());
+
+			accumulator -= timeStep;
 		}
 
-		//TODO INTERPOLATE ?????
-		renderer.draw(camera.generateview(),camera.generateProj(),camera);
+		//TODO INTERPOLATE to account for physics and rendering happening at diffrent rates
 
-		
+			renderer.draw();
+
 		//JPH::Vec3 playerPos =  scene.player.JoltCharacter->GetPosition();
 		//string posText = std::to_string(playerPos.GetX()) + " " + std::to_string(playerPos.GetY()) + " " + std::to_string(playerPos.GetZ());
 		//renderer.drawText(posText, { 50.0f,50.0f }, 1, { 1.0f,1.0f,1.0f });

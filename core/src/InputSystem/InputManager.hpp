@@ -6,18 +6,13 @@
 
 #include "glm/glm.hpp"
 
-#include "../renderer/Camera.hpp"
+#include "../renderer/CameraManager.hpp"
 
 #include "../ecs/components.hpp"
 
+#include "../common.hpp"
 
 
-enum InputContext
-{
-	game,
-	menu,
-
-};
 
 
 class InputManager {
@@ -25,7 +20,7 @@ class InputManager {
 public:
 
 
-	InputContext context = InputContext::game;
+	AppContext context;
 
 	uint16_t forward = SDL_SCANCODE_W;
 	uint16_t left = SDL_SCANCODE_A;
@@ -37,17 +32,51 @@ public:
 	uint16_t closeWindow = SDL_SCANCODE_END;
 
 
+	CameraManager& cameraManager;
 
-	int prevMouseX = 1920/2, prevMouseY = 1080/2;
+
+	//int prevMouseX = 1920 / 2, prevMouseY = 1080 / 2;
+
+	InputManager(AppContext context, CameraManager& cameraManager)
+		: context(context), cameraManager(cameraManager)
+	{
+
+	}
 
 
-	void processFreeCamInput(bool& running, FreeCam& camera) {
+	void handleInput(PlayerInput& input) {
+
+		switch (context) {
+		case AppContext::freeCam:
+
+			processFreeCamKBMInput();
+			break;
+
+		case AppContext::player:
+
+			handlePlayerKBMInput(input);
+			break;
+
+		case AppContext::menu:
+
+			break;
+
+		case AppContext::editor:
+
+			break;
+
+		}
+
+
+	}
+
+	void processFreeCamKBMInput() {
+
+		Camera& camera = cameraManager.freeCam;
 
 		const bool* keystates = SDL_GetKeyboardState(NULL);
 
-		if (keystates[SDL_SCANCODE_END]) {running = false;}
-
-	
+		
 		// Handle WASD movement
 		if (keystates[SDL_SCANCODE_W]) {
 			camera.position += camera.front  * camera.movementSpeed;
@@ -79,9 +108,13 @@ public:
 
 	}
 
-	void handleEvents(bool& running, FreeCam& camera,SDL_Event event,RendererConfig& config) {
+	void handleEvents(bool& running,SDL_Event event,RendererConfig& config) {
 
-		if (event.type == SDL_EVENT_KEY_UP && event.key.repeat == 0 && event.key.scancode == SDL_SCANCODE_F1) {
+		Camera& camera = cameraManager.freeCam;
+
+		//TODO move this out of here
+		// trigger an event of some sort
+		if (event.type == SDL_EVENT_KEY_DOWN && event.key.repeat == 0 && event.key.scancode == SDL_SCANCODE_F1) {
 
 			config.FreeCamFront = camera.front;
 			config.FreeCamPos = camera.position;
@@ -93,28 +126,51 @@ public:
 			config.saveRendererConfigINI("config/renderConfig.ini");
 		}
 
+		if (event.type == SDL_EVENT_KEY_DOWN && event.key.repeat == 0 && event.key.scancode == closeWindow) {
+			running = false;
+		}
+
 		if (event.type == SDL_EVENT_QUIT) {
 			running = false;
 		}
 
-		//TO be used for switching between menu and in game
+		//TO be used for switching between menu and game
 		if (event.type == SDL_EVENT_KEY_DOWN && event.key.repeat == 0 && event.key.scancode == SDL_SCANCODE_ESCAPE) {
 
-			context = InputContext::game;
-			cout << "JEET!\n";
+			context = AppContext::menu;
+
+		}
+
+		// Switch between playerCam and freeCam
+		if (event.type == SDL_EVENT_KEY_DOWN && event.key.repeat == 0 && event.key.scancode == SDL_SCANCODE_F2) {
+
+			if (context == AppContext::player) {
+
+				context = AppContext::freeCam;
+
+				cameraManager.switchContext(context);
+				SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "using Free camera");
+
+			}
+			else if (context == AppContext::freeCam) {
+
+				context = AppContext::player;
+
+				cameraManager.switchContext(context);
+				SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "using player camera");
+
+			}
 
 		}
 
 	}
 
-	void processKeyboardGameInput(bool& running, FreeCam& camera, PlayerInput& input) {
+	void handlePlayerKBMInput(PlayerInput& input) {
+
+
+		Camera& camera = cameraManager.playerCam;
 
 		const bool* keystates = SDL_GetKeyboardState(NULL);
-
-		// Handle quit condition
-		if (keystates[SDL_SCANCODE_END]) {
-			running = false;
-		}
 
 		// Reset input
 		input.direction = glm::vec3(0);
@@ -122,9 +178,6 @@ public:
 		input.offsetX = 0.0f;
 		input.offsetY = 0.0f;
 
-		// Use camera orientation for movement direction
-		//glm::vec3 camForward = camera.target;
-		//glm::vec3 camRight = camera.right;
 
 		// Handle WASD movement
 		if (keystates[SDL_SCANCODE_W]) {
@@ -162,47 +215,7 @@ public:
 		smoothedYOffset = smoothedYOffset * (1.0f - smoothingFactor) + deltaY * smoothingFactor;
 
 		input.offsetX = smoothedXOffset;
-		input.offsetY = -smoothedYOffset; // Negate Y for consistent pitch
-
-
-
-	}
-
-
-	void handlePlayerInput(bool& running,PlayerInput& input) {
-		const bool* keystates = SDL_GetKeyboardState(NULL);
-
-		if (keystates[SDL_SCANCODE_END]) {
-
-			running = false;
-
-		}
-
-		// Reset input
-		input.direction = glm::vec3(0);
-		input.jump = false;
-
-		if (keystates[SDL_SCANCODE_UP]) {
-			input.direction.z -= 1.0f; 
-		}
-		if (keystates[SDL_SCANCODE_DOWN]) {
-			input.direction.z += 1.0f;
-		}
-		if (keystates[SDL_SCANCODE_LEFT]) {
-			input.direction.x -= 1.0f;
-		}
-		if (keystates[SDL_SCANCODE_RIGHT]) {
-			input.direction.x += 1.0f;
-		}
-		
-		if (keystates[SDL_SCANCODE_SPACE]) {
-			input.jump = true;
-		}
-
-	}
-
-	void processMouseGameInput() {
-
+		input.offsetY = smoothedYOffset; 
 
 	}
 

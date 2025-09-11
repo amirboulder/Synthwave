@@ -6,7 +6,7 @@
 
 #include "RendererConfig.hpp"
 
-class FreeCam {
+class Camera {
 
 public:
 
@@ -31,7 +31,7 @@ public:
     float movementSpeed = 0.1f;
     float mouseSensitivity;
 
-    FreeCam(RendererConfig & config)
+    Camera(RendererConfig & config)
         : position(config.FreeCamPos)
 
     {

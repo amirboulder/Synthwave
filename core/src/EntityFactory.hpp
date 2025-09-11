@@ -218,13 +218,17 @@ public:
 			capsuleShape,
 			joltPosition,
 			joltRotation,
+
 			JPH::EMotionType::Dynamic,
+
 			Layers::MOVING
 		);
 
 		// bounciness
 		pillSettings.mRestitution = 0.5f;
 
+		pillSettings.mOverrideMassProperties = JPH::EOverrideMassProperties::CalculateInertia;
+		pillSettings.mMassPropertiesOverride.mMass = 5000.1f;
 
 
 		// Create and add body
@@ -380,7 +384,7 @@ public:
 			Layers::NON_MOVING   
 		);
 
-		boxBodySettings.mRestitution = 0.9f; // High restitution for bounciness
+		boxBodySettings.mRestitution = 0.1f; // High restitution for bounciness
 		boxBodySettings.mFriction = 1.0f;    // Low friction for sliding
 
 		
