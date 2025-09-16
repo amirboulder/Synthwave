@@ -2,7 +2,6 @@
 
 #include "renderer/Model.hpp"
 #include "physics/physics.hpp"
-#include "core/src/player.hpp"
 
 class Entity {
 

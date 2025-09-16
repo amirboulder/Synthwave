@@ -11,7 +11,7 @@ class Camera {
 public:
 
     glm::vec3 position;
-    glm::vec3 front; // Direction camera is looking (normalized target - position)
+    glm::vec3 front = glm::vec3(1.0f);// Direction camera is looking (normalized target - position)
    
     glm::vec3 up;        // Up vector
     glm::vec3 right;     // Right vector
@@ -53,8 +53,24 @@ public:
     }
 
 
+    Camera(RendererConfig& config, glm::vec3 position)
+    :   position(config.FreeCamPos),
+        yaw(config.FreeCamYaw),
+        pitch(config.FreeCamPitch),
+        fov(config.freeCamFov),
+        nearPlane(config.freeCamNearPlane),
+        farPlane(config.freeCamFarPlane),
+        mouseSensitivity(config.FreeCamMouseSensitivity),
+        aspectRatio(static_cast<float>(config.windowWidth) / static_cast<float>(config.windowHeight))
+    {
+
+        updateVectors();
+
+    }
+
 
     void updateVectors() {
+
         front.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
         front.y = sin(glm::radians(pitch));
         front.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));

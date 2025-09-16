@@ -2,6 +2,8 @@
 #include "core/src/EntityFactory.hpp"
 #include "core/src/physics/physicsUtil.hpp"
 
+#include "core/src/state/stateManager.hpp"
+
 using std::vector;
 
 class Scene {
@@ -11,10 +13,18 @@ public:
 	Entities dynamicEnts;
 	Entities staticEnts;
 	Entities mtnEnts;
-	
-	Player player;
-	
-	Scene(Fisiks& fisiks, Renderer& renderer) {
+
+	Player & player;
+
+	StateManager & stateManager;
+
+	Fisiks& fisiks;
+
+	Renderer& renderer;
+
+	Scene(Fisiks& fisiks, Renderer& renderer, StateManager& stateManager, Player& player)
+		:fisiks(fisiks), renderer(renderer), stateManager(stateManager), player(player)
+	{
 
 		//=========== creating shaders
 		// 
@@ -48,7 +58,7 @@ public:
 
 
 
-		constructLVL2(fisiks, renderer);
+		constructLVL2();
 
 
 
@@ -121,7 +131,7 @@ public:
 		return true;
 	}
 
-	bool constructLVL2(Fisiks& fisiks, Renderer& renderer) {
+	bool constructLVL2() {
 
 		EntityFactory factory;
 
@@ -151,12 +161,15 @@ public:
 
 
 		//Player
-		player.CreatePlayer(fisiks.physics_system, JPH::Vec3(1.0f, -15.0f, 0.0f), JPH::Quat(0.0f, 0.0f, 0.0f, 1.0f), 1.0f, 2.5f);
+		stateManager.setPlayer(player);
+		stateManager.load();
+		player.CreatePlayer(fisiks.physics_system);
+
+		
 
 
 
 		//Capsule1
-		
 		Transform capsule1Transfrom;
 		capsule1Transfrom.position = glm::vec3(1.0f,5.0f,0.0f);
 		capsule1Transfrom.rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);

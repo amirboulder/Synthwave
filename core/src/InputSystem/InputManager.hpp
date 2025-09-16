@@ -1,7 +1,6 @@
 #pragma once
 
 #include "SDL3/SDL_keyboard.h"
-
 #include "SDL3/SDL_mouse.h"
 
 #include "glm/glm.hpp"
@@ -12,7 +11,7 @@
 
 #include "../common.hpp"
 
-
+#include "../state/stateManager.hpp"
 
 
 class InputManager {
@@ -34,11 +33,11 @@ public:
 
 	CameraManager& cameraManager;
 
+	StateManager& stateManager;
 
-	//int prevMouseX = 1920 / 2, prevMouseY = 1080 / 2;
 
-	InputManager(AppContext context, CameraManager& cameraManager)
-		: context(context), cameraManager(cameraManager)
+	InputManager(AppContext context, CameraManager& cameraManager, StateManager& stateManager)
+		: context(context), cameraManager(cameraManager), stateManager(stateManager)
 	{
 
 	}
@@ -124,6 +123,9 @@ public:
 
 			//TODO modify function so the path is not hardcoded
 			config.saveRendererConfigINI("config/renderConfig.ini");
+
+			stateManager.save();
+
 		}
 
 		if (event.type == SDL_EVENT_KEY_DOWN && event.key.repeat == 0 && event.key.scancode == closeWindow) {
@@ -148,7 +150,7 @@ public:
 
 				context = AppContext::freeCam;
 
-				cameraManager.switchContext(context);
+				cameraManager.setContext(context);
 				SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "using Free camera");
 
 			}
@@ -156,7 +158,7 @@ public:
 
 				context = AppContext::player;
 
-				cameraManager.switchContext(context);
+				cameraManager.setContext(context);
 				SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "using player camera");
 
 			}

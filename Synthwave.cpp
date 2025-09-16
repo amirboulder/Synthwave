@@ -6,21 +6,21 @@ int main(int argc, char* argv[])
 {
 	bool running = true;
 
+	StateManager stateManager;
+
 	Fisiks fisiks;
 
 	RendererConfig renderConfig("config/renderConfig.ini");
 
 	Renderer renderer(renderConfig, fisiks.physics_system);
-
-	CameraManager cameraManager(renderConfig);
-
-	cameraManager.renderer = &renderer;
-	renderer.activeCamera = &cameraManager.freeCam;
-
-	Scene scene(fisiks, renderer);
-
 	
-	InputManager inputManager(AppContext::freeCam,cameraManager);
+	CameraManager cameraManager(renderer,renderConfig, stateManager.appContext);
+
+	Player player(cameraManager.playerCam);
+
+	Scene scene(fisiks, renderer, stateManager, player);
+
+	InputManager inputManager(stateManager.appContext,cameraManager,scene.stateManager);
 
 	PlayerInput input;
 	
@@ -56,14 +56,13 @@ int main(int argc, char* argv[])
 			fisiks.update(timeStep);
 			fisiks.syncTransfroms(scene.dynamicEnts.transforms, scene.dynamicEnts.physicsComponents);
 
-			scene.player.update(input, cameraManager.playerCam);
+			scene.player.update(input);
 			//scene.LVL1Script(fisiks.physics_system, scene.player.JoltCharacter->GetPosition());
 
 			accumulator -= timeStep;
 		}
 
-		//TODO INTERPOLATE to account for physics and rendering happening at diffrent rates
-
+			//TODO INTERPOLATE to account for physics and rendering happening at diffrent rates
 			renderer.draw();
 
 		//JPH::Vec3 playerPos =  scene.player.JoltCharacter->GetPosition();
