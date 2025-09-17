@@ -41,7 +41,7 @@ public:
 
 	}
 	
-	void CreatePlayer(PhysicsSystem& physics_system) {
+	void createPhysicsBody(PhysicsSystem& physics_system) {
 
 		// Character settings
 		JPH::CharacterSettings settings;
@@ -54,16 +54,6 @@ public:
 		joltCharacter = new JPH::Character(&settings, position, rotation, 69, &physics_system);
 
 		joltCharacter->AddToPhysicsSystem(JPH::EActivation::Activate);
-
-
-		// updating the camera in players contructor because it was created with default values before 
-		// player state was loaded, updating it here avoid a camera jump in the first frame as it is rendered before
-		// enough time delta time is accumulated for player.update( and other update functions) to be called.
-
-		glm::vec3 characterPosGLM = glm::vec3(position.GetX(), position.GetY(), position.GetZ());
-		camera.position = characterPosGLM + offset;
-
-		camera.updateVectors();
 
 	}
 

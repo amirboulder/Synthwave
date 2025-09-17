@@ -163,10 +163,7 @@ public:
 		//Player
 		stateManager.setPlayer(player);
 		stateManager.load();
-		player.CreatePlayer(fisiks.physics_system);
-
-		
-
+		player.createPhysicsBody(fisiks.physics_system);
 
 
 		//Capsule1

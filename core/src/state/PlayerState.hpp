@@ -82,7 +82,6 @@ public:
     //TODO add check for when json structure is different then what is expected
     static void loadPlayerState(Player& player, const std::string& playerStateFilePath) {
 
-
         std::ifstream file(playerStateFilePath);
         if (!file) {
             std::cout << playerStateFilePath << " does not exist!\n";
@@ -90,28 +89,42 @@ public:
         }
 
         json playerStateJson;
-        file >> playerStateJson;
 
-        player.position.SetX(playerStateJson["player"]["position"]["x"]);
-        player.position.SetY(playerStateJson["player"]["position"]["y"]);
-        player.position.SetZ(playerStateJson["player"]["position"]["z"]);
+        try {
 
-        player.rotation.SetX(playerStateJson["player"]["rotation"]["x"]);
-        player.rotation.SetY(playerStateJson["player"]["rotation"]["y"]);
-        player.rotation.SetZ(playerStateJson["player"]["rotation"]["z"]);
-        player.rotation.SetW(playerStateJson["player"]["rotation"]["w"]);
+            file >> playerStateJson;
 
-        player.camera.yaw = playerStateJson["player"]["cameraYaw"];
-        player.camera.pitch = playerStateJson["player"]["cameraPitch"];
+        player.position.SetX(playerStateJson.at("player").at("position").at("x"));
+        player.position.SetY(playerStateJson.at("player").at("position").at("y"));
+        player.position.SetZ(playerStateJson.at("player").at("position").at("z"));
 
-        player.moveSpeed = playerStateJson["player"]["moveSpeed"];
-        player.jumpStrength = playerStateJson["player"]["jumpStrength"];
+        player.rotation.SetX(playerStateJson.at("player").at("rotation").at("x"));
+        player.rotation.SetY(playerStateJson.at("player").at("rotation").at("y"));
+        player.rotation.SetZ(playerStateJson.at("player").at("rotation").at("z"));
+        player.rotation.SetW(playerStateJson.at("player").at("rotation").at("w"));
+
+        player.moveSpeed = playerStateJson.at("player").at("moveSpeed");
+        player.jumpStrength = playerStateJson.at("player").at("jumpStrength");
+
+        player.camera.yaw = playerStateJson.at("player").at("cameraYaw");
+        player.camera.pitch = playerStateJson.at("player").at("cameraPitch");
+
+        // updating the camera in players contructor because it was created with default values before 
+        // player state was loaded, updating it here avoid a camera jump in the first frame as it is rendered before
+        // enough time delta time is accumulated for player.update( and other update functions) to be called.
+        glm::vec3 characterPosGLM = glm::vec3(player.position.GetX(), player.position.GetY(), player.position.GetZ());
+        player.camera.position = characterPosGLM + player.offset;
+        player.camera.updateVectors();
 
         file.close();
 
+        }
+        catch (const json::exception& e) {
+           
+            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Error loading player state from : %s Error code : %d", playerStateFilePath.c_str(), e.id);
+            return;
+        }
     }
-
-
 };
 
 
