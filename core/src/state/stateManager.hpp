@@ -47,7 +47,7 @@ public:
 
 	Player& getPlayer() {
 		if (!player) {
-			throw std::runtime_error("Player not set in StateManager!");
+			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Error Player not set in StateManager! ");
 		}
 		return *player;
 	}
@@ -87,11 +87,15 @@ public:
 			float dx, dy;
 			SDL_GetRelativeMouseState(&dx, &dy);
 
+			SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "play");
+
 		}
 		else {
 			time.pauseGame();
 			playState = PlayState::pause;
 			SDL_SetWindowRelativeMouseMode(renderer.window, false);
+
+			SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "pause");
 		}
 	}
 

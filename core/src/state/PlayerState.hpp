@@ -55,23 +55,21 @@ public:
 
 
         if (std::filesystem::exists(playerStateFilePath)) {
-            std::cout << "Warning: file already exists, overwriting: "
-                << playerStateFilePath << "\n";
+            SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Warning: file already exists, overwriting: %s ", playerStateFilePath.c_str());
         }
         else {
-            std::cout << "Creating new player state file: "
-                << playerStateFilePath << "\n";
+            SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Creating new player state file : %s ", playerStateFilePath.c_str());
         }
 
         std::ofstream file(playerStateFilePath, std::ios::out | std::ios::trunc);
         if (!file) {
-            std::cerr << "Error creating player state file!\n";
+            SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Error creating player state file!");
             return false;
         }
 
 
         file << playerStateJson.dump(4);  // Pretty print with 4-space indentation
-        std::cout << "user settings saved successfully!\n";
+        SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "saved player state");
 
         file.close();
 
