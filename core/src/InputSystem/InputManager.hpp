@@ -13,15 +13,10 @@
 
 #include "../state/stateManager.hpp"
 
-#include "../time/timeManager.hpp"
-
 
 class InputManager {
 
 public:
-
-
-	AppContext & context;
 
 	uint16_t forward = SDL_SCANCODE_W;
 	uint16_t left = SDL_SCANCODE_A;
@@ -32,16 +27,13 @@ public:
 
 	uint16_t closeWindow = SDL_SCANCODE_END;
 
-
 	CameraManager& cameraManager;
 
 	StateManager& stateManager;
 
-	//TimeManager& time;
 
-
-	InputManager(AppContext & context, CameraManager& cameraManager, StateManager& stateManager)
-		: context(context), cameraManager(cameraManager), stateManager(stateManager)
+	InputManager(CameraManager& cameraManager, StateManager& stateManager)
+		:  cameraManager(cameraManager), stateManager(stateManager)
 	{
 
 	}
@@ -49,7 +41,7 @@ public:
 
 	void handleInput(PlayerInput& input) {
 
-		switch (context) {
+		switch (stateManager.appContext) {
 		case AppContext::freeCam:
 
 			processFreeCamKBMInput();
@@ -115,21 +107,10 @@ public:
 
 		Camera& camera = cameraManager.freeCam;
 
-		//TODO move this out of here
-		// trigger an event of some sort
 		if (event.type == SDL_EVENT_KEY_DOWN && event.key.repeat == 0 && event.key.scancode == SDL_SCANCODE_F1) {
 
-			config.FreeCamFront = camera.front;
-			config.FreeCamPos = camera.position;
-
-			config.FreeCamYaw = camera.yaw;
-			config.FreeCamPitch = camera.pitch;
-
-			//TODO modify function so the path is not hardcoded
-			config.saveRendererConfigINI("config/renderConfig.ini");
-
+			stateManager.handleSavingRenderConfig();
 			stateManager.save();
-
 		}
 
 		if (event.type == SDL_EVENT_KEY_DOWN && event.key.repeat == 0 && event.key.scancode == closeWindow) {
@@ -143,29 +124,14 @@ public:
 		//used for switching between menu and game
 		if (event.type == SDL_EVENT_KEY_DOWN && event.key.repeat == 0 && event.key.scancode == SDL_SCANCODE_ESCAPE) {
 
-			stateManager.pauseHandler();
+			stateManager.handleGamePause();
 
 		}
 
 		// Switch between playerCam and freeCam
 		if (event.type == SDL_EVENT_KEY_DOWN && event.key.repeat == 0 && event.key.scancode == SDL_SCANCODE_F2) {
 
-			if (context == AppContext::player) {
-
-				context = AppContext::freeCam;
-
-				stateManager.setActiveCamera(context);
-				SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "using free camera");
-
-			}
-			else if (context == AppContext::freeCam) {
-
-				context = AppContext::player;
-
-				stateManager.setActiveCamera(context);
-				SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "using player camera");
-
-			}
+			stateManager.handleCameraSwitch();
 
 		}
 

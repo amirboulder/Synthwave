@@ -5,6 +5,8 @@
 #include "../renderer/renderer.hpp"
 #include "../renderer/CameraManager.hpp"
 
+#include"../renderer/RendererConfig.hpp"
+
 #include "../time/timeManager.hpp"
 
 
@@ -14,6 +16,7 @@ private:
 
 	Player* player = nullptr;
 
+	RendererConfig& renderConfig;
 
 	Renderer& renderer;
 	CameraManager& cameraManager;
@@ -24,8 +27,8 @@ public:
 	AppContext appContext = AppContext::player;
 	PlayState playState = PlayState::play;
 
-	StateManager(Renderer& renderer, CameraManager& cameraManager, TimeManager & time)
-		: renderer(renderer), cameraManager(cameraManager), time(time)
+	StateManager(RendererConfig & renderConfig,Renderer& renderer, CameraManager& cameraManager, TimeManager & time)
+		: renderConfig(renderConfig), renderer(renderer), cameraManager(cameraManager), time(time)
 	{
 		applicationSetup();
 	}
@@ -71,7 +74,7 @@ public:
 		return true;
 	}
 
-	void pauseHandler() {
+	void handleGamePause() {
 
 		if (time.paused) {
 			time.unPauseGame();
@@ -104,6 +107,43 @@ public:
 			renderer.activeCamera = &cameraManager.freeCam;
 			break;
 		}
+
+	}
+
+
+	void handleCameraSwitch() {
+
+		if (appContext == AppContext::player) {
+
+			appContext = AppContext::freeCam;
+
+			setActiveCamera(appContext);
+			SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "using free camera");
+
+		}
+		else if (appContext == AppContext::freeCam) {
+
+			appContext = AppContext::player;
+
+			setActiveCamera(appContext);
+			SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "using player camera");
+
+		}
+
+	}
+
+	void handleSavingRenderConfig() {
+
+		Camera& camera = cameraManager.freeCam;
+
+		renderConfig.FreeCamFront = camera.front;
+		renderConfig.FreeCamPos = camera.position;
+
+		renderConfig.FreeCamYaw = camera.yaw;
+		renderConfig.FreeCamPitch = camera.pitch;
+
+		//TODO modify function so the path is not hardcoded
+		renderConfig.saveRendererConfigINI("config/renderConfig.ini");
 
 	}
 

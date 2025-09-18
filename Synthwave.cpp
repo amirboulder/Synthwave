@@ -16,11 +16,11 @@ int main(int argc, char* argv[])
 	
 	CameraManager cameraManager(renderConfig);
 
-	StateManager stateManager(renderer, cameraManager,time);
+	StateManager stateManager(renderConfig,renderer, cameraManager,time);
 
 	Scene scene(fisiks, renderer, stateManager, cameraManager.playerCam);
 
-	InputManager inputManager(stateManager.appContext,cameraManager,stateManager);
+	InputManager inputManager(cameraManager,stateManager);
 
 	PlayerInput input;
 	
@@ -60,7 +60,7 @@ int main(int argc, char* argv[])
 		//renderer.drawText(posText, { 50.0f,50.0f }, 1, { 1.0f,1.0f,1.0f });
 
 
-		printf("FPS: %d\n", time.fps);
+		//printf("FPS: %d\n", time.fps);
 		//renderer.drawFps(fps);
 	}
 
