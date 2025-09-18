@@ -14,7 +14,7 @@ public:
 	Entities staticEnts;
 	Entities mtnEnts;
 
-	Player & player;
+	Player player;
 
 	StateManager & stateManager;
 
@@ -22,8 +22,8 @@ public:
 
 	Renderer& renderer;
 
-	Scene(Fisiks& fisiks, Renderer& renderer, StateManager& stateManager, Player& player)
-		:fisiks(fisiks), renderer(renderer), stateManager(stateManager), player(player)
+	Scene(Fisiks& fisiks, Renderer& renderer, StateManager& stateManager, Camera& camera)
+		:fisiks(fisiks), renderer(renderer), stateManager(stateManager), player(camera)
 	{
 
 		//=========== creating shaders

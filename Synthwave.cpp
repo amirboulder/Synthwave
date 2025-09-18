@@ -6,32 +6,24 @@ int main(int argc, char* argv[])
 {
 	bool running = true;
 
-	StateManager stateManager;
-
 	Fisiks fisiks;
 
 	RendererConfig renderConfig("config/renderConfig.ini");
 
 	Renderer renderer(renderConfig, fisiks.physics_system);
+
+	TimeManager time;
 	
-	CameraManager cameraManager(renderer,renderConfig, stateManager.appContext);
+	CameraManager cameraManager(renderConfig);
 
-	Player player(cameraManager.playerCam);
+	StateManager stateManager(renderer, cameraManager,time);
 
-	Scene scene(fisiks, renderer, stateManager, player);
+	Scene scene(fisiks, renderer, stateManager, cameraManager.playerCam);
 
-	InputManager inputManager(stateManager.appContext,cameraManager,scene.stateManager);
+	InputManager inputManager(stateManager.appContext,cameraManager,stateManager);
 
 	PlayerInput input;
 	
-	
-	
-	float timeStep = 1.0f / 120.0f;
-	float accumulator = 0.0f;
-	uint64_t lastTime = SDL_GetTicks();
-	int frameCount = 0;
-	int fps = 0;
-	uint64_t fpsTimer = SDL_GetTicks();
 
 	printf("\033[35mWelcome to the simulation!\033[0m\n");
 	SDL_Event event;
@@ -45,37 +37,30 @@ int main(int argc, char* argv[])
 		}
 
 	
-		float deltaTime = (SDL_GetTicks() - lastTime) / 1000.0f;
-		lastTime = SDL_GetTicks();
-		accumulator += deltaTime;
-		while (accumulator >= timeStep) {
+		time.tick();
+		while (time.accumulator >= time.timeStep) {
 
 			inputManager.handleInput(input);
 
 
-			fisiks.update(timeStep);
+			fisiks.update(time.timeStep);
 			fisiks.syncTransfroms(scene.dynamicEnts.transforms, scene.dynamicEnts.physicsComponents);
 
 			scene.player.update(input);
 			//scene.LVL1Script(fisiks.physics_system, scene.player.JoltCharacter->GetPosition());
 
-			accumulator -= timeStep;
+			time.accumulator -= time.timeStep;
 		}
 
-			//TODO INTERPOLATE to account for physics and rendering happening at diffrent rates
-			renderer.draw();
+		//TODO INTERPOLATE to account for physics and rendering happening at diffrent rates
+		renderer.draw();
 
 		//JPH::Vec3 playerPos =  scene.player.JoltCharacter->GetPosition();
 		//string posText = std::to_string(playerPos.GetX()) + " " + std::to_string(playerPos.GetY()) + " " + std::to_string(playerPos.GetZ());
 		//renderer.drawText(posText, { 50.0f,50.0f }, 1, { 1.0f,1.0f,1.0f });
 
-		frameCount++;
-		if (SDL_GetTicks() - fpsTimer >= 1000.0) {
-			fps = frameCount;
-			frameCount = 0;
-			fpsTimer = SDL_GetTicks();
-		}
-		//printf("FPS: %d\n", fps);
+
+		printf("FPS: %d\n", time.fps);
 		//renderer.drawFps(fps);
 	}
 

@@ -13,13 +13,15 @@
 
 #include "../state/stateManager.hpp"
 
+#include "../time/timeManager.hpp"
+
 
 class InputManager {
 
 public:
 
 
-	AppContext context;
+	AppContext & context;
 
 	uint16_t forward = SDL_SCANCODE_W;
 	uint16_t left = SDL_SCANCODE_A;
@@ -35,8 +37,10 @@ public:
 
 	StateManager& stateManager;
 
+	//TimeManager& time;
 
-	InputManager(AppContext context, CameraManager& cameraManager, StateManager& stateManager)
+
+	InputManager(AppContext & context, CameraManager& cameraManager, StateManager& stateManager)
 		: context(context), cameraManager(cameraManager), stateManager(stateManager)
 	{
 
@@ -136,10 +140,10 @@ public:
 			running = false;
 		}
 
-		//TO be used for switching between menu and game
+		//used for switching between menu and game
 		if (event.type == SDL_EVENT_KEY_DOWN && event.key.repeat == 0 && event.key.scancode == SDL_SCANCODE_ESCAPE) {
 
-			context = AppContext::menu;
+			stateManager.pauseHandler();
 
 		}
 
@@ -150,15 +154,15 @@ public:
 
 				context = AppContext::freeCam;
 
-				cameraManager.setContext(context);
-				SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "using Free camera");
+				stateManager.setActiveCamera(context);
+				SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "using free camera");
 
 			}
 			else if (context == AppContext::freeCam) {
 
 				context = AppContext::player;
 
-				cameraManager.setContext(context);
+				stateManager.setActiveCamera(context);
 				SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "using player camera");
 
 			}

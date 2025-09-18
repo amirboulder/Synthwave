@@ -14,5 +14,7 @@
 
 #include "core/src/InputSystem/InputManager.hpp"
 
+#include "core/src/time/timeManager.hpp"
+
 #include "optick.h"
 

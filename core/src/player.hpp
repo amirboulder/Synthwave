@@ -33,7 +33,6 @@ public:
 
 	Camera& camera;
 
-	float spinSpeed = 1.0f;
 
 	Player(Camera& camera)
 		: camera(camera)

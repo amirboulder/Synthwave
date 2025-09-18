@@ -6,3 +6,10 @@ enum class AppContext {
 	menu,
 	editor
 };
+
+
+enum class PlayState {
+	play,
+	pause
+};
+
