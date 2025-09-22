@@ -81,7 +81,7 @@ public:
 			playState = PlayState::play;
 
 			
-			SDL_SetWindowRelativeMouseMode(renderer.window, true);
+			SDL_SetWindowRelativeMouseMode(renderer.context.window, true);
 
 			// flushing all the mouse movement accumulated during pause to avoid camera jerk
 			float dx, dy;
@@ -93,7 +93,7 @@ public:
 		else {
 			time.pauseGame();
 			playState = PlayState::pause;
-			SDL_SetWindowRelativeMouseMode(renderer.window, false);
+			SDL_SetWindowRelativeMouseMode(renderer.context.window, false);
 
 			SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "pause");
 		}

@@ -10,8 +10,11 @@
 #include "Grid.hpp"
 #include "RendererConfig.hpp"
 #include "Camera.hpp"
-#include "text/freeType.hpp"
 #include "text/textRenderer.hpp"
+
+#include "../util/util.hpp"
+
+#include "renderUtil.hpp"
 
 #include "Shader.hpp"
 #include "pipeline.hpp"
@@ -26,30 +29,23 @@ struct FrameDataUniforms {
 	glm::mat4 viewProjection;
 };
  
-struct RenderProps {
-	SDL_GPUDevice* device = NULL;
-};
+
 
 
 struct Renderer {
 
 	vector<Pipeline> pipelines;
 
+	Context context;
 
-	SDL_Window* window = NULL;
-	SDL_Renderer* renderer = NULL;
-	SDL_GPUDevice* device = NULL;
+	TextRenderer textRenderer;
 
-	SDL_GPUCommandBuffer* commandBuffer;
-	SDL_GPUTexture* swapchainTexture;
 	Uint32 swapchainWidth, swapchainHeight;
-
 
 	SDL_GPUTexture* defaultTexture = NULL;
 	SDL_GPUSampler* defaultSampler = NULL;
 
 	SDL_GPUTexture* depthTexture = NULL;
-
 
 	SDL_GPUTexture* msaaColorTarget;
 	SDL_GPUTexture* resolveTarget;
@@ -58,23 +54,37 @@ struct Renderer {
 
 	RendererConfig& config;
 
-	std::unique_ptr<fisiksDebugRenderer> fisiksRenderer; // Deferred construction
+	#if defined(JPH_DEBUG_RENDERER)
+	std::unique_ptr<fisiksDebugRenderer> fisiksRenderer;
+	#endif
 
 	Renderer(RendererConfig renderConfig, PhysicsSystem& physicsSystem)
-		:	config(renderConfig), fisiksRenderer(nullptr)
-	{
+		:	config(renderConfig)
+	#if defined(JPH_DEBUG_RENDERER)
+		, fisiksRenderer(nullptr)
+	#endif
 
+	{
 
 		createWindow();
 		createAndClaimGPU();
 		createRenderTargets();
 
 		createSamplerAndDefaultTexture();
+
+
+		textRenderer.init(&context);
+		textRenderer.updateText("Synthwave", textRenderer.staticText);
+		SetDrawFPS(true);
+
 		
+		#if defined(JPH_DEBUG_RENDERER)
+
 		if (config.RendererPhysics) {
 			initFisisksRenderer(physicsSystem);
 
 		}
+		#endif
 
 	}
 
@@ -85,52 +95,53 @@ struct Renderer {
 			return false;
 		}
 
-		window = SDL_CreateWindow("Synthwave", config.windowWidth, config.windowHeight, NULL);
-		if (!window) {
+		context.window = SDL_CreateWindow("Synthwave", config.windowWidth, config.windowHeight, NULL);
+		if (!context.window) {
 			SDL_Log("Failed to create window!");
 			return false;
 		}
 		
 
-		SDL_SetWindowRelativeMouseMode(window, true);
+		SDL_SetWindowRelativeMouseMode(context.window, true);
 
 		return true;
 	}
 
 	bool createAndClaimGPU() {
 
-		device = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV, false, NULL);
-		if (!device)
+		context.device = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV, false, NULL);
+		if (!context.device)
 		{
 			SDL_Log("GPUCreateDevice failed: %s", SDL_GetError());
 			return false;
 		}
 
-		if (!SDL_ClaimWindowForGPUDevice(device, window))
+		if (!SDL_ClaimWindowForGPUDevice(context.device, context.window))
 		{
 			SDL_Log("GPUClaimWindow failed");
 			return false;
 		}
 
 		
-
-		SDL_SetGPUSwapchainParameters(device, window, SDL_GPU_SWAPCHAINCOMPOSITION_SDR, SDL_GPU_PRESENTMODE_VSYNC);
+		// SDL_GPU_PRESENTMODE_IMMEDIATE for uncapped fps
+		// SDL_GPU_PRESENTMODE_VSYNC for VSYNC
+		SDL_SetGPUSwapchainParameters(context.device, context.window, SDL_GPU_SWAPCHAINCOMPOSITION_SDR, SDL_GPU_PRESENTMODE_VSYNC);
 
 		return true;
 	}
 
 
-	void drawFps(int fps) {
-		//OPTICK_EVENT();
-		//textRenderer.renderText(std::to_string(fps), 0.0, winHeight - 60, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f));
+	void SetDrawFPS(bool drawFPS) {
+		textRenderer.fps = drawFPS;
 	}
 
-	void drawText(std::string text, glm::vec2 postion, float scale, glm::vec3 color) {
-		//OPTICK_EVENT();
-		//textRenderer.renderText(text, postion.x, postion.y, scale, color);
+	void setFPSText(int fps) {
+
+		std::string strFPS = std::to_string(fps);
+		textRenderer.updateText(strFPS.c_str(), textRenderer.fpsText);
+
 	}
 
-	
 
 	bool createPipeline(SDL_GPUShader* vertexShader, SDL_GPUShader* fragmentShader,
 		SDL_GPUGraphicsPipeline* & pipeline,bool line = false)
@@ -178,7 +189,7 @@ struct Renderer {
 
 		// Create pipeline
 		SDL_GPUColorTargetDescription coldescs = {};
-		coldescs.format = SDL_GetGPUSwapchainTextureFormat(device, window);
+		coldescs.format = SDL_GetGPUSwapchainTextureFormat(context.device, context.window);
 
 		SDL_GPUGraphicsPipelineCreateInfo pipeInfo = {};
 		SDL_zero(pipeInfo);
@@ -210,7 +221,7 @@ struct Renderer {
 		pipeInfo.rasterizer_state.front_face = SDL_GPU_FRONTFACE_CLOCKWISE;
 		pipeInfo.props = 0;
 
-		pipeline = SDL_CreateGPUGraphicsPipeline(device, &pipeInfo);
+		pipeline = SDL_CreateGPUGraphicsPipeline(context.device, &pipeInfo);
 		if (!pipeline) {
 			SDL_Log("Failed to create fill pipeline: %s", SDL_GetError());
 			return false;
@@ -218,7 +229,7 @@ struct Renderer {
 
 		if (line) {
 			pipeInfo.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_LINE;
-			pipeline = SDL_CreateGPUGraphicsPipeline(device, &pipeInfo);
+			pipeline = SDL_CreateGPUGraphicsPipeline(context.device, &pipeInfo);
 			if (!pipeline) {
 				SDL_Log("Failed to create line pipeline: %s", SDL_GetError());
 				return false;
@@ -243,7 +254,7 @@ struct Renderer {
 		.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
 		};
 
-		defaultSampler = SDL_CreateGPUSampler(device, &samplerCreateInfo);
+		defaultSampler = SDL_CreateGPUSampler(context.device, &samplerCreateInfo);
 
 		if (!defaultSampler) {
 			SDL_Log("Could not create GPU sampler!");
@@ -272,7 +283,7 @@ struct Renderer {
 			.num_levels = 1,
 
 		};
-		defaultTexture = SDL_CreateGPUTexture(device, &textureCreateInfo);
+		defaultTexture = SDL_CreateGPUTexture(context.device, &textureCreateInfo);
 
 		if (!defaultTexture) {
 			SDL_Log("Could not create GPU texture");
@@ -280,7 +291,7 @@ struct Renderer {
 		}
 
 		SDL_SetGPUTextureName(
-			device,
+			context.device,
 			defaultTexture,
 			"Default Texture"
 		);
@@ -290,16 +301,16 @@ struct Renderer {
 			.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
 			.size = imageSizeInBytes
 		};
-		SDL_GPUTransferBuffer* textureTransferBuffer = SDL_CreateGPUTransferBuffer(device, &transferBufferInfo);
+		SDL_GPUTransferBuffer* textureTransferBuffer = SDL_CreateGPUTransferBuffer(context.device, &transferBufferInfo);
 
-		void* textureTransferPtr = SDL_MapGPUTransferBuffer(device, textureTransferBuffer, false);
+		void* textureTransferPtr = SDL_MapGPUTransferBuffer(context.device, textureTransferBuffer, false);
 
 		SDL_memcpy(textureTransferPtr, imageData1->pixels, imageSizeInBytes);
 
-		SDL_UnmapGPUTransferBuffer(device, textureTransferBuffer);
+		SDL_UnmapGPUTransferBuffer(context.device, textureTransferBuffer);
 
 		// Upload the transfer data to the GPU resources
-		SDL_GPUCommandBuffer* uploadCmdBuf = SDL_AcquireGPUCommandBuffer(device);
+		SDL_GPUCommandBuffer* uploadCmdBuf = SDL_AcquireGPUCommandBuffer(context.device);
 		SDL_GPUCopyPass* copyPass = SDL_BeginGPUCopyPass(uploadCmdBuf);
 
 
@@ -339,7 +350,7 @@ struct Renderer {
 		 .num_levels = 1,
 		.sample_count = config.sampleCountMSAA,
 		};
-		this->depthTexture = SDL_CreateGPUTexture(device, &depthTextureCreateInfo);
+		this->depthTexture = SDL_CreateGPUTexture(context.device, &depthTextureCreateInfo);
 
 		if (!depthTexture) {
 			SDL_Log("Failed to create depth texture: %s", SDL_GetError());
@@ -358,7 +369,7 @@ struct Renderer {
 			.sample_count = config.sampleCountMSAA
 		};
 
-		msaaColorTarget = SDL_CreateGPUTexture(device, &colorTextureInfo);
+		msaaColorTarget = SDL_CreateGPUTexture(context.device, &colorTextureInfo);
 		if (!msaaColorTarget) {
 			SDL_Log("Failed to create MSAA color target: %s", SDL_GetError());
 			return false;
@@ -375,7 +386,7 @@ struct Renderer {
 		.sample_count = SDL_GPU_SAMPLECOUNT_1  // Always 1x for resolve target
 		};
 
-		resolveTarget = SDL_CreateGPUTexture(device, &resolveTextureInfo);
+		resolveTarget = SDL_CreateGPUTexture(context.device, &resolveTextureInfo);
 		if (!resolveTarget) {
 			SDL_Log("Failed to create resolve target: %s", SDL_GetError());
 			return false;
@@ -386,25 +397,14 @@ struct Renderer {
 
 
 	void draw() {
-		
-		// Begin command buffer
-		commandBuffer = SDL_AcquireGPUCommandBuffer(device);
-		if (!commandBuffer) {
-			std::cerr << "Failed to acquire command buffer: " << SDL_GetError() << std::endl;
-			return;
-		}
 
+		context.commandBuffer = check_error_ptr(SDL_AcquireGPUCommandBuffer(context.device));
 		
-		if (!SDL_WaitAndAcquireGPUSwapchainTexture(commandBuffer, window, &swapchainTexture, &swapchainWidth, &swapchainHeight)) {
-			std::cerr << "Failed to acquire swapchain texture: " << SDL_GetError() << std::endl;
-			return;
-		}
+		check_error_bool(SDL_WaitAndAcquireGPUSwapchainTexture(context.commandBuffer, context.window, &context.swapchainTexture, &swapchainWidth, &swapchainHeight));
 
-		if (!swapchainTexture) {
+		if (!context.swapchainTexture) {
 			return; // Window is probably minimized
 		}
-
-		
 
 		// Color target info
 		SDL_GPUColorTargetInfo colorTargetInfo = {
@@ -423,10 +423,11 @@ struct Renderer {
 		depthTargetInfo.load_op = SDL_GPU_LOADOP_CLEAR;
 		depthTargetInfo.store_op = SDL_GPU_STOREOP_DONT_CARE;
 
+		
 
 		// Begin render pass
 		SDL_GPURenderPass* renderPass = SDL_BeginGPURenderPass(
-			commandBuffer,
+			context.commandBuffer,
 			&colorTargetInfo, 1,
 			&depthTargetInfo 
 		);
@@ -437,7 +438,7 @@ struct Renderer {
 		uniforms.projection = activeCamera->generateProj();
 		uniforms.viewProjection = uniforms.projection * uniforms.view;
 
-		SDL_PushGPUVertexUniformData(commandBuffer, 0, &uniforms, sizeof(uniforms));
+		SDL_PushGPUVertexUniformData(context.commandBuffer, 0, &uniforms, sizeof(uniforms));
 
 		SDL_GPUTextureSamplerBinding sampler = { .texture = defaultTexture, .sampler = defaultSampler };
 
@@ -448,11 +449,12 @@ struct Renderer {
 
 			SDL_BindGPUFragmentSamplers(renderPass, 0, &sampler, 1);
 
-			pipeline.draw(renderPass,commandBuffer, uniforms.viewProjection,defaultTexture,defaultSampler);
+			pipeline.draw(renderPass, context.commandBuffer, uniforms.viewProjection,defaultTexture,defaultSampler);
 			
 		}
 
-
+		
+		#if defined(JPH_DEBUG_RENDERER)
 		if (config.RendererPhysics) {
 
 			RVec3Arg camPos(activeCamera->position.x, activeCamera->position.y, activeCamera->position.z);
@@ -461,22 +463,27 @@ struct Renderer {
 			// The following maybe updated everyframe so we need to pass them to fisiksRenderer
 			// here instead of during construction
 			fisiksRenderer->renderPass = renderPass;
-			fisiksRenderer->commandBuffer = commandBuffer;
+			fisiksRenderer->commandBuffer = context.commandBuffer;
 
 			SDL_BindGPUGraphicsPipeline(renderPass, fisiksRenderer->pipeline);
 
 			fisiksRenderer->physicsSystem.DrawBodies(fisiksRenderer->drawSettings, &*fisiksRenderer);
 			
 		}
+		#endif
 
+		
 		SDL_EndGPURenderPass(renderPass);
+		resolveBlit();
 
-		submitCommandBuffer();
+
+		textRenderer.drawAll(config.windowWidth, config.windowHeight);
 
 
+		SDL_SubmitGPUCommandBuffer(context.commandBuffer);
 	}
 
-	void submitCommandBuffer() {
+	void resolveBlit() {
 
 		SDL_GPUBlitInfo blitInfo = {};
 		blitInfo.source.texture = resolveTarget;
@@ -484,7 +491,7 @@ struct Renderer {
 		blitInfo.source.y = 0;
 		blitInfo.source.w = config.windowWidth;
 		blitInfo.source.h = config.windowHeight;
-		blitInfo.destination.texture = swapchainTexture;
+		blitInfo.destination.texture = context.swapchainTexture;
 		blitInfo.destination.x = 0;
 		blitInfo.destination.y = 0;
 		blitInfo.destination.w = swapchainWidth;
@@ -492,28 +499,26 @@ struct Renderer {
 		blitInfo.load_op = SDL_GPU_LOADOP_CLEAR;
 		blitInfo.filter = SDL_GPU_FILTER_LINEAR;
 
-		SDL_BlitGPUTexture(commandBuffer, &blitInfo);
+		SDL_BlitGPUTexture(context.commandBuffer, &blitInfo);
 		
-
-		// Submit command buffer
-		SDL_SubmitGPUCommandBuffer(commandBuffer);
-
 	}
 
+#if defined(JPH_DEBUG_RENDERER)
 	void initFisisksRenderer(PhysicsSystem& physicsSystem) {
 
 		SDL_Log("initFisisksRenderer()");
 
 		if (!fisiksRenderer) {
-			fisiksRenderer = std::make_unique<fisiksDebugRenderer>(device,window,config.DrawBoundingBoxPhysics,config.DrawShapeWireframePhysics,physicsSystem);
+			fisiksRenderer = std::make_unique<fisiksDebugRenderer>(context.device, context.window,config.DrawBoundingBoxPhysics,config.DrawShapeWireframePhysics,physicsSystem);
 
 			//shader::generateSpirvShaders("shaders/slang/physicsRender.slang", "shaders/compiled/physicsRenderVS.spv", "shaders/compiled/physicsRenderFS.spv");
-			PL::loadVertexShader(device, fisiksRenderer->vertexShader, "shaders/compiled/physicsRenderVS.spv", 0, 2, 0, 0);
-			PL::loadFragmentShader(device, fisiksRenderer->fragmentShader, "shaders/compiled/physicsRenderFS.spv", 0, 0, 0, 0);
+			PL::loadVertexShader(context.device, fisiksRenderer->vertexShader, "shaders/compiled/physicsRenderVS.spv", 0, 2, 0, 0);
+			PL::loadFragmentShader(context.device, fisiksRenderer->fragmentShader, "shaders/compiled/physicsRenderFS.spv", 0, 0, 0, 0);
 
 			fisiksRenderer->createPipeline();
 		}
 	}
+	#endif
 
 	//TODO move to Material.hpp
 	SDL_Surface* LoadImage(const char* path, int desiredChannels)

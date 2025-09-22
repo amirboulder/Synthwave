@@ -24,7 +24,6 @@ int main(int argc, char* argv[])
 
 	PlayerInput input;
 	
-
 	printf("\033[35mWelcome to the simulation!\033[0m\n");
 	SDL_Event event;
 	while (running) {
@@ -36,7 +35,6 @@ int main(int argc, char* argv[])
 			inputManager.handleEvents(running,event,renderConfig);
 		}
 
-	
 		time.tick();
 		while (time.accumulator >= time.timeStep) {
 
@@ -51,17 +49,11 @@ int main(int argc, char* argv[])
 
 			time.accumulator -= time.timeStep;
 		}
-
 		//TODO INTERPOLATE to account for physics and rendering happening at diffrent rates
+
+		renderer.setFPSText(time.fps);
 		renderer.draw();
 
-		//JPH::Vec3 playerPos =  scene.player.JoltCharacter->GetPosition();
-		//string posText = std::to_string(playerPos.GetX()) + " " + std::to_string(playerPos.GetY()) + " " + std::to_string(playerPos.GetZ());
-		//renderer.drawText(posText, { 50.0f,50.0f }, 1, { 1.0f,1.0f,1.0f });
-
-
-		//printf("FPS: %d\n", time.fps);
-		//renderer.drawFps(fps);
 	}
 
 	printf("\033[35mGoodbye!\033[0m\n");
