@@ -254,69 +254,11 @@ public:
 
         std::memcpy(indices.data(), textData.seq->indices, textData.seq->num_indices * sizeof(uint32_t));
 
-        // Create vertex buffer
-        SDL_GPUBufferCreateInfo bufferCreateInfo = {};
-        bufferCreateInfo.usage = SDL_GPU_BUFFERUSAGE_VERTEX;
-        bufferCreateInfo.size = vertices.size() * sizeof(VertexData2);
-
-        textData.vertexBuffer = SDL_CreateGPUBuffer(context->device, &bufferCreateInfo);
-        if (!textData.vertexBuffer) {
-            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to create vertex buffer: %s", SDL_GetError());
-            return;
-        }
-
-        // Create index buffer
-        SDL_GPUBufferCreateInfo idxCreateInfo = {};
-        idxCreateInfo.usage = SDL_GPU_BUFFERUSAGE_INDEX;
-        idxCreateInfo.size = indices.size() * sizeof(unsigned int);
-
-        textData.indexBuffer = SDL_CreateGPUBuffer(context->device, &idxCreateInfo);
-        if (!textData.indexBuffer) {
-            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to create index buffer: %s", SDL_GetError());
-            return;
-        }
 
         // Upload data to buffers
-        uploadBufferData(textData.vertexBuffer, vertices.data(), vertices.size() * sizeof(VertexData2));
-        uploadBufferData(textData.indexBuffer, indices.data(), indices.size() * sizeof(uint32_t));
+        RenderUtil::uploadBufferData(context->device, textData.vertexBuffer, vertices.data(), vertices.size() * sizeof(VertexData2), SDL_GPU_BUFFERUSAGE_VERTEX);
+        RenderUtil::uploadBufferData(context->device, textData.indexBuffer, indices.data(), indices.size() * sizeof(uint32_t), SDL_GPU_BUFFERUSAGE_INDEX);
 
-    }
-
-
-    void uploadBufferData(SDL_GPUBuffer* buffer, const void* data, size_t size) {
-        // Create transfer buffer
-        SDL_GPUTransferBufferCreateInfo transferInfo = {};
-        transferInfo.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
-        transferInfo.size = size;
-
-        SDL_GPUTransferBuffer* transferBuffer = SDL_CreateGPUTransferBuffer(context->device, &transferInfo);
-        if (!transferBuffer) {
-            std::cerr << "Failed to create transfer buffer: " << SDL_GetError() << std::endl;
-            return;
-        }
-
-        // Map and copy data
-        void* mappedData = SDL_MapGPUTransferBuffer(context->device, transferBuffer, false);
-        if (!mappedData) {
-            std::cerr << "Failed to map transfer buffer: " << SDL_GetError() << std::endl;
-            SDL_ReleaseGPUTransferBuffer(context->device, transferBuffer);
-            return;
-        }
-
-        memcpy(mappedData, data, size);
-        SDL_UnmapGPUTransferBuffer(context->device, transferBuffer);
-
-        // Upload to GPU
-        SDL_GPUCommandBuffer* cmdBuf = SDL_AcquireGPUCommandBuffer(context->device);
-        SDL_GPUCopyPass* copyPass = SDL_BeginGPUCopyPass(cmdBuf);
-
-        SDL_GPUTransferBufferLocation srcLoc = { transferBuffer, 0 };
-        SDL_GPUBufferRegion dstRegion = { buffer, 0, size };
-        SDL_UploadToGPUBuffer(copyPass, &srcLoc, &dstRegion, false);
-
-        SDL_EndGPUCopyPass(copyPass);
-        SDL_SubmitGPUCommandBuffer(cmdBuf);
-        SDL_ReleaseGPUTransferBuffer(context->device, transferBuffer);
     }
 
 

@@ -143,23 +143,11 @@ public:
 		ModelSource capsuleSource("assets/capsule4.glb", renderer.context.device);
 		//Grid
 		ModelSource gridSource(256, 256, renderer.context.device);
+		//Mountain
+		ModelSource mtnSource("assets/mtn2.obj", renderer.context.device, true);
 
-		
-
-		//buildings
-		//ModelSource buildingSource("assets/realistic_chicago_buildings.glb", renderer.device);
-		//buildings
-		//ModelSource sponzaSource("assets/Sponza/sponza.obj", renderer.device);
-
-
-		////Robot1
-		//dynamicEnts.models.emplace_back();
-		//dynamicEnts.transforms.emplace_back();
-		//Transform& robot1Transform = dynamicEnts.transforms.back();
-		//robot1Transform.position = glm::vec3(1.0f);
-		//robot1Transform.rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
-		//robot1Transform.scale = glm::vec3(1.0f);
-		//robotSource.createInstance(dynamicEnts.models.back());
+		//sponza
+		//ModelSource sponzaSource("assets/Sponza/sponza.obj", renderer.context.device);
 
 
 		//Player
@@ -196,16 +184,19 @@ public:
 		gridTransfrom.rotation = glm::quat(0.0f, 0.0f, 1.0f, 0.0f);
 		factory.createGridEntity(staticEnts, fisiks, gridSource, gridTransfrom, 256, 256);
 
-		//buildings
-		/*Transform buildingTransform;
-		factory.createRenderableEntity(dynamicEnts, fisiks, buildingSource, buildingTransform);*/
+		//MTN
+		Transform mtnTransform;
+		mtnTransform.position = glm::vec3(0.0f, -50.0f, 0.0f);
+		factory.createRenderableEntity(mtnEnts, fisiks, mtnSource, mtnTransform);
+		mtnEnts.models.back().meshes[0].size = mtnSource.meshes[0].vertices.size();
 
-		/*Transform sponzaTransform;
+		/*
+		Transform sponzaTransform;
 		sponzaTransform.scale.x = 0.1;
 		sponzaTransform.scale.y = 0.1;
 		sponzaTransform.scale.z = 0.1;
-		factory.createRenderableEntity(dynamicEnts, fisiks, sponzaSource, sponzaTransform);*/
-
+		factory.createRenderableEntity(dynamicEnts, fisiks, sponzaSource, sponzaTransform);
+		*/
 
 		return true;
 	}

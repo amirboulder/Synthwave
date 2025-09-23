@@ -1,6 +1,8 @@
 #pragma once
 #include <Jolt/Jolt.h>
 
+// This class only builds in debug mode
+
 #ifdef JPH_DEBUG_RENDERER
 
 #include <Jolt/Renderer/DebugRenderer.h>

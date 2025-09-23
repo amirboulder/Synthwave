@@ -7,7 +7,7 @@
 
 #include "Material.hpp"
 
-
+#include "renderUtil.hpp"
 
 using std::vector;
 
@@ -79,8 +79,10 @@ public:
 
 			currentMesh.transform = temp;
 
-			currentMesh.createVertexBuffer(device);
-
+			RenderUtil::uploadBufferData(device, currentMesh.vertexBuffer, currentMesh.vertices.data(),
+				currentMesh.vertices.size() * sizeof(VertexData), SDL_GPU_BUFFERUSAGE_VERTEX);
+			RenderUtil::uploadBufferData(device, currentMesh.indexBuffer, currentMesh.indices.data(),
+				currentMesh.indices.size() * sizeof(unsigned int), SDL_GPU_BUFFERUSAGE_INDEX);
 	
 			//get the first diffuse texture of the material which this mesh uses
 			// the string str only contains the index to the texture
@@ -104,7 +106,11 @@ public:
 
 		GridGenerator::generateGrid(256, 256, mesh.vertices, mesh.indices);
 
-		mesh.createVertexBuffer(device);
+		RenderUtil::uploadBufferData(device, mesh.vertexBuffer, mesh.vertices.data(),
+			mesh.vertices.size() * sizeof(VertexData), SDL_GPU_BUFFERUSAGE_VERTEX);
+
+		RenderUtil::uploadBufferData(device, mesh.indexBuffer, mesh.indices.data(),
+			mesh.indices.size() * sizeof(unsigned int), SDL_GPU_BUFFERUSAGE_INDEX);
 	}
 
 	//for Wireframe Mountains
@@ -132,15 +138,20 @@ public:
 
 			aiMesh* importedMesh = scene->mMeshes[i];
 			meshes.emplace_back();
-			meshes.back().processMeshVertsOnly(importedMesh);
+
+			MeshSource& currentMesh = meshes.back();
+			currentMesh.processMeshVertsOnly(importedMesh);
 
 			// set mesh transfrom
 			Transform temp;
 			decomposeModelMatrix(ConvertMatrix(aiMeshTransforms[i]), temp);
 
-			meshes.back().transform = temp;
+			currentMesh.transform = temp;
 
-			meshes.back().createVBuffer(device);
+			RenderUtil::uploadBufferData(device, currentMesh.vertexBuffer, currentMesh.vertices.data(),
+				currentMesh.vertices.size() * sizeof(VertexData), SDL_GPU_BUFFERUSAGE_VERTEX);
+
+			
 
 		}
 

@@ -12,8 +12,6 @@
 !*.mesh.obj
 !**/assets/**/*.obj
 
-!**/thirdParty/glfw/lib
-
 #build directory
 **/out/build/
 

@@ -12,9 +12,9 @@ int main(int argc, char* argv[])
 
 	Renderer renderer(renderConfig, fisiks.physics_system);
 
-	TimeManager time;
-	
 	CameraManager cameraManager(renderConfig);
+
+	TimeManager time;
 
 	StateManager stateManager(renderConfig,renderer, cameraManager,time);
 
