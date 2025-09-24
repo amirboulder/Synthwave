@@ -9,6 +9,18 @@ struct Context {
 	SDL_GPUTexture* swapchainTexture;
 };
 
+struct FrameDataUniforms {
+    glm::mat4 view;
+    glm::mat4 projection;
+    glm::mat4 viewProjection;
+};
+
+struct PerModelUniforms {
+    glm::mat4 model;
+    glm::mat4 mvp;
+};
+
+
 class RenderUtil {
 
 

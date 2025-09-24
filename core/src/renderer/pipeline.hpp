@@ -1,5 +1,7 @@
 #pragma once
 
+#include "renderUtil.hpp"
+
 namespace PL {
 
 	// Helper function to load binary file data
@@ -97,12 +99,6 @@ namespace PL {
 		}
 	}
 }
-
-
-struct PerModelUniforms {
-	glm::mat4 model;
-	glm::mat4 mvp;
-};
 
 
 class Pipeline {

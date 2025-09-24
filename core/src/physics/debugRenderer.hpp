@@ -1,6 +1,8 @@
 #pragma once
 #include <Jolt/Jolt.h>
 
+#include "../renderer/renderUtil.hpp"
+
 // This class only builds in debug mode
 
 #ifdef JPH_DEBUG_RENDERER
@@ -10,18 +12,6 @@
 JPH_NAMESPACE_BEGIN
 
 using namespace JPH;
-
-struct FrameDataUniforms2 {
-	glm::mat4 view;
-	glm::mat4 projection;
-	glm::mat4 viewProjection;
-};
-
-
-struct PerModelUniforms2 {
-	glm::mat4 model;
-	glm::mat4 mvp;
-};
 
 
 class fisiksDebugRenderer : public JPH::DebugRenderer
@@ -42,6 +32,8 @@ class fisiksDebugRenderer : public JPH::DebugRenderer
 
 		Array<Triangle>			mTriangles;
 
+		SDL_GPUBuffer* vertexBuffer = NULL;
+
 	private:
 		atomic<uint32>			mRefCount = 0;
 	};
@@ -52,18 +44,16 @@ public:
 	SDL_Window* window = NULL;
 	SDL_GPUDevice* device = NULL;
 
+
 	SDL_GPUGraphicsPipeline* pipeline = NULL;
 
 	SDL_GPUShader* vertexShader = NULL;
 	SDL_GPUShader* fragmentShader = NULL;
 
-	SDL_GPUBuffer* vertexBuffer = NULL;
-
 	SDL_GPUSampleCount sampleCountMSAA = SDL_GPU_SAMPLECOUNT_8;
 
 	SDL_GPUCommandBuffer* commandBuffer = NULL;
 	SDL_GPURenderPass* renderPass = NULL;
-
 
 	BodyManager::DrawSettings drawSettings;
 
@@ -98,7 +88,7 @@ public:
 	virtual void DrawLine(JPH::RVec3Arg inFrom, JPH::RVec3Arg inTo, JPH::ColorArg inColor) override
 	{
 		// NO
-		//TODO collect all lines so that we can draw wireframes!
+		//TODO collect all lines so that we can draw bounding boxes!
 	}
 
 	virtual void DrawTriangle(JPH::RVec3Arg inV1, JPH::RVec3Arg inV2, JPH::RVec3Arg inV3, JPH::ColorArg inColor, ECastShadow inCastShadow) override
@@ -112,16 +102,39 @@ public:
 	}
 
 	virtual Batch CreateTriangleBatch(const Triangle* inTriangles, int inTriangleCount) override {
-
 		BatchImpl* batch = new BatchImpl;
 		if (inTriangles == nullptr || inTriangleCount == 0)
 			return batch;
 
 		batch->mTriangles.assign(inTriangles, inTriangles + inTriangleCount);
-		return batch;
 
+		// Create vertex data from triangles
+		std::vector<glm::vec3> vertices;
+		vertices.reserve(inTriangleCount * 3);
+
+		for (int i = 0; i < inTriangleCount; ++i) {
+			for (int j = 0; j < 3; ++j) {
+				vertices.emplace_back(
+					inTriangles[i].mV[j].mPosition.x,
+					inTriangles[i].mV[j].mPosition.y,
+					inTriangles[i].mV[j].mPosition.z
+				);
+			}
+		}
+
+		// Create and upload buffer
+		SDL_GPUBufferCreateInfo bufferCreateInfo = {};
+		bufferCreateInfo.usage = SDL_GPU_BUFFERUSAGE_VERTEX;
+		bufferCreateInfo.size = vertices.size() * sizeof(glm::vec3);
+
+		batch->vertexBuffer = SDL_CreateGPUBuffer(device, &bufferCreateInfo);
+		RenderUtil::uploadBufferData(device, batch->vertexBuffer, vertices.data(),
+			vertices.size() * sizeof(glm::vec3), SDL_GPU_BUFFERUSAGE_VERTEX);
+
+		return batch;
 	};
 
+	//TODO use indcies properly
 	virtual Batch CreateTriangleBatch(const Vertex* inVertices, int inVertexCount, const uint32* inIndices, int inIndexCount) override {
 
 		BatchImpl* batch = new BatchImpl;
@@ -138,9 +151,26 @@ public:
 			triangle.mV[2] = inVertices[inIndices[t * 3 + 2]];
 		}
 
+		std::vector<glm::vec3> vertices;
+
+		vertices.reserve(batch->mTriangles.size() * 3);
+		for (const auto& triangle : batch->mTriangles) {
+			for (int j = 0; j < 3; j++) {
+				vertices.emplace_back(
+					triangle.mV[j].mPosition.x,
+					triangle.mV[j].mPosition.y,
+					triangle.mV[j].mPosition.z
+
+
+				);
+			}
+		}
+
+		RenderUtil::uploadBufferData(device, batch->vertexBuffer, vertices.data(),
+			vertices.size() * sizeof(glm::vec3), SDL_GPU_BUFFERUSAGE_VERTEX);
+
 		return batch;
 	}
-
 
 
 	virtual void DrawGeometry(RMat44Arg inModelMatrix,
@@ -161,92 +191,25 @@ public:
 			return;
 
 		const BatchImpl* batch = static_cast<const BatchImpl*>(lod->mTriangleBatch.GetPtr());
-		if (!batch || batch->mTriangles.empty())
+		if (!batch)
 			return;
 		
 		
 		if (batch->mTriangles.empty()) {
-			std::cerr << "No triangles to render" << std::endl;
+			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "No triangles to render in physics debug rendering");
 			return;
 		}
 
-		//////////////////////////////////
-		//Loading in the data from the physics system and sending it to the gpu
-		// slow because we do this everyframe
-		std::vector<glm::vec3> vertices;
-
-		vertices.reserve(batch->mTriangles.size() * 3);
-		for (const auto& triangle : batch->mTriangles) {
-			for (int j = 0; j < 3; j++) {
-				vertices.emplace_back(
-					triangle.mV[j].mPosition.x,
-					triangle.mV[j].mPosition.y,
-					triangle.mV[j].mPosition.z
-				);
-			}
-		}
-
-		//create vertex buffer
-		SDL_GPUBufferCreateInfo bufferCreateInfo = {};
-		bufferCreateInfo.usage = SDL_GPU_BUFFERUSAGE_VERTEX;
-		bufferCreateInfo.size = vertices.size() * sizeof(glm::vec3);
-
-		vertexBuffer = SDL_CreateGPUBuffer(device, &bufferCreateInfo);
-		if (!vertexBuffer) {
-			std::cerr << "Failed to create vertex buffer: " << SDL_GetError() << std::endl;
+		if (!batch->vertexBuffer) {
+			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "batch->vertexBuffer is null skipped physics debug rendering");
 			return;
 		}
 
-		// Upload vertex data
-		SDL_GPUTransferBufferCreateInfo transferBufferCreateInfo = {};
-		transferBufferCreateInfo.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
-		transferBufferCreateInfo.size = bufferCreateInfo.size;
-
-
-		SDL_GPUTransferBuffer* vertexTransferBuffer = SDL_CreateGPUTransferBuffer(device, &transferBufferCreateInfo);
-		if (!vertexTransferBuffer) {
-			std::cerr << "Failed to create transfer buffer: " << SDL_GetError() << std::endl;
-			return;
-		}
-
-		// Map and copy data
-		void* mappedData = SDL_MapGPUTransferBuffer(device, vertexTransferBuffer, false);
-		if (!mappedData) {
-			std::cerr << "Failed to map transfer buffer: " << SDL_GetError() << std::endl;
-			SDL_ReleaseGPUTransferBuffer(device, vertexTransferBuffer);
-			return;
-		}
-
-		memcpy(mappedData, vertices.data(), vertices.size() * sizeof(glm::vec3));
-		SDL_UnmapGPUTransferBuffer(device, vertexTransferBuffer);
-
-		
-
-		// Copy from transfer buffer to vertex buffer
-		SDL_GPUCommandBuffer* uploadCommandBuffer = SDL_AcquireGPUCommandBuffer(device);
-		SDL_GPUCopyPass* copyPass = SDL_BeginGPUCopyPass(uploadCommandBuffer);
-
-		SDL_GPUTransferBufferLocation transferLocation = {};
-		transferLocation.transfer_buffer = vertexTransferBuffer;
-		transferLocation.offset = 0;
-
-		SDL_GPUBufferRegion bufferRegion = {};
-		bufferRegion.buffer = vertexBuffer;
-		bufferRegion.offset = 0;
-		bufferRegion.size = bufferCreateInfo.size;
-
-		SDL_UploadToGPUBuffer(copyPass, &transferLocation, &bufferRegion, false);
-		SDL_EndGPUCopyPass(copyPass);
-		SDL_SubmitGPUCommandBuffer(uploadCommandBuffer);
-
-		SDL_ReleaseGPUTransferBuffer(device, vertexTransferBuffer);
-
-		//////////////////////////////////////////////////////////////////
 
 		//Rendering
 
 		SDL_GPUBufferBinding vertexBufferBinding = {};
-		vertexBufferBinding.buffer = vertexBuffer;
+		vertexBufferBinding.buffer = batch->vertexBuffer;
 		vertexBufferBinding.offset = 0;
 
 		
@@ -255,29 +218,24 @@ public:
 
 		glm::mat4 meshMat = ConvertToGLMMat4(inModelMatrix);
 
-
 		glm::mat4 mvp = proj * view * meshMat;
 
 		mvp = glm::transpose(mvp);
 
-		PerModelUniforms2 modelUnifroms;
+		PerModelUniforms modelUnifroms;
 		modelUnifroms.mvp = mvp;
 		modelUnifroms.model = meshMat;
 
 		SDL_PushGPUVertexUniformData(commandBuffer, 1, &modelUnifroms, sizeof(modelUnifroms));
 
-		SDL_DrawGPUPrimitives(renderPass, vertices.size(), 1, 0, 0);
-
-
-		SDL_ReleaseGPUBuffer(device, vertexBuffer);
-		//SDL_ReleaseGPUBuffer(device, indexBuffer);
-
+		SDL_DrawGPUPrimitives(renderPass, batch->mTriangles.size() * 3, 1, 0, 0);
 
 	}
 
 	void configDrawSettings(bool drawBoundingBox,bool drawShapeWireframe) {
 
-		drawSettings.mDrawBoundingBox = drawBoundingBox;
+		// keep drawBoundingBox false until DrawLine is implimented
+		//drawSettings.mDrawBoundingBox = drawBoundingBox;
 		drawSettings.mDrawShapeWireframe = drawShapeWireframe;
 		//fiskisDrawSettings.mDrawShape = true;
 		//fiskisDrawSettings.mDrawCenterOfMassTransform = true;

@@ -23,13 +23,6 @@
 
 using std::vector;
 
-struct FrameDataUniforms {
-	glm::mat4 view;
-	glm::mat4 projection;
-	glm::mat4 viewProjection;
-};
- 
-
 
 
 struct Renderer {
@@ -512,7 +505,7 @@ struct Renderer {
 			fisiksRenderer = std::make_unique<fisiksDebugRenderer>(context.device, context.window,config.DrawBoundingBoxPhysics,config.DrawShapeWireframePhysics,physicsSystem);
 
 			//TODO MOVE THIS 
-			shader::generateSpirvShaders("shaders/slang/physicsRender.slang", "shaders/compiled/physicsRender.vert.spv", "shaders/compiled/physicsRender.frag.spv");
+			//shader::generateSpirvShaders("shaders/slang/physicsRender.slang", "shaders/compiled/physicsRender.vert.spv", "shaders/compiled/physicsRender.frag.spv");
 			PL::loadVertexShader(context.device, fisiksRenderer->vertexShader, "shaders/compiled/physicsRender.vert.spv", 0, 2, 0, 0);
 			PL::loadFragmentShader(context.device, fisiksRenderer->fragmentShader, "shaders/compiled/physicsRender.frag.spv", 0, 0, 0, 0);
 
