@@ -511,9 +511,10 @@ struct Renderer {
 		if (!fisiksRenderer) {
 			fisiksRenderer = std::make_unique<fisiksDebugRenderer>(context.device, context.window,config.DrawBoundingBoxPhysics,config.DrawShapeWireframePhysics,physicsSystem);
 
-			//shader::generateSpirvShaders("shaders/slang/physicsRender.slang", "shaders/compiled/physicsRenderVS.spv", "shaders/compiled/physicsRenderFS.spv");
-			PL::loadVertexShader(context.device, fisiksRenderer->vertexShader, "shaders/compiled/physicsRenderVS.spv", 0, 2, 0, 0);
-			PL::loadFragmentShader(context.device, fisiksRenderer->fragmentShader, "shaders/compiled/physicsRenderFS.spv", 0, 0, 0, 0);
+			//TODO MOVE THIS 
+			shader::generateSpirvShaders("shaders/slang/physicsRender.slang", "shaders/compiled/physicsRender.vert.spv", "shaders/compiled/physicsRender.frag.spv");
+			PL::loadVertexShader(context.device, fisiksRenderer->vertexShader, "shaders/compiled/physicsRender.vert.spv", 0, 2, 0, 0);
+			PL::loadFragmentShader(context.device, fisiksRenderer->fragmentShader, "shaders/compiled/physicsRender.frag.spv", 0, 0, 0, 0);
 
 			fisiksRenderer->createPipeline();
 		}

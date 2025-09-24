@@ -11,7 +11,7 @@ class Scene {
 public:
 	
 	Entities dynamicEnts;
-	Entities staticEnts;
+	Entities staticEnts; 
 	Entities mtnEnts;
 
 	Player player;
@@ -187,7 +187,7 @@ public:
 		//MTN
 		Transform mtnTransform;
 		mtnTransform.position = glm::vec3(0.0f, -50.0f, 0.0f);
-		factory.createRenderableEntity(mtnEnts, fisiks, mtnSource, mtnTransform);
+		factory.createStaticMeshEntity(mtnEnts, fisiks, mtnSource, mtnTransform);
 		mtnEnts.models.back().meshes[0].size = mtnSource.meshes[0].vertices.size();
 
 		/*

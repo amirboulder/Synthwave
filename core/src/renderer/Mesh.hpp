@@ -122,7 +122,8 @@ public:
 
 	}
 
-	bool processMeshVertsOnly(aiMesh* importedMesh) {
+	//MTN
+	bool processMeshsequential(aiMesh* importedMesh) {
 
 		vertices.reserve(importedMesh->mNumVertices);
 
@@ -172,6 +173,14 @@ public:
 				}
 
 			}
+		}
+
+		//Process indices to use for physics
+		indices.reserve(importedMesh->mNumFaces * 3);
+		// Generate sequential indices
+		indices.reserve(vertices.size());
+		for (size_t i = 0; i < vertices.size(); ++i) {
+			indices.push_back(i);
 		}
 
 		return true;

@@ -140,7 +140,7 @@ public:
 			meshes.emplace_back();
 
 			MeshSource& currentMesh = meshes.back();
-			currentMesh.processMeshVertsOnly(importedMesh);
+			currentMesh.processMeshsequential(importedMesh);
 
 			// set mesh transfrom
 			Transform temp;

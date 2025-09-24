@@ -1,14 +1,12 @@
 ﻿#include "Synthwave.h"
 
-using std::cout;
-
 int main(int argc, char* argv[])
 {
 	bool running = true;
 
-	Fisiks fisiks;
-
 	RendererConfig renderConfig("config/renderConfig.ini");
+
+	Fisiks fisiks;
 
 	Renderer renderer(renderConfig, fisiks.physics_system);
 

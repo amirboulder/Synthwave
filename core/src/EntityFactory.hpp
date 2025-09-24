@@ -28,54 +28,6 @@ public:
 
 	}
 
-	/*
-	Entity createPlayerEntity(Player & player,const char* filePath, GLuint ShaderID, Fisiks& fisiks, glm::mat4 transform) {
-
-		transforms.emplace_back(transform);
-
-		models.emplace_back(filePath, ShaderID, transforms.size() - 1);
-
-
-		float meshX;
-		float meshY;
-		float meshZ;
-		calculateMeshDimensions(models.back().meshes[0], meshX, meshY, meshZ);
-
-		// Decompose model matrix
-		glm::vec3 position, scale;
-		glm::quat rotation;
-		glm::vec3 skew;
-		glm::vec4 perspective;
-		glm::decompose(transform, scale, rotation, position, skew, perspective);
-
-
-		// Compute capsule dimensions
-		float modelRadius = meshX / 2.0f; // Unscaled model radius
-		float modelHeight = meshY; // Unscaled model total height
-		float physicsRadius = modelRadius * scale.x; // Scale radius (x-axis)
-		float physicsHalfHeight = (modelHeight / 2.0f - modelRadius) * scale.y; // Scale height (y-axis)
-
-		// Convert GLM to Jolt types
-		JPH::Vec3 joltPosition(position.x, position.y, position.z);
-		JPH::Quat joltRotation(rotation.x, rotation.y, rotation.z, rotation.w);
-		if (!joltRotation.IsNormalized()) {
-			joltRotation = joltRotation.Normalized();
-		}
-
-		player.CreatePlayer(fisiks.physics_system, joltPosition, joltRotation, physicsRadius, physicsHalfHeight);
-
-		physicsComponents.emplace_back(player.JoltCharacter->GetBodyID());
-
-		Entity temp(entityIDCounter, player.JoltCharacter->GetBodyID(), static_cast<uint32_t>(models.size() - 1));
-
-		entityIDCounter++;
-
-		return temp;
-
-
-	}
-	*/
-
 
 	//TODO
 	/*
@@ -241,7 +193,6 @@ public:
 	
 	void createRenderableEntity(Entities& ents, Fisiks& fisiks, ModelSource& modelSource, Transform transform) {
 
-
 		// Flip Y for Vulkan
 		transform.position.y *= -1;
 
@@ -250,8 +201,6 @@ public:
 		ents.models.emplace_back();
 
 		modelSource.createInstance(ents.models.back());
-
-
 
 
 		JPH::EmptyShape* emptyShape = new JPH::EmptyShape();
@@ -268,9 +217,9 @@ public:
 	}
 
 
-	/*
 	void createStaticMeshEntity(Entities& ents, Fisiks& fisiks, ModelSource& modelSource, Transform transform) {
 
+		float scaleFactor = 1.0f;
 
 		// Flip Y for Vulkan
 		transform.position.y *= -1;
@@ -282,29 +231,31 @@ public:
 		modelSource.createInstance(ents.models.back());
 
 
-		float meshX;
-		float meshY;
-		float meshZ;
-
-		calculateMeshDimensions(modelSource.meshes[0], meshX, meshY, meshZ);
-
-
-
 		// Scale vertices
+		//ASSUMING the model only has one mesh
 		VertexList scaledVertexList;
-		for (const VertexData & vertexData : models.back().meshes[0].vertices) {
-			glm::vec3 scaledVertex = vertexData.vertex * scale; // Apply scale
+		for (const VertexData& vertexData : modelSource.meshes[0].vertices) {
+			glm::vec3 scaledVertex = vertexData.vertex * scaleFactor; // Apply scale
 			scaledVertexList.push_back(Float3(scaledVertex.x, scaledVertex.y, scaledVertex.z));
 		}
 
+
 		// Create triangle list
+		//ASSUMING the model only has one mesh
 		IndexedTriangleList triangleList;
-		for (size_t i = 0; i < models.back().meshes[0].indices.size(); i += 3) {
+		for (size_t i = 0; i < modelSource.meshes[0].indices.size(); i += 3) {
 			triangleList.push_back(IndexedTriangle(
-				models.back().meshes[0].indices[i],
-				models.back().meshes[0].indices[i + 1],
-				models.back().meshes[0].indices[i + 2]
+				modelSource.meshes[0].indices[i],
+				modelSource.meshes[0].indices[i + 1],
+				modelSource.meshes[0].indices[i + 2]
 			));
+		}
+
+		// Convert GLM to Jolt types
+		JPH::Vec3 joltPosition(transform.position.x, transform.position.y, transform.position.z);
+		JPH::Quat joltRotation(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
+		if (!joltRotation.IsNormalized()) {
+			joltRotation = joltRotation.Normalized();
 		}
 
 		// Create MeshShapeSettings
@@ -312,13 +263,6 @@ public:
 
 		// Create MeshShape
 		Ref<Shape> meshShape = meshSettings.Create().Get();
-
-		// Convert GLM to Jolt types
-		Vec3 joltPosition(position.x, position.y, position.z);
-		Quat joltRotation(rotation.x, rotation.y, rotation.z, rotation.w);
-		if (!joltRotation.IsNormalized()) {
-			joltRotation = joltRotation.Normalized();
-		}
 
 		// Create BodyCreationSettings
 		BodyCreationSettings meshBodySettings(
@@ -335,19 +279,12 @@ public:
 			EActivation::DontActivate
 		);
 
-		physicsComponents.emplace_back(physicsID);
-
-		Entity temp(entityIDCounter, physicsID, static_cast<uint32_t>(models.size() - 1));
-
-		entityIDCounter++;
-
-		return temp;
+		ents.physicsComponents.emplace_back(physicsID);
 
 	}
-	*/
-
-
 	
+	
+
 	bool createGridEntity(Entities & ents,Fisiks& fisiks, ModelSource & gridSource, Transform & transform,int rows , int cols) {
 
 		// Flip Y for Vulkan
