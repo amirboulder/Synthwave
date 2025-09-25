@@ -25,7 +25,7 @@ namespace FUtil {
         JPH::Vec3 rayStart = JPH::Vec3(entityPos.GetX(),
             entityPos.GetY() - entityExtent.GetY() + 0.05f,
             entityPos.GetZ());
-        JPH::Vec3 rayDirection = JPH::Vec3(0, -1, 0);
+        JPH::Vec3 rayDirection = JPH::Vec3(0, +1, 0);
         float maxGroundDistance = 0.3f; // Maximum distance to consider "grounded"
 
 

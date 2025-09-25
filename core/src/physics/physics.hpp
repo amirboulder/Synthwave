@@ -383,7 +383,7 @@ public:
 		physics_system.OptimizeBroadPhase();
 
 		//Gravity is positve because VULKAN!
-		physics_system.SetGravity(JPH::Vec3(0, 9.81f, 0));
+		physics_system.SetGravity(JPH::Vec3(0, 20.0f, 0));
 
 	}
 

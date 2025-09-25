@@ -7,13 +7,11 @@
 #include "Entity.hpp"
 #include "ecs/archetypes.hpp"
 
+#include "character/actor.hpp"
+
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtx/matrix_decompose.hpp>
-
-typedef std::vector<Entity>  EntityVector;
-typedef	std::vector<TransformData> TransformVector;
-typedef std::vector<PhysicsData> PhysicsVector;
 
 
 class EntityFactory {
@@ -138,14 +136,11 @@ public:
 
 		modelSource.createInstance(ents.models.back());
 
-	
 		float meshX;
 		float meshY;
 		float meshZ;
 
 		calculateMeshDimensions(modelSource.meshes[0], meshX, meshY, meshZ);
-
-		
 
 		// Compute capsule dimensions
 		float modelRadius = meshX / 2.0f; // Unscaled model radius
@@ -189,6 +184,44 @@ public:
 		ents.physicsComponents.emplace_back(physicsID);
 
 	
+	}
+
+	void createCharacterEntity(Entities& ents, Fisiks& fisiks, ModelSource& modelSource, Transform transform, Actor & actor) {
+
+		// Flip Y for Vulkan
+		transform.position.y *= -1;
+
+		ents.transforms.emplace_back(transform);
+
+		ents.models.emplace_back();
+
+		modelSource.createInstance(ents.models.back());
+
+		float meshX;
+		float meshY;
+		float meshZ;
+
+		calculateMeshDimensions(modelSource.meshes[0], meshX, meshY, meshZ);
+
+		// Compute capsule dimensions
+		float modelRadius = meshX / 2.0f; // Unscaled model radius
+		float modelHeight = meshY; // Unscaled model total height
+		float physicsRadius = modelRadius * transform.scale.x; // Scale radius (x-axis)
+		float physicsHalfHeight = (modelHeight / 2.0f - modelRadius) * transform.scale.y; // Scale height (y-axis)
+
+		// Convert GLM to Jolt types
+		JPH::Vec3 joltPosition(transform.position.x, transform.position.y, transform.position.z);
+		JPH::Quat joltRotation(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
+		if (!joltRotation.IsNormalized()) {
+			joltRotation = joltRotation.Normalized();
+		}
+
+		actor.createPhysicsBody(fisiks.physics_system);
+
+		BodyID physicsID = actor.joltCharacter->GetBodyID();
+
+		ents.physicsComponents.emplace_back(physicsID);
+
 	}
 	
 	void createRenderableEntity(Entities& ents, Fisiks& fisiks, ModelSource& modelSource, Transform transform) {

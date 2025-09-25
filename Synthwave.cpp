@@ -43,7 +43,8 @@ int main(int argc, char* argv[])
 			fisiks.syncTransfroms(scene.dynamicEnts.transforms, scene.dynamicEnts.physicsComponents);
 
 			scene.player.update(input);
-			//scene.LVL1Script(fisiks.physics_system, scene.player.JoltCharacter->GetPosition());
+			
+			scene.level2Update();
 
 			time.accumulator -= time.timeStep;
 		}
