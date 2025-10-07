@@ -36,7 +36,6 @@
 #include <iostream>
 #include <iomanip> 
 
-#include <iostream>
 #include <cstdarg>
 #include <thread>
 
@@ -44,6 +43,7 @@
 
 #include "debugRenderer.hpp"
 
+#include "../ecs/components.hpp"
 
 #include "optick.h"
 
@@ -391,7 +391,7 @@ public:
 
 	}
 
-	void update(double cDeltaTime) {
+	void update(double cDeltaTime, flecs::world& ecs) {
 
 		//OPTICK_EVENT();
 
@@ -414,43 +414,33 @@ public:
 		}
 		*/
 
+		syncTransfroms(ecs);
+
 	}
 
 
-	void syncTransfroms(vector<Transform> & transforms, std::vector<PhysicsData>& physicsCompoments) {
+	void syncTransfroms(flecs::world& ecs) {
 
-		if (transforms.size() != physicsCompoments.size()) {
-
-			cout << "size of transfroms : " << transforms.size() << '\n';
-			cout << "size of physicsCompoments : " << physicsCompoments.size() << '\n';
-			return;
-		}
-
-		for (int i = 0; i < transforms.size(); i++) {
+		// query all dynamic ents and sync their positions and rotations
+		auto q = ecs.query<Transform, JPH::BodyID, DynamicEnt>();
+		q.each([&](flecs::entity e, Transform& transform, JPH::BodyID& physicsBody, DynamicEnt) {
 
 			JPH::Vec3 pos;
 			JPH::Quat rotation;
-
-			bodyInterface.GetPositionAndRotation(physicsCompoments.at(i).bodyID, pos, rotation);
+			bodyInterface.GetPositionAndRotation(physicsBody, pos, rotation);
 
 			// convert JPJ::Vec3 to glm::vec3;
-			//transforms[i].position = *reinterpret_cast<glm::vec3*>(&pos);
-			transforms[i].position.x = pos.GetX();
-			transforms[i].position.y = pos.GetY();
-			transforms[i].position.z = pos.GetZ();
+			//transform.position = *reinterpret_cast<glm::vec3*>(&pos);
+			transform.position = glm::vec3(pos.GetX(), pos.GetY(), pos.GetZ());
 
 			// Convert JPH::Quat to glm::quat
-			//transforms[i].rotation = *reinterpret_cast<glm::quat*>(&rotation);
-			transforms[i].rotation.x = rotation.GetX();
-			transforms[i].rotation.y = rotation.GetY();
-			transforms[i].rotation.z = rotation.GetZ();
-			transforms[i].rotation.w = rotation.GetW();
+			//transform.rotation = *reinterpret_cast<glm::quat*>(&rotation);
+			transform.rotation = glm::quat(rotation.GetW(), rotation.GetX(), rotation.GetY(), rotation.GetZ());
 
-		}
-
+		});
 	}
 
-
+	//TODO move these to physicsUtil
 	void PrintJPHMat4(const JPH::Mat44& mat, unsigned int index) {
 		std::cout << "JPH Matrix with index: " << index << "\n";
 		for (int row = 0; row < 4; ++row) {

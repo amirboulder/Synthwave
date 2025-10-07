@@ -2,6 +2,8 @@
 
 #include <iostream>
 
+#include <flecs.h>
+
 #include "core/src/renderer/renderer.hpp"
 #include "core/src/renderer/cameraManager.hpp"
 

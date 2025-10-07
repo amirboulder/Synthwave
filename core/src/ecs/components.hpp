@@ -1,6 +1,6 @@
 #pragma once
 
-#include<glm/glm.hpp>
+#include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtx/quaternion.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -9,43 +9,19 @@
 #include <Jolt/Physics/PhysicsSystem.h>
 
 
-struct TransformData {
-	//glm::mat4 previousMatrix;
-	glm::mat4 currentMatrix;
-	//glm::mat4 interpolatedMatrix;
-
-};
-
-
-//for static meshes
-struct TransformData2 {
-	glm::vec3 position;  
-	glm::quat rotation;   
-	glm::vec3 scale;		
-};
-
-
-struct VertexData {
-	glm::vec3 vertex;
+struct Vertex {
+	glm::vec3 position;
 	glm::vec3 normal;
-	glm::vec2 texCoords;
+	glm::vec2 texCoord;
 	glm::vec4 color;
 };
 
-//struct MaterialData {
-//	GLuint diffuseTextureID;
-//	GLuint SpecularTextureID;
-//};
 
 struct Transform {
 	glm::vec3 position = glm::vec3(1);
 	glm::quat rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
 	glm::vec3 scale = glm::vec3(1);
 
-};
-
-struct PhysicsData {
-	JPH::BodyID bodyID;
 };
 
 
@@ -63,7 +39,19 @@ struct PlayerData {
 	bool jump = false;              
 };
 
-
-struct Material {
-
+struct RenderState {
+	flecs::entity activePipeline;
 };
+
+struct PipelineRef {
+	flecs::entity pipeline;
+};
+
+
+
+// Tags 
+struct DynamicEnt {};
+struct StaticEnt {};
+struct Renderable {};
+struct Sensor {};
+struct CustomPipeline {};

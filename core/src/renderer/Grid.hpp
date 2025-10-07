@@ -9,7 +9,7 @@ public:
 
     GridGenerator(){}
 
-    static void generateGrid(int rows, int cols, std::vector<VertexData> & vertices, std::vector <unsigned int> & indices) {
+    static void generateGrid(int rows, int cols, std::vector<Vertex> & vertices, std::vector <unsigned int> & indices) {
 
         // Generate vertices
        // adding one to rows and cols becasuet the loops go to <=
@@ -23,11 +23,11 @@ public:
                 float z = static_cast<float>(r)  - (rows  / 2.0f);
 
                 vertices.emplace_back();
-                VertexData & currentVertex = vertices.back();
+                Vertex& currentVertex = vertices.back();
 
-                currentVertex.vertex.x = x;
-                currentVertex.vertex.y = y;
-                currentVertex.vertex.z = z;
+                currentVertex.position.x = x;
+                currentVertex.position.y = y;
+                currentVertex.position.z = z;
 
             }
         }

@@ -205,7 +205,7 @@ FetchContent_MakeAvailable(optick)
 
 
 #=============================================
-#inih for congig files
+#inih for config files
 #=============================================
 FetchContent_Declare(
     inih
@@ -226,6 +226,25 @@ add_library(inih STATIC
 target_include_directories(Synthwave PRIVATE ${inih_SOURCE_DIR}/cpp)
 
 #=============================================
+#inih for config files
+#=============================================
+
+FetchContent_Declare(
+    flecs
+    GIT_REPOSITORY https://github.com/SanderMertens/flecs.git
+    GIT_TAG v4.1.1
+)
+
+set(FLECS_STATIC ON CACHE BOOL "" FORCE)
+set(FLECS_CPP ON CACHE BOOL "" FORCE)
+set(FLECS_PARSER OFF CACHE BOOL "" FORCE)
+set(FLECS_HTTP OFF CACHE BOOL "" FORCE)
+set(FLECS_REST OFF CACHE BOOL "" FORCE)
+set(FLECS_DOC OFF CACHE BOOL "" FORCE)
+
+FetchContent_MakeAvailable(flecs)
+
+#=============================================
 #=============================================
 #=============================================
 
@@ -240,6 +259,7 @@ nlohmann_json::nlohmann_json
 Jolt
 OptickCore
 inih
+flecs::flecs
 )
 
 

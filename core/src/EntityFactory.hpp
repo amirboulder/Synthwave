@@ -4,9 +4,6 @@
 #include <algorithm>
 #include <float.h> 
 
-#include "Entity.hpp"
-#include "ecs/archetypes.hpp"
-
 #include "character/actor.hpp"
 
 #include <glm/glm.hpp>
@@ -18,13 +15,8 @@ class EntityFactory {
 
 public:
 
-	static uint32_t entityIDCounter;
 
-
-	EntityFactory()
-	{
-
-	}
+	EntityFactory() {};
 
 
 	//TODO
@@ -124,17 +116,11 @@ public:
 	}
 	*/
 
-	
-	void createCapsuleEntity(Entities& ents, Fisiks& fisiks, ModelSource& modelSource,Transform transform) {
+
+	static void createCapsuleEntity(flecs::world& ecs,Fisiks& fisiks,std::string name ,ModelSource& modelSource, Transform transform) {
 
 		// Flip Y for Vulkan
 		transform.position.y *= -1;
-
-		ents.transforms.emplace_back(transform);
-
-		ents.models.emplace_back();
-
-		modelSource.createInstance(ents.models.back());
 
 		float meshX;
 		float meshY;
@@ -152,13 +138,11 @@ public:
 
 
 		// Convert GLM to Jolt types
-		JPH::Vec3 joltPosition(transform.position.x, transform.position.y , transform.position.z );
+		JPH::Vec3 joltPosition(transform.position.x, transform.position.y, transform.position.z);
 		JPH::Quat joltRotation(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
 		if (!joltRotation.IsNormalized()) {
 			joltRotation = joltRotation.Normalized();
 		}
-
-		
 
 		// Create body settings
 		JPH::BodyCreationSettings pillSettings(
@@ -181,21 +165,20 @@ public:
 		// Create and add body
 		BodyID physicsID = fisiks.bodyInterface.CreateAndAddBody(pillSettings, JPH::EActivation::Activate);
 
-		ents.physicsComponents.emplace_back(physicsID);
 
-	
+		auto e1 = ecs.entity(name.c_str())
+			.add<DynamicEnt>()
+			.set<Transform>(transform)
+			.set<ModelInstance>(modelSource.createInstance())
+			.set<JPH::BodyID>(physicsID)
+			;
+
 	}
 
-	void createCharacterEntity(Entities& ents, Fisiks& fisiks, ModelSource& modelSource, Transform transform, Actor & actor) {
+	static void createCharacterEntity(flecs::world& ecs, Fisiks& fisiks, std::string name,ModelSource& modelSource, Transform transform, Actor & actor) {
 
 		// Flip Y for Vulkan
 		transform.position.y *= -1;
-
-		ents.transforms.emplace_back(transform);
-
-		ents.models.emplace_back();
-
-		modelSource.createInstance(ents.models.back());
 
 		float meshX;
 		float meshY;
@@ -220,55 +203,44 @@ public:
 
 		BodyID physicsID = actor.joltCharacter->GetBodyID();
 
-		ents.physicsComponents.emplace_back(physicsID);
+		auto e1 = ecs.entity(name.c_str())
+			.add<DynamicEnt>()
+			.set<Transform>(transform)
+			.set<ModelInstance>(modelSource.createInstance())
+			.set<JPH::BodyID>(physicsID)
+			;
 
 	}
 	
-	void createRenderableEntity(Entities& ents, Fisiks& fisiks, ModelSource& modelSource, Transform transform) {
+
+	// A Renderable is just a model and a transform no physics body
+	static void createRenderableEntity(flecs::world& ecs, std::string name,ModelSource& modelSource, Transform transform, const char* pipelineName = NULL) {
 
 		// Flip Y for Vulkan
 		transform.position.y *= -1;
 
-		ents.transforms.emplace_back(transform);
+		auto entity = ecs.entity(name.c_str())
+			.set<Transform>(transform)
+			.set<ModelInstance>(modelSource.createInstance());
+		if (pipelineName) {
+			entity.add<CustomPipeline>(ecs.lookup(pipelineName));
 
-		ents.models.emplace_back();
+		}
 
-		modelSource.createInstance(ents.models.back());
-
-
-		JPH::EmptyShape* emptyShape = new JPH::EmptyShape();
-		BodyCreationSettings emptyShapeSettings(
-			emptyShape,
-			RVec3(0, 0, 0),
-			JPH::Quat(1,0,0,0),
-			JPH::EMotionType::Static,
-			Layers::NON_MOVING);
-
-		BodyID physicsID = fisiks.bodyInterface.CreateAndAddBody(emptyShapeSettings, EActivation::DontActivate);
-
-		ents.physicsComponents.emplace_back(physicsID);
 	}
 
-
-	void createStaticMeshEntity(Entities& ents, Fisiks& fisiks, ModelSource& modelSource, Transform transform) {
+	static void createStaticMeshEntity(flecs::world& ecs, Fisiks& fisiks, std::string name, ModelSource& modelSource,Transform transform, const char* pipelineName = NULL) {
 
 		float scaleFactor = 1.0f;
 
 		// Flip Y for Vulkan
 		transform.position.y *= -1;
 
-		ents.transforms.emplace_back(transform);
-
-		ents.models.emplace_back();
-
-		modelSource.createInstance(ents.models.back());
-
-
 		// Scale vertices
 		//ASSUMING the model only has one mesh
 		VertexList scaledVertexList;
-		for (const VertexData& vertexData : modelSource.meshes[0].vertices) {
-			glm::vec3 scaledVertex = vertexData.vertex * scaleFactor; // Apply scale
+		for (const Vertex& vertexData : modelSource.meshes[0].vertices) {
+			glm::vec3 scaledVertex = vertexData.position * scaleFactor; // Apply scale
 			scaledVertexList.push_back(Float3(scaledVertex.x, scaledVertex.y, scaledVertex.z));
 		}
 
@@ -312,29 +284,29 @@ public:
 			EActivation::DontActivate
 		);
 
-		ents.physicsComponents.emplace_back(physicsID);
+		auto entity = ecs.entity(name.c_str())
+			.add<StaticEnt>()
+			.set<Transform>(transform)
+			.set<ModelInstance>(modelSource.createInstance())
+			.set<JPH::BodyID>(physicsID);
+
+		if (pipelineName) {
+			entity.add<CustomPipeline>(ecs.lookup(pipelineName));
+
+		}
 
 	}
 	
-	
-
-	bool createGridEntity(Entities & ents,Fisiks& fisiks, ModelSource & gridSource, Transform & transform,int rows , int cols) {
+	static void createGridEntity(flecs::world& ecs, Fisiks& fisiks, std::string name, ModelSource& modelSource,Transform transform,const char * pipelineName, int rows, int cols) {
 
 		// Flip Y for Vulkan
 		transform.position.y *= -1;
 
-		ents.transforms.emplace_back(transform);
-
-		ents.models.emplace_back();
-
-		gridSource.createInstance(ents.models.back());
-		
-
 		// Calculate box dimensions based on grid size and scale
 		// 0.01 or lower for y breaks it
-		Vec3 boxHalfExtents(rows * 0.5,0.1, cols *  0.5);  
+		Vec3 boxHalfExtents(rows * 0.5, 0.1, cols * 0.5);
 
-		
+
 		// Create BoxShape
 		Ref<Shape> boxShape = new BoxShape(boxHalfExtents);
 
@@ -350,27 +322,34 @@ public:
 			boxShape,
 			joltPosition,
 			joltRotation,
-			EMotionType::Static, 
-			Layers::NON_MOVING   
+			EMotionType::Static,
+			Layers::NON_MOVING
 		);
 
 		boxBodySettings.mRestitution = 0.1f; // High restitution for bounciness
 		boxBodySettings.mFriction = 1.0f;    // Low friction for sliding
 
-		
+
 		BodyID physicsID = fisiks.bodyInterface.CreateAndAddBody(
 			boxBodySettings,
 			EActivation::Activate
 		);
 
-		ents.physicsComponents.emplace_back(physicsID);
+		auto entity = ecs.entity(name.c_str())
+			.add<StaticEnt>()
+			.set<Transform>(transform)
+			.set<ModelInstance>(modelSource.createInstance())
+			.set<JPH::BodyID>(physicsID);
 
-		return true;
+		if (pipelineName) {
+			entity.add<CustomPipeline>(ecs.lookup(pipelineName));
+
+		}
 
 	}
 
-	
-	void calculateMeshDimensions(const MeshSource& mesh, float& x, float& y,float & z) {
+	//TODO move 
+	static void calculateMeshDimensions(const MeshSource& mesh, float& x, float& y,float & z) {
 		if (mesh.vertices.empty()) {
 			//width = 0.0f;
 			//height = 0.0f;
@@ -384,14 +363,14 @@ public:
 
 		for (const auto& current : mesh.vertices) {
 
-			minX = std::min(minX, current.vertex.x);
-			maxX = std::max(maxX, current.vertex.x);
+			minX = std::min(minX, current.position.x);
+			maxX = std::max(maxX, current.position.x);
 
-			minY = std::min(minY, current.vertex.y);
-			maxY = std::max(maxY, current.vertex.y);
+			minY = std::min(minY, current.position.y);
+			maxY = std::max(maxY, current.position.y);
 
-			minZ = std::min(minZ, current.vertex.z);
-			maxZ = std::max(maxZ, current.vertex.z);
+			minZ = std::min(minZ, current.position.z);
+			maxZ = std::max(maxZ, current.position.z);
 		}
 
 		x = maxX - minX;
@@ -403,7 +382,6 @@ public:
 
 };
 
-uint32 EntityFactory::entityIDCounter = 0;
 
 
 

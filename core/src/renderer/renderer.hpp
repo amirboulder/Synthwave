@@ -6,7 +6,9 @@
 #include <glm/gtx/quaternion.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-#include "../Entity.hpp"
+#include "Model.hpp"
+#include "../physics/physics.hpp"
+
 #include "Grid.hpp"
 #include "RendererConfig.hpp"
 #include "Camera.hpp"
@@ -23,11 +25,7 @@
 
 using std::vector;
 
-
-
 struct Renderer {
-
-	vector<Pipeline> pipelines;
 
 	Context context;
 
@@ -37,6 +35,7 @@ struct Renderer {
 
 	SDL_GPUTexture* defaultTexture = NULL;
 	SDL_GPUSampler* defaultSampler = NULL;
+	SDL_GPUTextureSamplerBinding defaultSamplerBinding;
 
 	SDL_GPUTexture* depthTexture = NULL;
 
@@ -45,14 +44,24 @@ struct Renderer {
 
 	Camera* activeCamera;
 
+	SDL_GPURenderPass* mainRenderPass;
+
 	RendererConfig& config;
+
+	FrameDataUniforms uniforms;
+
+	flecs::world & ecs;
+
+	flecs::query<Transform, ModelInstance>q1;
+	flecs::query<Transform, ModelInstance>q2;
+
 
 	#if defined(JPH_DEBUG_RENDERER)
 	std::unique_ptr<fisiksDebugRenderer> fisiksRenderer;
 	#endif
 
-	Renderer(RendererConfig renderConfig, PhysicsSystem& physicsSystem)
-		:	config(renderConfig)
+	Renderer(flecs::world & ecs, RendererConfig renderConfig, PhysicsSystem& physicsSystem)
+		: ecs(ecs),	config(renderConfig)
 	#if defined(JPH_DEBUG_RENDERER)
 		, fisiksRenderer(nullptr)
 	#endif
@@ -65,6 +74,9 @@ struct Renderer {
 
 		createSamplerAndDefaultTexture();
 
+		
+		context.sampleCountMSAA = config.sampleCountMSAA;
+
 
 		textRenderer.init(&context);
 		textRenderer.updateText("Synthwave", textRenderer.staticText);
@@ -72,13 +84,14 @@ struct Renderer {
 
 		
 		#if defined(JPH_DEBUG_RENDERER)
-
 		if (config.RendererPhysics) {
 			initFisisksRenderer(physicsSystem);
-
 		}
 		#endif
 
+
+		//Build render Queries
+		buildRenderQueries();
 	}
 
 
@@ -132,111 +145,10 @@ struct Renderer {
 
 		std::string strFPS = std::to_string(fps);
 		textRenderer.updateText(strFPS.c_str(), textRenderer.fpsText);
-
 	}
 
-
-	bool createPipeline(SDL_GPUShader* vertexShader, SDL_GPUShader* fragmentShader,
-		SDL_GPUGraphicsPipeline* & pipeline,bool line = false)
-	{
-
-		// Vertex input state
-		SDL_GPUVertexAttribute vertexAttributes[4] = {};
-
-		// Position attribute
-		vertexAttributes[0].location = 0;
-		vertexAttributes[0].buffer_slot = 0;
-		vertexAttributes[0].format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3;
-		vertexAttributes[0].offset = 0;
-
-		// normal attribute
-		vertexAttributes[1].location = 1;
-		vertexAttributes[1].buffer_slot = 0;
-		vertexAttributes[1].format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3;
-		vertexAttributes[1].offset = sizeof(glm::vec3);
-
-		// texture Coordinates attribute
-		vertexAttributes[2].location = 2;
-		vertexAttributes[2].buffer_slot = 0;
-		vertexAttributes[2].format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2;
-		vertexAttributes[2].offset = sizeof(glm::vec3) + sizeof(glm::vec3);
-
-		// Color attribute
-		vertexAttributes[3].location = 3;
-		vertexAttributes[3].buffer_slot = 0;
-		vertexAttributes[3].format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT4;
-		vertexAttributes[3].offset = sizeof(glm::vec3) + sizeof(glm::vec3) + sizeof(glm::vec2);
-
-		SDL_GPUVertexBufferDescription vertexBufferDescription = {};
-		vertexBufferDescription.slot = 0;
-		vertexBufferDescription.pitch = sizeof(VertexData);
-		vertexBufferDescription.input_rate = SDL_GPU_VERTEXINPUTRATE_VERTEX;
-
-		SDL_GPUVertexInputState vertexInputState = {};
-		vertexInputState.vertex_buffer_descriptions = &vertexBufferDescription;
-		vertexInputState.num_vertex_buffers = 1;
-		vertexInputState.vertex_attributes = vertexAttributes;
-		vertexInputState.num_vertex_attributes = 4;
-
-
-
-		// Create pipeline
-		SDL_GPUColorTargetDescription coldescs = {};
-		coldescs.format = SDL_GetGPUSwapchainTextureFormat(context.device, context.window);
-
-		SDL_GPUGraphicsPipelineCreateInfo pipeInfo = {};
-		SDL_zero(pipeInfo);
-		pipeInfo.vertex_shader = vertexShader;
-		pipeInfo.fragment_shader = fragmentShader;
-		pipeInfo.primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST;
-
-		pipeInfo.target_info.color_target_descriptions = &coldescs;
-		pipeInfo.target_info.num_color_targets = 1;
-		pipeInfo.target_info.depth_stencil_format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT;
-		pipeInfo.target_info.has_depth_stencil_target = true;
-
-		pipeInfo.depth_stencil_state = {
-		.compare_op = SDL_GPU_COMPAREOP_LESS,
-		.enable_depth_test = true,
-		.enable_depth_write = true,
-		};
-
-		//MSAA
-		pipeInfo.multisample_state = {
-			.sample_count = config.sampleCountMSAA,  // Enable MSAA in pipeline
-			.sample_mask = 0  // Use all samples
-		};
-
-		pipeInfo.vertex_input_state = vertexInputState;
-
-		pipeInfo.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_FILL;
-		pipeInfo.rasterizer_state.cull_mode = SDL_GPU_CULLMODE_BACK;
-		pipeInfo.rasterizer_state.front_face = SDL_GPU_FRONTFACE_CLOCKWISE;
-		pipeInfo.props = 0;
-
-		pipeline = SDL_CreateGPUGraphicsPipeline(context.device, &pipeInfo);
-		if (!pipeline) {
-			SDL_Log("Failed to create fill pipeline: %s", SDL_GetError());
-			return false;
-		}
-
-		if (line) {
-			pipeInfo.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_LINE;
-			pipeline = SDL_CreateGPUGraphicsPipeline(context.device, &pipeInfo);
-			if (!pipeline) {
-				SDL_Log("Failed to create line pipeline: %s", SDL_GetError());
-				return false;
-			}
-
-		}
-
-		SDL_Log("Built pipeline");
-
-		return true;
-	}
 
 	bool createSamplerAndDefaultTexture() {
-
 
 		SDL_GPUSamplerCreateInfo samplerCreateInfo{
 		.min_filter = SDL_GPU_FILTER_LINEAR,
@@ -256,7 +168,7 @@ struct Renderer {
 
 
 		// Load the image
-		SDL_Surface* imageData1 = LoadImage("assets/checkerboard.bmp", 4);
+		SDL_Surface* imageData1 = RenderUtil::LoadImage("assets/checkerboard.bmp", 4);
 		if (imageData1 == NULL)
 		{
 			SDL_Log("Could not load first image data!");
@@ -389,10 +301,22 @@ struct Renderer {
 	}
 
 
-	void draw() {
+	void buildRenderQueries() {
 
+		q1 = ecs.query_builder<Transform, ModelInstance>()
+			.without<CustomPipeline>(flecs::Wildcard) // no custom pipeline
+			.build();
+
+		q2 = ecs.query_builder<Transform, ModelInstance>()
+			.with<CustomPipeline>(flecs::Wildcard)  // Match any (CustomPipeline, *)
+			.group_by<CustomPipeline>()
+			.build();
+	}
+
+
+	void beginDraw() {
 		context.commandBuffer = check_error_ptr(SDL_AcquireGPUCommandBuffer(context.device));
-		
+
 		check_error_bool(SDL_WaitAndAcquireGPUSwapchainTexture(context.commandBuffer, context.window, &context.swapchainTexture, &swapchainWidth, &swapchainHeight));
 
 		if (!context.swapchainTexture) {
@@ -407,75 +331,112 @@ struct Renderer {
 		.store_op = SDL_GPU_STOREOP_RESOLVE,
 		.resolve_texture = resolveTarget
 
-		
+
 		};
-		
+
 		SDL_GPUDepthStencilTargetInfo depthTargetInfo = { 0 };
 		depthTargetInfo.texture = depthTexture;
 		depthTargetInfo.clear_depth = 1.0f;
 		depthTargetInfo.load_op = SDL_GPU_LOADOP_CLEAR;
 		depthTargetInfo.store_op = SDL_GPU_STOREOP_DONT_CARE;
 
-		
 
 		// Begin render pass
-		SDL_GPURenderPass* renderPass = SDL_BeginGPURenderPass(
+		mainRenderPass = SDL_BeginGPURenderPass(
 			context.commandBuffer,
 			&colorTargetInfo, 1,
-			&depthTargetInfo 
+			&depthTargetInfo
 		);
 
 
-		FrameDataUniforms uniforms;
+		//TODO see if there is any benefit to taking this out ot the draw so it  only happens once
+		defaultSamplerBinding = { .texture = defaultTexture, .sampler = defaultSampler };
+
+		//SDL_BindGPUFragmentSamplers(mainRenderPass, 0, &defaultSamplerBinding, 1);
+
 		uniforms.view = activeCamera->generateview();
 		uniforms.projection = activeCamera->generateProj();
 		uniforms.viewProjection = uniforms.projection * uniforms.view;
 
 		SDL_PushGPUVertexUniformData(context.commandBuffer, 0, &uniforms, sizeof(uniforms));
+	}
 
-		SDL_GPUTextureSamplerBinding sampler = { .texture = defaultTexture, .sampler = defaultSampler };
+	void drawModel(ModelInstance & model, Transform& transform) {
+
+		glm::mat4 modelTranslation = glm::translate(glm::mat4(1.0f), transform.position);
+		glm::mat4 modelRototaion = glm::toMat4(transform.rotation);
+		glm::mat4 modelScale = glm::scale(glm::mat4(1.0f), transform.scale);
+		glm::mat4 modelMat = modelTranslation * modelRototaion * modelScale;
+
+		for (int j = 0; j < model.meshes.size(); j++) {
+
+			MeshInstance& mesh = model.meshes[j];
+
+			//If mesh has a texture then 
+			if (mesh.diffuseTexture != nullptr) {
+				SDL_GPUTextureSamplerBinding sampler = { .texture = mesh.diffuseTexture, .sampler = defaultSampler };
+				SDL_BindGPUFragmentSamplers(mainRenderPass, 0, &sampler, 1);
+
+			}
+			//else use the default texture
+			else {
+
+				SDL_BindGPUFragmentSamplers(mainRenderPass, 0, &defaultSamplerBinding, 1);
+			}
+
+			SDL_GPUBufferBinding vertexBufferBinding = {};
+			vertexBufferBinding.buffer = mesh.vertexBuffer;
+			vertexBufferBinding.offset = 0;
+
+			SDL_GPUBufferBinding indexBufferBinding = {};
+			indexBufferBinding.buffer = mesh.indexBuffer;
+			indexBufferBinding.offset = 0;
+
+			SDL_BindGPUVertexBuffers(mainRenderPass, 0, &vertexBufferBinding, 1);
+			SDL_BindGPUIndexBuffer(mainRenderPass, &indexBufferBinding, SDL_GPU_INDEXELEMENTSIZE_32BIT);
 
 
-		for (int i = 0; i < pipelines.size(); i++) {
+			glm::mat4 meshTrans = glm::translate(glm::mat4(1.0f), mesh.transform.position);
+			glm::mat4 meshRot = glm::toMat4(mesh.transform.rotation);
+			glm::mat4 meshScale = glm::scale(glm::mat4(1.0f), mesh.transform.scale);
+			glm::mat4 meshMat = meshTrans * meshRot * meshScale;
 
-			Pipeline& pipeline = pipelines[i];
+			meshMat = modelMat * meshMat;
 
-			SDL_BindGPUFragmentSamplers(renderPass, 0, &sampler, 1);
+			glm::mat4 mvp = uniforms.viewProjection * meshMat;
 
-			pipeline.draw(renderPass, context.commandBuffer, uniforms.viewProjection,defaultTexture,defaultSampler);
-			
+			mvp = glm::transpose(mvp);
+
+			PerModelUniforms modelUnifroms;
+			modelUnifroms.mvp = mvp;
+			modelUnifroms.model = meshMat;
+
+			SDL_PushGPUVertexUniformData(context.commandBuffer, 1, &modelUnifroms, sizeof(modelUnifroms));
+
+			SDL_DrawGPUIndexedPrimitives(mainRenderPass, mesh.size, 1, 0, 0, 0);
 		}
+	}
 
-		
+	void endDraw() {
+
 		#if defined(JPH_DEBUG_RENDERER)
 		if (config.RendererPhysics) {
-
-			RVec3Arg camPos(activeCamera->position.x, activeCamera->position.y, activeCamera->position.z);
-			fisiksRenderer->setCameraUnifroms(camPos, activeCamera->generateview(), activeCamera->generateProj());
-
-			// The following maybe updated everyframe so we need to pass them to fisiksRenderer
-			// here instead of during construction
-			fisiksRenderer->renderPass = renderPass;
-			fisiksRenderer->commandBuffer = context.commandBuffer;
-
-			SDL_BindGPUGraphicsPipeline(renderPass, fisiksRenderer->pipeline);
-
-			fisiksRenderer->physicsSystem.DrawBodies(fisiksRenderer->drawSettings, &*fisiksRenderer);
-			
+			renderPhysics(mainRenderPass);
 		}
 		#endif
 
-		
-		SDL_EndGPURenderPass(renderPass);
+
+		SDL_EndGPURenderPass(mainRenderPass);
 		resolveBlit();
 
 
 		textRenderer.drawAll(config.windowWidth, config.windowHeight);
 
-
 		SDL_SubmitGPUCommandBuffer(context.commandBuffer);
+
 	}
 
+	
 	void resolveBlit() {
 
 		SDL_GPUBlitInfo blitInfo = {};
@@ -496,7 +457,7 @@ struct Renderer {
 		
 	}
 
-#if defined(JPH_DEBUG_RENDERER)
+	#if defined(JPH_DEBUG_RENDERER)
 	void initFisisksRenderer(PhysicsSystem& physicsSystem) {
 
 		SDL_Log("initFisisksRenderer()");
@@ -506,50 +467,66 @@ struct Renderer {
 
 			//TODO MOVE THIS 
 			//shader::generateSpirvShaders("shaders/slang/physicsRender.slang", "shaders/compiled/physicsRender.vert.spv", "shaders/compiled/physicsRender.frag.spv");
-			PL::loadVertexShader(context.device, fisiksRenderer->vertexShader, "shaders/compiled/physicsRender.vert.spv", 0, 2, 0, 0);
-			PL::loadFragmentShader(context.device, fisiksRenderer->fragmentShader, "shaders/compiled/physicsRender.frag.spv", 0, 0, 0, 0);
+			RenderUtil::loadShaderSPRIV(context.device, fisiksRenderer->vertexShader, "shaders/compiled/physicsRender.vert.spv", SDL_GPU_SHADERSTAGE_VERTEX,0, 2, 0, 0);
+			RenderUtil::loadShaderSPRIV(context.device, fisiksRenderer->fragmentShader, "shaders/compiled/physicsRender.frag.spv", SDL_GPU_SHADERSTAGE_FRAGMENT,0, 0, 0, 0);
 
 			fisiksRenderer->createPipeline();
 		}
 	}
+
+	void renderPhysics(SDL_GPURenderPass* renderPass) {
+
+		RVec3Arg camPos(activeCamera->position.x, activeCamera->position.y, activeCamera->position.z);
+		fisiksRenderer->setCameraUnifroms(camPos, activeCamera->generateview(), activeCamera->generateProj());
+
+		// The following maybe updated everyframe so we need to pass them to fisiksRenderer
+		// here instead of during construction
+		fisiksRenderer->renderPass = renderPass;
+		fisiksRenderer->commandBuffer = context.commandBuffer;
+
+		SDL_BindGPUGraphicsPipeline(renderPass, fisiksRenderer->pipeline);
+
+		fisiksRenderer->physicsSystem.DrawBodies(fisiksRenderer->drawSettings, &*fisiksRenderer);
+	}
 	#endif
 
-	//TODO move to Material.hpp
-	SDL_Surface* LoadImage(const char* path, int desiredChannels)
-	{
-		//char fullPath[256];
-		SDL_Surface* result;
-		SDL_PixelFormat format;
 
-		//SDL_snprintf(fullPath, sizeof(fullPath), "%sContent/Images/%s", BasePath, imageFilename);
+	void drawAll() {
+
+		beginDraw();
+
+		auto state = ecs.lookup("RenderState").get<RenderState>();
+
+		const Pipeline& pipeline = state.activePipeline.get<Pipeline>();
+		SDL_BindGPUGraphicsPipeline(mainRenderPass, pipeline.pipeline);
+
+		q1.each([&](flecs::entity e, Transform& transform, ModelInstance& model) {
+
+			drawModel(model, transform);
+
+		});
 
 
-		result = SDL_LoadBMP(path);
-		if (result == NULL)
-		{
-			SDL_Log("Failed to load BMP: %s", SDL_GetError());
-			return NULL;
-		}
+		q2.run([&](flecs::iter& it){
+			while (it.next()) {
+				
+				flecs::entity pipeline_entity = flecs::entity(it.world(), it.group_id());
 
-		if (desiredChannels == 4)
-		{
-			format = SDL_PIXELFORMAT_ABGR8888;
-		}
-		else
-		{
-			SDL_assert(!"Unexpected desiredChannels");
-			SDL_DestroySurface(result);
-			return NULL;
-		}
-		if (result->format != format)
-		{
-			SDL_Surface* next = SDL_ConvertSurface(result, format);
-			SDL_DestroySurface(result);
-			result = next;
-		}
+				const Pipeline* pipelineSecond =  & pipeline_entity.get<Pipeline>();
+				SDL_BindGPUGraphicsPipeline(mainRenderPass, pipelineSecond->pipeline);
 
-		return result;
+				for (auto i : it) {
+
+					Transform& transform = *it.field<Transform>(0);
+					ModelInstance& model = *it.field<ModelInstance>(1);
+
+					drawModel(model, transform);
+
+				}
+			}
+		});
+
+		endDraw();
 	}
-
 
 };

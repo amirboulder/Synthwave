@@ -3,7 +3,7 @@
 #include <SDL3/SDL.h>
 #include <SDL3_image/SDL_image.h>
 
-
+#include "renderUtil.hpp"
  
 struct MaterialSMPL {
     SDL_GPUTexture* diffuseTexture;
@@ -14,7 +14,6 @@ public:
 
 	SDL_PixelFormat targetFormat = SDL_PIXELFORMAT_ABGR8888;
 
-
     void loadMaterials(const aiScene* scene, std::vector<MaterialSMPL> & materials, const std::string& modelPath, SDL_GPUDevice* device) {
 
         std::string directory = std::filesystem::path(modelPath).parent_path().string();
@@ -23,9 +22,11 @@ public:
 
         for (unsigned int i = 0; i < scene->mNumMaterials; i++) {
 
-            aiMaterial* mat = scene->mMaterials[i];
+            aiMaterial* aiMat = scene->mMaterials[i];
 
             materials.emplace_back();
+
+			MaterialSMPL& mat = materials[i];
 
             // The texture types we are using right now
 			//TODO add more texture types
@@ -43,7 +44,7 @@ public:
             for (aiTextureType type : textureTypes) {
 
                 aiString str;
-                if (mat->GetTexture(type, 0, &str) == AI_SUCCESS) {
+                if (aiMat->GetTexture(type, 0, &str) == AI_SUCCESS) {
 
                     //Embedded texture
                     if (str.data[0] == '*') {
@@ -62,7 +63,6 @@ public:
                 }
             }
         }
-
     }
 
 
@@ -114,8 +114,6 @@ public:
 			SDL_Log("embedded texture format issue!");
 		}
 
-
-		
     }
 
     void loadExternalTexture(const std::string texturePath, SDL_GPUTexture* & TextureSDL, const std::string textureName, SDL_GPUDevice* device) {
@@ -203,11 +201,9 @@ public:
 		};
 
 
-
 		SDL_UploadToGPUTexture(copyPass, &textureTransferInfo, &textureRegion, false);
 		SDL_EndGPUCopyPass(copyPass);
 		SDL_SubmitGPUCommandBuffer(uploadCmdBuf);
-
 
 		SDL_DestroySurface(imageData);
 

@@ -20,9 +20,9 @@ struct LoadedTexture {
 	int height;
 };
 
+// each model has one pipelineType
 struct ModelInstance {
 	vector <MeshInstance> meshes;
-
 };
 
 
@@ -38,7 +38,6 @@ public:
 
 	ModelSource(const char * filePath,SDL_GPUDevice* device)
 	{
-
 		// init assimp and load the file
 		Assimp::Importer importer;
 		const aiScene* scene = importer.ReadFile(filePath, aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_FlipUVs | aiProcess_CalcTangentSpace);
@@ -80,7 +79,7 @@ public:
 			currentMesh.transform = temp;
 
 			RenderUtil::uploadBufferData(device, currentMesh.vertexBuffer, currentMesh.vertices.data(),
-				currentMesh.vertices.size() * sizeof(VertexData), SDL_GPU_BUFFERUSAGE_VERTEX);
+				currentMesh.vertices.size() * sizeof(Vertex), SDL_GPU_BUFFERUSAGE_VERTEX);
 			RenderUtil::uploadBufferData(device, currentMesh.indexBuffer, currentMesh.indices.data(),
 				currentMesh.indices.size() * sizeof(unsigned int), SDL_GPU_BUFFERUSAGE_INDEX);
 	
@@ -107,7 +106,7 @@ public:
 		GridGenerator::generateGrid(256, 256, mesh.vertices, mesh.indices);
 
 		RenderUtil::uploadBufferData(device, mesh.vertexBuffer, mesh.vertices.data(),
-			mesh.vertices.size() * sizeof(VertexData), SDL_GPU_BUFFERUSAGE_VERTEX);
+			mesh.vertices.size() * sizeof(Vertex), SDL_GPU_BUFFERUSAGE_VERTEX);
 
 		RenderUtil::uploadBufferData(device, mesh.indexBuffer, mesh.indices.data(),
 			mesh.indices.size() * sizeof(unsigned int), SDL_GPU_BUFFERUSAGE_INDEX);
@@ -149,9 +148,9 @@ public:
 			currentMesh.transform = temp;
 
 			RenderUtil::uploadBufferData(device, currentMesh.vertexBuffer, currentMesh.vertices.data(),
-				currentMesh.vertices.size() * sizeof(VertexData), SDL_GPU_BUFFERUSAGE_VERTEX);
-
-			
+				currentMesh.vertices.size() * sizeof(Vertex), SDL_GPU_BUFFERUSAGE_VERTEX);
+			RenderUtil::uploadBufferData(device, currentMesh.indexBuffer, currentMesh.indices.data(),
+				currentMesh.indices.size() * sizeof(unsigned int), SDL_GPU_BUFFERUSAGE_INDEX);
 
 		}
 
@@ -198,7 +197,10 @@ public:
 		return glm::decompose(matrix, tranfrom.scale, tranfrom.rotation, tranfrom.position, skew, perspective);
 	}
 
-	bool createInstance(ModelInstance & instance) {
+	
+	ModelInstance createInstance() {
+
+		ModelInstance instance;
 
 		instance.meshes.resize(meshes.size());
 
@@ -215,7 +217,7 @@ public:
 
 		}
 
-		return true;
+		return instance;
 	}
 
 };

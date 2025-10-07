@@ -1,8 +1,10 @@
-#include "core/src/Entity.hpp"
-#include "core/src/EntityFactory.hpp"
-#include "core/src/physics/physicsUtil.hpp"
+#pragma once
 
-#include "core/src/state/stateManager.hpp"
+#include "../../core/src/EntityFactory.hpp"
+
+#include "../../core/src/physics/physicsUtil.hpp"
+
+#include "../../core/src/state/stateManager.hpp"
 
 using std::vector;
 
@@ -10,9 +12,6 @@ class Scene {
 
 public:
 
-	Entities dynamicEnts;
-	Entities staticEnts;
-	Entities mtnEnts;
 
 	Player player;
 
@@ -24,119 +23,46 @@ public:
 
 	Actor actor1;
 
-	Scene(Fisiks& fisiks, Renderer& renderer, StateManager& stateManager, Camera& camera)
-		:fisiks(fisiks), renderer(renderer), stateManager(stateManager), player(camera)
+	flecs::world& ecs;
+	
+	Scene(flecs::world & ecs,Fisiks& fisiks, Renderer& renderer, StateManager& stateManager, Camera& camera)
+		: ecs(ecs), fisiks(fisiks), renderer(renderer), stateManager(stateManager), player(camera)
 	{
 
-		//=========== creating shaders
-		// 
-		//reserve multiple to avoid reallocation
-		renderer.pipelines.reserve(4);
-		//create BP pipeline 
-		renderer.pipelines.emplace_back(dynamicEnts.models, dynamicEnts.transforms);
-		Pipeline& pipelineBP = renderer.pipelines[0];
-
+		///////////////creating shaders
+		
+		auto entUnlitPipeline = ecs.entity("pipelineUnlit").set<Pipeline>({});
+		Pipeline & unlit = entUnlitPipeline.get_mut<Pipeline>();
 		//shader::generateSpirvShaders("shaders/slang/shaders.slang", "shaders/compiled/VertexShader.spv", "shaders/compiled/FragmentShader.spv");
-		PL::loadVertexShader(renderer.context.device, pipelineBP.vertexShader, "shaders/compiled/VertexShader.spv", 0, 2, 0, 0);
-		PL::loadFragmentShader(renderer.context.device, pipelineBP.fragmentShader, "shaders/compiled/FragmentShader.spv", 1, 0, 0, 0);
-		renderer.createPipeline(pipelineBP.vertexShader, pipelineBP.fragmentShader, pipelineBP.pipeline);
+		RenderUtil::loadShaderSPRIV(renderer.context.device, unlit.vertexShader, "shaders/compiled/VertexShader.spv", SDL_GPU_SHADERSTAGE_VERTEX, 0, 2, 0, 0);
+		RenderUtil::loadShaderSPRIV(renderer.context.device, unlit.fragmentShader, "shaders/compiled/FragmentShader.spv", SDL_GPU_SHADERSTAGE_FRAGMENT, 1, 0, 0, 0);
+		unlit.createPipeline(renderer.context, "Blinn-Phong",false);
 
-		renderer.pipelines.emplace_back(staticEnts.models, staticEnts.transforms);
-		Pipeline& pipelineGrid = renderer.pipelines[1];
-
+		auto entGridPipeline = ecs.entity("pipelineGrid").set<Pipeline>({});
+		Pipeline & gridPipeline = entGridPipeline.get_mut<Pipeline>();
 		//shader::generateSpirvShaders("shaders/slang/gridshader.slang", "shaders/compiled/grid.vert.spv", "shaders/compiled/grid.frag.spv");
-		PL::loadVertexShader(renderer.context.device, pipelineGrid.vertexShader, "shaders/compiled/grid.vert.spv", 0, 2, 0, 0);
-		PL::loadFragmentShader(renderer.context.device, pipelineGrid.fragmentShader, "shaders/compiled/grid.frag.spv", 0, 0, 0, 0);
-		renderer.createPipeline(pipelineGrid.vertexShader, pipelineGrid.fragmentShader, pipelineGrid.pipeline);
+		RenderUtil::loadShaderSPRIV(renderer.context.device, gridPipeline.vertexShader, "shaders/compiled/grid.vert.spv", SDL_GPU_SHADERSTAGE_VERTEX, 0, 2, 0, 0);
+		RenderUtil::loadShaderSPRIV(renderer.context.device, gridPipeline.fragmentShader, "shaders/compiled/grid.frag.spv", SDL_GPU_SHADERSTAGE_FRAGMENT, 0, 0, 0, 0);
+		gridPipeline.createPipeline(renderer.context, "Grid", false);
 
-		renderer.pipelines.emplace_back(mtnEnts.models, mtnEnts.transforms);
-		Pipeline& pipelineMtn = renderer.pipelines[2];
-
+		auto e_Mtn = ecs.entity("pipelineMtn").set<Pipeline>({});
+		Pipeline& mtnPipeline = e_Mtn.get_mut<Pipeline>();
 		//shader::generateSpirvShaders("shaders/slang/wireframe.slang", "shaders/compiled/wireframe.vert.spv", "shaders/compiled/wireframe.frag.spv");
-		PL::loadVertexShader(renderer.context.device, pipelineMtn.vertexShader, "shaders/compiled/wireframe.vert.spv", 0, 2, 0, 0);
-		PL::loadFragmentShader(renderer.context.device, pipelineMtn.fragmentShader, "shaders/compiled/wireframe.frag.spv", 0, 0, 0, 0);
-		pipelineMtn.createPipeline(renderer.context.window, renderer.context.device, renderer.config.sampleCountMSAA);
-		pipelineMtn.drawType = 1;
+		RenderUtil::loadShaderSPRIV(renderer.context.device, mtnPipeline.vertexShader, "shaders/compiled/wireframe.vert.spv", SDL_GPU_SHADERSTAGE_VERTEX,0, 2, 0, 0);
+		RenderUtil::loadShaderSPRIV(renderer.context.device, mtnPipeline.fragmentShader, "shaders/compiled/wireframe.frag.spv", SDL_GPU_SHADERSTAGE_FRAGMENT,0, 0, 0, 0);
+		mtnPipeline.createPipeline(renderer.context, "Mtn", false);
 
 
+		//SETTING DEFAULT PIPELINE
+		//TODO MOVE THIS 
+		ecs.entity("RenderState")
+			.set<RenderState>({ entUnlitPipeline });
 
-		constructLVL2();
-
-
+		constructLevel();
 
 	}
 
-	bool constructLVL1(Fisiks& fisiks, Renderer& renderer) {
-
-		int reserveSize = 50;
-
-		//create Model Sources
-		//robot
-		ModelSource robotSource("assets/robot4Wheels.glb", renderer.context.device);
-		//capsule
-		ModelSource capsuleSource("assets/capsule4.glb", renderer.context.device);
-		//Mountain
-		ModelSource mtnSource("assets/mtn2.obj", renderer.context.device, true);
-		//Grid
-		ModelSource gridSource(256, 256, renderer.context.device);
-
-
-
-		//Create instances
-
-		//Robot1
-		dynamicEnts.models.emplace_back();
-		dynamicEnts.transforms.emplace_back();
-		Transform& robot1Transform = dynamicEnts.transforms.back();
-		robot1Transform.position = glm::vec3(1.0f);
-		robot1Transform.rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
-		robot1Transform.scale = glm::vec3(1.0f);
-		robotSource.createInstance(dynamicEnts.models.back());
-
-		//Capsule1
-		dynamicEnts.models.emplace_back();
-		dynamicEnts.transforms.emplace_back();
-		Transform& capsule1Transfrom = dynamicEnts.transforms.back();
-		capsule1Transfrom.position = glm::vec3(1.0f);
-		capsule1Transfrom.rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
-		capsule1Transfrom.scale = glm::vec3(1.0f);
-		capsuleSource.createInstance(dynamicEnts.models.back());
-
-		dynamicEnts.models.emplace_back();
-		dynamicEnts.transforms.emplace_back();
-		Transform& capsule2Transfrom = dynamicEnts.transforms.back();
-		capsule2Transfrom.position = glm::vec3(5.0f, -2.0f, 5.0f);
-		capsule2Transfrom.rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
-		capsule2Transfrom.scale = glm::vec3(1.0f);
-		capsuleSource.createInstance(dynamicEnts.models.back());
-
-
-
-
-		//Grid
-		staticEnts.models.emplace_back();
-		staticEnts.transforms.emplace_back();
-		Transform& gridTransfrom = staticEnts.transforms.back();
-		gridTransfrom.rotation = glm::quat(0.0f, 0.0f, 1.0f, 0.0f);
-		gridSource.createInstance(staticEnts.models.back());
-
-
-		//mtn
-		mtnEnts.models.emplace_back();
-		mtnEnts.transforms.emplace_back();
-		Transform& mtnTransfrom = mtnEnts.transforms.back();
-		mtnTransfrom.position = glm::vec3(0.0f, 50.0f, 0.0f);
-		mtnSource.createInstance(mtnEnts.models.back());
-		mtnEnts.models.back().meshes[0].size = mtnSource.meshes[0].vertices.size();
-
-
-		return true;
-	}
-
-	bool constructLVL2() {
-
-		EntityFactory factory;
-
+	bool constructLevel() {
 
 		//create Model Sources
 		//robot
@@ -153,19 +79,42 @@ public:
 		//sponza
 		//ModelSource sponzaSource("assets/Sponza/sponza.obj", renderer.context.device);
 
-
+		//////////////////////////////
 		//Player
 		stateManager.setPlayer(player);
 		stateManager.load();
 		player.createPhysicsBody(fisiks.physics_system);
 
+		///////////////////////////
+	
+
+		//Entities
+
+		//Actor 1
+		Transform actorTransform;
+		actorTransform.position = glm::vec3(1.0f, 17.0f, 0.0f);
+		actorTransform.rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
+		actorTransform.scale = glm::vec3(1.0f);
+
+		///// CHANGE TO ACTOR ENTITY
+		EntityFactory::createCharacterEntity(ecs, fisiks, "Amir1", ActorSource, actorTransform,actor1);
+
+		//Grid
+		Transform gridTransfrom;
+		gridTransfrom.rotation = glm::quat(0.0f, 0.0f, 1.0f, 0.0f);
+		EntityFactory::createGridEntity(ecs, fisiks, "gridChunk1", gridSource, gridTransfrom, "pipelineGrid", 256, 256);
+
+		//MTN
+		Transform mtnTransform;
+		mtnTransform.position = glm::vec3(0.0f, -50.0f, 0.0f);
+		EntityFactory::createStaticMeshEntity(ecs, fisiks,"Mountain", mtnSource, mtnTransform, "pipelineMtn");
 
 		//Capsule1
 		Transform capsule1Transfrom;
 		capsule1Transfrom.position = glm::vec3(1.0f, 5.0f, 0.0f);
 		capsule1Transfrom.rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
 		capsule1Transfrom.scale = glm::vec3(1.0f);
-		factory.createCapsuleEntity(dynamicEnts, fisiks, capsuleSource, capsule1Transfrom);
+		EntityFactory::createCapsuleEntity(ecs, fisiks, "Capsule1", capsuleSource, capsule1Transfrom);
 
 
 		//Capsule2
@@ -173,48 +122,35 @@ public:
 		capsule2Transfrom.position = glm::vec3(1.0f, 19.0f, 0.0f);
 		capsule2Transfrom.rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
 		capsule2Transfrom.scale = glm::vec3(1.0f);
-		factory.createCapsuleEntity(dynamicEnts, fisiks, capsuleSource, capsule2Transfrom);
+		EntityFactory::createCapsuleEntity(ecs, fisiks, "Capsule2", capsuleSource, capsule2Transfrom);
 
-		//Capsule2
+		//Capsule3
 		Transform capsule3Transfrom;
 		capsule3Transfrom.position = glm::vec3(1.0f, 29.0f, 0.0f);
 		capsule3Transfrom.rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
 		capsule3Transfrom.scale = glm::vec3(1.0f);
-		factory.createCapsuleEntity(dynamicEnts, fisiks, capsuleSource, capsule2Transfrom);
-
-
-		//Grid
-		Transform gridTransfrom;
-		gridTransfrom.rotation = glm::quat(0.0f, 0.0f, 1.0f, 0.0f);
-		factory.createGridEntity(staticEnts, fisiks, gridSource, gridTransfrom, 256, 256);
-
-		//MTN
-		Transform mtnTransform;
-		mtnTransform.position = glm::vec3(0.0f, -50.0f, 0.0f);
-		factory.createStaticMeshEntity(mtnEnts, fisiks, mtnSource, mtnTransform);
-		mtnEnts.models.back().meshes[0].size = mtnSource.meshes[0].vertices.size();
-
-
-		//Actor 1
-		Transform actorTransform;
-		actorTransform.position = glm::vec3(1.0f, 7.0f, 0.0f);
-		actorTransform.rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
-		actorTransform.scale = glm::vec3(1.0f);
-		factory.createCharacterEntity(dynamicEnts, fisiks, ActorSource, actorTransform, actor1);
-
-		/*
-		Transform sponzaTransform;
+		EntityFactory::createCapsuleEntity(ecs, fisiks, "Capsule3", capsuleSource, capsule3Transfrom);
+	
+		
+		/*Transform sponzaTransform;
 		sponzaTransform.scale.x = 0.1;
 		sponzaTransform.scale.y = 0.1;
 		sponzaTransform.scale.z = 0.1;
-		factory.createRenderableEntity(dynamicEnts, fisiks, sponzaSource, sponzaTransform);
-		*/
+		EntityFactory::createRenderableEntity(ecs,"Sponza", sponzaSource, sponzaTransform);*/
+		
 
 		return true;
+
+
+		
 	}
+
+
+
 
 	void LVL1Script(PhysicsSystem& physicsSystem, JPH::Vec3Arg playerPos) {
 
+		/*
 		float moveSpeed = 3;
 		BodyInterface& bodyInterface = physicsSystem.GetBodyInterface();
 
@@ -238,12 +174,15 @@ public:
 			bodyInterface.SetRotation(dynamicEnts.physicsComponents[i].bodyID, entityRot, JPH::EActivation::Activate);
 			//	}
 		}
+		*/
+
 	}
 
 
-	void level2Update() {
+	void update(PlayerInput input) {
 
 		actor1.update();
+		player.update(input);
 
 	}
 

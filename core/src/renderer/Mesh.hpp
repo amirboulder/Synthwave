@@ -29,7 +29,7 @@ class MeshSource {
 
 public:
 
-	std::vector<VertexData> vertices;
+	std::vector<Vertex> vertices;
 	std::vector <unsigned int> indices;
 
 	Transform  transform;
@@ -54,11 +54,11 @@ public:
 
 
 			vertices.emplace_back();
-			VertexData& currentVertex = vertices.back();
+			Vertex& currentVertex = vertices.back();
 
-			currentVertex.vertex.x = importedMesh->mVertices[i].x;
-			currentVertex.vertex.y = importedMesh->mVertices[i].y;
-			currentVertex.vertex.z = importedMesh->mVertices[i].z;
+			currentVertex.position.x = importedMesh->mVertices[i].x;
+			currentVertex.position.y = importedMesh->mVertices[i].y;
+			currentVertex.position.z = importedMesh->mVertices[i].z;
 
 			if (importedMesh->HasNormals()) {
 				currentVertex.normal.x = importedMesh->mNormals[i].x;
@@ -70,8 +70,8 @@ public:
 			//cout << "texture coords" << importedMesh->HasTextureCoords(0) << '\n';
 			if (importedMesh->HasTextureCoords(0) || importedMesh->mTextureCoords[0])
 			{
-				currentVertex.texCoords.x = importedMesh->mTextureCoords[0][i].x;
-				currentVertex.texCoords.y = importedMesh->mTextureCoords[0][i].y;
+				currentVertex.texCoord.x = importedMesh->mTextureCoords[0][i].x;
+				currentVertex.texCoord.y = importedMesh->mTextureCoords[0][i].y;
 			}
 
 			if (count > 3) {
@@ -138,11 +138,11 @@ public:
 				unsigned int index = face.mIndices[j];
 
 				vertices.emplace_back();
-				VertexData& v = vertices.back();
+				Vertex& v = vertices.back();
 
-				v.vertex.x = importedMesh->mVertices[index].x;
-				v.vertex.y = importedMesh->mVertices[index].y;
-				v.vertex.z = importedMesh->mVertices[index].z;
+				v.position.x = importedMesh->mVertices[index].x;
+				v.position.y = importedMesh->mVertices[index].y;
+				v.position.z = importedMesh->mVertices[index].z;
 
 				if (importedMesh->HasNormals())
 				{
@@ -154,8 +154,8 @@ public:
 
 				if (importedMesh->HasTextureCoords(0))
 				{
-					v.texCoords.x = importedMesh->mTextureCoords[0][index].x;
-					v.texCoords.y = importedMesh->mTextureCoords[0][index].y;
+					v.texCoord.x = importedMesh->mTextureCoords[0][index].x;
+					v.texCoord.y = importedMesh->mTextureCoords[0][index].y;
 				}
 					
 

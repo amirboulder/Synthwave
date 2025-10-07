@@ -4,11 +4,13 @@ int main(int argc, char* argv[])
 {
 	bool running = true;
 
+	flecs::world ecs;
+
 	RendererConfig renderConfig("config/renderConfig.ini");
 
 	Fisiks fisiks;
 
-	Renderer renderer(renderConfig, fisiks.physics_system);
+	Renderer renderer(ecs,renderConfig, fisiks.physics_system);
 
 	CameraManager cameraManager(renderConfig);
 
@@ -16,7 +18,7 @@ int main(int argc, char* argv[])
 
 	StateManager stateManager(renderConfig,renderer, cameraManager,time);
 
-	Scene scene(fisiks, renderer, stateManager, cameraManager.playerCam);
+	Scene scene(ecs, fisiks, renderer, stateManager, cameraManager.playerCam);
 
 	InputManager inputManager(cameraManager,stateManager);
 
@@ -39,19 +41,17 @@ int main(int argc, char* argv[])
 			inputManager.handleInput(input);
 
 
-			fisiks.update(time.timeStep);
-			fisiks.syncTransfroms(scene.dynamicEnts.transforms, scene.dynamicEnts.physicsComponents);
-
-			scene.player.update(input);
+			fisiks.update(time.timeStep, ecs);
 			
-			scene.level2Update();
+			scene.update(input);
 
 			time.accumulator -= time.timeStep;
 		}
 		//TODO INTERPOLATE to account for physics and rendering happening at diffrent rates
 
 		renderer.setFPSText(time.fps);
-		renderer.draw();
+
+		renderer.drawAll();
 
 	}
 
