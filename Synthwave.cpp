@@ -12,15 +12,13 @@ int main(int argc, char* argv[])
 
 	Renderer renderer(ecs,renderConfig, fisiks.physics_system);
 
-	CameraManager cameraManager(renderConfig);
-
 	TimeManager time;
 
-	StateManager stateManager(renderConfig,renderer, cameraManager,time);
+	StateManager stateManager(ecs,renderConfig,renderer,time);
 
-	Scene scene(ecs, fisiks, renderer, stateManager, cameraManager.playerCam);
+	Scene scene(ecs, fisiks, renderer, stateManager);
 
-	InputManager inputManager(cameraManager,stateManager);
+	InputManager inputManager(stateManager);
 
 	PlayerInput input;
 	
@@ -39,7 +37,6 @@ int main(int argc, char* argv[])
 		while (time.accumulator >= time.timeStep) {
 
 			inputManager.handleInput(input);
-
 
 			fisiks.update(time.timeStep, ecs);
 			

@@ -25,8 +25,8 @@ public:
 
 	flecs::world& ecs;
 	
-	Scene(flecs::world & ecs,Fisiks& fisiks, Renderer& renderer, StateManager& stateManager, Camera& camera)
-		: ecs(ecs), fisiks(fisiks), renderer(renderer), stateManager(stateManager), player(camera)
+	Scene(flecs::world & ecs,Fisiks& fisiks, Renderer& renderer, StateManager& stateManager)
+		: ecs(ecs), fisiks(fisiks), renderer(renderer), stateManager(stateManager),player(ecs)
 	{
 
 		///////////////creating shaders

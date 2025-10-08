@@ -5,8 +5,6 @@
 
 #include "glm/glm.hpp"
 
-#include "../renderer/CameraManager.hpp"
-
 #include "../ecs/components.hpp"
 
 #include "../common.hpp"
@@ -27,13 +25,13 @@ public:
 
 	uint16_t closeWindow = SDL_SCANCODE_END;
 
-	CameraManager& cameraManager;
+
 
 	StateManager& stateManager;
 
 
-	InputManager(CameraManager& cameraManager, StateManager& stateManager)
-		:  cameraManager(cameraManager), stateManager(stateManager)
+	InputManager( StateManager& stateManager)
+		:  stateManager(stateManager)
 	{
 
 	}
@@ -67,7 +65,7 @@ public:
 
 	void processFreeCamKBMInput() {
 
-		Camera& camera = cameraManager.freeCam;
+		Camera& camera = stateManager.freeCam.get_mut<Camera>();
 
 		const bool* keystates = SDL_GetKeyboardState(NULL);
 
@@ -105,7 +103,7 @@ public:
 
 	void handleEvents(bool& running,SDL_Event event,RendererConfig& config) {
 
-		Camera& camera = cameraManager.freeCam;
+		//Camera& camera = cameraManager.freeCam;
 
 		if (event.type == SDL_EVENT_KEY_DOWN && event.key.repeat == 0 && event.key.scancode == SDL_SCANCODE_F1) {
 
@@ -139,8 +137,7 @@ public:
 
 	void handlePlayerKBMInput(PlayerInput& input) {
 
-
-		Camera& camera = cameraManager.playerCam;
+		Camera& camera = stateManager.playerCam.get_mut<Camera>();
 
 		const bool* keystates = SDL_GetKeyboardState(NULL);
 

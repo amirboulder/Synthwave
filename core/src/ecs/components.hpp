@@ -48,10 +48,10 @@ struct PipelineRef {
 };
 
 
-
 // Tags 
 struct DynamicEnt {};
 struct StaticEnt {};
-struct Renderable {};
 struct Sensor {};
 struct CustomPipeline {};
+
+struct ActiveCamera {};

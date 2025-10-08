@@ -42,8 +42,6 @@ struct Renderer {
 	SDL_GPUTexture* msaaColorTarget;
 	SDL_GPUTexture* resolveTarget;
 
-	Camera* activeCamera;
-
 	SDL_GPURenderPass* mainRenderPass;
 
 	RendererConfig& config;
@@ -73,10 +71,8 @@ struct Renderer {
 		createRenderTargets();
 
 		createSamplerAndDefaultTexture();
-
-		
+			
 		context.sampleCountMSAA = config.sampleCountMSAA;
-
 
 		textRenderer.init(&context);
 		textRenderer.updateText("Synthwave", textRenderer.staticText);
@@ -354,10 +350,15 @@ struct Renderer {
 
 		//SDL_BindGPUFragmentSamplers(mainRenderPass, 0, &defaultSamplerBinding, 1);
 
-		uniforms.view = activeCamera->generateview();
-		uniforms.projection = activeCamera->generateProj();
-		uniforms.viewProjection = uniforms.projection * uniforms.view;
+		ecs.query<Camera, ActiveCamera>()
+			.each([&](Camera& cam, ActiveCamera) {
 
+			uniforms.view = cam.generateview();
+			uniforms.projection = cam.generateProj();
+			uniforms.viewProjection = uniforms.projection * uniforms.view;
+
+		});
+		
 		SDL_PushGPUVertexUniformData(context.commandBuffer, 0, &uniforms, sizeof(uniforms));
 	}
 
@@ -476,10 +477,17 @@ struct Renderer {
 
 	void renderPhysics(SDL_GPURenderPass* renderPass) {
 
-		RVec3Arg camPos(activeCamera->position.x, activeCamera->position.y, activeCamera->position.z);
-		fisiksRenderer->setCameraUnifroms(camPos, activeCamera->generateview(), activeCamera->generateProj());
+		ecs.query<Camera, ActiveCamera>()
+			.each([&](Camera& cam, ActiveCamera) {
 
-		// The following maybe updated everyframe so we need to pass them to fisiksRenderer
+			RVec3Arg camPos(cam.position.x, cam.position.y, cam.position.z);
+			fisiksRenderer->setCameraUnifroms(camPos, cam.generateview(), cam.generateProj());
+
+		});
+
+		
+
+		// The following might be updated everyframe so we need to pass them to fisiksRenderer
 		// here instead of during construction
 		fisiksRenderer->renderPass = renderPass;
 		fisiksRenderer->commandBuffer = context.commandBuffer;
@@ -495,9 +503,9 @@ struct Renderer {
 
 		beginDraw();
 
-		auto state = ecs.lookup("RenderState").get<RenderState>();
-
+		const RenderState & state = ecs.lookup("RenderState").get<RenderState>();
 		const Pipeline& pipeline = state.activePipeline.get<Pipeline>();
+
 		SDL_BindGPUGraphicsPipeline(mainRenderPass, pipeline.pipeline);
 
 		q1.each([&](flecs::entity e, Transform& transform, ModelInstance& model) {

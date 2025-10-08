@@ -31,30 +31,9 @@ public:
     float movementSpeed = 0.1f;
     float mouseSensitivity;
 
-    Camera(RendererConfig & config)
-        : position(config.FreeCamPos)
 
-    {
-        position = config.FreeCamPos;
-        front = config.FreeCamFront;
-
-        yaw = config.FreeCamYaw;
-        pitch = config.FreeCamPitch;
-
-        fov = config.freeCamFov;
-        nearPlane = config.freeCamNearPlane;
-        farPlane = config.freeCamFarPlane;
-        mouseSensitivity = config.FreeCamMouseSensitivity;
-
-        aspectRatio = static_cast<float>(config.windowWidth) / static_cast<float>(config.windowHeight);
-
-        updateVectors();
-
-    }
-
-
-    Camera(RendererConfig& config, glm::vec3 position)
-    :   position(config.FreeCamPos),
+    Camera(RendererConfig& config)
+        : position(config.FreeCamPos),
         yaw(config.FreeCamYaw),
         pitch(config.FreeCamPitch),
         fov(config.freeCamFov),

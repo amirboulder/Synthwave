@@ -33,10 +33,11 @@ class PlayerState {
 public:
 
 
-    static bool savePlayerState(Player& player, const std::string& playerStateFilePath) {
+    static bool savePlayerState(Player& player, flecs::world& ecs,const std::string& playerStateFilePath) {
+
+        Camera& camera = ecs.lookup("PlayerCam").get_mut<Camera>();
 
         json playerStateJson;
-
 
         playerStateJson["player"]["position"]["x"] = player.position.GetX();
         playerStateJson["player"]["position"]["y"] = player.position.GetY();
@@ -47,8 +48,8 @@ public:
         playerStateJson["player"]["rotation"]["z"] = player.rotation.GetZ();
         playerStateJson["player"]["rotation"]["w"] = player.rotation.GetW();
 
-        playerStateJson["player"]["cameraYaw"] = player.camera.yaw;
-        playerStateJson["player"]["cameraPitch"] = player.camera.pitch;
+        playerStateJson["player"]["cameraYaw"] = camera.yaw;
+        playerStateJson["player"]["cameraPitch"] = camera.pitch;
 
         playerStateJson["player"]["moveSpeed"] = player.moveSpeed;
         playerStateJson["player"]["jumpStrength"] = player.jumpStrength;
@@ -78,7 +79,9 @@ public:
     }
 
     //TODO add check for when json structure is different then what is expected
-    static void loadPlayerState(Player& player, const std::string& playerStateFilePath) {
+    static void loadPlayerState(Player& player, flecs::world& ecs,const std::string& playerStateFilePath) {
+
+        Camera& camera = ecs.lookup("PlayerCam").get_mut<Camera>();
 
         std::ifstream file(playerStateFilePath);
         if (!file) {
@@ -104,15 +107,15 @@ public:
         player.moveSpeed = playerStateJson.at("player").at("moveSpeed");
         player.jumpStrength = playerStateJson.at("player").at("jumpStrength");
 
-        player.camera.yaw = playerStateJson.at("player").at("cameraYaw");
-        player.camera.pitch = playerStateJson.at("player").at("cameraPitch");
+        camera.yaw = playerStateJson.at("player").at("cameraYaw");
+        camera.pitch = playerStateJson.at("player").at("cameraPitch");
 
         // updating the camera in players contructor because it was created with default values before 
         // player state was loaded, updating it here avoid a camera jump in the first frame as it is rendered before
         // enough time delta time is accumulated for player.update( and other update functions) to be called.
         glm::vec3 characterPosGLM = glm::vec3(player.position.GetX(), player.position.GetY(), player.position.GetZ());
-        player.camera.position = characterPosGLM + player.offset;
-        player.camera.updateVectors();
+        camera.position = characterPosGLM + player.offset;
+        camera.updateVectors();
 
         file.close();
 

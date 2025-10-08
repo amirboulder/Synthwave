@@ -1,34 +1,40 @@
 #pragma once
 
+#include <flecs.h>
+
 #include "PlayerState.hpp"
 
 #include "../renderer/renderer.hpp"
-#include "../renderer/CameraManager.hpp"
 
 #include"../renderer/RendererConfig.hpp"
 
 #include "../time/timeManager.hpp"
 
+#include "../common.hpp"
 
 class StateManager {
 
-private:
+public:
 
 	Player* player = nullptr;
 
 	RendererConfig& renderConfig;
 
 	Renderer& renderer;
-	CameraManager& cameraManager;
 	TimeManager & time;
 
-public:
+	flecs::world& ecs;
+
+	flecs::entity playerCam;
+	flecs::entity freeCam;
+
+
 
 	AppContext appContext = AppContext::player;
 	PlayState playState = PlayState::play;
 
-	StateManager(RendererConfig & renderConfig,Renderer& renderer, CameraManager& cameraManager, TimeManager & time)
-		: renderConfig(renderConfig), renderer(renderer), cameraManager(cameraManager), time(time)
+	StateManager(flecs::world& ecs,RendererConfig & renderConfig,Renderer& renderer, TimeManager & time)
+		: ecs(ecs), renderConfig(renderConfig), renderer(renderer), time(time)
 	{
 		applicationSetup();
 	}
@@ -36,9 +42,20 @@ public:
 
 	void applicationSetup() {
 
+		createCameras();
 		setActiveCamera(appContext);
+
 	}
 
+	void createCameras() {
+
+		playerCam = ecs.entity("PlayerCam")
+			.emplace<Camera>(renderConfig);
+
+		freeCam = ecs.entity("FreeCam")
+			.emplace<Camera>(renderConfig);
+
+	}
 
 
 	void setPlayer(Player& ps) {
@@ -55,22 +72,20 @@ public:
 	bool save() {
 
 		
-		PlayerState::savePlayerState(getPlayer(), "data/playerState.json");
+		PlayerState::savePlayerState(getPlayer(),ecs ,"data/playerState.json");
 
-
-		cout << "game saved sucessfully\n";
+		//TODO change to game once we start saving game state
+		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "player saved successfully");
 		return true;
 	}
 
 	bool load() {
 
 
-		PlayerState::loadPlayerState(getPlayer(), "data/playerState.json");
+		PlayerState::loadPlayerState(getPlayer(),ecs ,"data/playerState.json");
 
-
-
-
-		cout << "game loaded sucessfully\n";
+		//TODO change to game once we start loading game state
+		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "player loaded successfully");
 		return true;
 	}
 
@@ -104,14 +119,16 @@ public:
 		switch (context) {
 
 		case AppContext::player:
-			renderer.activeCamera = &cameraManager.playerCam;
+			playerCam.add<ActiveCamera>();
+			freeCam.remove<ActiveCamera>();
 			break;
 
 		case AppContext::freeCam:
-			renderer.activeCamera = &cameraManager.freeCam;
+			playerCam.remove<ActiveCamera>();
+			freeCam.add<ActiveCamera>();
+
 			break;
 		}
-
 	}
 
 
@@ -138,7 +155,8 @@ public:
 
 	void handleSavingRenderConfig() {
 
-		Camera& camera = cameraManager.freeCam;
+		// maybe use get_mut
+		const Camera& camera = freeCam.get<Camera>();
 
 		renderConfig.FreeCamFront = camera.front;
 		renderConfig.FreeCamPos = camera.position;
