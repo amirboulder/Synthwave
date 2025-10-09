@@ -297,14 +297,15 @@ public:
 
 	}
 	
-	static void createGridEntity(flecs::world& ecs, Fisiks& fisiks, std::string name, ModelSource& modelSource,Transform transform,const char * pipelineName, int rows, int cols) {
+	static void createGridEntity(flecs::world& ecs, Fisiks& fisiks, std::string name, ModelSource& modelSource,Transform  transform,const char * pipelineName, int rows, int cols) {
 
-		// Flip Y for Vulkan
+		// Flip Y for Vulkan 
 		transform.position.y *= -1;
 
-		// Calculate box dimensions based on grid size and scale
-		// 0.01 or lower for y breaks it
-		Vec3 boxHalfExtents(rows * 0.5, 0.1, cols * 0.5);
+		float boxThickness = 1;
+
+		// any tickenss less than 0.01 will break jolt!
+		Vec3 boxHalfExtents(rows * 0.5, boxThickness * 0.5, cols * 0.5);
 
 
 		// Create BoxShape
@@ -334,6 +335,10 @@ public:
 			boxBodySettings,
 			EActivation::Activate
 		);
+
+		//needed to visually align the grid render with the physics body #MAGICNUMBER\
+		//TODO find out why the grid render slightly below its physics body by default
+		transform.position.y -= boxThickness + 0.5 ;
 
 		auto entity = ecs.entity(name.c_str())
 			.add<StaticEnt>()
