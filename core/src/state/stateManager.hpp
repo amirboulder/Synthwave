@@ -16,8 +16,6 @@ class StateManager {
 
 public:
 
-	Player* player = nullptr;
-
 	RendererConfig& renderConfig;
 
 	Renderer& renderer;
@@ -27,8 +25,6 @@ public:
 
 	flecs::entity playerCam;
 	flecs::entity freeCam;
-
-
 
 	AppContext appContext = AppContext::player;
 	PlayState playState = PlayState::play;
@@ -58,21 +54,9 @@ public:
 	}
 
 
-	void setPlayer(Player& ps) {
-		player = &ps;
-	}
-
-	Player& getPlayer() {
-		if (!player) {
-			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Error Player not set in StateManager! ");
-		}
-		return *player;
-	}
-
 	bool save() {
 
-		
-		PlayerState::savePlayerState(getPlayer(),ecs ,"data/playerState.json");
+		PlayerState::savePlayerState(ecs ,"data/playerState.json");
 
 		//TODO change to game once we start saving game state
 		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "player saved successfully");
@@ -81,8 +65,7 @@ public:
 
 	bool load() {
 
-
-		PlayerState::loadPlayerState(getPlayer(),ecs ,"data/playerState.json");
+		PlayerState::loadPlayerState(ecs ,"data/playerState.json");
 
 		//TODO change to game once we start loading game state
 		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "player loaded successfully");
@@ -140,7 +123,6 @@ public:
 
 			setActiveCamera(appContext);
 			SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "using free camera");
-
 		}
 		else if (appContext == AppContext::freeCam) {
 
@@ -150,7 +132,6 @@ public:
 			SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "using player camera");
 
 		}
-
 	}
 
 	void handleSavingRenderConfig() {
@@ -168,5 +149,4 @@ public:
 		renderConfig.saveRendererConfigINI("config/renderConfig.ini");
 
 	}
-
 };

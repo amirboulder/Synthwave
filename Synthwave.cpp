@@ -18,10 +18,8 @@ int main(int argc, char* argv[])
 
 	Scene scene(ecs, fisiks, renderer, stateManager);
 
-	InputManager inputManager(stateManager);
+	InputManager inputManager(ecs,stateManager);
 
-	PlayerInput input;
-	
 	printf("\033[35mWelcome to the simulation!\033[0m\n");
 	SDL_Event event;
 	while (running) {
@@ -36,11 +34,11 @@ int main(int argc, char* argv[])
 		time.tick();
 		while (time.accumulator >= time.timeStep) {
 
-			inputManager.handleInput(input);
+			inputManager.handleInput();
 
 			fisiks.update(time.timeStep, ecs);
 			
-			scene.update(input);
+			scene.update();
 
 			time.accumulator -= time.timeStep;
 		}

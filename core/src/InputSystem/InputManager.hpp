@@ -14,6 +14,8 @@
 
 class InputManager {
 
+	flecs::world& ecs;
+
 public:
 
 	uint16_t forward = SDL_SCANCODE_W;
@@ -25,19 +27,16 @@ public:
 
 	uint16_t closeWindow = SDL_SCANCODE_END;
 
-
-
 	StateManager& stateManager;
 
-
-	InputManager( StateManager& stateManager)
-		:  stateManager(stateManager)
+	InputManager(flecs::world& ecs, StateManager& stateManager)
+		: ecs(ecs), stateManager(stateManager)
 	{
 
 	}
 
 
-	void handleInput(PlayerInput& input) {
+	void handleInput() {
 
 		switch (stateManager.appContext) {
 		case AppContext::freeCam:
@@ -47,7 +46,7 @@ public:
 
 		case AppContext::player:
 
-			handlePlayerKBMInput(input);
+			handlePlayerKBMInput();
 			break;
 
 		case AppContext::menu:
@@ -135,9 +134,11 @@ public:
 
 	}
 
-	void handlePlayerKBMInput(PlayerInput& input) {
+	void handlePlayerKBMInput() {
 
 		Camera& camera = stateManager.playerCam.get_mut<Camera>();
+
+		PlayerInput & input =  ecs.lookup("player").get_mut<Player>().input;
 
 		const bool* keystates = SDL_GetKeyboardState(NULL);
 

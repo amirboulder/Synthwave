@@ -33,9 +33,11 @@ class PlayerState {
 public:
 
 
-    static bool savePlayerState(Player& player, flecs::world& ecs,const std::string& playerStateFilePath) {
+    static bool savePlayerState(flecs::world& ecs,const std::string& playerStateFilePath) {
 
-        Camera& camera = ecs.lookup("PlayerCam").get_mut<Camera>();
+        const Player& player = ecs.lookup("player").get<Player>();
+
+        const Camera& camera = ecs.lookup("PlayerCam").get<Camera>();
 
         json playerStateJson;
 
@@ -79,7 +81,9 @@ public:
     }
 
     //TODO add check for when json structure is different then what is expected
-    static void loadPlayerState(Player& player, flecs::world& ecs,const std::string& playerStateFilePath) {
+    static void loadPlayerState(flecs::world& ecs,const std::string& playerStateFilePath) {
+
+        Player& player = ecs.lookup("player").get_mut<Player>();
 
         Camera& camera = ecs.lookup("PlayerCam").get_mut<Camera>();
 

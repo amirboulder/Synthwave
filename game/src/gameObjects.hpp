@@ -12,8 +12,10 @@ class Scene {
 
 public:
 
+	flecs::world& ecs;
 
-	Player player;
+	flecs::entity playerEntity;
+	flecs::ref<Player> player;
 
 	StateManager& stateManager;
 
@@ -23,12 +25,9 @@ public:
 
 	Actor actor1;
 
-	flecs::world& ecs;
-	
 	Scene(flecs::world & ecs,Fisiks& fisiks, Renderer& renderer, StateManager& stateManager)
-		: ecs(ecs), fisiks(fisiks), renderer(renderer), stateManager(stateManager),player(ecs)
+		: ecs(ecs), fisiks(fisiks), renderer(renderer), stateManager(stateManager)
 	{
-
 		///////////////creating shaders
 		
 		auto entUnlitPipeline = ecs.entity("pipelineUnlit").set<Pipeline>({});
@@ -81,9 +80,13 @@ public:
 
 		//////////////////////////////
 		//Player
-		stateManager.setPlayer(player);
+		playerEntity = ecs.entity("player").emplace<Player>(ecs);
+		playerEntity.add<PlayerInput>();
+
+		player = playerEntity.get_ref<Player>();
+	
 		stateManager.load();
-		player.createPhysicsBody(fisiks.physics_system);
+		player->createPhysicsBody(fisiks.physics_system);
 
 		///////////////////////////
 	
@@ -179,10 +182,10 @@ public:
 	}
 
 
-	void update(PlayerInput input) {
+	void update() {
 
 		actor1.update();
-		player.update(input);
+		player->update();
 
 	}
 

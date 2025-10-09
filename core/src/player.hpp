@@ -17,6 +17,8 @@ using namespace JPH;
 class Player
 {
 public:
+
+	flecs::world& ecs;
 	
 	JPH::Vec3 position = JPH::Vec3(1.0f, -15.0f, 0.0f);
 	JPH::Quat rotation = JPH::Quat(0.0f, 0.0f, 0.0f, 1.0f);
@@ -30,7 +32,7 @@ public:
 	// Update camera position to follow the character (third-person)
 	glm::vec3 offset = glm::vec3(0.0f, -1.5f, 0.0f); // Above and behind
 
-	flecs::world& ecs;
+	PlayerInput input;
 
 	Player(flecs::world& ecs)
 		:ecs(ecs)
@@ -55,7 +57,7 @@ public:
 	}
 
 
-	void update(PlayerInput input) {
+	void update() {
 
 		Camera & camera = ecs.lookup("PlayerCam").get_mut<Camera>();
 
