@@ -301,10 +301,15 @@ struct Renderer {
 
 	void buildRenderQueries() {
 
+		//TODO consider using <PipelineType> tag instead of .without and .with, do performance benchmarks
+
 		q1 = ecs.query_builder<Transform, ModelInstance>()
 			.without<CustomPipeline>(flecs::Wildcard) // no custom pipeline
+			.cached()
 			.build();
 
+
+		// Queries that use cascade(), group_by() or order_by() are cached
 		q2 = ecs.query_builder<Transform, ModelInstance>()
 			.with<CustomPipeline>(flecs::Wildcard)  // Match any (CustomPipeline, *)
 			.group_by<CustomPipeline>()

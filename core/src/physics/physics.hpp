@@ -41,6 +41,8 @@
 
 #include <queue>
 
+#include <flecs.h>
+
 #include "debugRenderer.hpp"
 
 #include "../ecs/components.hpp"
@@ -205,6 +207,16 @@ public:
 class MyContactListener : public ContactListener
 {
 public:
+
+	flecs::world & ecs;
+
+
+	MyContactListener(flecs::world& ecs)
+		:ecs(ecs)
+	{
+
+	}
+
 	// See: ContactListener
 	virtual ValidateResult	OnContactValidate(const Body& inBody1, const Body& inBody2, RVec3Arg inBaseOffset, const CollideShapeResult& inCollisionResult) override
 	{
@@ -214,24 +226,23 @@ public:
 		return ValidateResult::AcceptAllContactsForThisBodyPair;
 	}
 
-	virtual void			OnContactAdded(const Body& inBody1, const Body& inBody2, const ContactManifold& inManifold, ContactSettings& ioSettings) override
+	virtual void OnContactAdded(const Body& inBody1, const Body& inBody2, const ContactManifold& inManifold, ContactSettings& ioSettings) override
 	{
-		
-		
-		//cout << "A contact was added between body : " << inBody1.GetID().GetIndex() <<  " and body : " << inBody2.GetID().GetIndex() << endl;
+	
+		// If either body is sensor then call their SensorBehavior
+		flecs::entity e1(ecs, (flecs::entity_t)inBody1.GetUserData());
+		flecs::entity e2(ecs, (flecs::entity_t)inBody2.GetUserData());
 
-
-		/*
-		if (inBody1.IsDynamic()) {
-			myQueue.push(inBody1.GetID());
+		if (e1.has<SensorBehavior>())
+		{
+			e1.get<SensorBehavior>().onContactAdded(ecs,e2, e1);
 		}
-		if (inBody2.IsDynamic()) {
-			myQueue.push(inBody2.GetID());
+
+		if (e2.has<SensorBehavior>())
+		{
+			e2.get<SensorBehavior>().onContactAdded(ecs,e2, e1);
 		}
-		*/
-
-		
-
+			
 			
 	}
 
@@ -242,7 +253,7 @@ public:
 
 	virtual void			OnContactRemoved(const SubShapeIDPair& inSubShapePair) override
 	{
-		//cout << "A contact was removed" << endl;
+		//cout << "A contact was removed" << std::endl;
 	}
 };
 
@@ -309,16 +320,18 @@ public:
 
 	JobSystemThreadPool* job_system;
 
+	flecs::world& ecs;
 
 
-	Fisiks()
+	Fisiks(flecs::world& ecs)
 		: broad_phase_layer_interface(),
 		object_vs_broadphase_layer_filter(),
 		object_vs_object_layer_filter(),
 		body_activation_listener(),
-		contact_listener(),
+		contact_listener(ecs),
 		physics_system(),
-		bodyInterface(physics_system.GetBodyInterface())
+		bodyInterface(physics_system.GetBodyInterface()),
+		ecs(ecs)
 
 
 

@@ -4,6 +4,8 @@
 #include <algorithm>
 #include <float.h> 
 
+#include <flecs.h>
+
 #include "character/actor.hpp"
 
 #include <glm/glm.hpp>
@@ -28,7 +30,7 @@ public:
 
 		models.emplace_back(filePath, ShaderID, transforms.size() - 1);
 
-		
+
 		// Decompose model matrix
 		glm::vec3 position, scale;
 		glm::quat rotation;
@@ -49,7 +51,7 @@ public:
 			EMotionType::Dynamic,
 			Layers::MOVING
 		);
-		
+
 
 
 	}
@@ -77,7 +79,7 @@ public:
 		glm::decompose(transform, scale, rotation, position, skew, perspective);
 
 		// Calculate box dimensions based on grid size and scale
-		
+
 		Vec3 boxHalfExtents(meshXsize * 0.5, meshYsize * 0.5, meshZsize * 0.5);
 
 
@@ -101,7 +103,7 @@ public:
 		);
 
 		boxBodySettings.mRestitution = 0.1f; // High restitution = more bounciness
-		boxBodySettings.mFriction = 1.0f;    
+		boxBodySettings.mFriction = 1.0f;
 
 		BodyID physicsID = fisiks.bodyInterface.CreateAndAddBody(
 			boxBodySettings,
@@ -116,26 +118,22 @@ public:
 	}
 	*/
 
+	// create a static box shaped sensor 
+	static bool createBoxSensorEntity(flecs::world& ecs, Fisiks& fisiks, std::string name,
+		Transform transform, JPH::Vec3Arg size,
+		std::function<void(flecs::world& ecs,flecs::entity self, flecs::entity other)> onContactAdded) {
 
-	static void createCapsuleEntity(flecs::world& ecs,Fisiks& fisiks,std::string name ,ModelSource& modelSource, Transform transform) {
+		if (!EntityFactory::validateName(name)) return false;
+		if (!EntityFactory::validateTransform(transform, name)) return false;
+		if (!EntityFactory::validateSize(size, name,/*isDynamic=*/false)) return false;
 
 		// Flip Y for Vulkan
 		transform.position.y *= -1;
 
-		float meshX;
-		float meshY;
-		float meshZ;
+		Vec3 boxHalfExtents(size.GetX() * 0.5, size.GetY() * 0.5, size.GetZ() * 0.5);
 
-		calculateMeshDimensions(modelSource.meshes[0], meshX, meshY, meshZ);
-
-		// Compute capsule dimensions
-		float modelRadius = meshX / 2.0f; // Unscaled model radius
-		float modelHeight = meshY; // Unscaled model total height
-		float physicsRadius = modelRadius * transform.scale.x; // Scale radius (x-axis)
-		float physicsHalfHeight = (modelHeight / 2.0f - modelRadius) * transform.scale.y; // Scale height (y-axis)
-
-		JPH::CapsuleShape* capsuleShape = new JPH::CapsuleShape(physicsHalfHeight, physicsRadius);
-
+		// Ref<> manages reference counting - no manual cleanup needed
+		Ref<Shape> boxShape = new BoxShape(boxHalfExtents);
 
 		// Convert GLM to Jolt types
 		JPH::Vec3 joltPosition(transform.position.x, transform.position.y, transform.position.z);
@@ -144,14 +142,75 @@ public:
 			joltRotation = joltRotation.Normalized();
 		}
 
-		// Create body settings
+		JPH::BodyCreationSettings sensorSetting(
+			boxShape,
+			joltPosition,
+			joltRotation,
+			JPH::EMotionType::Static,
+			Layers::NON_MOVING
+		);
+
+		//Make it a sensor!
+		sensorSetting.mIsSensor = true;
+
+		// Create and add body
+		BodyID physicsID = fisiks.bodyInterface.CreateAndAddBody(sensorSetting, JPH::EActivation::Activate);
+
+		if (!validatePhysicsBodyCreation(physicsID, name)) return false;
+
+		const flecs::entity entity = ecs.entity(name.c_str())
+			.add<StaticEnt>()
+			.add<Sensor>()
+			.set<Transform>(transform)
+			.set<JPH::BodyID>(physicsID)
+			.emplace<SensorBehavior>(onContactAdded);
+
+		if (!validateEntityCreation(entity, name)) return false;
+
+		// Store the entity ID in the physics body which gives us a two way mapping between entity and bodyId
+		fisiks.bodyInterface.SetUserData(physicsID, entity.id());
+
+		return true;
+	}
+
+	//Creates a capsule shaped entity
+	static bool createCapsuleEntity(flecs::world& ecs, Fisiks& fisiks, std::string name, ModelSource& modelSource, Transform transform) {
+
+		if (!EntityFactory::validateName(name)) return false;
+		if (!EntityFactory::validateTransform(transform, name.c_str())) return false;
+
+		// Flip Y for Vulkan
+		transform.position.y *= -1;
+
+		float meshX;
+		float meshY;
+		float meshZ;
+
+		// Asumming modelSource has only 1 mesh
+		calculateMeshSize(modelSource.meshes[0], meshX, meshY, meshZ);
+
+		// Compute capsule dimensions
+		float modelRadius = meshX / 2.0f; // Unscaled model radius
+		float modelHeight = meshY; // Unscaled model total height
+		float physicsRadius = modelRadius * transform.scale.x; // Scale radius (x-axis)
+		float physicsHalfHeight = (modelHeight / 2.0f - modelRadius) * transform.scale.y; // Scale height (y-axis)
+
+		// Ref<> manages reference counting - no manual cleanup needed
+		Ref<Shape> capsuleShape = new JPH::CapsuleShape(physicsHalfHeight, physicsRadius);
+
+
+		JPH::Vec3 joltPosition(transform.position.x, transform.position.y, transform.position.z);
+		JPH::Quat joltRotation(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
+		if (!joltRotation.IsNormalized()) {
+			joltRotation = joltRotation.Normalized();
+		}
+
+
 		JPH::BodyCreationSettings pillSettings(
 			capsuleShape,
 			joltPosition,
 			joltRotation,
-
 			JPH::EMotionType::Dynamic,
-
 			Layers::MOVING
 		);
 
@@ -163,19 +222,29 @@ public:
 
 
 		// Create and add body
-		BodyID physicsID = fisiks.bodyInterface.CreateAndAddBody(pillSettings, JPH::EActivation::Activate);
+		const BodyID physicsID = fisiks.bodyInterface.CreateAndAddBody(pillSettings, JPH::EActivation::Activate);
 
+		if (!validatePhysicsBodyCreation(physicsID, name)) return false;
 
-		auto e1 = ecs.entity(name.c_str())
+		const flecs::entity entity = ecs.entity(name.c_str())
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
 			.set<ModelInstance>(modelSource.createInstance())
 			.set<JPH::BodyID>(physicsID)
 			;
 
+		// Store the entity ID in the physics body which gives us a two way mapping between entity and bodyId
+		fisiks.bodyInterface.SetUserData(physicsID, entity.id());
+
+		if (!validateEntityCreation(entity,name))  return false;
+
+		return true;
 	}
 
-	static void createCharacterEntity(flecs::world& ecs, Fisiks& fisiks, std::string name,ModelSource& modelSource, Transform transform, Actor & actor) {
+	static bool createCharacterEntity(flecs::world& ecs, Fisiks& fisiks, std::string name, ModelSource& modelSource, Transform transform, Actor& actor) {
+
+		if (!EntityFactory::validateName(name)) return false;
+		if (!EntityFactory::validateTransform(transform, name.c_str())) return false;
 
 		// Flip Y for Vulkan
 		transform.position.y *= -1;
@@ -184,7 +253,8 @@ public:
 		float meshY;
 		float meshZ;
 
-		calculateMeshDimensions(modelSource.meshes[0], meshX, meshY, meshZ);
+		// Asumming modelSource has only 1 mesh
+		calculateMeshSize(modelSource.meshes[0], meshX, meshY, meshZ);
 
 		// Compute capsule dimensions
 		float modelRadius = meshX / 2.0f; // Unscaled model radius
@@ -203,23 +273,35 @@ public:
 
 		BodyID physicsID = actor.joltCharacter->GetBodyID();
 
-		auto e1 = ecs.entity(name.c_str())
+		if (!validatePhysicsBodyCreation(physicsID, name)) return false;
+
+		const flecs::entity entity = ecs.entity(name.c_str())
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
 			.set<ModelInstance>(modelSource.createInstance())
 			.set<JPH::BodyID>(physicsID)
 			;
 
+		// Store the entity ID in the physics body which gives us a two way mapping between entity and bodyId
+		fisiks.bodyInterface.SetUserData(physicsID, entity.id());
+
+		if (!validateEntityCreation(entity, name)) return false;
+
+		return true;
+
 	}
-	
+
 
 	// A Renderable is just a model and a transform no physics body
-	static void createRenderableEntity(flecs::world& ecs, std::string name,ModelSource& modelSource, Transform transform, const char* pipelineName = NULL) {
+	static bool createRenderableEntity(flecs::world& ecs, std::string name, ModelSource& modelSource, Transform transform, const char* pipelineName = NULL) {
+
+		if (!EntityFactory::validateName(name)) return false;
+		if (!EntityFactory::validateTransform(transform, name.c_str())) return false;
 
 		// Flip Y for Vulkan
 		transform.position.y *= -1;
 
-		auto entity = ecs.entity(name.c_str())
+		const flecs::entity entity = ecs.entity(name.c_str())
 			.set<Transform>(transform)
 			.set<ModelInstance>(modelSource.createInstance());
 		if (pipelineName) {
@@ -227,9 +309,16 @@ public:
 
 		}
 
+		if (!validateEntityCreation(entity, name)) return false;
+
+		return true;
+
 	}
 
-	static void createStaticMeshEntity(flecs::world& ecs, Fisiks& fisiks, std::string name, ModelSource& modelSource,Transform transform, const char* pipelineName = NULL) {
+	static bool createStaticMeshEntity(flecs::world& ecs, Fisiks& fisiks, std::string name, ModelSource& modelSource, Transform transform, const char* pipelineName = NULL) {
+
+		if (!EntityFactory::validateName(name)) return false;
+		if (!EntityFactory::validateTransform(transform, name.c_str())) return false;
 
 		float scaleFactor = 1.0f;
 
@@ -284,7 +373,9 @@ public:
 			EActivation::DontActivate
 		);
 
-		auto entity = ecs.entity(name.c_str())
+		if (!validatePhysicsBodyCreation(physicsID, name)) return false;
+
+		const flecs::entity entity = ecs.entity(name.c_str())
 			.add<StaticEnt>()
 			.set<Transform>(transform)
 			.set<ModelInstance>(modelSource.createInstance())
@@ -295,9 +386,18 @@ public:
 
 		}
 
+		// Store the entity ID in the physics body which gives us a two way mapping between entity and bodyId
+		fisiks.bodyInterface.SetUserData(physicsID, entity.id());
+
+		if (!validateEntityCreation(entity, name)) return false;
+
+		return true;
 	}
-	
-	static void createGridEntity(flecs::world& ecs, Fisiks& fisiks, std::string name, ModelSource& modelSource,Transform  transform,const char * pipelineName, int rows, int cols) {
+
+	static bool createGridEntity(flecs::world& ecs, Fisiks& fisiks, std::string name, ModelSource& modelSource, Transform  transform, const char* pipelineName, int rows, int cols) {
+
+		if (!EntityFactory::validateName(name)) return false;
+		if (!EntityFactory::validateTransform(transform, name.c_str())) return false;
 
 		// Flip Y for Vulkan 
 		transform.position.y *= -1;
@@ -331,16 +431,15 @@ public:
 		boxBodySettings.mFriction = 1.0f;    // Low friction for sliding
 
 
-		BodyID physicsID = fisiks.bodyInterface.CreateAndAddBody(
-			boxBodySettings,
-			EActivation::Activate
-		);
+		BodyID physicsID = fisiks.bodyInterface.CreateAndAddBody(boxBodySettings,EActivation::Activate);
 
-		//needed to visually align the grid render with the physics body #MAGICNUMBER\
+		if (!validatePhysicsBodyCreation(physicsID, name)) return false;
+
+		//needed to visually align the grid render with the physics body #MAGICNUMBER
 		//TODO find out why the grid render slightly below its physics body by default
-		transform.position.y -= boxThickness + 0.5 ;
+		transform.position.y -= boxThickness + 0.5;
 
-		auto entity = ecs.entity(name.c_str())
+		const flecs::entity entity = ecs.entity(name.c_str())
 			.add<StaticEnt>()
 			.set<Transform>(transform)
 			.set<ModelInstance>(modelSource.createInstance())
@@ -351,10 +450,107 @@ public:
 
 		}
 
+		// Store the entity ID in the physics body which gives us a two way mapping between entity and bodyId
+		fisiks.bodyInterface.SetUserData(physicsID, entity.id());
+
+		if (!validateEntityCreation(entity, name)) return false;
+
+		return true;
+
 	}
 
-	//TODO move 
-	static void calculateMeshDimensions(const MeshSource& mesh, float& x, float& y,float & z) {
+	static bool validateName(std::string name) {
+		if (name.empty()) {
+			SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Error name cannot be empty");
+			return false;
+		}
+		if (name.length() > 256) {
+			SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Error Entity name %s  ' exceeds 256 characters ", name.c_str());
+			return false;
+		}
+		return true;
+	}
+
+	static bool validateTransform(Transform transform, std::string name) {
+		if (!std::isfinite(transform.position.x) || !std::isfinite(transform.position.y) || !std::isfinite(transform.position.z)) {
+			SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Error Invalid position (contains NaN or Inf) found in transform for : %s", name.c_str());
+			return false;
+		}
+		if (!std::isfinite(transform.rotation.x) || !std::isfinite(transform.rotation.y) ||
+			!std::isfinite(transform.rotation.z) || !std::isfinite(transform.rotation.w)) {
+			SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Error Invalid rotation (contains NaN or Inf) found in transform for : %s", name.c_str());
+			return false;
+		}
+		if (!std::isfinite(transform.scale.x) || !std::isfinite(transform.scale.y) ||
+			!std::isfinite(transform.scale.z)) {
+			SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Error Invalid scale (contains NaN or Inf) found in transform for : %s", name.c_str());
+			return false;
+		}
+		return true;
+	}
+
+
+	// Jolt documentation says dynamic objects should be in the order [0.1, 10]
+	// Static objects should be in the order [0.1, 2000] meters long
+	static bool validateSize(JPH::Vec3Arg size, const std::string& name, bool dynamicObject)
+	{
+		const JPH::Vec3 minSizeConstraint(0.1f, 0.1f, 0.1f);
+		const JPH::Vec3 maxSizeConstraint = dynamicObject
+			? JPH::Vec3(10.0f, 10.0f, 10.0f)
+			: JPH::Vec3(2000.0f, 2000.0f, 2000.0f);
+
+		// Check for NaN / Inf first
+		if (!std::isfinite(size.GetX()) || !std::isfinite(size.GetY()) || !std::isfinite(size.GetZ())) {
+			SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Error: Entity %s size contains NaN or Inf", name.c_str());
+			return false;
+		}
+
+		// Minimum constraint check
+		if (size.GetX() < minSizeConstraint.GetX() || size.GetY() < minSizeConstraint.GetY() || size.GetZ() < minSizeConstraint.GetZ()) {
+			SDL_LogError(SDL_LOG_CATEGORY_ERROR,
+				"Error: Size components for entity %s must be >= 0.1 m (x: %.3f, y: %.3f, z: %.3f)",
+				name.c_str(), size.GetX(), size.GetY(), size.GetZ());
+			return false;
+		}
+
+		// Maximum constraint check
+		if (size.GetX() > maxSizeConstraint.GetX() || size.GetY() > maxSizeConstraint.GetY() || size.GetZ() > maxSizeConstraint.GetZ()) {
+			SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+				"Warning: Entity %s size exceeds recommended bounds for %s objects (x: %.3f, y: %.3f, z: %.3f)",
+				name.c_str(), dynamicObject ? "dynamic" : "static", size.GetX(), size.GetY(), size.GetZ());
+			// You could return false here if you want to enforce it strictly
+		}
+
+		// Absolute sanity limit 
+		if (size.GetX() > 10000.0f || size.GetY() > 10000.0f || size.GetZ() > 10000.0f) {
+			SDL_LogError(SDL_LOG_CATEGORY_ERROR,
+				"Error: Entity %s size exceeds absolute bounds (x: %.3f, y: %.3f, z: %.3f)",
+				name.c_str(), size.GetX(), size.GetY(), size.GetZ());
+			return false;
+		}
+
+		return true;
+	}
+
+	static bool validatePhysicsBodyCreation(JPH::BodyID id, std::string name) {
+
+		if (id.IsInvalid()) {
+			SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Error creating physics body for Entity : %s", name.c_str());
+			return false;
+		}
+		return true;
+	}
+
+	static bool validateEntityCreation(flecs::entity entity , std::string name) {
+		if (!entity.is_valid()) {
+			SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Error creating Entity : %s", name.c_str());
+			return false;
+		}
+		return true;
+	}
+
+	//TODO move this function
+	static void calculateMeshSize(const MeshSource& mesh, float& x, float& y,float & z) {
 		if (mesh.vertices.empty()) {
 			//width = 0.0f;
 			//height = 0.0f;
@@ -383,7 +579,6 @@ public:
 		z = maxZ - minZ;
 	}
 	
-
 
 };
 

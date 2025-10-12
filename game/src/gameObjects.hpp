@@ -6,6 +6,8 @@
 
 #include "../../core/src/state/stateManager.hpp"
 
+#include "sensorBehaviors.hpp"
+
 using std::vector;
 
 class Scene {
@@ -84,9 +86,9 @@ public:
 		playerEntity.add<PlayerInput>();
 
 		player = playerEntity.get_ref<Player>();
-	
+
 		stateManager.load();
-		player->createPhysicsBody(fisiks.physics_system);
+		player->createPhysicsBody(fisiks.physics_system, playerEntity.id());
 
 		///////////////////////////
 	
@@ -98,8 +100,7 @@ public:
 		actorTransform.position = glm::vec3(1.0f, 17.0f, 0.0f);
 		actorTransform.rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
 		actorTransform.scale = glm::vec3(1.0f);
-
-		///// CHANGE TO ACTOR ENTITY
+		// TODO CHANGE TO ACTOR ENTITY
 		EntityFactory::createCharacterEntity(ecs, fisiks, "Amir1", ActorSource, actorTransform,actor1);
 
 		//Grid
@@ -112,7 +113,7 @@ public:
 		mtnTransform.position = glm::vec3(0.0f, -50.0f, 0.0f);
 		EntityFactory::createStaticMeshEntity(ecs, fisiks,"Mountain", mtnSource, mtnTransform, "pipelineMtn");
 
-		//Capsule1
+		////Capsule1
 		Transform capsule1Transfrom;
 		capsule1Transfrom.position = glm::vec3(1.0f, 5.0f, 0.0f);
 		capsule1Transfrom.rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
@@ -133,6 +134,17 @@ public:
 		capsule3Transfrom.rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
 		capsule3Transfrom.scale = glm::vec3(1.0f);
 		EntityFactory::createCapsuleEntity(ecs, fisiks, "Capsule3", capsuleSource, capsule3Transfrom);
+		
+
+		///////////////////////////
+		// Sensors
+
+		//Sensor1
+		Transform boxSensorTransform;
+		boxSensorTransform.position = glm::vec3(1.0f, 3.0f, 0.0f);
+		JPH::Vec3 boxSensorSize = JPH::Vec3(15.0f, 15.0f, 15.0f);
+		EntityFactory::createBoxSensorEntity(ecs, fisiks, "Sensor1", boxSensorTransform, boxSensorSize,sensor1Behavoir);
+
 	
 		
 		/*Transform sponzaTransform;

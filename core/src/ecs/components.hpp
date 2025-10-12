@@ -16,7 +16,7 @@ struct Vertex {
 	glm::vec4 color;
 };
 
-
+//TODO stop using this for entity creation
 struct Transform {
 	glm::vec3 position = glm::vec3(1);
 	glm::quat rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
@@ -33,11 +33,6 @@ struct PlayerInput {
 };
 
 
-struct PlayerData {
-	glm::vec3 Position = glm::vec3(0);
-	glm::vec3 direction = glm::vec3(0);
-	bool jump = false;              
-};
 
 struct RenderState {
 	flecs::entity activePipeline;
@@ -48,10 +43,16 @@ struct PipelineRef {
 };
 
 
+struct SensorBehavior {
+	std::function<void(flecs::world& ecs,flecs::entity self, flecs::entity other)> onContactAdded;
+};
+
+
 // Tags 
 struct DynamicEnt {};
 struct StaticEnt {};
 struct Sensor {};
+
 struct CustomPipeline {};
 
 struct ActiveCamera {};

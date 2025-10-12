@@ -19,7 +19,9 @@ class Player
 public:
 
 	flecs::world& ecs;
-	
+
+	PlayerInput input;
+
 	JPH::Vec3 position = JPH::Vec3(1.0f, -15.0f, 0.0f);
 	JPH::Quat rotation = JPH::Quat(0.0f, 0.0f, 0.0f, 1.0f);
 
@@ -32,7 +34,7 @@ public:
 	// Update camera position to follow the character (third-person)
 	glm::vec3 offset = glm::vec3(0.0f, -1.5f, 0.0f); // Above and behind
 
-	PlayerInput input;
+	
 
 	Player(flecs::world& ecs)
 		:ecs(ecs)
@@ -40,7 +42,7 @@ public:
 
 	}
 	
-	void createPhysicsBody(PhysicsSystem& physics_system) {
+	void createPhysicsBody(PhysicsSystem& physics_system, uint64_t entityID) {
 
 		// Character settings
 		JPH::CharacterSettings settings;
@@ -50,7 +52,7 @@ public:
 		settings.mLayer = Layers::MOVING;
 		settings.mGravityFactor = 1;
 
-		joltCharacter = new JPH::Character(&settings, position, rotation, 69, &physics_system);
+		joltCharacter = new JPH::Character(&settings, position, rotation, entityID, &physics_system);
 
 		joltCharacter->AddToPhysicsSystem(JPH::EActivation::Activate);
 

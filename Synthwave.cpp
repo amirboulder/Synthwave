@@ -8,7 +8,7 @@ int main(int argc, char* argv[])
 
 	RendererConfig renderConfig("config/renderConfig.ini");
 
-	Fisiks fisiks;
+	Fisiks fisiks(ecs);
 
 	Renderer renderer(ecs,renderConfig, fisiks.physics_system);
 

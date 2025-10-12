@@ -28,7 +28,8 @@ public:
 		settings.mLayer = Layers::MOVING;
 		settings.mGravityFactor = 1;
 
-		joltCharacter = new JPH::Character(&settings, position, rotation, 69, &physics_system);
+		// Setting Body.userData to zero here but its set to entityID in EntityFactory
+		joltCharacter = new JPH::Character(&settings, position, rotation, 0, &physics_system);
 
 		joltCharacter->AddToPhysicsSystem(JPH::EActivation::Activate);
 
