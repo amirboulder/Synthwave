@@ -6,8 +6,6 @@
 
 #include <flecs.h>
 
-#include "character/actor.hpp"
-
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtx/matrix_decompose.hpp>
@@ -241,7 +239,9 @@ public:
 		return true;
 	}
 
-	static bool createCharacterEntity(flecs::world& ecs, Fisiks& fisiks, std::string name, ModelSource& modelSource, Transform transform, Actor& actor) {
+	static bool createActorEntity(flecs::world& ecs, Fisiks& fisiks, std::string name,
+		ModelSource& modelSource,Transform transform, JPH::CharacterSettings settings, 
+		std::function<void(flecs::world& ecs, flecs::entity self)> actorUpdate) {
 
 		if (!EntityFactory::validateName(name)) return false;
 		if (!EntityFactory::validateTransform(transform, name.c_str())) return false;
@@ -249,18 +249,6 @@ public:
 		// Flip Y for Vulkan
 		transform.position.y *= -1;
 
-		float meshX;
-		float meshY;
-		float meshZ;
-
-		// Asumming modelSource has only 1 mesh
-		calculateMeshSize(modelSource.meshes[0], meshX, meshY, meshZ);
-
-		// Compute capsule dimensions
-		float modelRadius = meshX / 2.0f; // Unscaled model radius
-		float modelHeight = meshY; // Unscaled model total height
-		float physicsRadius = modelRadius * transform.scale.x; // Scale radius (x-axis)
-		float physicsHalfHeight = (modelHeight / 2.0f - modelRadius) * transform.scale.y; // Scale height (y-axis)
 
 		// Convert GLM to Jolt types
 		JPH::Vec3 joltPosition(transform.position.x, transform.position.y, transform.position.z);
@@ -269,26 +257,29 @@ public:
 			joltRotation = joltRotation.Normalized();
 		}
 
-		actor.createPhysicsBody(fisiks.physics_system);
-
-		BodyID physicsID = actor.joltCharacter->GetBodyID();
-
-		if (!validatePhysicsBodyCreation(physicsID, name)) return false;
-
-		const flecs::entity entity = ecs.entity(name.c_str())
+		flecs::entity actorEnt = ecs.entity("Actor")
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
 			.set<ModelInstance>(modelSource.createInstance())
-			.set<JPH::BodyID>(physicsID)
+			.add<JoltCharacter>()
+			.add<JPH::BodyID>()
+			.emplace<ActorBehavior>(actorUpdate);
 			;
 
-		// Store the entity ID in the physics body which gives us a two way mapping between entity and bodyId
-		fisiks.bodyInterface.SetUserData(physicsID, entity.id());
+		if (!validateEntityCreation(actorEnt, name)) return false;
 
-		if (!validateEntityCreation(entity, name)) return false;
+		JPH::Character* & joltCharacter = actorEnt.get_mut<JoltCharacter>().characterPtr;
 
+		joltCharacter = new JPH::Character(&settings, joltPosition, joltRotation, actorEnt.id(), &fisiks.physics_system);
+
+		joltCharacter->AddToPhysicsSystem(JPH::EActivation::Activate);
+
+		if (!validatePhysicsBodyCreation(joltCharacter->GetBodyID(), name)) return false;
+
+		actorEnt.get_mut<JPH::BodyID>() = joltCharacter->GetBodyID();
+
+		
 		return true;
-
 	}
 
 

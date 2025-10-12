@@ -7,6 +7,7 @@
 
 #include <Jolt/Jolt.h>
 #include <Jolt/Physics/PhysicsSystem.h>
+#include <Jolt/Physics/Character/Character.h>
 
 
 struct Vertex {
@@ -16,7 +17,7 @@ struct Vertex {
 	glm::vec4 color;
 };
 
-//TODO stop using this for entity creation
+//TODO stop using as a component use it only for entity creation
 struct Transform {
 	glm::vec3 position = glm::vec3(1);
 	glm::quat rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
@@ -33,7 +34,6 @@ struct PlayerInput {
 };
 
 
-
 struct RenderState {
 	flecs::entity activePipeline;
 };
@@ -45,6 +45,16 @@ struct PipelineRef {
 
 struct SensorBehavior {
 	std::function<void(flecs::world& ecs,flecs::entity self, flecs::entity other)> onContactAdded;
+};
+
+struct ActorBehavior {
+
+	std::function<void(flecs::world& ecs, flecs::entity self)> actorUpdate;
+
+};
+
+struct JoltCharacter {
+	JPH::Character* characterPtr = nullptr;
 };
 
 

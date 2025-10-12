@@ -7,6 +7,7 @@
 #include "../../core/src/state/stateManager.hpp"
 
 #include "sensorBehaviors.hpp"
+#include "actorBehaviors.hpp"
 
 using std::vector;
 
@@ -25,8 +26,9 @@ public:
 
 	Renderer& renderer;
 
-	Actor actor1;
 
+	flecs::query<ActorBehavior>q1;
+	
 	Scene(flecs::world & ecs,Fisiks& fisiks, Renderer& renderer, StateManager& stateManager)
 		: ecs(ecs), fisiks(fisiks), renderer(renderer), stateManager(stateManager)
 	{
@@ -83,7 +85,7 @@ public:
 		//////////////////////////////
 		//Player
 		playerEntity = ecs.entity("player").emplace<Player>(ecs);
-		playerEntity.add<PlayerInput>();
+		//playerEntity.add<PlayerInput>();
 
 		player = playerEntity.get_ref<Player>();
 
@@ -101,7 +103,18 @@ public:
 		actorTransform.rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
 		actorTransform.scale = glm::vec3(1.0f);
 		// TODO CHANGE TO ACTOR ENTITY
-		EntityFactory::createCharacterEntity(ecs, fisiks, "Amir1", ActorSource, actorTransform,actor1);
+		//EntityFactory::createCharacterEntity(ecs, fisiks, "Amir1", ActorSource, actorTransform,actor1);
+
+		// Character settings
+		JPH::CharacterSettings settings;
+		settings.mShape = new CapsuleShape(2.0f, 1.0f);
+		settings.mMass = 2000.0f;
+		settings.mMaxSlopeAngle = DegreesToRadians(20.0f); // Max walkable slope
+		settings.mLayer = Layers::MOVING;
+		settings.mGravityFactor = 1;
+
+		EntityFactory::createActorEntity(ecs, fisiks, "Actor1", ActorSource, actorTransform, settings,actor1Update);
+
 
 		//Grid
 		Transform gridTransfrom;
@@ -152,7 +165,9 @@ public:
 		sponzaTransform.scale.y = 0.1;
 		sponzaTransform.scale.z = 0.1;
 		EntityFactory::createRenderableEntity(ecs,"Sponza", sponzaSource, sponzaTransform);*/
-		
+
+
+		createQuries();
 
 		return true;
 
@@ -161,7 +176,14 @@ public:
 	}
 
 
+	void createQuries() {
 
+		q1 = ecs.query_builder<ActorBehavior>()
+			.cached()
+			.build();
+
+
+	}
 
 	void LVL1Script(PhysicsSystem& physicsSystem, JPH::Vec3Arg playerPos) {
 
@@ -196,8 +218,14 @@ public:
 
 	void update() {
 
-		actor1.update();
 		player->update();
+
+
+		q1.each([&](flecs::entity ent, ActorBehavior & update) {
+
+			update.actorUpdate(ecs, ent);
+
+		});
 
 	}
 
