@@ -22,17 +22,16 @@ public:
 
 	PlayerInput input;
 
-	JPH::Vec3 position = JPH::Vec3(1.0f, -15.0f, 0.0f);
+	JPH::Vec3 position = JPH::Vec3(1.0f, 15.0f, 0.0f);
 	JPH::Quat rotation = JPH::Quat(0.0f, 0.0f, 0.0f, 1.0f);
 
 	JPH::Character* joltCharacter;
 
 	float moveSpeed = 10.1f;
-	//jump is negative because vulkan
-	float jumpStrength = -7.5f;
+	float jumpStrength = 7.5f;
 
 	// Update camera position to follow the character (third-person)
-	glm::vec3 offset = glm::vec3(0.0f, -1.5f, 0.0f); // Above and behind
+	glm::vec3 offset = glm::vec3(0.0f, 2.0f, 0.0f); // Above and behind
 
 	
 
@@ -43,6 +42,8 @@ public:
 	}
 	
 	void createPhysicsBody(PhysicsSystem& physics_system, uint64_t entityID) {
+
+
 
 		// Character settings
 		JPH::CharacterSettings settings;
@@ -80,7 +81,7 @@ public:
 		
 		if (isGrounded) {
 			if (input.jump) {
- 				desiredVelocity.SetY(jumpStrength);
+  				desiredVelocity.SetY(jumpStrength);
 			}
 			joltCharacter->SetLinearVelocity(desiredVelocity);
 		}

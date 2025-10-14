@@ -47,6 +47,7 @@ public:
     TTF_TextEngine* engine = NULL;
 
     TextData staticText;
+    TextData positionText;
     TextData fpsText ;
 
     glm::mat4 ortho;
@@ -289,6 +290,7 @@ public:
         //TODO dont hardcode text positions
         //TODO loop through all text
         DrawText(staticText,50, 50);
+        DrawText(positionText, 10, 1000);
 
         if (fps) {
             DrawText(fpsText, 10, 1070);

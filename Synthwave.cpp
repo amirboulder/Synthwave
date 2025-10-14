@@ -45,7 +45,6 @@ int main(int argc, char* argv[])
 		//TODO INTERPOLATE to account for physics and rendering happening at diffrent rates
 
 		renderer.setFPSText(time.fps);
-
 		renderer.drawAll();
 
 	}

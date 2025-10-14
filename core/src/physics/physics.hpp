@@ -39,7 +39,6 @@
 #include <cstdarg>
 #include <thread>
 
-#include <queue>
 
 #include <flecs.h>
 
@@ -58,21 +57,6 @@ using namespace JPH;
 // If you want your code to compile using single or double precision write 0.0_r to get a Real value that compiles to double or float depending if JPH_DOUBLE_PRECISION is XX or not.
 using namespace JPH::literals;
 
-// We're also using STL classes in this example
-//using namespace std;
-
-
-
-std::queue<BodyID> myQueue;
-
-enum class PhysicsBodyShapes
-{
-
-	Sphere,
-	Box,
-	Capsule,
-	Mesh,
-};
 
 
 // Callback for traces, connect this to your own trace function if you have one
@@ -86,7 +70,7 @@ static void TraceImpl(const char* inFMT, ...)
 	va_end(list);
 
 	// Print to the TTY
-	cout << buffer << '\n';
+	std::cout << buffer << '\n';
 }
 
 #ifdef JPH_ENABLE_ASSERTS
@@ -95,7 +79,7 @@ static void TraceImpl(const char* inFMT, ...)
 static bool AssertFailedImpl(const char* inExpression, const char* inMessage, const char* inFile, uint inLine)
 {
 	// Print to the TTY
-	cout << inFile << ":" << inLine << ": (" << inExpression << ") " << (inMessage != nullptr ? inMessage : "") << '\n';
+	std::cout << inFile << ":" << inLine << ": (" << inExpression << ") " << (inMessage != nullptr ? inMessage : "") << '\n';
 
 	// Breakpoint
 	return true;
@@ -322,6 +306,7 @@ public:
 
 	flecs::world& ecs;
 
+	flecs::query<Transform, JPH::BodyID, DynamicEnt>q1;
 
 	Fisiks(flecs::world& ecs)
 		: broad_phase_layer_interface(),
@@ -395,37 +380,31 @@ public:
 		// Instead insert all new objects in batches instead of 1 at a time to keep the broad phase efficient.
 		physics_system.OptimizeBroadPhase();
 
-		//Gravity is positve because VULKAN!
-		physics_system.SetGravity(JPH::Vec3(0, 20.0f, 0));
+		physics_system.SetGravity(JPH::Vec3(0,-20.0f, 0));
+
+		init();
 
 	}
 
 	void init() {
 
+		createQueries();
 	}
+
+	void createQueries() {
+
+		q1 = ecs.query_builder<Transform, JPH::BodyID, DynamicEnt>()
+			.cached()
+			.build();
+
+	}
+
 
 	void update(double cDeltaTime, flecs::world& ecs) {
 
 		//OPTICK_EVENT();
 
-		//cout << "delta time : " << cDeltaTime << "  cCollisionSteps " << cCollisionSteps << "\n";
-
 		physics_system.Update(cDeltaTime, cCollisionSteps, temp_allocator, job_system);
-
-		//cout << "Step " << step << ": Position = (" << position.GetX() << ", " << position.GetY() << ", " << position.GetZ() << "), Velocity = (" << velocity.GetX() << ", " << velocity.GetY() << ", " << velocity.GetZ() << ")" << endl;
-
-		/*
-		while (!myQueue.empty()) {
-
-
-			Vec3 velocity = bodyInterface.GetLinearVelocity(myQueue.front());
-			cout << "velocity : " << velocity.GetX() << " " << velocity.GetY() << " " << velocity.GetZ() << '\n';
-
-			velocity.SetY(velocity.GetY() * 0.5f);
-			bodyInterface.SetLinearVelocity(myQueue.front(), velocity);
-			myQueue.pop();
-		}
-		*/
 
 		syncTransfroms(ecs);
 
@@ -435,8 +414,7 @@ public:
 	void syncTransfroms(flecs::world& ecs) {
 
 		// query all dynamic ents and sync their positions and rotations
-		auto q = ecs.query<Transform, JPH::BodyID, DynamicEnt>();
-		q.each([&](flecs::entity e, Transform& transform, JPH::BodyID& physicsBody, DynamicEnt) {
+		q1.each([&](flecs::entity e, Transform& transform, JPH::BodyID& physicsBody, DynamicEnt) {
 
 			JPH::Vec3 pos;
 			JPH::Quat rotation;

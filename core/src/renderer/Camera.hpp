@@ -62,24 +62,18 @@ public:
 
     glm::mat4 generateview() {
 
-        glm::mat4 view = glm::lookAt(position, position + front, up);
+        glm::mat4 view = glm::lookAtRH(position, position + front, up);
         return view;
     }
     glm::mat4 generateProj() {
 
         glm::mat4 proj = glm::perspectiveRH_ZO(glm::radians(fov), aspectRatio, nearPlane, farPlane);
-        proj[1][1] *= -1; // Flip Y for Vulkan
         return proj;
     }
 
-    // Calculate the front, right and up vectors from euler angles
     glm::mat4 generateviewProj() {
 
-        glm::mat4 view = glm::lookAt(position, position + front, up);
-        glm::mat4 proj = glm::perspectiveRH_ZO(glm::radians(fov), aspectRatio, nearPlane, farPlane);
-        proj[1][1] *= -1; // Flip Y for Vulkan
-
-        return proj * view;
+        return generateProj() * generateview();
     }
 
     void rotateCamera(float xoffset, float yoffset, bool constrainPitch = true) {
@@ -90,7 +84,7 @@ public:
         yoffset *= mouseSensitivity;
 
         yaw += xoffset;
-        pitch += yoffset;
+        pitch -= yoffset;
 
         // Apply constraints after changing pitch
         if (constrainPitch) {

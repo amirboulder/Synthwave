@@ -12,7 +12,7 @@ void actor1Update(flecs::world& ecs, flecs::entity self) {
 	joltCharacter->PostSimulation(0.1f);
 
 	JPH::Vec3 currentVelocity = joltCharacter->GetLinearVelocity();
-	JPH::Vec3 desiredVelocity = JPH::Vec3(0.0f, -5.0f,0.0f);
+	JPH::Vec3 desiredVelocity = JPH::Vec3(0.0f, 5.0f,0.0f);
 
 	if (joltCharacter->IsSupported()) {
 		joltCharacter->SetLinearVelocity(desiredVelocity);

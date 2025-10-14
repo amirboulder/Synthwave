@@ -145,6 +145,25 @@ struct Renderer {
 		textRenderer.updateText(strFPS.c_str(), textRenderer.fpsText);
 	}
 
+	void setText() {
+
+		ecs.query<Camera, ActiveCamera>()
+			.each([&](Camera& cam, ActiveCamera) {
+
+
+			std::string positionText = std::to_string(cam.position.x);
+			positionText.append(" ");
+			positionText.append(std::to_string(cam.position.y));
+			positionText.append(" ");
+			positionText.append(std::to_string(cam.position.z));
+
+			textRenderer.updateText(positionText.c_str(), textRenderer.positionText);
+
+		});
+
+		
+	}
+
 
 	bool createSamplerAndDefaultTexture() {
 
@@ -362,7 +381,7 @@ struct Renderer {
 
 			uniforms.view = cam.generateview();
 			uniforms.projection = cam.generateProj();
-			uniforms.viewProjection = uniforms.projection * uniforms.view;
+			uniforms.viewProjection = cam.generateviewProj();
 
 		});
 		
@@ -413,11 +432,10 @@ struct Renderer {
 
 			glm::mat4 mvp = uniforms.viewProjection * meshMat;
 
-			mvp = glm::transpose(mvp);
-
+			//transpose because slang expect col major matrices
 			PerModelUniforms modelUnifroms;
-			modelUnifroms.mvp = mvp;
-			modelUnifroms.model = meshMat;
+			modelUnifroms.mvp = glm::transpose(mvp);
+			modelUnifroms.model = glm::transpose(meshMat);
 
 			SDL_PushGPUVertexUniformData(context.commandBuffer, 1, &modelUnifroms, sizeof(modelUnifroms));
 
@@ -507,6 +525,8 @@ struct Renderer {
 
 
 	void drawAll() {
+
+		setText();
 
 		beginDraw();
 

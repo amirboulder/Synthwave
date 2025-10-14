@@ -85,7 +85,6 @@ public:
 		//////////////////////////////
 		//Player
 		playerEntity = ecs.entity("player").emplace<Player>(ecs);
-		//playerEntity.add<PlayerInput>();
 
 		player = playerEntity.get_ref<Player>();
 
@@ -118,12 +117,13 @@ public:
 
 		//Grid
 		Transform gridTransfrom;
-		gridTransfrom.rotation = glm::quat(0.0f, 0.0f, 1.0f, 0.0f);
+		gridTransfrom.rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
 		EntityFactory::createGridEntity(ecs, fisiks, "gridChunk1", gridSource, gridTransfrom, "pipelineGrid", 256, 256);
 
 		//MTN
 		Transform mtnTransform;
 		mtnTransform.position = glm::vec3(0.0f, -50.0f, 0.0f);
+		mtnTransform.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
 		EntityFactory::createStaticMeshEntity(ecs, fisiks,"Mountain", mtnSource, mtnTransform, "pipelineMtn");
 
 		////Capsule1

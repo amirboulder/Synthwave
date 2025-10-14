@@ -125,8 +125,6 @@ public:
 		if (!EntityFactory::validateTransform(transform, name)) return false;
 		if (!EntityFactory::validateSize(size, name,/*isDynamic=*/false)) return false;
 
-		// Flip Y for Vulkan
-		transform.position.y *= -1;
 
 		Vec3 boxHalfExtents(size.GetX() * 0.5, size.GetY() * 0.5, size.GetZ() * 0.5);
 
@@ -177,9 +175,7 @@ public:
 		if (!EntityFactory::validateName(name)) return false;
 		if (!EntityFactory::validateTransform(transform, name.c_str())) return false;
 
-		// Flip Y for Vulkan
-		transform.position.y *= -1;
-
+		
 		float meshX;
 		float meshY;
 		float meshZ;
@@ -246,9 +242,6 @@ public:
 		if (!EntityFactory::validateName(name)) return false;
 		if (!EntityFactory::validateTransform(transform, name.c_str())) return false;
 
-		// Flip Y for Vulkan
-		transform.position.y *= -1;
-
 
 		// Convert GLM to Jolt types
 		JPH::Vec3 joltPosition(transform.position.x, transform.position.y, transform.position.z);
@@ -289,8 +282,6 @@ public:
 		if (!EntityFactory::validateName(name)) return false;
 		if (!EntityFactory::validateTransform(transform, name.c_str())) return false;
 
-		// Flip Y for Vulkan
-		transform.position.y *= -1;
 
 		const flecs::entity entity = ecs.entity(name.c_str())
 			.set<Transform>(transform)
@@ -313,8 +304,6 @@ public:
 
 		float scaleFactor = 1.0f;
 
-		// Flip Y for Vulkan
-		transform.position.y *= -1;
 
 		// Scale vertices
 		//ASSUMING the model only has one mesh
@@ -390,8 +379,6 @@ public:
 		if (!EntityFactory::validateName(name)) return false;
 		if (!EntityFactory::validateTransform(transform, name.c_str())) return false;
 
-		// Flip Y for Vulkan 
-		transform.position.y *= -1;
 
 		float boxThickness = 1;
 
@@ -428,7 +415,7 @@ public:
 
 		//needed to visually align the grid render with the physics body #MAGICNUMBER
 		//TODO find out why the grid render slightly below its physics body by default
-		transform.position.y -= boxThickness + 0.5;
+		transform.position.y += boxThickness + 0.5;
 
 		const flecs::entity entity = ecs.entity(name.c_str())
 			.add<StaticEnt>()
@@ -509,14 +496,6 @@ public:
 			SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
 				"Warning: Entity %s size exceeds recommended bounds for %s objects (x: %.3f, y: %.3f, z: %.3f)",
 				name.c_str(), dynamicObject ? "dynamic" : "static", size.GetX(), size.GetY(), size.GetZ());
-			// You could return false here if you want to enforce it strictly
-		}
-
-		// Absolute sanity limit 
-		if (size.GetX() > 10000.0f || size.GetY() > 10000.0f || size.GetZ() > 10000.0f) {
-			SDL_LogError(SDL_LOG_CATEGORY_ERROR,
-				"Error: Entity %s size exceeds absolute bounds (x: %.3f, y: %.3f, z: %.3f)",
-				name.c_str(), size.GetX(), size.GetY(), size.GetZ());
 			return false;
 		}
 

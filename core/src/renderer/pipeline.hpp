@@ -97,7 +97,7 @@ public:
 
 		pipeInfo.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_FILL;
 		pipeInfo.rasterizer_state.cull_mode = SDL_GPU_CULLMODE_BACK;
-		pipeInfo.rasterizer_state.front_face = SDL_GPU_FRONTFACE_CLOCKWISE;
+		pipeInfo.rasterizer_state.front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE;
 		pipeInfo.props = 0;
 
 		pipeline = SDL_CreateGPUGraphicsPipeline(context.device, &pipeInfo);
