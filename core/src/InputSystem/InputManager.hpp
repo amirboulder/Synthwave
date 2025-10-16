@@ -100,9 +100,8 @@ public:
 
 	}
 
-	void handleEvents(bool& running,SDL_Event event,RendererConfig& config) {
+	void handleEvents(bool& running,SDL_Event event) {
 
-		//Camera& camera = cameraManager.freeCam;
 
 		if (event.type == SDL_EVENT_KEY_DOWN && event.key.repeat == 0 && event.key.scancode == SDL_SCANCODE_F1) {
 

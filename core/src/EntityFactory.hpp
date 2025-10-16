@@ -10,7 +10,7 @@
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtx/matrix_decompose.hpp>
 
-
+// TODO maybe add flecs::world& ecs to this class and make the functions not static to reduce one parameter 
 class EntityFactory {
 
 public:
@@ -436,6 +436,19 @@ public:
 		return true;
 
 	}
+
+	static bool createHUDElementEntity(flecs::world& ecs, std::string name,std::function<void(flecs::world& ecs)> drawFunction) {
+
+		flecs::entity actorEnt = ecs.entity("HUD")
+			.emplace<HudRender>(drawFunction);
+
+		if (!validateEntityCreation(actorEnt, name)) return false;
+
+
+		return true;
+
+	}
+
 
 	static bool validateName(std::string name) {
 		if (name.empty()) {

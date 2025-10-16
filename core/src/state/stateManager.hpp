@@ -16,7 +16,6 @@ class StateManager {
 
 public:
 
-	RendererConfig& renderConfig;
 
 	Renderer& renderer;
 	TimeManager & time;
@@ -29,8 +28,8 @@ public:
 	AppContext appContext = AppContext::player;
 	PlayState playState = PlayState::play;
 
-	StateManager(flecs::world& ecs,RendererConfig & renderConfig,Renderer& renderer, TimeManager & time)
-		: ecs(ecs), renderConfig(renderConfig), renderer(renderer), time(time)
+	StateManager(flecs::world& ecs,Renderer& renderer, TimeManager & time)
+		: ecs(ecs), renderer(renderer), time(time)
 	{
 		applicationSetup();
 	}
@@ -44,12 +43,14 @@ public:
 	}
 
 	void createCameras() {
+		
+		const RendererConfig& config = ecs.get<RendererConfig>();
 
 		playerCam = ecs.entity("PlayerCam")
-			.emplace<Camera>(renderConfig);
+			.emplace<Camera>(config);
 
 		freeCam = ecs.entity("FreeCam")
-			.emplace<Camera>(renderConfig);
+			.emplace<Camera>(config);
 
 	}
 
@@ -74,12 +75,14 @@ public:
 
 	void handleGamePause() {
 
+		RenderConxtext& rendercontext = ecs.get_mut<RenderConxtext>();
+
 		if (time.paused) {
 			time.unPauseGame();
 			playState = PlayState::play;
 
 			
-			SDL_SetWindowRelativeMouseMode(renderer.context.window, true);
+			SDL_SetWindowRelativeMouseMode(rendercontext.window, true);
 
 			// flushing all the mouse movement accumulated during pause to avoid camera jerk
 			float dx, dy;
@@ -91,7 +94,7 @@ public:
 		else {
 			time.pauseGame();
 			playState = PlayState::pause;
-			SDL_SetWindowRelativeMouseMode(renderer.context.window, false);
+			SDL_SetWindowRelativeMouseMode(rendercontext.window, false);
 
 			SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "pause");
 		}
@@ -136,17 +139,19 @@ public:
 
 	void handleSavingRenderConfig() {
 
-		// maybe use get_mut
+		//SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,"handleSavingRenderConfig FIX IT FIX IT FIX IT FIX IT!!!!");
+
+		RendererConfig& config = ecs.get_mut<RendererConfig>();
+
 		const Camera& camera = freeCam.get<Camera>();
 
-		renderConfig.FreeCamFront = camera.front;
-		renderConfig.FreeCamPos = camera.position;
+		config.FreeCamFront = camera.front;
+		config.FreeCamPos = camera.position;
 
-		renderConfig.FreeCamYaw = camera.yaw;
-		renderConfig.FreeCamPitch = camera.pitch;
+		config.FreeCamYaw = camera.yaw;
+		config.FreeCamPitch = camera.pitch;
 
 		//TODO modify function so the path is not hardcoded
-		renderConfig.saveRendererConfigINI("config/renderConfig.ini");
-
+		RendererConfig::saveRendererConfigINIFile(ecs,"config/renderConfig.ini");
 	}
 };

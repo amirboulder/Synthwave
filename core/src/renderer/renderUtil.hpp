@@ -11,6 +11,17 @@ struct Context {
 	SDL_GPUSampleCount sampleCountMSAA;
 };
 
+struct RenderConxtext {
+	SDL_GPUDevice* device = NULL;
+	SDL_Window* window = NULL;
+};
+
+struct FrameContext {
+	SDL_GPUCommandBuffer* commandBuffer;
+	SDL_GPUTexture* swapchainTexture;
+};
+
+
 
 struct FrameDataUniforms {
     glm::mat4 view;

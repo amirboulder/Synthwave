@@ -53,6 +53,10 @@ struct ActorBehavior {
 
 };
 
+struct HudRender {
+	std::function<void(flecs::world& ecs)> draw;
+};
+
 struct JoltCharacter {
 	JPH::Character* characterPtr = nullptr;
 };

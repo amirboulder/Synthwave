@@ -15,9 +15,8 @@ public:
 
 
 	/// create pipeline for Struct Vertex
-	void createPipeline(Context context,const char * name, bool line = false)
+	void createPipeline(flecs::world& ecs,const char * name, bool line = false)
 	{
-
 		//Check vertex and fragment shader not being null
 		if (!vertexShader) {
 			SDL_LogError(SDL_LOG_CATEGORY_RENDER, "Vertex Shader is NULL unable to create pipeline");
@@ -26,6 +25,9 @@ public:
 			SDL_LogError(SDL_LOG_CATEGORY_RENDER, "Fragment Shader is NULL unable to create pipeline");
 		}
 
+
+		const RenderConxtext& rendercontext = ecs.get<RenderConxtext>();
+		const RendererConfig& renderConfig = ecs.get<RendererConfig>();
 
 		// Vertex input state
 		SDL_GPUVertexAttribute vertexAttributes[4] = {};
@@ -68,7 +70,7 @@ public:
 
 		// Create pipeline
 		SDL_GPUColorTargetDescription coldescs = {};
-		coldescs.format = SDL_GetGPUSwapchainTextureFormat(context.device, context.window);
+		coldescs.format = SDL_GetGPUSwapchainTextureFormat(rendercontext.device, rendercontext.window);
 
 		SDL_GPUGraphicsPipelineCreateInfo pipeInfo = {};
 		SDL_zero(pipeInfo);
@@ -89,7 +91,7 @@ public:
 
 		//MSAA
 		pipeInfo.multisample_state = {
-			.sample_count = context.sampleCountMSAA,  // Enable MSAA in pipeline
+			.sample_count = renderConfig.sampleCountMSAA,  // Enable MSAA in pipeline
 			.sample_mask = 0  // Use all samples
 		};
 
@@ -100,7 +102,7 @@ public:
 		pipeInfo.rasterizer_state.front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE;
 		pipeInfo.props = 0;
 
-		pipeline = SDL_CreateGPUGraphicsPipeline(context.device, &pipeInfo);
+		pipeline = SDL_CreateGPUGraphicsPipeline(rendercontext.device, &pipeInfo);
 		if (!pipeline) {
 			SDL_LogError(SDL_LOG_CATEGORY_RENDER, "Failed to create fill pipeline: %s", SDL_GetError());
 			return ;
@@ -108,7 +110,7 @@ public:
 
 		if (line) {
 			pipeInfo.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_LINE;
-			pipeline = SDL_CreateGPUGraphicsPipeline(context.device, &pipeInfo);
+			pipeline = SDL_CreateGPUGraphicsPipeline(rendercontext.device, &pipeInfo);
 			if (!pipeline) {
 				SDL_LogError(SDL_LOG_CATEGORY_RENDER, "Failed to create line pipeline: %s", SDL_GetError());
 				return ;

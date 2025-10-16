@@ -30,7 +30,7 @@ class TextRenderer {
 
 public:
 
-    Context* context = NULL;
+  
 
     std::string fontPath = "assets/fonts/Supermolot Light.otf";
 
@@ -54,20 +54,31 @@ public:
 
     bool fps = false;
 
-    TextRenderer() {
+
+    float f = 0.0f;
+    int counter = 12;
+
+    flecs::world& ecs;
+
+    TextRenderer(flecs::world& ecs)
+        :ecs(ecs)
+    {
+
+      
 
     }
 
 
-    //create a custom pipeline for text renderer
-    void init(Context *renderContext) {
 
-        this->context = renderContext;
+    //create a custom pipeline for text renderer
+    void init() {
+
+        const RenderConxtext& rendercontext = ecs.get<RenderConxtext>();
 
        // shader::generateSpirvShaders("shaders/slang/textShader.slang", "shaders/compiled/text.vert.spv", "shaders/compiled/text.frag.spv");
 
-        RenderUtil::loadShaderSPRIV(context->device, vertexShader, "shaders/compiled/text.vert.spv", SDL_GPU_SHADERSTAGE_VERTEX,0, 1, 0, 0);
-        RenderUtil::loadShaderSPRIV(context->device, fragmentShader, "shaders/compiled/text.frag.spv", SDL_GPU_SHADERSTAGE_FRAGMENT,1, 0, 0, 0);
+        RenderUtil::loadShaderSPRIV(rendercontext.device, vertexShader, "shaders/compiled/text.vert.spv", SDL_GPU_SHADERSTAGE_VERTEX,0, 1, 0, 0);
+        RenderUtil::loadShaderSPRIV(rendercontext.device, fragmentShader, "shaders/compiled/text.frag.spv", SDL_GPU_SHADERSTAGE_FRAGMENT,1, 0, 0, 0);
 
        
         SDL_GPUVertexAttribute vertexAttributes[3] = {};
@@ -105,7 +116,7 @@ public:
 
         // Create pipeline with proper blending for text
         SDL_GPUColorTargetDescription coldescs = {};
-        coldescs.format = SDL_GetGPUSwapchainTextureFormat(context->device, context->window);
+        coldescs.format = SDL_GetGPUSwapchainTextureFormat(rendercontext.device, rendercontext.window);
 
         // Enable alpha blending for text
         coldescs.blend_state.enable_blend = true;
@@ -132,14 +143,14 @@ public:
 
        
        // pipeline = check_error_ptr(SDL_CreateGPUGraphicsPipeline(device, &pipeInfo));
-        pipeline = SDL_CreateGPUGraphicsPipeline(context->device, &pipeInfo);
+        pipeline = SDL_CreateGPUGraphicsPipeline(rendercontext.device, &pipeInfo);
         if (!pipeline) {
             SDL_Log("Failed to create line pipeline: %s", SDL_GetError());
             return ;
         }
 
-        SDL_ReleaseGPUShader(context->device, vertexShader);
-        SDL_ReleaseGPUShader(context->device, fragmentShader);
+        SDL_ReleaseGPUShader(rendercontext.device, vertexShader);
+        SDL_ReleaseGPUShader(rendercontext.device, fragmentShader);
 
         // Create sampler once
         SDL_GPUSamplerCreateInfo sampler_info = {
@@ -150,7 +161,7 @@ public:
             .address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
             .address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE
         };
-        sampler = check_error_ptr(SDL_CreateGPUSampler(context->device, &sampler_info));
+        sampler = check_error_ptr(SDL_CreateGPUSampler(rendercontext.device, &sampler_info));
 
         SDL_Log("text pipeline created!");
 
@@ -164,14 +175,17 @@ public:
         }
 
         TTF_SetFontWrapAlignment(font, TTF_HORIZONTAL_ALIGN_LEFT);
-        engine = check_error_ptr(TTF_CreateGPUTextEngine(context->device));
+        engine = check_error_ptr(TTF_CreateGPUTextEngine(rendercontext.device));
 
         // Create initial text
-        updateText("Hello SDL GPU Text!",staticText);
+        updateText("Hello SDL GPU Text!",staticText, rendercontext.device);
+
+       
     }
 
-    void updateText(const char* newText, TextData & textData) {
-
+    void updateText(const char* newText, TextData & textData, SDL_GPUDevice* device) {
+        
+       // const RenderConxtext& rendercontext = ecs.get<RenderConxtext>();
 
       //  SDL_Log("TextRenderer::updateText() - Text: '%s'", newText);
 
@@ -180,11 +194,11 @@ public:
             TTF_DestroyText(textData.text);
         }
         if (textData.vertexBuffer) {
-            SDL_ReleaseGPUBuffer(context->device, textData.vertexBuffer);
+            SDL_ReleaseGPUBuffer(device, textData.vertexBuffer);
             textData.vertexBuffer = NULL;
         }
         if (textData.indexBuffer) {
-            SDL_ReleaseGPUBuffer(context->device, textData.indexBuffer);
+            SDL_ReleaseGPUBuffer(device, textData.indexBuffer);
             textData.indexBuffer = NULL;
         }
 
@@ -257,13 +271,17 @@ public:
 
 
         // Upload data to buffers
-        RenderUtil::uploadBufferData(context->device, textData.vertexBuffer, vertices.data(), vertices.size() * sizeof(VertexData2), SDL_GPU_BUFFERUSAGE_VERTEX);
-        RenderUtil::uploadBufferData(context->device, textData.indexBuffer, indices.data(), indices.size() * sizeof(uint32_t), SDL_GPU_BUFFERUSAGE_INDEX);
+        RenderUtil::uploadBufferData(device, textData.vertexBuffer, vertices.data(), vertices.size() * sizeof(VertexData2), SDL_GPU_BUFFERUSAGE_VERTEX);
+        RenderUtil::uploadBufferData(device, textData.indexBuffer, indices.data(), indices.size() * sizeof(uint32_t), SDL_GPU_BUFFERUSAGE_INDEX);
+
 
     }
 
 
     void drawAll(int screenWidth, int screenHeight) {
+
+        FrameContext& frameContext = ecs.get_mut<FrameContext>();
+        const RenderConxtext& rendercontext = ecs.get<RenderConxtext>();
 
         //todo calculate text bounding box 
         // test if text fall within screen coordiantes
@@ -279,11 +297,11 @@ public:
 
 
         SDL_GPUColorTargetInfo overlayTarget = {};
-        overlayTarget.texture = context->swapchainTexture;
+        overlayTarget.texture = frameContext.swapchainTexture;
         overlayTarget.load_op = SDL_GPU_LOADOP_LOAD; // LOAD so we don't overwrite the prev render pass
         overlayTarget.store_op = SDL_GPU_STOREOP_STORE;
 
-        renderPass = SDL_BeginGPURenderPass(context->commandBuffer, &overlayTarget, 1, nullptr);
+        renderPass = SDL_BeginGPURenderPass(frameContext.commandBuffer, &overlayTarget, 1, nullptr);
 
         SDL_BindGPUGraphicsPipeline(renderPass, pipeline);
 
@@ -300,8 +318,68 @@ public:
 
     }
 
+    void drawOverlay() {
+
+       // // Start the Dear ImGui frame
+       // ImGui_ImplSDLGPU3_NewFrame();
+       // ImGui_ImplSDL3_NewFrame();
+       // ImGui::NewFrame();
+
+       // 
+
+       // // Our state
+       // bool show_demo_window = true;
+       // bool show_another_window = false;
+       // ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+
+       //// ImGui::ShowDemoWindow(&show_demo_window);
+
+       // // Set window properties for HUD elements
+       // ImGui::SetNextWindowPos(ImVec2(10, 10), ImGuiCond_FirstUseEver);
+       // ImGui::SetNextWindowSize(ImVec2(300, 200), ImGuiCond_FirstUseEver);
+       // ImGui::SetNextWindowBgAlpha(0.7f);
+
+       // ImGui::Begin("HUD", nullptr,
+       //     ImGuiWindowFlags_NoMove |           // Prevent moving
+       //     ImGuiWindowFlags_NoResize |         // Prevent resizing
+       //     ImGuiWindowFlags_NoCollapse |       // Prevent collapsing
+       //     ImGuiWindowFlags_AlwaysAutoResize | // Auto-fit content
+       //     ImGuiWindowFlags_NoTitleBar         // Remove title bar (optional)
+       // );
+
+       // // Your HUD content
+       // ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
+       //// ImGui::Text("Position: %.2f, %.2f", player_x, player_y);
+
+       // ImGui::End();
+
+       // ImGui::Render();
+       // ImDrawData* draw_data = ImGui::GetDrawData();
+
+       // // This is mandatory: call ImGui_ImplSDLGPU3_PrepareDrawData() to upload the vertex/index buffer!
+       // ImGui_ImplSDLGPU3_PrepareDrawData(draw_data, context->commandBuffer);
+
+      
+
+       // SDL_GPUColorTargetInfo overlayTarget = {};
+       // overlayTarget.texture = context->swapchainTexture;
+       // overlayTarget.load_op = SDL_GPU_LOADOP_LOAD; // LOAD so we don't overwrite the prev render pass
+       // overlayTarget.store_op = SDL_GPU_STOREOP_STORE;
+
+       // renderPass = SDL_BeginGPURenderPass(context->commandBuffer, &overlayTarget, 1, nullptr);
+
+       // // Render ImGui
+       // ImGui_ImplSDLGPU3_RenderDrawData(draw_data, context->commandBuffer, renderPass);
+
+       // SDL_EndGPURenderPass(renderPass);
+
+    }
+
+
 
     void DrawText(TextData textData,float offsetX, float offsetY) {
+
+        FrameContext& frameContext = ecs.get_mut<FrameContext>();
 
         if (!textData.seq || textData.seq->num_vertices == 0 || !textData.vertexBuffer || !textData.indexBuffer) {
             SDL_Log("Cannot draw text: missing data");
@@ -321,7 +399,7 @@ public:
         glm::mat4 screenSpaceMVP = ortho * translationMatrix;
         screenSpaceMVP = glm::transpose(screenSpaceMVP);
 
-        SDL_PushGPUVertexUniformData(context->commandBuffer, 0, &screenSpaceMVP, sizeof(screenSpaceMVP));
+        SDL_PushGPUVertexUniformData(frameContext.commandBuffer, 0, &screenSpaceMVP, sizeof(screenSpaceMVP));
 
         SDL_DrawGPUIndexedPrimitives(renderPass, textData.seq->num_indices, 1, 0, 0, 0);
 

@@ -8,6 +8,7 @@
 
 #include "sensorBehaviors.hpp"
 #include "actorBehaviors.hpp"
+#include "hud.hpp"
 
 using std::vector;
 
@@ -33,27 +34,28 @@ public:
 		: ecs(ecs), fisiks(fisiks), renderer(renderer), stateManager(stateManager)
 	{
 		///////////////creating shaders
-		
+		RenderConxtext& rendercontext = ecs.get_mut<RenderConxtext>();
+
 		auto entUnlitPipeline = ecs.entity("pipelineUnlit").set<Pipeline>({});
 		Pipeline & unlit = entUnlitPipeline.get_mut<Pipeline>();
 		//shader::generateSpirvShaders("shaders/slang/shaders.slang", "shaders/compiled/VertexShader.spv", "shaders/compiled/FragmentShader.spv");
-		RenderUtil::loadShaderSPRIV(renderer.context.device, unlit.vertexShader, "shaders/compiled/VertexShader.spv", SDL_GPU_SHADERSTAGE_VERTEX, 0, 2, 0, 0);
-		RenderUtil::loadShaderSPRIV(renderer.context.device, unlit.fragmentShader, "shaders/compiled/FragmentShader.spv", SDL_GPU_SHADERSTAGE_FRAGMENT, 1, 0, 0, 0);
-		unlit.createPipeline(renderer.context, "Blinn-Phong",false);
+		RenderUtil::loadShaderSPRIV(rendercontext.device, unlit.vertexShader, "shaders/compiled/VertexShader.spv", SDL_GPU_SHADERSTAGE_VERTEX, 0, 2, 0, 0);
+		RenderUtil::loadShaderSPRIV(rendercontext.device, unlit.fragmentShader, "shaders/compiled/FragmentShader.spv", SDL_GPU_SHADERSTAGE_FRAGMENT, 1, 0, 0, 0);
+		unlit.createPipeline(ecs, "Blinn-Phong",false);
 
 		auto entGridPipeline = ecs.entity("pipelineGrid").set<Pipeline>({});
 		Pipeline & gridPipeline = entGridPipeline.get_mut<Pipeline>();
 		//shader::generateSpirvShaders("shaders/slang/gridshader.slang", "shaders/compiled/grid.vert.spv", "shaders/compiled/grid.frag.spv");
-		RenderUtil::loadShaderSPRIV(renderer.context.device, gridPipeline.vertexShader, "shaders/compiled/grid.vert.spv", SDL_GPU_SHADERSTAGE_VERTEX, 0, 2, 0, 0);
-		RenderUtil::loadShaderSPRIV(renderer.context.device, gridPipeline.fragmentShader, "shaders/compiled/grid.frag.spv", SDL_GPU_SHADERSTAGE_FRAGMENT, 0, 0, 0, 0);
-		gridPipeline.createPipeline(renderer.context, "Grid", false);
+		RenderUtil::loadShaderSPRIV(rendercontext.device, gridPipeline.vertexShader, "shaders/compiled/grid.vert.spv", SDL_GPU_SHADERSTAGE_VERTEX, 0, 2, 0, 0);
+		RenderUtil::loadShaderSPRIV(rendercontext.device, gridPipeline.fragmentShader, "shaders/compiled/grid.frag.spv", SDL_GPU_SHADERSTAGE_FRAGMENT, 0, 0, 0, 0);
+		gridPipeline.createPipeline(ecs, "Grid", false);
 
 		auto e_Mtn = ecs.entity("pipelineMtn").set<Pipeline>({});
 		Pipeline& mtnPipeline = e_Mtn.get_mut<Pipeline>();
 		//shader::generateSpirvShaders("shaders/slang/wireframe.slang", "shaders/compiled/wireframe.vert.spv", "shaders/compiled/wireframe.frag.spv");
-		RenderUtil::loadShaderSPRIV(renderer.context.device, mtnPipeline.vertexShader, "shaders/compiled/wireframe.vert.spv", SDL_GPU_SHADERSTAGE_VERTEX,0, 2, 0, 0);
-		RenderUtil::loadShaderSPRIV(renderer.context.device, mtnPipeline.fragmentShader, "shaders/compiled/wireframe.frag.spv", SDL_GPU_SHADERSTAGE_FRAGMENT,0, 0, 0, 0);
-		mtnPipeline.createPipeline(renderer.context, "Mtn", false);
+		RenderUtil::loadShaderSPRIV(rendercontext.device, mtnPipeline.vertexShader, "shaders/compiled/wireframe.vert.spv", SDL_GPU_SHADERSTAGE_VERTEX,0, 2, 0, 0);
+		RenderUtil::loadShaderSPRIV(rendercontext.device, mtnPipeline.fragmentShader, "shaders/compiled/wireframe.frag.spv", SDL_GPU_SHADERSTAGE_FRAGMENT,0, 0, 0, 0);
+		mtnPipeline.createPipeline(ecs, "Mtn", false);
 
 
 		//SETTING DEFAULT PIPELINE
@@ -67,17 +69,19 @@ public:
 
 	bool constructLevel() {
 
+		RenderConxtext& rendercontext = ecs.get_mut<RenderConxtext>();
+
 		//create Model Sources
 		//robot
-		ModelSource robotSource("assets/robot4Wheels.glb", renderer.context.device);
+		ModelSource robotSource(ecs,"assets/robot4Wheels.glb");
 		//capsule
-		ModelSource capsuleSource("assets/capsule4.glb", renderer.context.device);
+		ModelSource capsuleSource(ecs,"assets/capsule4.glb");
 		//Grid
-		ModelSource gridSource(256, 256, renderer.context.device);
+		ModelSource gridSource(ecs,256, 256);
 		//Mountain
-		ModelSource mtnSource("assets/mtn2.obj", renderer.context.device, true);
+		ModelSource mtnSource(ecs,"assets/mtn2.obj", true);
 		//Mountain
-		ModelSource ActorSource("assets/enemy1.glb", renderer.context.device);
+		ModelSource ActorSource(ecs,"assets/enemy1.glb");
 
 		//sponza
 		//ModelSource sponzaSource("assets/Sponza/sponza.obj", renderer.context.device);
@@ -157,6 +161,12 @@ public:
 		boxSensorTransform.position = glm::vec3(1.0f, 3.0f, 0.0f);
 		JPH::Vec3 boxSensorSize = JPH::Vec3(15.0f, 15.0f, 15.0f);
 		EntityFactory::createBoxSensorEntity(ecs, fisiks, "Sensor1", boxSensorTransform, boxSensorSize,sensor1Behavoir);
+
+
+		/////////////////////////
+		
+		// Create game HUD
+		EntityFactory::createHUDElementEntity(ecs,"fps", FPSDraw);
 
 	
 		

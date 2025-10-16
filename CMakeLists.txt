@@ -226,7 +226,7 @@ add_library(inih STATIC
 target_include_directories(Synthwave PRIVATE ${inih_SOURCE_DIR}/cpp)
 
 #=============================================
-#inih for config files
+#flecs Entity component system
 #=============================================
 
 FetchContent_Declare(
@@ -244,11 +244,49 @@ set(FLECS_DOC OFF CACHE BOOL "" FORCE)
 
 FetchContent_MakeAvailable(flecs)
 
+
+#=============================================
+# IMGUI for GUI
+#=============================================
+
+include(FetchContent)
+FetchContent_Declare(
+    imgui
+    GIT_REPOSITORY https://github.com/ocornut/imgui.git
+    GIT_TAG v1.92.4
+)
+FetchContent_MakeAvailable(imgui)
+
+# Create ImGui library
+#using imgui_lib instead of imgui of because slang already created an imgui target
+add_library(imgui_lib STATIC
+    # Core ImGui files (always needed)
+    ${imgui_SOURCE_DIR}/imgui.cpp
+    ${imgui_SOURCE_DIR}/imgui_demo.cpp
+    ${imgui_SOURCE_DIR}/imgui_draw.cpp
+    ${imgui_SOURCE_DIR}/imgui_tables.cpp
+    ${imgui_SOURCE_DIR}/imgui_widgets.cpp
+    
+    # SDL3 backend (for SDL_GPU which uses SDL3)
+    ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp
+    ${imgui_SOURCE_DIR}/backends/imgui_impl_sdlgpu3.cpp
+)
+
+# ImGui include directories
+target_include_directories(imgui_lib PUBLIC
+    ${imgui_SOURCE_DIR}
+    ${imgui_SOURCE_DIR}/backends
+)
+
+# Link SDL3 so imgui_lib can find SDL3 headers
+target_link_libraries(imgui_lib PUBLIC SDL3::SDL3)
+
 #=============================================
 #=============================================
 #=============================================
 
 target_link_libraries(Synthwave PUBLIC
+imgui_lib
 SDL3::SDL3
 slang
 SDL3_image::SDL3_image
@@ -260,6 +298,7 @@ Jolt
 OptickCore
 inih
 flecs::flecs
+
 )
 
 

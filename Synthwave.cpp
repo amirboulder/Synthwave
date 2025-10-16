@@ -6,15 +6,13 @@ int main(int argc, char* argv[])
 
 	flecs::world ecs;
 
-	RendererConfig renderConfig("config/renderConfig.ini");
-
 	Fisiks fisiks(ecs);
 
-	Renderer renderer(ecs,renderConfig, fisiks.physics_system);
+	Renderer renderer(ecs, fisiks.physics_system);
 
 	TimeManager time;
 
-	StateManager stateManager(ecs,renderConfig,renderer,time);
+	StateManager stateManager(ecs,renderer,time);
 
 	Scene scene(ecs, fisiks, renderer, stateManager);
 
@@ -28,7 +26,9 @@ int main(int argc, char* argv[])
 
 		while (SDL_PollEvent(&event)) {
 			
-			inputManager.handleEvents(running,event,renderConfig);
+			inputManager.handleEvents(running,event);
+
+			ImGui_ImplSDL3_ProcessEvent(&event);
 		}
 
 		time.tick();
@@ -44,7 +44,6 @@ int main(int argc, char* argv[])
 		}
 		//TODO INTERPOLATE to account for physics and rendering happening at diffrent rates
 
-		renderer.setFPSText(time.fps);
 		renderer.drawAll();
 
 	}

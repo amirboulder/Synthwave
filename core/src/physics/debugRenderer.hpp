@@ -2,6 +2,7 @@
 #include <Jolt/Jolt.h>
 
 #include "../renderer/renderUtil.hpp"
+#include "../renderer/rendererConfig.hpp"
 
 // This class only builds in debug mode
 
@@ -40,19 +41,13 @@ class fisiksDebugRenderer : public JPH::DebugRenderer
 	
 public:
 
-
-	SDL_Window* window = NULL;
-	SDL_GPUDevice* device = NULL;
-
+	flecs::world& ecs;
 
 	SDL_GPUGraphicsPipeline* pipeline = NULL;
 
 	SDL_GPUShader* vertexShader = NULL;
 	SDL_GPUShader* fragmentShader = NULL;
 
-	SDL_GPUSampleCount sampleCountMSAA = SDL_GPU_SAMPLECOUNT_8;
-
-	SDL_GPUCommandBuffer* commandBuffer = NULL;
 	SDL_GPURenderPass* renderPass = NULL;
 
 	BodyManager::DrawSettings drawSettings;
@@ -63,9 +58,8 @@ public:
 	glm::mat4 proj;
 
 
-	fisiksDebugRenderer(SDL_GPUDevice* device, SDL_Window* window, bool drawBoundingBox, bool drawShapeWireframe,PhysicsSystem& physicsSystem)
-		: device(device),
-		window(window),
+	fisiksDebugRenderer(flecs::world& ecs,bool drawBoundingBox, bool drawShapeWireframe,PhysicsSystem& physicsSystem)
+		: ecs(ecs),
 		physicsSystem(physicsSystem)
 	{
 		drawSettings.mDrawBoundingBox = drawBoundingBox;
@@ -102,6 +96,9 @@ public:
 	}
 
 	virtual Batch CreateTriangleBatch(const Triangle* inTriangles, int inTriangleCount) override {
+
+		RenderConxtext& rendercontext = ecs.get_mut<RenderConxtext>();
+
 		BatchImpl* batch = new BatchImpl;
 		if (inTriangles == nullptr || inTriangleCount == 0)
 			return batch;
@@ -127,8 +124,8 @@ public:
 		bufferCreateInfo.usage = SDL_GPU_BUFFERUSAGE_VERTEX;
 		bufferCreateInfo.size = vertices.size() * sizeof(glm::vec3);
 
-		batch->vertexBuffer = SDL_CreateGPUBuffer(device, &bufferCreateInfo);
-		RenderUtil::uploadBufferData(device, batch->vertexBuffer, vertices.data(),
+		batch->vertexBuffer = SDL_CreateGPUBuffer(rendercontext.device, &bufferCreateInfo);
+		RenderUtil::uploadBufferData(rendercontext.device, batch->vertexBuffer, vertices.data(),
 			vertices.size() * sizeof(glm::vec3), SDL_GPU_BUFFERUSAGE_VERTEX);
 
 		return batch;
@@ -136,6 +133,8 @@ public:
 
 	//TODO use indcies properly
 	virtual Batch CreateTriangleBatch(const Vertex* inVertices, int inVertexCount, const uint32* inIndices, int inIndexCount) override {
+
+		const RenderConxtext& rendercontext = ecs.get<RenderConxtext>();
 
 		BatchImpl* batch = new BatchImpl;
 		if (inVertices == nullptr || inVertexCount == 0 || inIndices == nullptr || inIndexCount == 0)
@@ -166,7 +165,7 @@ public:
 			}
 		}
 
-		RenderUtil::uploadBufferData(device, batch->vertexBuffer, vertices.data(),
+		RenderUtil::uploadBufferData(rendercontext.device, batch->vertexBuffer, vertices.data(),
 			vertices.size() * sizeof(glm::vec3), SDL_GPU_BUFFERUSAGE_VERTEX);
 
 		return batch;
@@ -207,6 +206,7 @@ public:
 
 
 		//Rendering
+		const FrameContext & frameContext = ecs.get<FrameContext>();
 
 		SDL_GPUBufferBinding vertexBufferBinding = {};
 		vertexBufferBinding.buffer = batch->vertexBuffer;
@@ -226,7 +226,7 @@ public:
 		modelUnifroms.mvp = mvp;
 		modelUnifroms.model = meshMat;
 
-		SDL_PushGPUVertexUniformData(commandBuffer, 1, &modelUnifroms, sizeof(modelUnifroms));
+		SDL_PushGPUVertexUniformData(frameContext.commandBuffer, 1, &modelUnifroms, sizeof(modelUnifroms));
 
 		SDL_DrawGPUPrimitives(renderPass, batch->mTriangles.size() * 3, 1, 0, 0);
 
@@ -245,6 +245,9 @@ public:
 
 
 	void createPipeline(EDrawMode inDrawMode = EDrawMode::Wireframe) {
+
+		 const RenderConxtext& rendercontext = ecs.get<RenderConxtext>();
+		 const RendererConfig& renderConfig = ecs.get<RendererConfig>();
 
 		// Vertex input state
 		SDL_GPUVertexAttribute vertexAttributes[1] = {};
@@ -269,7 +272,7 @@ public:
 
 		// Create pipeline
 		SDL_GPUColorTargetDescription coldescs = {};
-		coldescs.format = SDL_GetGPUSwapchainTextureFormat(device, window);
+		coldescs.format = SDL_GetGPUSwapchainTextureFormat(rendercontext.device, rendercontext.window);
 
 		SDL_GPUGraphicsPipelineCreateInfo pipeInfo = {};
 		SDL_zero(pipeInfo);
@@ -290,7 +293,7 @@ public:
 
 		//MSAA
 		pipeInfo.multisample_state = {
-			.sample_count = sampleCountMSAA,  // Enable MSAA in pipeline
+			.sample_count = renderConfig.sampleCountMSAA,  // Enable MSAA in pipeline
 			.sample_mask = 0  // Use all samples
 		};
 
@@ -307,7 +310,7 @@ public:
 		pipeInfo.rasterizer_state.front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE;
 		pipeInfo.props = 0;
 
-		pipeline = SDL_CreateGPUGraphicsPipeline(device, &pipeInfo);
+		pipeline = SDL_CreateGPUGraphicsPipeline(rendercontext.device, &pipeInfo);
 		if (!pipeline) {
 			SDL_Log("Failed to create fill pipeline: %s", SDL_GetError());
 			return;
