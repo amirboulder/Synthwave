@@ -4,6 +4,7 @@
 #include "imgui_impl_sdl3.h"
 #include "imgui_impl_sdlgpu3.h"
 
+#include "../RendererConfig.hpp"
 
 class UserInterface {
 
@@ -12,6 +13,7 @@ public:
     flecs::world& ecs;
 
     flecs::query<HudRender>q1;
+    flecs::query<Render,MenuItem,Active>q2;
 
     UserInterface(flecs::world& ecs)
         :   ecs(ecs)
@@ -69,6 +71,10 @@ public:
         q1 = ecs.query_builder<HudRender>()
             .cached()
             .build();
+
+        q2 = ecs.query_builder<Render, MenuItem, Active>()
+            .cached()
+            .build();
     }
 
 
@@ -82,14 +88,19 @@ public:
         ImGui::NewFrame();
 
         // We're basically injecting game HUD code in here by doing this
-        // Actually create and Active Component  with a bool or just a TAG so we can modify this query baesd on that 
-        //TODO ADD App STATE and Game STATE as entities so they can be used to set Active flag on UI elements
+      
+        q2.each([&](flecs::entity e, Render renderCallback, MenuItem , Active) {
+
+            renderCallback.draw(ecs);
+
+        });
+ 
+
         q1.each([&](flecs::entity e, HudRender hud) {
 
             hud.draw(ecs);
 
         });
-
 
         ImGui::Render();
         ImDrawData* draw_data = ImGui::GetDrawData();

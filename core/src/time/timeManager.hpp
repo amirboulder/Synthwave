@@ -4,17 +4,32 @@ class TimeManager {
 
 public:
 
-	float timeStep = 1.0f / 120.0f;
+	float timeStep = 1.0f / 60.0f;
 	float accumulator = 0.0f;
 
 	uint64_t lastTime = 0;
-	int frameCount = 0;
-	int fps = 0;
-	uint64_t fpsTimer = 0;
 
 	float deltaTime = 0.0f;
 
-	bool paused = false;
+	uint64_t appStartTime = 0;
+
+	
+	float maxAccumulator = timeStep * 5.0f; 
+
+	bool paused = true;
+
+	TimeManager(float timeStep)
+		: timeStep(timeStep) 
+	{
+		appStartTime = SDL_GetTicks();
+	}
+
+	void startGameTime()
+		
+	{
+		lastTime = SDL_GetTicks();
+		paused = false;
+	}
 
 	void tick() {
 
@@ -24,11 +39,10 @@ public:
 		lastTime = SDL_GetTicks();
 		accumulator += deltaTime;
 
-		frameCount++;
-		if (SDL_GetTicks() - fpsTimer >= 1000.0) {
-			fps = frameCount;
-			frameCount = 0;
-			fpsTimer = SDL_GetTicks();
+		// Clamp to prevent spiral of death
+		if (accumulator > maxAccumulator) {
+			accumulator = maxAccumulator;
+			SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Game is running too slow - spiral of death!");
 		}
 	}
 

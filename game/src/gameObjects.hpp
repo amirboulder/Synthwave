@@ -4,11 +4,12 @@
 
 #include "../../core/src/physics/physicsUtil.hpp"
 
-#include "../../core/src/state/stateManager.hpp"
+#include "../../core/src/player.hpp"
 
 #include "sensorBehaviors.hpp"
 #include "actorBehaviors.hpp"
 #include "hud.hpp"
+#include "menu.hpp"
 
 using std::vector;
 
@@ -19,19 +20,18 @@ public:
 	flecs::world& ecs;
 
 	flecs::entity playerEntity;
-	flecs::ref<Player> player;
-
-	StateManager& stateManager;
+	flecs::ref<Player> playerComponent;
 
 	Fisiks& fisiks;
 
 	Renderer& renderer;
 
+	Ref<CharacterVirtual>	mCharacter;
 
 	flecs::query<ActorBehavior>q1;
 	
-	Scene(flecs::world & ecs,Fisiks& fisiks, Renderer& renderer, StateManager& stateManager)
-		: ecs(ecs), fisiks(fisiks), renderer(renderer), stateManager(stateManager)
+	Scene(flecs::world & ecs,Fisiks& fisiks, Renderer& renderer)
+		: ecs(ecs), fisiks(fisiks), renderer(renderer)
 	{
 		///////////////creating shaders
 		RenderConxtext& rendercontext = ecs.get_mut<RenderConxtext>();
@@ -63,13 +63,39 @@ public:
 		ecs.entity("RenderState")
 			.set<RenderState>({ entUnlitPipeline });
 
-		constructLevel();
+
+		/////////////////////////
+		// Main menu
+
+		EntityFactory::createMenulementEntity(ecs, "Main Menu", mainMenu);
+
+		createQuries();
+
+		//////////////////////////////
+		// FreeCam
+		const RendererConfig& config = ecs.get<RendererConfig>();
+
+		ecs.entity("FreeCam")
+			.emplace<Camera>(config);
+
+		ecs.entity("PlayerCam")
+			.emplace<Camera>(config);
+
+		//////////////////////////////
+		//Player
+
+		playerEntity = ecs.entity("player2").emplace<Player>(ecs, fisiks);
+
+		playerComponent = playerEntity.get_ref<Player>();
+
+
+		playerComponent->init(JPH::Vec3(1.0f, 15.0f, 0.0f), JPH::Quat(0.0f, 0.0f, 0.0f, 1.0f), 2.0f, 1.0f, playerEntity.id());
 
 	}
 
 	bool constructLevel() {
 
-		RenderConxtext& rendercontext = ecs.get_mut<RenderConxtext>();
+		//TODO clear all before reconstructing level
 
 		//create Model Sources
 		//robot
@@ -86,28 +112,23 @@ public:
 		//sponza
 		//ModelSource sponzaSource("assets/Sponza/sponza.obj", renderer.context.device);
 
-		//////////////////////////////
-		//Player
-		playerEntity = ecs.entity("player").emplace<Player>(ecs);
 
-		player = playerEntity.get_ref<Player>();
 
-		stateManager.load();
-		player->createPhysicsBody(fisiks.physics_system, playerEntity.id());
+
 
 		///////////////////////////
 	
 
 		//Entities
 
+
+
 		//Actor 1
 		Transform actorTransform;
-		actorTransform.position = glm::vec3(1.0f, 17.0f, 0.0f);
+		actorTransform.position = glm::vec3(4.0f, 17.0f, 0.0f);
 		actorTransform.rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
 		actorTransform.scale = glm::vec3(1.0f);
-		// TODO CHANGE TO ACTOR ENTITY
-		//EntityFactory::createCharacterEntity(ecs, fisiks, "Amir1", ActorSource, actorTransform,actor1);
-
+		
 		// Character settings
 		JPH::CharacterSettings settings;
 		settings.mShape = new CapsuleShape(2.0f, 1.0f);
@@ -115,7 +136,6 @@ public:
 		settings.mMaxSlopeAngle = DegreesToRadians(20.0f); // Max walkable slope
 		settings.mLayer = Layers::MOVING;
 		settings.mGravityFactor = 1;
-
 		EntityFactory::createActorEntity(ecs, fisiks, "Actor1", ActorSource, actorTransform, settings,actor1Update);
 
 
@@ -131,6 +151,7 @@ public:
 		EntityFactory::createStaticMeshEntity(ecs, fisiks,"Mountain", mtnSource, mtnTransform, "pipelineMtn");
 
 		////Capsule1
+	
 		Transform capsule1Transfrom;
 		capsule1Transfrom.position = glm::vec3(1.0f, 5.0f, 0.0f);
 		capsule1Transfrom.rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
@@ -153,6 +174,7 @@ public:
 		EntityFactory::createCapsuleEntity(ecs, fisiks, "Capsule3", capsuleSource, capsule3Transfrom);
 		
 
+
 		///////////////////////////
 		// Sensors
 
@@ -163,13 +185,15 @@ public:
 		EntityFactory::createBoxSensorEntity(ecs, fisiks, "Sensor1", boxSensorTransform, boxSensorSize,sensor1Behavoir);
 
 
+
+
 		/////////////////////////
 		
 		// Create game HUD
 		EntityFactory::createHUDElementEntity(ecs,"fps", FPSDraw);
 
-	
 		
+
 		/*Transform sponzaTransform;
 		sponzaTransform.scale.x = 0.1;
 		sponzaTransform.scale.y = 0.1;
@@ -177,7 +201,7 @@ public:
 		EntityFactory::createRenderableEntity(ecs,"Sponza", sponzaSource, sponzaTransform);*/
 
 
-		createQuries();
+	
 
 		return true;
 
@@ -228,7 +252,7 @@ public:
 
 	void update() {
 
-		player->update();
+		playerComponent->PrePhysicsUpdate();
 
 
 		q1.each([&](flecs::entity ent, ActorBehavior & update) {

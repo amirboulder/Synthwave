@@ -1,12 +1,14 @@
 #pragma once
+
+
+// This class only exists in debug mode
+
+#ifdef JPH_DEBUG_RENDERER
+
 #include <Jolt/Jolt.h>
 
 #include "../renderer/renderUtil.hpp"
 #include "../renderer/rendererConfig.hpp"
-
-// This class only builds in debug mode
-
-#ifdef JPH_DEBUG_RENDERER
 
 #include <Jolt/Renderer/DebugRenderer.h>
 
@@ -52,22 +54,39 @@ public:
 
 	BodyManager::DrawSettings drawSettings;
 
-	PhysicsSystem & physicsSystem;
+	
 
 	glm::mat4 view;
 	glm::mat4 proj;
 
+	//used for all the rendering that happens outside main renderPass cleared in the next frame
+	vector<const BatchImpl*> batches;
+	vector<glm::mat4> modelMatrices;
 
-	fisiksDebugRenderer(flecs::world& ecs,bool drawBoundingBox, bool drawShapeWireframe,PhysicsSystem& physicsSystem)
-		: ecs(ecs),
-		physicsSystem(physicsSystem)
+	fisiksDebugRenderer(flecs::world& ecs)
+		: ecs(ecs)
+
 	{
-		drawSettings.mDrawBoundingBox = drawBoundingBox;
-		drawSettings.mDrawShapeWireframe = drawShapeWireframe;
+
+		const RenderConxtext& rendercontext = ecs.get<RenderConxtext>();
+		const RendererConfig& config = ecs.get<RendererConfig>();
+
+		
+		drawSettings.mDrawBoundingBox = config.DrawBoundingBoxPhysics;
+		drawSettings.mDrawShapeWireframe = config.DrawShapeWireframePhysics;
+
+		//shader::generateSpirvShaders("shaders/slang/physicsRender.slang", "shaders/compiled/physicsRender.vert.spv", "shaders/compiled/physicsRender.frag.spv");
+		RenderUtil::loadShaderSPRIV(rendercontext.device, vertexShader, "shaders/compiled/physicsRender.vert.spv", SDL_GPU_SHADERSTAGE_VERTEX, 0, 2, 0, 0);
+		RenderUtil::loadShaderSPRIV(rendercontext.device, fragmentShader, "shaders/compiled/physicsRender.frag.spv", SDL_GPU_SHADERSTAGE_FRAGMENT, 0, 0, 0, 0);
+
+		createPipeline();
 
 		//required by jolt
 		Initialize();
 	}
+
+
+
 
 	void setCameraUnifroms(RVec3Arg inCameraPos, glm::mat4 view, glm::mat4 proj)
 	{
@@ -83,16 +102,19 @@ public:
 	{
 		// NO
 		//TODO collect all lines so that we can draw bounding boxes!
+		cout << "fisiksDebugRenderer:: DrawLine was called \n";
 	}
 
 	virtual void DrawTriangle(JPH::RVec3Arg inV1, JPH::RVec3Arg inV2, JPH::RVec3Arg inV3, JPH::ColorArg inColor, ECastShadow inCastShadow) override
 	{
 		// NO
+		cout << "fisiksDebugRenderer:: DrawTriangle was called \n";
 	}
 
 	virtual void DrawText3D(JPH::RVec3Arg inPosition, const std::string_view& inString, JPH::ColorArg inColor, float inHeight) override
 	{
 		// maybe?
+		cout << "fisiksDebugRenderer:: DrawText3D was called \n";
 	}
 
 	virtual Batch CreateTriangleBatch(const Triangle* inTriangles, int inTriangleCount) override {
@@ -205,41 +227,60 @@ public:
 		}
 
 
-		//Rendering
-		const FrameContext & frameContext = ecs.get<FrameContext>();
+		batches.push_back(batch);
+		modelMatrices.push_back(ConvertToGLMMat4(inModelMatrix));
 
-		SDL_GPUBufferBinding vertexBufferBinding = {};
-		vertexBufferBinding.buffer = batch->vertexBuffer;
-		vertexBufferBinding.offset = 0;
+		return;
 
+	}
+
+	void drawAll() {
+
+		//Bind pipeline
+
+		const FrameContext& frameContext = ecs.get<FrameContext>();
+
+		SDL_BindGPUGraphicsPipeline(renderPass, pipeline);
 		
-		SDL_BindGPUVertexBuffers(renderPass, 0, &vertexBufferBinding, 1);
-		//SDL_BindGPUIndexBuffer(renderPass, &indexBufferBinding, SDL_GPU_INDEXELEMENTSIZE_32BIT);
+		for (int i = 0; i < batches.size(); i++ ) {
 
-		glm::mat4 meshMat = ConvertToGLMMat4(inModelMatrix);
+			auto batch = batches[i];
 
-		glm::mat4 mvp = proj * view * meshMat;
+			SDL_GPUBufferBinding vertexBufferBinding = {};
+			vertexBufferBinding.buffer = batch->vertexBuffer;
+			vertexBufferBinding.offset = 0;
 
-		mvp = glm::transpose(mvp);
 
-		PerModelUniforms modelUnifroms;
-		modelUnifroms.mvp = mvp;
-		modelUnifroms.model = meshMat;
+			SDL_BindGPUVertexBuffers(renderPass, 0, &vertexBufferBinding, 1);
+			//SDL_BindGPUIndexBuffer(renderPass, &indexBufferBinding, SDL_GPU_INDEXELEMENTSIZE_32BIT);
 
-		SDL_PushGPUVertexUniformData(frameContext.commandBuffer, 1, &modelUnifroms, sizeof(modelUnifroms));
+			glm::mat4 meshMat = modelMatrices[i];
 
-		SDL_DrawGPUPrimitives(renderPass, batch->mTriangles.size() * 3, 1, 0, 0);
+			glm::mat4 mvp = proj * view * meshMat;
+
+			mvp = glm::transpose(mvp);
+
+			PerModelUniforms modelUnifroms;
+			modelUnifroms.mvp = mvp;
+			modelUnifroms.model = meshMat;
+
+			SDL_PushGPUVertexUniformData(frameContext.commandBuffer, 1, &modelUnifroms, sizeof(modelUnifroms));
+
+
+			SDL_DrawGPUPrimitives(renderPass, batch->mTriangles.size() * 3, 1, 0, 0);
+
+		}
+
+		//Batches are cleared during phyiscs update	
 
 	}
 
 	void configDrawSettings(bool drawBoundingBox,bool drawShapeWireframe) {
 
 		// keep drawBoundingBox false until DrawLine is implimented
-		//drawSettings.mDrawBoundingBox = drawBoundingBox;
+		drawSettings.mDrawBoundingBox = false;
 		drawSettings.mDrawShapeWireframe = drawShapeWireframe;
-		//fiskisDrawSettings.mDrawShape = true;
-		//fiskisDrawSettings.mDrawCenterOfMassTransform = true;
-		//fiskisDrawSettings.mDrawVelocity = true;
+		
 
 	}
 

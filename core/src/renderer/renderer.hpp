@@ -55,16 +55,8 @@ struct Renderer {
 
 	UserInterface ui;
 
-	#if defined(JPH_DEBUG_RENDERER)
-	std::unique_ptr<fisiksDebugRenderer> fisiksRenderer;
-	#endif
-
-	Renderer(flecs::world & ecs, PhysicsSystem& physicsSystem)
+	Renderer(flecs::world & ecs)
 		: ecs(ecs), ui(ecs)
-	#if defined(JPH_DEBUG_RENDERER)
-		, fisiksRenderer(nullptr)
-	#endif
-
 	{
 
 		createComponents();
@@ -77,35 +69,31 @@ struct Renderer {
 
 		createSamplerAndDefaultTexture();
 
-		const RendererConfig& config = ecs.get<RendererConfig>();
-		#if defined(JPH_DEBUG_RENDERER)
-		if (config.RendererPhysics) {
-			initFisisksRenderer(physicsSystem);
-		}
-		#endif
-
 		ui.init();
 
-		//Build render Queries
 		buildRenderQueries();
 	}
 
-
+	//Create singleton components
 	void createComponents() {
 
 		//They are all singleton entities
+		//TODO maybe replace ecs.component with ecs.emplace 
 
 		ecs.component<RenderConxtext>();
 		ecs.set<RenderConxtext>({});
-		
+
 		ecs.component<FrameContext>();
 		ecs.set<FrameContext>({});
-		
+
 		ecs.component<RendererConfig>();
 		ecs.set<RendererConfig>({});
 
 
+
 	}
+
+
 
 	void loadConfig() {
 		
@@ -139,8 +127,8 @@ struct Renderer {
 		
 		SDL_SetWindowPosition(rendercontext.window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
 
-		//dont show mouse cursor
-		SDL_SetWindowRelativeMouseMode(rendercontext.window, true);
+
+		SDL_SetWindowRelativeMouseMode(rendercontext.window, false);
 
 		return true;
 	}
@@ -166,7 +154,7 @@ struct Renderer {
 		// SDL_GPU_PRESENTMODE_IMMEDIATE for uncapped fps
 		// SDL_GPU_PRESENTMODE_VSYNC for VSYNC
 		SDL_SetGPUSwapchainParameters(rendercontext.device, rendercontext.window,
-			SDL_GPU_SWAPCHAINCOMPOSITION_SDR, SDL_GPU_PRESENTMODE_VSYNC);
+			SDL_GPU_SWAPCHAINCOMPOSITION_SDR, SDL_GPU_PRESENTMODE_IMMEDIATE);
 
 		return true;
 	}
@@ -499,46 +487,31 @@ struct Renderer {
 
 	}
 
-	#if defined(JPH_DEBUG_RENDERER)
-	void initFisisksRenderer(PhysicsSystem& physicsSystem) {
 
-		const RenderConxtext& rendercontext = ecs.get<RenderConxtext>();
-		const RendererConfig& config = ecs.get<RendererConfig>();
-
-		SDL_Log("initFisisksRenderer()");
-
-		if (!fisiksRenderer) {
-			fisiksRenderer = std::make_unique<fisiksDebugRenderer>(ecs,config.DrawBoundingBoxPhysics,config.DrawShapeWireframePhysics,physicsSystem);
-
-			//TODO MOVE THIS 
-			//shader::generateSpirvShaders("shaders/slang/physicsRender.slang", "shaders/compiled/physicsRender.vert.spv", "shaders/compiled/physicsRender.frag.spv");
-			RenderUtil::loadShaderSPRIV(rendercontext.device, fisiksRenderer->vertexShader, "shaders/compiled/physicsRender.vert.spv", SDL_GPU_SHADERSTAGE_VERTEX,0, 2, 0, 0);
-			RenderUtil::loadShaderSPRIV(rendercontext.device, fisiksRenderer->fragmentShader, "shaders/compiled/physicsRender.frag.spv", SDL_GPU_SHADERSTAGE_FRAGMENT,0, 0, 0, 0);
-
-			fisiksRenderer->createPipeline();
-		}
-	}
-
+#if defined(JPH_DEBUG_RENDERER)
 	void renderPhysics(SDL_GPURenderPass* renderPass) {
+
+		fisiksDebugRenderer& fisiksRenderer = ecs.get_mut<fisiksDebugRenderer>();
 
 		ecs.query<Camera, ActiveCamera>()
 			.each([&](Camera& cam, ActiveCamera) {
 
 			RVec3Arg camPos(cam.position.x, cam.position.y, cam.position.z);
-			fisiksRenderer->setCameraUnifroms(camPos, cam.generateview(), cam.generateProj());
+
+			fisiksRenderer.setCameraUnifroms(camPos, cam.generateview(), cam.generateProj());
 
 		});
 
 
-		// The following might be updated everyframe so we need to pass them to fisiksRenderer
+		// The following are updated everyframe so we need to pass them to fisiksRenderer
 		// here instead of during construction
-		fisiksRenderer->renderPass = renderPass;
+		fisiksRenderer.renderPass = renderPass;
 
-		SDL_BindGPUGraphicsPipeline(renderPass, fisiksRenderer->pipeline);
+		// actually draws
+		fisiksRenderer.drawAll();
 
-		fisiksRenderer->physicsSystem.DrawBodies(fisiksRenderer->drawSettings, &*fisiksRenderer);
 	}
-	#endif
+#endif
 
 	void endRenderPass() {
 
@@ -578,11 +551,9 @@ struct Renderer {
 
 		drawModels();
 
-		#if defined(JPH_DEBUG_RENDERER)
-				if (config.RendererPhysics) {
-					renderPhysics(mainRenderPass);
-				}
-		#endif
+#if defined(JPH_DEBUG_RENDERER)
+		if (config.RenderPhysics)  renderPhysics(mainRenderPass);
+#endif
 
 		endRenderPass();
 

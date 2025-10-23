@@ -9,7 +9,6 @@
 #include <Jolt/Physics/PhysicsSystem.h>
 #include <Jolt/Physics/Character/Character.h>
 
-
 struct Vertex {
 	glm::vec3 position;
 	glm::vec3 normal;
@@ -28,6 +27,14 @@ struct Transform {
 
 struct PlayerInput {
 	glm::vec3 direction = glm::vec3(0);
+	float offsetX = 0.0f;
+	float offsetY = 0.0f;
+	bool jump = false;
+};
+
+//TODO use this
+struct PlayerInput2 {
+	JPH::Vec3 direction = JPH::Vec3::sZero();
 	float offsetX = 0.0f;
 	float offsetY = 0.0f;
 	bool jump = false;
@@ -57,8 +64,16 @@ struct HudRender {
 	std::function<void(flecs::world& ecs)> draw;
 };
 
+struct Render {
+	std::function<void(flecs::world& ecs)> draw;
+};
+
 struct JoltCharacter {
 	JPH::Character* characterPtr = nullptr;
+};
+
+struct Callback {
+	std::function<void()> callbackFunction;
 };
 
 
@@ -70,3 +85,7 @@ struct Sensor {};
 struct CustomPipeline {};
 
 struct ActiveCamera {};
+
+
+struct MenuItem {};
+struct Active{};

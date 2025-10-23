@@ -1,5 +1,6 @@
 ﻿#include "Synthwave.h"
 
+
 int main(int argc, char* argv[])
 {
 	bool running = true;
@@ -8,17 +9,20 @@ int main(int argc, char* argv[])
 
 	Fisiks fisiks(ecs);
 
-	Renderer renderer(ecs, fisiks.physics_system);
+	Renderer renderer(ecs);
 
-	TimeManager time;
+	float timeStep = 1.0f / 60.0f;
+	TimeManager time(timeStep);
 
-	StateManager stateManager(ecs,renderer,time);
+	Scene scene(ecs, fisiks, renderer);
 
-	Scene scene(ecs, fisiks, renderer, stateManager);
+	StateManager stateManager(ecs, renderer, time, scene, running);
 
 	InputManager inputManager(ecs,stateManager);
 
-	printf("\033[35mWelcome to the simulation!\033[0m\n");
+	stateManager.init();
+
+	printf("\033[35mInitializing simulation\033[0m\n");
 	SDL_Event event;
 	while (running) {
 
@@ -26,7 +30,7 @@ int main(int argc, char* argv[])
 
 		while (SDL_PollEvent(&event)) {
 			
-			inputManager.handleEvents(running,event);
+			inputManager.handleEvents(event);
 
 			ImGui_ImplSDL3_ProcessEvent(&event);
 		}
@@ -36,14 +40,15 @@ int main(int argc, char* argv[])
 
 			inputManager.handleInput();
 
-			fisiks.update(time.timeStep, ecs);
+			fisiks.update(time.timeStep);
 			
 			scene.update();
+
+			stateManager.updateState();
 
 			time.accumulator -= time.timeStep;
 		}
 		//TODO INTERPOLATE to account for physics and rendering happening at diffrent rates
-
 		renderer.drawAll();
 
 	}

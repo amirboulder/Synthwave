@@ -63,8 +63,8 @@ public:
 	}
 
 	void processFreeCamKBMInput() {
-
-		Camera& camera = stateManager.freeCam.get_mut<Camera>();
+		//TODO keep a ref instead of looking up by name
+		Camera& camera = ecs.lookup("FreeCam").get_mut<Camera>();
 
 		const bool* keystates = SDL_GetKeyboardState(NULL);
 
@@ -100,21 +100,20 @@ public:
 
 	}
 
-	void handleEvents(bool& running,SDL_Event event) {
+	void handleEvents(SDL_Event event) {
 
 
 		if (event.type == SDL_EVENT_KEY_DOWN && event.key.repeat == 0 && event.key.scancode == SDL_SCANCODE_F1) {
 
-			stateManager.handleSavingRenderConfig();
 			stateManager.save();
 		}
 
 		if (event.type == SDL_EVENT_KEY_DOWN && event.key.repeat == 0 && event.key.scancode == closeWindow) {
-			running = false;
+			stateManager.exitCallback();
 		}
 
 		if (event.type == SDL_EVENT_QUIT) {
-			running = false;
+			stateManager.exitCallback();
 		}
 
 		//used for switching between menu and game
@@ -127,49 +126,50 @@ public:
 		// Switch between playerCam and freeCam
 		if (event.type == SDL_EVENT_KEY_DOWN && event.key.repeat == 0 && event.key.scancode == SDL_SCANCODE_F2) {
 
-			stateManager.handleCameraSwitch();
+			stateManager.switchAppContext();
 
 		}
 
 	}
 
 	void handlePlayerKBMInput() {
+		//TODO keep a ref instead of looking up by name
+		Camera& camera = ecs.lookup("PlayerCam").get_mut<Camera>();
 
-		Camera& camera = stateManager.playerCam.get_mut<Camera>();
-
-		PlayerInput & input =  ecs.lookup("player").get_mut<Player>().input;
+		Player & player2 = ecs.lookup("player2").get_mut<Player>();
 
 		const bool* keystates = SDL_GetKeyboardState(NULL);
 
-		// Reset input
-		input.direction = glm::vec3(0);
-		input.jump = false;
-		input.offsetX = 0.0f;
-		input.offsetY = 0.0f;
-
+		glm::vec3 playerInput = glm::vec3(0);
 
 		// Handle WASD movement
 		if (keystates[SDL_SCANCODE_W]) {
-			input.direction += camera.front;
+			playerInput += camera.front;
 		}
 		if (keystates[SDL_SCANCODE_S]) {
-			input.direction -= camera.front;
+			playerInput -= camera.front;
 		}
 		if (keystates[SDL_SCANCODE_D]) {
-			input.direction += camera.right;
+			playerInput += camera.right;
 		}
 		if (keystates[SDL_SCANCODE_A]) {
-			input.direction -= camera.right;
+			playerInput -= camera.right;
 		}
 
 		// Normalize direction to prevent faster diagonal movement
-		if (glm::length2(input.direction) > 0.0f) {
-			input.direction = glm::normalize(input.direction);
+		if (glm::length2(playerInput) > 0.0f) {
+			playerInput = glm::normalize(playerInput);
 		}
+
+		player2.mMoveInput.SetX(playerInput.x);
+		player2.mMoveInput.SetY(playerInput.y);
+		player2.mMoveInput.SetZ(playerInput.z);
 
 		// Handle jump (spacebar)
 		if (keystates[SDL_SCANCODE_SPACE]) {
-			input.jump = true;
+			
+			player2.Jump();
+
 		}
 
 		// Handle mouse input for rotation
@@ -183,8 +183,8 @@ public:
 		smoothedXOffset = smoothedXOffset * (1.0f - smoothingFactor) + deltaX * smoothingFactor;
 		smoothedYOffset = smoothedYOffset * (1.0f - smoothingFactor) + deltaY * smoothingFactor;
 
-		input.offsetX = smoothedXOffset;
-		input.offsetY = smoothedYOffset; 
+		player2.offsetX = smoothedXOffset;
+		player2.offsetY = smoothedYOffset;
 
 	}
 

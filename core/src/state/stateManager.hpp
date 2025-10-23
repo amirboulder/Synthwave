@@ -1,8 +1,9 @@
 #pragma once
 
-#include <flecs.h>
+#include <fstream>
+#include <iostream>
 
-#include "PlayerState.hpp"
+#include <flecs.h>
 
 #include "../renderer/renderer.hpp"
 
@@ -14,62 +15,130 @@
 
 class StateManager {
 
+
 public:
 
+	AppContext appContext = AppContext::menu;
+	PlayState playState = PlayState::pause;
 
 	Renderer& renderer;
-	TimeManager & time;
+	Scene& scene;
+	TimeManager& time;
 
 	flecs::world& ecs;
 
+	flecs::entity mainMenu;
 	flecs::entity playerCam;
 	flecs::entity freeCam;
+	flecs::entity player;
 
-	AppContext appContext = AppContext::player;
-	PlayState playState = PlayState::play;
 
-	StateManager(flecs::world& ecs,Renderer& renderer, TimeManager & time)
-		: ecs(ecs), renderer(renderer), time(time)
+	bool & running ;
+
+	StateManager(flecs::world& ecs,Renderer& renderer, TimeManager & time,Scene& scene ,bool& running)
+		: ecs(ecs), renderer(renderer), time(time), running(running), scene(scene)
 	{
-		applicationSetup();
-	}
 
-
-	void applicationSetup() {
-
-		createCameras();
-		setActiveCamera(appContext);
+		createEntities();
 
 	}
 
-	void createCameras() {
+
+	void init() {
+
+		//TODO See if there is a benefit to initilizing systems like physics here instead of in their constructor
 		
-		const RendererConfig& config = ecs.get<RendererConfig>();
+		createfisiksRenderer();
 
-		playerCam = ecs.entity("PlayerCam")
-			.emplace<Camera>(config);
+		getEntityHandles();
 
-		freeCam = ecs.entity("FreeCam")
-			.emplace<Camera>(config);
+	}
 
+	
+	void initSystems() {
+
+		//init physics
+
+		//init Time 
+
+		// init Scene
+
+	}
+
+
+	void createEntities() {
+
+		std::function<void()> newGameFunction = [this]() { this->newGameCallback(); };
+		ecs.entity("newGame").emplace<Callback>(newGameFunction);
+
+		std::function<void()> loadGameFunction = [this]() { this->loadGameCallback(); };
+		ecs.entity("loadGame").emplace<Callback>(loadGameFunction);
+
+		std::function<void()> gameOptionsFunction = [this]() { this->gameOptionsCallback(); };
+		ecs.entity("gameOptions").emplace<Callback>(gameOptionsFunction);
+
+		std::function<void()> exitFunction = [this]() { this->exitCallback(); };
+		ecs.entity("Exit").emplace<Callback>(exitFunction);
+	}
+
+	void getEntityHandles() {
+
+
+		playerCam = ecs.lookup("PlayerCam");
+		freeCam = ecs.lookup("FreeCam");
+
+		mainMenu = ecs.lookup("Main Menu");
+	}
+
+
+	void createfisiksRenderer() {
+#ifdef JPH_DEBUG_RENDERER
+
+		ecs.emplace<fisiksDebugRenderer>(ecs);
+
+#endif
 	}
 
 
 	bool save() {
 
-		PlayerState::savePlayerState(ecs ,"data/playerState.json");
 
-		//TODO change to game once we start saving game state
-		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "player saved successfully");
+		handleSavingRenderConfig();
+
+		std::string path = "data/save1.json";
+
+		json j;
+
+		ecs.lookup("player2").get<Player>().save(j);
+		playerCam.get<Camera>().saveTransform(j);
+
+		std::ofstream file(path);
+		if (!file.is_open()) {
+			throw std::runtime_error("Failed to open file for writing: " + path);
+		}
+		file << j.dump(4); // pretty-print
+
+		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "game saved successfully");
 		return true;
 	}
 
 	bool load() {
 
-		PlayerState::loadPlayerState(ecs ,"data/playerState.json");
+		std::string path = "data/save1.json";
+		std::ifstream file(path);
+		if (!file.is_open()) {
+			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to open save file");
+			return false;
+		}
+
+		json j;
+		file >> j;
+
+		ecs.lookup("player2").get_mut<Player>().load(j);
+		playerCam.get_mut<Camera>().loadTransform(j);
 
 		//TODO change to game once we start loading game state
-		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "player loaded successfully");
+		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "game saved successfully");
 		return true;
 	}
 
@@ -100,50 +169,101 @@ public:
 		}
 	}
 
-	void setActiveCamera(AppContext context) {
+	void setApplicationState(AppContext newContext) {
 
-		switch (context) {
+		appContext = newContext;
+		
+	}
+
+	
+
+	void setActiveCamera() {
+
+
+
+		assert(playerCam && "PlayerCam entity missing!");
+		assert(freeCam && "FreeCam entity missing!");
+
+		switch (appContext) {
 
 		case AppContext::player:
+
 			playerCam.add<ActiveCamera>();
 			freeCam.remove<ActiveCamera>();
+			SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "AppContext set to player");
 			break;
 
 		case AppContext::freeCam:
 			playerCam.remove<ActiveCamera>();
 			freeCam.add<ActiveCamera>();
-
+			SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "AppContext set to Menu");
 			break;
+		case AppContext::menu:
+			playerCam.remove<ActiveCamera>();
+			freeCam.remove<ActiveCamera>();
+			SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "AppContext set to freeCam");
+			break;
+		case AppContext::editor:
+			playerCam.remove<ActiveCamera>();
+			freeCam.remove<ActiveCamera>();
+			SDL_LogError(SDL_LOG_CATEGORY_ERROR, "AppContext set to editor but its not implemented yet");
+			break;
+
 		}
+
 	}
 
 
-	void handleCameraSwitch() {
-
+	void switchAppContext() {
 		if (appContext == AppContext::player) {
-
 			appContext = AppContext::freeCam;
 
-			setActiveCamera(appContext);
-			SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "using free camera");
+			setActiveCamera();
 		}
 		else if (appContext == AppContext::freeCam) {
-
 			appContext = AppContext::player;
+			setActiveCamera();
+		}
+	}
 
-			setActiveCamera(appContext);
-			SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "using player camera");
+	// Create ECS system to handle changs so we don't have to check this everyframe
+	void updateState() {
+		
+		
+		switch (appContext) {
+
+		case AppContext::player:
+
+			mainMenu.remove<Active>();
+			//SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "AppContext set to player");
+			break;
+
+		case AppContext::freeCam:
+		
+			mainMenu.remove<Active>();
+
+			//SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "AppContext set to Menu");
+			break;
+		case AppContext::menu:
+			
+			mainMenu.add<Active>();
+			//DL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "AppContext set to freeCam");
+			break;
+		case AppContext::editor:
+			
+			mainMenu.remove<Active>();
+			//SDL_LogError(SDL_LOG_CATEGORY_ERROR, "AppContext set to editor but its not implemented yet");
+			break;
 
 		}
 	}
 
 	void handleSavingRenderConfig() {
 
-		//SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,"handleSavingRenderConfig FIX IT FIX IT FIX IT FIX IT!!!!");
 
 		RendererConfig& config = ecs.get_mut<RendererConfig>();
 
-		const Camera& camera = freeCam.get<Camera>();
+		const Camera& camera = ecs.lookup("FreeCam").get<Camera>();
 
 		config.FreeCamFront = camera.front;
 		config.FreeCamPos = camera.position;
@@ -153,5 +273,50 @@ public:
 
 		//TODO modify function so the path is not hardcoded
 		RendererConfig::saveRendererConfigINIFile(ecs,"config/renderConfig.ini");
+	}
+
+	void newGameCallback() {
+
+		const RenderConxtext& rendercontext = ecs.get<RenderConxtext>();
+
+		setApplicationState(AppContext::player);
+		setActiveCamera();
+
+		SDL_SetWindowRelativeMouseMode(rendercontext.window, true);
+
+		scene.constructLevel();
+
+		time.startGameTime();
+	}
+
+	void loadGameCallback() {
+
+		const RenderConxtext& rendercontext = ecs.get<RenderConxtext>();
+
+		//TODO maybe lock cursor during load so the camera does not move 
+		
+		setApplicationState(AppContext::player);
+		setActiveCamera();
+
+		load();
+
+		SDL_SetWindowRelativeMouseMode(rendercontext.window, true);
+
+		scene.constructLevel();
+
+		time.startGameTime();
+
+	}
+
+	void gameOptionsCallback() {
+
+	}
+
+	void toMainMenuCallback () {
+
+	}
+
+	void exitCallback() {
+		running = false;
 	}
 };

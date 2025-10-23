@@ -15,9 +15,7 @@ public:
 	int windowWidth = 1920;
 	int windowHeight = 1080;
 
-
-
-	bool RendererPhysics = true;
+	bool RenderPhysics = true;
 	bool DrawBoundingBoxPhysics = false;
 	bool DrawShapeWireframePhysics = true;
 
@@ -53,7 +51,7 @@ public:
 
 		iniFile << "[renderer]\n";
 		iniFile << "sampleCountMSAA=" << static_cast<int>(cfg.sampleCountMSAA) << "\n";
-		iniFile << "RendererPhysics=" << (cfg.RendererPhysics ? "true" : "false") << "\n";
+		iniFile << "RendererPhysics=" << (cfg.RenderPhysics ? "true" : "false") << "\n";
 		iniFile << "DrawBoundingBoxPhysics=" << (cfg.DrawBoundingBoxPhysics ? "true" : "false") << "\n";
 		iniFile << "DrawShapeWireframePhysics=" << (cfg.DrawShapeWireframePhysics ? "true" : "false") << "\n\n";
 
@@ -79,17 +77,17 @@ public:
 	//sets values to default if they are not found within the config file
 	static void loadRendererConfigINIFile(flecs::world& ecs,const std::string& filepath) {
 
-		if (!std::filesystem::exists(filepath)) {
-			SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "renderConfig file does not exist. Creating a new one");
+		//if (!std::filesystem::exists(filepath)) {
+		//	SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "renderConfig file does not exist. Creating a new one");
 
-			RendererConfig::saveRendererConfigINIFile(ecs,filepath);
+		//	RendererConfig::saveRendererConfigINIFile(ecs,filepath);
 
-		}
+		//}
 
 		INIReader reader(filepath);
 
 		if (reader.ParseError() < 0) {
-			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to load file: %s", filepath.c_str());
+			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to load file: %s loading using default settings", filepath.c_str());
 			return;
 		}
 
@@ -104,7 +102,7 @@ public:
 			reader.GetInteger("renderer", "sampleCountMSAA", defaultCfg.sampleCountMSAA)
 			);
 
-		cfg.RendererPhysics = reader.GetBoolean("renderer", "RendererPhysics", defaultCfg.RendererPhysics);
+		cfg.RenderPhysics = reader.GetBoolean("renderer", "RendererPhysics", defaultCfg.RenderPhysics);
 		cfg.DrawBoundingBoxPhysics = reader.GetBoolean("renderer", "DrawBoundingBoxPhysics", defaultCfg.DrawBoundingBoxPhysics);
 		cfg.DrawShapeWireframePhysics = reader.GetBoolean("renderer", "DrawShapeWireframePhysics", defaultCfg.DrawShapeWireframePhysics);
 

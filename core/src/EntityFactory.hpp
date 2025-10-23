@@ -212,7 +212,7 @@ public:
 		pillSettings.mRestitution = 0.5f;
 
 		pillSettings.mOverrideMassProperties = JPH::EOverrideMassProperties::CalculateInertia;
-		pillSettings.mMassPropertiesOverride.mMass = 5000.1f;
+		pillSettings.mMassPropertiesOverride.mMass = 50.1f;
 
 
 		// Create and add body
@@ -263,7 +263,7 @@ public:
 
 		JPH::Character* & joltCharacter = actorEnt.get_mut<JoltCharacter>().characterPtr;
 
-		joltCharacter = new JPH::Character(&settings, joltPosition, joltRotation, actorEnt.id(), &fisiks.physics_system);
+		joltCharacter = new JPH::Character(&settings, joltPosition, joltRotation, actorEnt.id(), &fisiks.physicsSystem);
 
 		joltCharacter->AddToPhysicsSystem(JPH::EActivation::Activate);
 
@@ -439,10 +439,25 @@ public:
 
 	static bool createHUDElementEntity(flecs::world& ecs, std::string name,std::function<void(flecs::world& ecs)> drawFunction) {
 
-		flecs::entity actorEnt = ecs.entity("HUD")
+		flecs::entity entity = ecs.entity(name.c_str())
 			.emplace<HudRender>(drawFunction);
 
-		if (!validateEntityCreation(actorEnt, name)) return false;
+		if (!validateEntityCreation(entity, name)) return false;
+
+
+		return true;
+
+	}
+
+
+	static bool createMenulementEntity(flecs::world& ecs, std::string name, std::function<void(flecs::world& ecs)> drawFunction) {
+
+		flecs::entity entity = ecs.entity(name.c_str())
+			.emplace<Render>(drawFunction)
+			.add<MenuItem>()
+			.add<Active>();
+
+		if (!validateEntityCreation(entity, name)) return false;
 
 
 		return true;

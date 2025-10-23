@@ -286,7 +286,7 @@ public:
 	// Registering one is entirely optional.
 	MyContactListener contact_listener;
 
-	PhysicsSystem physics_system;
+	PhysicsSystem physicsSystem;
 
 	// The main way to interact with the bodies in the physics system is through the body interface. There is a locking and a non-locking
 	// variant of this. We're going to use the locking version (even though we're not planning to access bodies from multiple threads)
@@ -314,8 +314,8 @@ public:
 		object_vs_object_layer_filter(),
 		body_activation_listener(),
 		contact_listener(ecs),
-		physics_system(),
-		bodyInterface(physics_system.GetBodyInterface()),
+		physicsSystem(),
+		bodyInterface(physicsSystem.GetBodyInterface()),
 		ecs(ecs)
 
 
@@ -365,22 +365,22 @@ public:
 
 
 		// Now we can initlize the actual physics system.
-		physics_system.Init(cMaxBodies, cNumBodyMutexes, cMaxBodyPairs, cMaxContactConstraints, broad_phase_layer_interface, object_vs_broadphase_layer_filter, object_vs_object_layer_filter);
+		physicsSystem.Init(cMaxBodies, cNumBodyMutexes, cMaxBodyPairs, cMaxContactConstraints, broad_phase_layer_interface, object_vs_broadphase_layer_filter, object_vs_object_layer_filter);
 
 
 		// A body activation listener gets notified when bodies activate and go to sleep
-		physics_system.SetBodyActivationListener(&body_activation_listener);
+		physicsSystem.SetBodyActivationListener(&body_activation_listener);
 
 		// A contact listener gets notified when bodies (are about to) collide, and when they separate again.
-		physics_system.SetContactListener(&contact_listener);
+		physicsSystem.SetContactListener(&contact_listener);
 
 
 		// Optional step: Before starting the physics simulation you can optimize the broad phase. This improves collision detection performance
 		// You should definitely not call this every frame or when e.g. streaming in a new level section as it is an expensive operation.
 		// Instead insert all new objects in batches instead of 1 at a time to keep the broad phase efficient.
-		physics_system.OptimizeBroadPhase();
+		physicsSystem.OptimizeBroadPhase();
 
-		physics_system.SetGravity(JPH::Vec3(0,-20.0f, 0));
+		physicsSystem.SetGravity(JPH::Vec3(0,-20.0f, 0));
 
 		init();
 
@@ -400,18 +400,31 @@ public:
 	}
 
 
-	void update(double cDeltaTime, flecs::world& ecs) {
+	void update(double cDeltaTime) {
 
 		//OPTICK_EVENT();
 
-		physics_system.Update(cDeltaTime, cCollisionSteps, temp_allocator, job_system);
+		physicsSystem.Update(cDeltaTime, cCollisionSteps, temp_allocator, job_system);
 
-		syncTransfroms(ecs);
+		syncTransfroms();
+	
+
+		// Does not actually draw it just puts all render batches in vector so they can be drawn by the renderer
+
+#ifdef JPH_DEBUG_RENDERER
+		fisiksDebugRenderer& fisiksRenderer = ecs.get_mut<fisiksDebugRenderer>();
+		fisiksRenderer.batches.clear();
+		fisiksRenderer.modelMatrices.clear();
+
+		//puts all render batches in vector 
+		physicsSystem.DrawBodies(fisiksRenderer.drawSettings, &fisiksRenderer);
+#endif
+		
 
 	}
 
 
-	void syncTransfroms(flecs::world& ecs) {
+	void syncTransfroms() {
 
 		// query all dynamic ents and sync their positions and rotations
 		q1.each([&](flecs::entity e, Transform& transform, JPH::BodyID& physicsBody, DynamicEnt) {
