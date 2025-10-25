@@ -1,6 +1,6 @@
 #pragma once
-#include <vector>
-#include <glm/glm.hpp>
+
+#include "core/src/pch.h"
 
 #include "../ecs/components.hpp"
 

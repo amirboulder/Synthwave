@@ -5,12 +5,11 @@
 
 #ifdef JPH_DEBUG_RENDERER
 
-#include <Jolt/Jolt.h>
+#include "core/src/pch.h"
 
 #include "../renderer/renderUtil.hpp"
 #include "../renderer/rendererConfig.hpp"
 
-#include <Jolt/Renderer/DebugRenderer.h>
 
 JPH_NAMESPACE_BEGIN
 

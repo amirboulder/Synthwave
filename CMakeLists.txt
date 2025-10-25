@@ -1,5 +1,7 @@
 ﻿cmake_minimum_required (VERSION 3.28)
 
+project ("Synthwave")
+
 # Set C++ standard
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -7,7 +9,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
-project ("Synthwave")
+if(MSVC)
+    add_compile_options(/MP)
+endif()
+
 
 include(FetchContent)
 set(FETCHCONTENT_QUIET FALSE)
@@ -298,10 +303,11 @@ Jolt
 OptickCore
 inih
 flecs::flecs
-
 )
 
-
+target_precompile_headers(Synthwave PRIVATE 
+    "${CMAKE_SOURCE_DIR}/core/src/pch.h"
+)
 
 file(COPY core/src/renderer/shaders/slang DESTINATION ${CMAKE_BINARY_DIR}/shaders/)
 file(COPY assets DESTINATION ${CMAKE_BINARY_DIR})

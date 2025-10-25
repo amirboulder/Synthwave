@@ -1,14 +1,6 @@
 #pragma once
 
-#include <vector>
-
-#include <flecs.h>
-
-#include <glm/gtc/quaternion.hpp>
-#include <glm/gtx/quaternion.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-
-#include <SDL3/SDL.h>
+#include "core/src/pch.h"
 
 #include "Model.hpp"
 #include "../physics/physics.hpp"
@@ -26,8 +18,6 @@
 
 #include "Shader.hpp"
 #include "pipeline.hpp"
-
-#include "optick.h"
 
 using std::vector;
 
@@ -154,7 +144,7 @@ struct Renderer {
 		// SDL_GPU_PRESENTMODE_IMMEDIATE for uncapped fps
 		// SDL_GPU_PRESENTMODE_VSYNC for VSYNC
 		SDL_SetGPUSwapchainParameters(rendercontext.device, rendercontext.window,
-			SDL_GPU_SWAPCHAINCOMPOSITION_SDR, SDL_GPU_PRESENTMODE_IMMEDIATE);
+			SDL_GPU_SWAPCHAINCOMPOSITION_SDR, SDL_GPU_PRESENTMODE_VSYNC);
 
 		return true;
 	}

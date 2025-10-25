@@ -44,7 +44,7 @@ int main(int argc, char* argv[])
 			
 			scene.update();
 
-			stateManager.updateState();
+			stateManager.update();
 
 			time.accumulator -= time.timeStep;
 		}

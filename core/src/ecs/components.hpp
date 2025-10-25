@@ -1,13 +1,8 @@
 #pragma once
 
-#include <glm/glm.hpp>
-#include <glm/gtc/quaternion.hpp>
-#include <glm/gtx/quaternion.hpp>
-#include <glm/gtc/matrix_transform.hpp>
+#include "core/src/pch.h"
 
-#include <Jolt/Jolt.h>
-#include <Jolt/Physics/PhysicsSystem.h>
-#include <Jolt/Physics/Character/Character.h>
+#include "../common.hpp"
 
 struct Vertex {
 	glm::vec3 position;
@@ -74,6 +69,10 @@ struct JoltCharacter {
 
 struct Callback {
 	std::function<void()> callbackFunction;
+};
+
+struct stateChangeRequest {
+	AppContext::Type newContext;
 };
 
 

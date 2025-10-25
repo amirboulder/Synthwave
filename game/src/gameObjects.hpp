@@ -84,7 +84,7 @@ public:
 		//////////////////////////////
 		//Player
 
-		playerEntity = ecs.entity("player2").emplace<Player>(ecs, fisiks);
+		playerEntity = ecs.entity("player").emplace<Player>(ecs, fisiks);
 
 		playerComponent = playerEntity.get_ref<Player>();
 

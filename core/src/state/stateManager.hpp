@@ -1,9 +1,6 @@
 #pragma once
 
-#include <fstream>
-#include <iostream>
-
-#include <flecs.h>
+#include "core/src/pch.h"
 
 #include "../renderer/renderer.hpp"
 
@@ -13,13 +10,13 @@
 
 #include "../common.hpp"
 
+
 class StateManager {
 
+	PlayState playState = PlayState::pause;
 
 public:
 
-	AppContext appContext = AppContext::menu;
-	PlayState playState = PlayState::pause;
 
 	Renderer& renderer;
 	Scene& scene;
@@ -32,29 +29,33 @@ public:
 	flecs::entity freeCam;
 	flecs::entity player;
 
+	flecs::system processContextChanges;
 
 	bool & running ;
 
 	StateManager(flecs::world& ecs,Renderer& renderer, TimeManager & time,Scene& scene ,bool& running)
 		: ecs(ecs), renderer(renderer), time(time), running(running), scene(scene)
 	{
+		createHooks();
+
+		createComponents();
 
 		createEntities();
+
+		createECSSystems();
 
 	}
 
 
 	void init() {
 
-		//TODO See if there is a benefit to initilizing systems like physics here instead of in their constructor
-		
 		createfisiksRenderer();
 
 		getEntityHandles();
 
 	}
 
-	
+	//TODO See if there is a benefit to initilizing systems like physics here instead of in their constructor
 	void initSystems() {
 
 		//init physics
@@ -79,6 +80,37 @@ public:
 
 		std::function<void()> exitFunction = [this]() { this->exitCallback(); };
 		ecs.entity("Exit").emplace<Callback>(exitFunction);
+
+	}
+
+
+
+	void createHooks() {
+
+		appContextHook();
+
+	}
+
+	void createComponents() {
+
+		ecs.add<AppContext>();
+	}
+
+
+	void createECSSystems() {
+
+		// This system is manually run on
+		processContextChanges = ecs.system<stateChangeRequest>("processContextChanges")
+			.each([&](flecs::entity e,stateChangeRequest request) {
+
+			ecs.set<AppContext>({ request.newContext });
+
+			e.destruct();
+		});
+
+
+		
+
 	}
 
 	void getEntityHandles() {
@@ -99,6 +131,12 @@ public:
 #endif
 	}
 
+	//Run all systems in here
+	void update() {
+
+		processContextChanges.run();
+	}
+
 
 	bool save() {
 
@@ -109,7 +147,7 @@ public:
 
 		json j;
 
-		ecs.lookup("player2").get<Player>().save(j);
+		ecs.lookup("player").get<Player>().save(j);
 		playerCam.get<Camera>().saveTransform(j);
 
 		std::ofstream file(path);
@@ -134,10 +172,9 @@ public:
 		json j;
 		file >> j;
 
-		ecs.lookup("player2").get_mut<Player>().load(j);
+		ecs.lookup("player").get_mut<Player>().load(j);
 		playerCam.get_mut<Camera>().loadTransform(j);
 
-		//TODO change to game once we start loading game state
 		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "game saved successfully");
 		return true;
 	}
@@ -153,9 +190,7 @@ public:
 			
 			SDL_SetWindowRelativeMouseMode(rendercontext.window, true);
 
-			// flushing all the mouse movement accumulated during pause to avoid camera jerk
-			float dx, dy;
-			SDL_GetRelativeMouseState(&dx, &dy);
+			flushMouseMovement();
 
 			SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "play");
 
@@ -169,94 +204,82 @@ public:
 		}
 	}
 
-	void setApplicationState(AppContext newContext) {
 
-		appContext = newContext;
-		
-	}
 
 	
-
 	void setActiveCamera() {
-
-
 
 		assert(playerCam && "PlayerCam entity missing!");
 		assert(freeCam && "FreeCam entity missing!");
 
+		enum AppContext::Type appContext = ecs.get<AppContext>().value;
+
 		switch (appContext) {
 
-		case AppContext::player:
+		case AppContext::Player:
 
 			playerCam.add<ActiveCamera>();
 			freeCam.remove<ActiveCamera>();
-			SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "AppContext set to player");
 			break;
 
-		case AppContext::freeCam:
+		case AppContext::FreeCam:
 			playerCam.remove<ActiveCamera>();
 			freeCam.add<ActiveCamera>();
-			SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "AppContext set to Menu");
 			break;
-		case AppContext::menu:
+		case AppContext::Menu:
 			playerCam.remove<ActiveCamera>();
 			freeCam.remove<ActiveCamera>();
-			SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "AppContext set to freeCam");
 			break;
-		case AppContext::editor:
+		case AppContext::Editor:
 			playerCam.remove<ActiveCamera>();
 			freeCam.remove<ActiveCamera>();
-			SDL_LogError(SDL_LOG_CATEGORY_ERROR, "AppContext set to editor but its not implemented yet");
 			break;
 
 		}
 
 	}
 
-
+	// Switch between player and freeCam
 	void switchAppContext() {
-		if (appContext == AppContext::player) {
-			appContext = AppContext::freeCam;
 
-			setActiveCamera();
+		enum AppContext::Type appContext = ecs.get<AppContext>().value;
+
+		if (appContext == AppContext::Player) {
+			appContext = AppContext::FreeCam;
 		}
-		else if (appContext == AppContext::freeCam) {
-			appContext = AppContext::player;
-			setActiveCamera();
-		}
-	}
-
-	// Create ECS system to handle changs so we don't have to check this everyframe
-	void updateState() {
-		
-		
-		switch (appContext) {
-
-		case AppContext::player:
-
-			mainMenu.remove<Active>();
-			//SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "AppContext set to player");
-			break;
-
-		case AppContext::freeCam:
-		
-			mainMenu.remove<Active>();
-
-			//SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "AppContext set to Menu");
-			break;
-		case AppContext::menu:
-			
-			mainMenu.add<Active>();
-			//DL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "AppContext set to freeCam");
-			break;
-		case AppContext::editor:
-			
-			mainMenu.remove<Active>();
-			//SDL_LogError(SDL_LOG_CATEGORY_ERROR, "AppContext set to editor but its not implemented yet");
-			break;
-
+		else if (appContext == AppContext::FreeCam) {
+			appContext = AppContext::Player;
 		}
 	}
+
+	// This exists to ensure that menu and Camera are set correctly
+	void appContextHook() {
+
+		ecs.component<AppContext>()
+			.on_set([&](AppContext& ctx) {
+			switch (ctx.value) {
+			case AppContext::Menu:
+				mainMenu.add<Active>();
+				SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Context set to menu");
+				break;
+			case AppContext::Player:
+				mainMenu.remove<Active>();
+				SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Context set to player");
+				break;
+			case AppContext::FreeCam:
+				mainMenu.remove<Active>();
+				SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Context set to freeCam");
+				break;
+			case AppContext::Editor:
+				mainMenu.remove<Active>();
+				SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Context set to editor (not implemented)");
+				break;
+			}
+
+			setActiveCamera();
+		});
+	}
+
 
 	void handleSavingRenderConfig() {
 
@@ -275,34 +298,51 @@ public:
 		RendererConfig::saveRendererConfigINIFile(ecs,"config/renderConfig.ini");
 	}
 
+	//TODO maybe put in common
+	void flushMouseMovement() {
+
+		// flushing all the mouse movement accumulated during pause/load to avoid camera jerk
+		float dx, dy;
+		SDL_GetRelativeMouseState(&dx, &dy);
+	}
+
 	void newGameCallback() {
 
 		const RenderConxtext& rendercontext = ecs.get<RenderConxtext>();
 
-		setApplicationState(AppContext::player);
-		setActiveCamera();
+		ecs.defer([&] {
+			ecs.entity()
+				.set<stateChangeRequest>({ AppContext::Player });
+
+		});
+
+		scene.constructLevel();
 
 		SDL_SetWindowRelativeMouseMode(rendercontext.window, true);
 
-		scene.constructLevel();
+		flushMouseMovement();
 
 		time.startGameTime();
 	}
 
 	void loadGameCallback() {
 
-		const RenderConxtext& rendercontext = ecs.get<RenderConxtext>();
+		const RenderConxtext& renderContext = ecs.get<RenderConxtext>();
 
-		//TODO maybe lock cursor during load so the camera does not move 
-		
-		setApplicationState(AppContext::player);
-		setActiveCamera();
+		ecs.defer([&] {
+			ecs.entity()
+				.set<stateChangeRequest>({ AppContext::Player });
+		});
+
+		//check if a level is loaded if so then destroy the level or reset it
 
 		load();
 
-		SDL_SetWindowRelativeMouseMode(rendercontext.window, true);
+		SDL_SetWindowRelativeMouseMode(renderContext.window, true);
 
 		scene.constructLevel();
+
+		flushMouseMovement();
 
 		time.startGameTime();
 

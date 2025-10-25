@@ -1,20 +1,9 @@
 #pragma once
 
-#include <SDL3/SDL.h>
-
-#include<glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-
-#include <iostream>
-#include <fstream>
-#include <filesystem>
+#include "core/src/pch.h"
 
 using std::cout;
 using std::string;
-
-#include "slang-com-ptr.h"
-#include <slang.h>
-#include "slang-com-helper.h"
 
 
 #define RETURN_ON_FAIL(x) \

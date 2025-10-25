@@ -1,12 +1,8 @@
 #pragma once 
 
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
+#include "core/src/pch.h"
 
 #include "RendererConfig.hpp"
-
-#include <nlohmann/json.hpp>
 
 using json = nlohmann::json;
 

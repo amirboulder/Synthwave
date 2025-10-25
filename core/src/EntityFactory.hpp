@@ -1,14 +1,5 @@
 #pragma once
-#include <iostream>
-#include <vector>
-#include <algorithm>
-#include <float.h> 
-
-#include <flecs.h>
-
-#include <glm/glm.hpp>
-#include <glm/gtc/quaternion.hpp>
-#include <glm/gtx/matrix_decompose.hpp>
+#include "core/src/pch.h"
 
 // TODO maybe add flecs::world& ecs to this class and make the functions not static to reduce one parameter 
 class EntityFactory {

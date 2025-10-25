@@ -1,10 +1,7 @@
 #pragma once
-#include <iostream>
-#include "INIReader.h"
+#include "core/src/pch.h"
 
-//This class exists because there is a number of render related data that needs to be passed around
-// and I didn't want the pass around the renderer class itself
-//TODO Turn into ecs config
+//TODO take out freeCam pos/front and put it in the save file
 class RendererConfig {
 public:
 

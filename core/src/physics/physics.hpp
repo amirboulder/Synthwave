@@ -3,50 +3,13 @@
 // SPDX-FileCopyrightText: 2025 Jorrit Rouwe
 // SPDX-License-Identifier: CC0-1.0
 
-// The Jolt headers don't include Jolt.h. Always include Jolt.h before including any other Jolt header.
-// You can use Jolt.h in your precompiled header to speed up compilation.
-#include <Jolt/Jolt.h>
 
-// Jolt includes
-#include <Jolt/RegisterTypes.h>
-#include <Jolt/Core/Factory.h>
-#include <Jolt/Core/TempAllocator.h>
-#include <Jolt/Core/JobSystemThreadPool.h>
-#include <Jolt/Physics/PhysicsSettings.h>
-#include <Jolt/Physics/PhysicsSystem.h>
-#include <Jolt/Physics/Collision/Shape/BoxShape.h>
-#include <Jolt/Physics/Collision/Shape/SphereShape.h>
-#include <Jolt/Physics/Collision/Shape/CapsuleShape.h>
-#include <Jolt/Physics/Collision/Shape/MeshShape.h>
-#include <Jolt/Physics/Collision/Shape/EmptyShape.h>
-#include <Jolt/Physics/Collision/Shape/StaticCompoundShape.h>
-#include <Jolt/Physics/Body/BodyCreationSettings.h>
-#include <Jolt/Physics/Body/BodyActivationListener.h>
-#include <Jolt/Physics/Ragdoll/Ragdoll.h>
-
-
-#include <Jolt/Physics/Character/Character.h>
-#include <Jolt/Physics/Collision/RayCast.h>
-#include <Jolt/Physics/Collision/CastResult.h>
-
-#include <glm/glm.hpp>
-#include <glm/gtc/quaternion.hpp>    
-#include <glm/gtx/quaternion.hpp>  
-
-#include <iostream>
-#include <iomanip> 
-
-#include <cstdarg>
-#include <thread>
-
-
-#include <flecs.h>
+#include "core/src/pch.h"
 
 #include "debugRenderer.hpp"
 
 #include "../ecs/components.hpp"
 
-#include "optick.h"
 
 // Disable common warnings triggered by Jolt, you can use JPH_SUPPRESS_WARNING_PUSH / JPH_SUPPRESS_WARNING_POP to store and restore the warning state
 JPH_SUPPRESS_WARNINGS

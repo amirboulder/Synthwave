@@ -1,20 +1,11 @@
 #pragma once 
 
-#include <Jolt/Jolt.h>
-#include <Jolt/Physics/Character/CharacterVirtual.h>
-#include <Jolt/Physics/Character/Character.h>
-
 #include "renderer/Model.hpp"
 #include "renderer/Camera.hpp"
 
-
 #include "util/serializationHelpers.hpp"
 
-#include "optick.h"
-
 using namespace JPH;
-
-
 
 // Forward declare Player
 class Player;
