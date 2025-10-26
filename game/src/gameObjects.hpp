@@ -20,13 +20,17 @@ public:
 	flecs::world& ecs;
 
 	flecs::entity playerEntity;
-	flecs::ref<Player> playerComponent;
 
 	Fisiks& fisiks;
 
 	Renderer& renderer;
 
 	Ref<CharacterVirtual>	mCharacter;
+
+	flecs::entity sceneUpdatePhase;
+
+	flecs::system updateActorsSys;
+	flecs::system updatePlayerSys;
 
 	flecs::query<ActorBehavior>q1;
 	
@@ -86,10 +90,18 @@ public:
 
 		playerEntity = ecs.entity("player").emplace<Player>(ecs, fisiks);
 
-		playerComponent = playerEntity.get_ref<Player>();
+		playerEntity.get_mut<Player>().init(JPH::Vec3(1.0f, 15.0f, 0.0f), JPH::Quat(0.0f, 0.0f, 0.0f, 1.0f), 2.0f, 1.0f, playerEntity.id());
+
+		registerPhase();
+		registerSystems();
 
 
-		playerComponent->init(JPH::Vec3(1.0f, 15.0f, 0.0f), JPH::Quat(0.0f, 0.0f, 0.0f, 1.0f), 2.0f, 1.0f, playerEntity.id());
+	}
+
+	void registerSystems() {
+
+		updateActorsSystem();
+		updatePlayerSystem();
 
 	}
 
@@ -111,8 +123,6 @@ public:
 
 		//sponza
 		//ModelSource sponzaSource("assets/Sponza/sponza.obj", renderer.context.device);
-
-
 
 
 
@@ -250,16 +260,42 @@ public:
 	}
 
 
-	void update() {
+	void updateActorsSystem() {
 
-		playerComponent->PrePhysicsUpdate();
+		updateActorsSys = ecs.system<ActorBehavior>("ActorsUpdateSys")
+			.kind(sceneUpdatePhase)
+			.each([&](flecs::entity e, ActorBehavior& update) {
 
-
-		q1.each([&](flecs::entity ent, ActorBehavior & update) {
-
-			update.actorUpdate(ecs, ent);
+			update.actorUpdate(ecs, e);
 
 		});
+
+	}
+
+	// This phase is created after physicsPhase so it will run after it
+	void registerPhase() {
+
+		sceneUpdatePhase = ecs.entity()
+			.add(flecs::Phase)
+			// maybe it should  depends on physicsPhase ?
+			.depends_on(flecs::OnUpdate);
+
+		// disabled by default so that we don't start simulating until a level is loaded
+		sceneUpdatePhase.disable();
+	}
+
+	// Player update system can be made independent of the scene which would allow the player to move around while the world is frozen which is can be intresting for gameplay.
+	void updatePlayerSystem() {
+
+		flecs::system playerUpdateSys = ecs.system<Player>("PlayerUpdateSys")
+			.kind(sceneUpdatePhase)
+			.each([&](flecs::entity e, Player & p) {
+
+			p.update();
+
+		});
+
+		//TODO seprate player body render to here and set to a different phase than sceneUpdatePhase
 
 	}
 

@@ -41,7 +41,7 @@ public:
 	Vec3 mGravity = Vec3(0, -20.0f, 0);
 
 	//FIX FIX FIX
-	float physicsTickRate = 1.0f / 120.0f;
+	float physicsTickRate = 1.0f / 60.0f;
 
 
 	glm::vec3 cameraOffset = glm::vec3(0.0f, 2.0f, 0.0f);
@@ -244,7 +244,7 @@ public:
 		}
 	}
 
-	void PrePhysicsUpdate() {
+	void update() {
 
 		UpdateVelocity();
 		UpdateCharacter();

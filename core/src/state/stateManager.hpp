@@ -13,28 +13,28 @@
 
 class StateManager {
 
-	PlayState playState = PlayState::pause;
-
 public:
 
-
 	Renderer& renderer;
+	Fisiks& fisiks;
 	Scene& scene;
 	TimeManager& time;
 
 	flecs::world& ecs;
 
 	flecs::entity mainMenu;
+
 	flecs::entity playerCam;
 	flecs::entity freeCam;
+
 	flecs::entity player;
 
 	flecs::system processContextChanges;
 
 	bool & running ;
 
-	StateManager(flecs::world& ecs,Renderer& renderer, TimeManager & time,Scene& scene ,bool& running)
-		: ecs(ecs), renderer(renderer), time(time), running(running), scene(scene)
+	StateManager(flecs::world& ecs,Renderer& renderer,Fisiks & fisiks ,TimeManager & time,Scene& scene ,bool& running)
+		: ecs(ecs), renderer(renderer), time(time), fisiks(fisiks), running(running), scene(scene)
 	{
 		createHooks();
 
@@ -49,20 +49,24 @@ public:
 
 	void init() {
 
-		createfisiksRenderer();
-
 		getEntityHandles();
-
 	}
 
-	//TODO See if there is a benefit to initilizing systems like physics here instead of in their constructor
-	void initSystems() {
 
-		//init physics
+	void startGame() {
 
-		//init Time 
 
-		// init Scene
+		flushMouseMovement();
+
+		time.startGameTime();
+		ecs.set<PlayState>({ true });
+
+		//enable physics updates
+		fisiks.physicsPhase.enable();
+
+		// enable Scene updates
+		scene.sceneUpdatePhase.enable();
+		
 
 	}
 
@@ -94,13 +98,18 @@ public:
 	void createComponents() {
 
 		ecs.add<AppContext>();
+
+		ecs.component<PlayState>().add(flecs::Singleton);
+		ecs.set<PlayState>({});
 	}
 
 
 	void createECSSystems() {
 
-		// This system is manually run on
+		// This system is manually run on update()
+		//TODO it can run on flecs::PreUpdate phase
 		processContextChanges = ecs.system<stateChangeRequest>("processContextChanges")
+			.kind(0) // prevents a system from being registered as part of a pipeline
 			.each([&](flecs::entity e,stateChangeRequest request) {
 
 			ecs.set<AppContext>({ request.newContext });
@@ -123,15 +132,6 @@ public:
 	}
 
 
-	void createfisiksRenderer() {
-#ifdef JPH_DEBUG_RENDERER
-
-		ecs.emplace<fisiksDebugRenderer>(ecs);
-
-#endif
-	}
-
-	//Run all systems in here
 	void update() {
 
 		processContextChanges.run();
@@ -181,102 +181,93 @@ public:
 
 	void handleGamePause() {
 
-		RenderConxtext& rendercontext = ecs.get_mut<RenderConxtext>();
-
-		if (time.paused) {
-			time.unPauseGame();
-			playState = PlayState::play;
-
+		bool & play = ecs.get_mut<PlayState>().play;
+		if (play) {
 			
-			SDL_SetWindowRelativeMouseMode(rendercontext.window, true);
-
-			flushMouseMovement();
-
-			SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "play");
+			play = false;
+			fisiks.physicsPhase.disable();
+			scene.sceneUpdatePhase.disable();
+			SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "PlayState::pause");
 
 		}
 		else {
-			time.pauseGame();
-			playState = PlayState::pause;
-			SDL_SetWindowRelativeMouseMode(rendercontext.window, false);
 
-			SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "pause");
-		}
-	}
+			play = true;
 
-
-
-	
-	void setActiveCamera() {
-
-		assert(playerCam && "PlayerCam entity missing!");
-		assert(freeCam && "FreeCam entity missing!");
-
-		enum AppContext::Type appContext = ecs.get<AppContext>().value;
-
-		switch (appContext) {
-
-		case AppContext::Player:
-
-			playerCam.add<ActiveCamera>();
-			freeCam.remove<ActiveCamera>();
-			break;
-
-		case AppContext::FreeCam:
-			playerCam.remove<ActiveCamera>();
-			freeCam.add<ActiveCamera>();
-			break;
-		case AppContext::Menu:
-			playerCam.remove<ActiveCamera>();
-			freeCam.remove<ActiveCamera>();
-			break;
-		case AppContext::Editor:
-			playerCam.remove<ActiveCamera>();
-			freeCam.remove<ActiveCamera>();
-			break;
-
+			fisiks.physicsPhase.enable();
+			scene.sceneUpdatePhase.enable();
+			flushMouseMovement();
+			SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "PlayState::play");
 		}
 
 	}
+
 
 	// Switch between player and freeCam
 	void switchAppContext() {
 
-		enum AppContext::Type appContext = ecs.get<AppContext>().value;
+		const enum AppContext::Type appContext = ecs.get_mut<AppContext>().value;
 
 		if (appContext == AppContext::Player) {
-			appContext = AppContext::FreeCam;
+			ecs.set<AppContext>({ AppContext::FreeCam });
 		}
 		else if (appContext == AppContext::FreeCam) {
-			appContext = AppContext::Player;
+			ecs.set<AppContext>({ AppContext::Player });
 		}
 	}
 
-	// This exists to ensure that menu and Camera are set correctly
+	// Runs whenever appContext is changed
+	// Ensures that ActiveCamera Menu and RelativeMouseMode are set correctly
 	void appContextHook() {
+
+		//assert(playerCam && "PlayerCam entity missing!");
+		//assert(freeCam && "FreeCam entity missing!");
+
+		const RenderConxtext& renderContext = ecs.get<RenderConxtext>();
 
 		ecs.component<AppContext>()
 			.on_set([&](AppContext& ctx) {
 			switch (ctx.value) {
 			case AppContext::Menu:
+
 				mainMenu.add<Active>();
+
+				playerCam.remove<ActiveCamera>();
+				freeCam.remove<ActiveCamera>();
+				SDL_SetWindowRelativeMouseMode(renderContext.window, false);
+
 				SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Context set to menu");
 				break;
 			case AppContext::Player:
+
 				mainMenu.remove<Active>();
+
+				playerCam.add<ActiveCamera>();
+				freeCam.remove<ActiveCamera>();
+
+				SDL_SetWindowRelativeMouseMode(renderContext.window, true);
 				SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Context set to player");
 				break;
 			case AppContext::FreeCam:
+
 				mainMenu.remove<Active>();
+
+				playerCam.remove<ActiveCamera>();
+				freeCam.add<ActiveCamera>();
+
+				SDL_SetWindowRelativeMouseMode(renderContext.window, true);
 				SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Context set to freeCam");
 				break;
 			case AppContext::Editor:
 				mainMenu.remove<Active>();
+
+				playerCam.remove<ActiveCamera>();
+				freeCam.remove<ActiveCamera>();
+
+				SDL_SetWindowRelativeMouseMode(renderContext.window, false);
 				SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Context set to editor (not implemented)");
 				break;
 			}
-
-			setActiveCamera();
 		});
 	}
 
@@ -310,42 +301,28 @@ public:
 
 		const RenderConxtext& rendercontext = ecs.get<RenderConxtext>();
 
-		ecs.defer([&] {
-			ecs.entity()
-				.set<stateChangeRequest>({ AppContext::Player });
-
-		});
+		//Sending a request which will be handled during update()
+		ecs.entity().set<stateChangeRequest>({ AppContext::Player });
 
 		scene.constructLevel();
 
-		SDL_SetWindowRelativeMouseMode(rendercontext.window, true);
+		startGame();
 
-		flushMouseMovement();
-
-		time.startGameTime();
 	}
 
 	void loadGameCallback() {
 
 		const RenderConxtext& renderContext = ecs.get<RenderConxtext>();
 
-		ecs.defer([&] {
-			ecs.entity()
-				.set<stateChangeRequest>({ AppContext::Player });
-		});
+		//Sending a request which will be handled during update()
+		ecs.entity().set<stateChangeRequest>({ AppContext::Player });
 
-		//check if a level is loaded if so then destroy the level or reset it
-
+		//TODO check if a level is loaded if so then destroy the level or reset it
 		load();
-
-		SDL_SetWindowRelativeMouseMode(renderContext.window, true);
 
 		scene.constructLevel();
 
-		flushMouseMovement();
-
-		time.startGameTime();
-
+		startGame();
 	}
 
 	void gameOptionsCallback() {

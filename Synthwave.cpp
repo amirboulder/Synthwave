@@ -7,16 +7,15 @@ int main(int argc, char* argv[])
 
 	flecs::world ecs;
 
-	Fisiks fisiks(ecs);
-
 	Renderer renderer(ecs);
 
-	float timeStep = 1.0f / 60.0f;
-	TimeManager time(timeStep);
+	Fisiks fisiks(ecs);
+
+	TimeManager time(fisiks.timeStep);
 
 	Scene scene(ecs, fisiks, renderer);
 
-	StateManager stateManager(ecs, renderer, time, scene, running);
+	StateManager stateManager(ecs, renderer, fisiks, time, scene, running);
 
 	InputManager inputManager(ecs,stateManager);
 
@@ -40,15 +39,13 @@ int main(int argc, char* argv[])
 
 			inputManager.handleInput();
 
-			fisiks.update(time.timeStep);
-			
-			scene.update();
-
 			stateManager.update();
+
+			ecs.progress();
 
 			time.accumulator -= time.timeStep;
 		}
-		//TODO INTERPOLATE to account for physics and rendering happening at diffrent rates
+		//TODO INTERPOLATE to account for physics and rendering happening at different rates
 		renderer.drawAll();
 
 	}

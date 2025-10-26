@@ -1,8 +1,4 @@
 #pragma once
-// Jolt Physics Library (https://github.com/jrouwe/JoltPhysics)
-// SPDX-FileCopyrightText: 2025 Jorrit Rouwe
-// SPDX-License-Identifier: CC0-1.0
-
 
 #include "core/src/pch.h"
 
@@ -19,7 +15,6 @@ using namespace JPH;
 
 // If you want your code to compile using single or double precision write 0.0_r to get a Real value that compiles to double or float depending if JPH_DOUBLE_PRECISION is XX or not.
 using namespace JPH::literals;
-
 
 
 // Callback for traces, connect this to your own trace function if you have one
@@ -155,7 +150,7 @@ class MyContactListener : public ContactListener
 {
 public:
 
-	flecs::world & ecs;
+	flecs::world& ecs;
 
 
 	MyContactListener(flecs::world& ecs)
@@ -175,22 +170,22 @@ public:
 
 	virtual void OnContactAdded(const Body& inBody1, const Body& inBody2, const ContactManifold& inManifold, ContactSettings& ioSettings) override
 	{
-	
+
 		// If either body is sensor then call their SensorBehavior
 		flecs::entity e1(ecs, (flecs::entity_t)inBody1.GetUserData());
 		flecs::entity e2(ecs, (flecs::entity_t)inBody2.GetUserData());
 
 		if (e1.has<SensorBehavior>())
 		{
-			e1.get<SensorBehavior>().onContactAdded(ecs,e2, e1);
+			e1.get<SensorBehavior>().onContactAdded(ecs, e2, e1);
 		}
 
 		if (e2.has<SensorBehavior>())
 		{
-			e2.get<SensorBehavior>().onContactAdded(ecs,e2, e1);
+			e2.get<SensorBehavior>().onContactAdded(ecs, e2, e1);
 		}
-			
-			
+
+
 	}
 
 	virtual void			OnContactPersisted(const Body& inBody1, const Body& inBody2, const ContactManifold& inManifold, ContactSettings& ioSettings) override
@@ -223,7 +218,7 @@ public:
 class Fisiks {
 
 public:
-	
+
 	// Create mapping table from object layer to broadphase layer
 	// Note: As this is an interface, PhysicsSystem will take a reference to this so this instance needs to stay alive!
 	// Also have a look at BroadPhaseLayerInterfaceTable or BroadPhaseLayerInterfaceMask for a simpler interface.
@@ -258,6 +253,8 @@ public:
 	// If you take larger steps than 1 / 60th of a second you need to do multiple collision steps in order to keep the simulation stable. Do 1 collision step per 1 / 60th of a second (round up).
 	const int cCollisionSteps = 1;
 
+	const float timeStep = 1.0f / 60.0f;
+
 	// We need a temp allocator for temporary allocations during the physics update. We're
 	// pre-allocating 10 MB to avoid having to do allocations during the physics update.
 	// B.t.w. 10 MB is way too much for this example but it is a typical value you can use.
@@ -270,6 +267,12 @@ public:
 	flecs::world& ecs;
 
 	flecs::query<Transform, JPH::BodyID, DynamicEnt>q1;
+
+	flecs::system updateSys;
+	flecs::system syncSys;
+	flecs::system debugRenderSys;
+
+	flecs::entity physicsPhase;
 
 	Fisiks(flecs::world& ecs)
 		: broad_phase_layer_interface(),
@@ -293,10 +296,10 @@ public:
 		Trace = TraceImpl;
 		JPH_IF_ENABLE_ASSERTS(AssertFailed = AssertFailedImpl;)
 
-		// Create a factory, this class is responsible for creating instances 
-		// of classes based on their name or hash and is mainly used for deserialization of saved data.
-		// It is not directly used in this example but still required.
-		Factory::sInstance = new Factory();
+			// Create a factory, this class is responsible for creating instances 
+			// of classes based on their name or hash and is mainly used for deserialization of saved data.
+			// It is not directly used in this example but still required.
+			Factory::sInstance = new Factory();
 
 		// Register all physics types with the factory and install their collision handlers with the CollisionDispatch class.
 		// If you have your own custom shape types you probably need to register their handlers with the CollisionDispatch before calling this function.
@@ -327,7 +330,7 @@ public:
 		const uint cMaxContactConstraints = 1024;
 
 
-		// Now we can initlize the actual physics system.
+		// Now we can initialize the actual physics system.
 		physicsSystem.Init(cMaxBodies, cNumBodyMutexes, cMaxBodyPairs, cMaxContactConstraints, broad_phase_layer_interface, object_vs_broadphase_layer_filter, object_vs_object_layer_filter);
 
 
@@ -343,7 +346,7 @@ public:
 		// Instead insert all new objects in batches instead of 1 at a time to keep the broad phase efficient.
 		physicsSystem.OptimizeBroadPhase();
 
-		physicsSystem.SetGravity(JPH::Vec3(0,-20.0f, 0));
+		physicsSystem.SetGravity(JPH::Vec3(0, -20.0f, 0));
 
 		init();
 
@@ -351,60 +354,99 @@ public:
 
 	void init() {
 
-		createQueries();
-	}
 
-	void createQueries() {
-
-		q1 = ecs.query_builder<Transform, JPH::BodyID, DynamicEnt>()
-			.cached()
-			.build();
-
+		registerComponents();
+		registerPhase();
+		registerSystems();
 	}
 
 
-	void update(double cDeltaTime) {
+	void registerSystems() {
 
-		//OPTICK_EVENT();
+		//Creation order determines the order in which these systems run within a phase
+		updateSystem();
+		syncSystem();
 
-		physicsSystem.Update(cDeltaTime, cCollisionSteps, temp_allocator, job_system);
+		//runs on PostUpdate phase
+		debugRenderSystem();
 
-		syncTransfroms();
-	
+	}
 
-		// Does not actually draw it just puts all render batches in vector so they can be drawn by the renderer
+	void registerComponents() {
 
 #ifdef JPH_DEBUG_RENDERER
-		fisiksDebugRenderer& fisiksRenderer = ecs.get_mut<fisiksDebugRenderer>();
-		fisiksRenderer.batches.clear();
-		fisiksRenderer.modelMatrices.clear();
 
-		//puts all render batches in vector 
-		physicsSystem.DrawBodies(fisiksRenderer.drawSettings, &fisiksRenderer);
+		ecs.emplace<fisiksDebugRenderer>(ecs);
+
 #endif
-		
 
 	}
 
+	void registerPhase() {
 
-	void syncTransfroms() {
+		physicsPhase = ecs.entity()
+			.add(flecs::Phase)
+			.depends_on(flecs::OnUpdate);
 
-		// query all dynamic ents and sync their positions and rotations
-		q1.each([&](flecs::entity e, Transform& transform, JPH::BodyID& physicsBody, DynamicEnt) {
+		// disabled by default so that we don't start simulating physics until a level is loaded
+		physicsPhase.disable();
+
+	}
+
+	// Update system is part of the phyiscs phase
+	void updateSystem() {
+
+		updateSys = ecs.system("PhysicsUpdateSys")
+			.kind(physicsPhase)
+			.run([&](flecs::iter& it) {
+
+			physicsSystem.Update(timeStep, cCollisionSteps, temp_allocator, job_system);
+
+		});
+	}
+
+
+	//Sync system is part of the physicsPhase
+	void syncSystem() {
+
+		syncSys = ecs.system<Transform, JPH::BodyID, DynamicEnt>("PhysicsSyncSys")
+			.kind(physicsPhase)
+			.each([&](flecs::entity e, Transform& transform, JPH::BodyID& physicsBody, DynamicEnt) {
 
 			JPH::Vec3 pos;
 			JPH::Quat rotation;
 			bodyInterface.GetPositionAndRotation(physicsBody, pos, rotation);
 
-			// convert JPJ::Vec3 to glm::vec3;
 			//transform.position = *reinterpret_cast<glm::vec3*>(&pos);
 			transform.position = glm::vec3(pos.GetX(), pos.GetY(), pos.GetZ());
 
-			// Convert JPH::Quat to glm::quat
 			//transform.rotation = *reinterpret_cast<glm::quat*>(&rotation);
 			transform.rotation = glm::quat(rotation.GetW(), rotation.GetX(), rotation.GetY(), rotation.GetZ());
 
 		});
+	}
+
+	// run on OnUpdate phase rather than PhysicsPhase so that it still renders when PhysicsPhase is disabled 
+	// for example when the game is paused
+	void debugRenderSystem() {
+
+#ifdef	JPH_DEBUG_RENDERER
+
+		debugRenderSys = ecs.system<fisiksDebugRenderer>("PhysicsRenderSys")
+			//.with<fisiksDebugRenderer>()
+			.term_at(0).src<fisiksDebugRenderer>()
+			.kind(flecs::OnUpdate)
+			.each([&](fisiksDebugRenderer& fisiksRenderer) {
+
+			fisiksRenderer.batches.clear();
+			fisiksRenderer.modelMatrices.clear();
+
+			// Does not actually draw it just puts all render batches in vector so they can be drawn by the renderer
+			physicsSystem.DrawBodies(fisiksRenderer.drawSettings, &fisiksRenderer);
+
+		});
+
+#endif
 	}
 
 	//TODO move these to physicsUtil

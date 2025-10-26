@@ -75,6 +75,7 @@ struct stateChangeRequest {
 	AppContext::Type newContext;
 };
 
+struct PlayState { bool play = false; };
 
 // Tags 
 struct DynamicEnt {};

@@ -10,13 +10,10 @@ public:
 	uint64_t lastTime = 0;
 
 	float deltaTime = 0.0f;
+	float maxAccumulator = timeStep * 60.0f;
 
 	uint64_t appStartTime = 0;
 
-	
-	float maxAccumulator = timeStep * 5.0f; 
-
-	bool paused = true;
 
 	TimeManager(float timeStep)
 		: timeStep(timeStep) 
@@ -28,12 +25,10 @@ public:
 		
 	{
 		lastTime = SDL_GetTicks();
-		paused = false;
 	}
 
 	void tick() {
 
-		if (paused) return;
 
 		deltaTime = (SDL_GetTicks() - lastTime) / 1000.0f;
 		lastTime = SDL_GetTicks();
@@ -46,18 +41,9 @@ public:
 		}
 	}
 
-	void pauseGame() {
 
-		paused = true;
-	}
-
-	void unPauseGame() {
-
-		paused = false;
-
-		// setting this to zero so there is no time accumulated
-		lastTime = SDL_GetTicks(); 
-
+	void flushAccumulatedTime() {
+		lastTime = SDL_GetTicks();
 	}
 
 
