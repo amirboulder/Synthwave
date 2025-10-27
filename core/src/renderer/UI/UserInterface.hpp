@@ -10,8 +10,8 @@ public:
 
     flecs::world& ecs;
 
-    flecs::query<HudRender>q1;
-    flecs::query<Render,MenuItem,Active>q2;
+    flecs::system HudRenderSys;
+    flecs::system MenuRenderSys;
 
     UserInterface(flecs::world& ecs)
         :   ecs(ecs)
@@ -61,18 +61,31 @@ public:
         ImFont* font = io.Fonts->AddFontFromFileTTF("assets/fonts/Supermolot Light.otf");
         IM_ASSERT(font != nullptr);
 
-        buildHUDQueries();
+
+        registerSystems();
     }
 
-    void buildHUDQueries() {
+    // manually called 
+    void registerSystems() {
 
-        q1 = ecs.query_builder<HudRender>()
-            .cached()
-            .build();
+        // We're injecting game code in here by doing this
+        HudRenderSys = ecs.system<HudRender>("HudRenderSys")
+            .kind(0)
+            .each([&](flecs::entity e, HudRender hud) {
 
-        q2 = ecs.query_builder<Render, MenuItem, Active>()
-            .cached()
-            .build();
+            hud.draw(ecs);
+
+        });
+
+        MenuRenderSys = ecs.system<Render, MenuItem>("MenuRenderSys")
+            .kind(0)
+            //.immediate()
+            .each([&](flecs::entity e, Render renderCallback, MenuItem) {
+
+            renderCallback.draw(ecs);
+
+        });
+
     }
 
 
@@ -85,20 +98,10 @@ public:
         ImGui_ImplSDL3_NewFrame();
         ImGui::NewFrame();
 
-        // We're basically injecting game HUD code in here by doing this
-      
-        q2.each([&](flecs::entity e, Render renderCallback, MenuItem , Active) {
 
-            renderCallback.draw(ecs);
+        HudRenderSys.run();
+        MenuRenderSys.run();
 
-        });
- 
-
-        q1.each([&](flecs::entity e, HudRender hud) {
-
-            hud.draw(ecs);
-
-        });
 
         ImGui::Render();
         ImDrawData* draw_data = ImGui::GetDrawData();

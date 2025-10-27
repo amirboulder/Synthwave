@@ -110,7 +110,7 @@ public:
 	// create a static box shaped sensor 
 	static bool createBoxSensorEntity(flecs::world& ecs, Fisiks& fisiks, std::string name,
 		Transform transform, JPH::Vec3Arg size,
-		std::function<void(flecs::world& ecs,flecs::entity self, flecs::entity other)> onContactAdded) {
+		std::function<void(flecs::world& ecs, flecs::entity self, flecs::entity other)> onContactAdded) {
 
 		if (!EntityFactory::validateName(name)) return false;
 		if (!EntityFactory::validateTransform(transform, name)) return false;
@@ -166,7 +166,7 @@ public:
 		if (!EntityFactory::validateName(name)) return false;
 		if (!EntityFactory::validateTransform(transform, name.c_str())) return false;
 
-		
+
 		float meshX;
 		float meshY;
 		float meshZ;
@@ -218,16 +218,17 @@ public:
 			.set<JPH::BodyID>(physicsID)
 			;
 
+
 		// Store the entity ID in the physics body which gives us a two way mapping between entity and bodyId
 		fisiks.bodyInterface.SetUserData(physicsID, entity.id());
 
-		if (!validateEntityCreation(entity,name))  return false;
+		if (!validateEntityCreation(entity, name))  return false;
 
 		return true;
 	}
 
 	static bool createActorEntity(flecs::world& ecs, Fisiks& fisiks, std::string name,
-		ModelSource& modelSource,Transform transform, JPH::CharacterSettings settings, 
+		ModelSource& modelSource, Transform transform, JPH::CharacterSettings settings,
 		std::function<void(flecs::world& ecs, flecs::entity self)> actorUpdate) {
 
 		if (!EntityFactory::validateName(name)) return false;
@@ -241,14 +242,13 @@ public:
 			joltRotation = joltRotation.Normalized();
 		}
 
-		flecs::entity actorEnt = ecs.entity("Actor")
+		flecs::entity actorEnt = ecs.entity(name.c_str())
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
 			.set<ModelInstance>(modelSource.createInstance())
 			.add<JoltCharacter>()
 			.add<JPH::BodyID>()
 			.emplace<ActorBehavior>(actorUpdate);
-			;
 
 		if (!validateEntityCreation(actorEnt, name)) return false;
 
@@ -262,7 +262,7 @@ public:
 
 		actorEnt.get_mut<JPH::BodyID>() = joltCharacter->GetBodyID();
 
-		
+
 		return true;
 	}
 
@@ -400,7 +400,7 @@ public:
 		boxBodySettings.mFriction = 1.0f;    // Low friction for sliding
 
 
-		BodyID physicsID = fisiks.bodyInterface.CreateAndAddBody(boxBodySettings,EActivation::Activate);
+		BodyID physicsID = fisiks.bodyInterface.CreateAndAddBody(boxBodySettings, EActivation::Activate);
 
 		if (!validatePhysicsBodyCreation(physicsID, name)) return false;
 
@@ -428,7 +428,7 @@ public:
 
 	}
 
-	static bool createHUDElementEntity(flecs::world& ecs, std::string name,std::function<void(flecs::world& ecs)> drawFunction) {
+	static bool createHUDElementEntity(flecs::world& ecs, std::string name, std::function<void(flecs::world& ecs)> drawFunction) {
 
 		flecs::entity entity = ecs.entity(name.c_str())
 			.emplace<HudRender>(drawFunction);
@@ -441,18 +441,17 @@ public:
 	}
 
 
-	static bool createMenulementEntity(flecs::world& ecs, std::string name, std::function<void(flecs::world& ecs)> drawFunction) {
+
+	static bool createMenuItemEntity(flecs::world& ecs, std::string name,
+		std::function<void(flecs::world& ecs)> drawFunction) {
 
 		flecs::entity entity = ecs.entity(name.c_str())
 			.emplace<Render>(drawFunction)
-			.add<MenuItem>()
-			.add<Active>();
+			.add<MenuItem>();
 
 		if (!validateEntityCreation(entity, name)) return false;
 
-
 		return true;
-
 	}
 
 
@@ -530,7 +529,7 @@ public:
 		return true;
 	}
 
-	static bool validateEntityCreation(flecs::entity entity , std::string name) {
+	static bool validateEntityCreation(flecs::entity entity, std::string name) {
 		if (!entity.is_valid()) {
 			SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Error creating Entity : %s", name.c_str());
 			return false;
@@ -539,7 +538,7 @@ public:
 	}
 
 	//TODO move this function
-	static void calculateMeshSize(const MeshSource& mesh, float& x, float& y,float & z) {
+	static void calculateMeshSize(const MeshSource& mesh, float& x, float& y, float& z) {
 		if (mesh.vertices.empty()) {
 			//width = 0.0f;
 			//height = 0.0f;
@@ -564,10 +563,10 @@ public:
 		}
 
 		x = maxX - minX;
-		y = maxY - minY; 
+		y = maxY - minY;
 		z = maxZ - minZ;
 	}
-	
+
 
 };
 

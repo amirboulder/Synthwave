@@ -55,18 +55,20 @@ struct ActorBehavior {
 
 };
 
+//These two are the same thing get rid of one
+//TODO find a better name for this
 struct HudRender {
 	std::function<void(flecs::world& ecs)> draw;
 };
-
 struct Render {
 	std::function<void(flecs::world& ecs)> draw;
 };
 
+
 struct JoltCharacter {
 	JPH::Character* characterPtr = nullptr;
 };
-
+//TODO rename
 struct Callback {
 	std::function<void()> callbackFunction;
 };
@@ -76,6 +78,20 @@ struct stateChangeRequest {
 };
 
 struct PlayState { bool play = false; };
+
+enum class MenuState { MAIN, OPTIONS, PAUSE };
+
+enum class UICommandType {
+	NewGame,
+	LoadGame,
+	GameOptions,
+	MainMenu,
+	ExitGame
+};
+
+struct UICommand {
+	UICommandType type;
+};
 
 // Tags 
 struct DynamicEnt {};

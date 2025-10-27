@@ -1,6 +1,5 @@
 ﻿#include "Synthwave.h"
 
-
 int main(int argc, char* argv[])
 {
 	bool running = true;
@@ -38,8 +37,6 @@ int main(int argc, char* argv[])
 		while (time.accumulator >= time.timeStep) {
 
 			inputManager.handleInput();
-
-			stateManager.update();
 
 			ecs.progress();
 

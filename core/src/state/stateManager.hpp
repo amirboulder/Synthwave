@@ -23,13 +23,14 @@ public:
 	flecs::world& ecs;
 
 	flecs::entity mainMenu;
+	flecs::entity pauseMenu;
 
 	flecs::entity playerCam;
 	flecs::entity freeCam;
 
 	flecs::entity player;
 
-	flecs::system processContextChanges;
+	flecs::system processUICommandsSys;
 
 	bool & running ;
 
@@ -42,7 +43,7 @@ public:
 
 		createEntities();
 
-		createECSSystems();
+		RegisterSystems();
 
 	}
 
@@ -50,6 +51,9 @@ public:
 	void init() {
 
 		getEntityHandles();
+
+		mainMenu.enable();
+		pauseMenu.disable();
 	}
 
 
@@ -74,16 +78,19 @@ public:
 	void createEntities() {
 
 		std::function<void()> newGameFunction = [this]() { this->newGameCallback(); };
-		ecs.entity("newGame").emplace<Callback>(newGameFunction);
+		ecs.entity("newGameHandler").emplace<Callback>(newGameFunction);
 
 		std::function<void()> loadGameFunction = [this]() { this->loadGameCallback(); };
-		ecs.entity("loadGame").emplace<Callback>(loadGameFunction);
+		ecs.entity("loadGameHandler").emplace<Callback>(loadGameFunction);
 
 		std::function<void()> gameOptionsFunction = [this]() { this->gameOptionsCallback(); };
-		ecs.entity("gameOptions").emplace<Callback>(gameOptionsFunction);
+		ecs.entity("gameOptionsHandler").emplace<Callback>(gameOptionsFunction);
+
+		std::function<void()> toMainMenuFunction = [this]() { this->toMainMenuCallback(); };
+		ecs.entity("MainMenuHandler").emplace<Callback>(toMainMenuFunction);
 
 		std::function<void()> exitFunction = [this]() { this->exitCallback(); };
-		ecs.entity("Exit").emplace<Callback>(exitFunction);
+		ecs.entity("ExitHandler").emplace<Callback>(exitFunction);
 
 	}
 
@@ -104,37 +111,44 @@ public:
 	}
 
 
-	void createECSSystems() {
+	void RegisterSystems() {
 
-		// This system is manually run on update()
-		//TODO it can run on flecs::PreUpdate phase
-		processContextChanges = ecs.system<stateChangeRequest>("processContextChanges")
-			.kind(0) // prevents a system from being registered as part of a pipeline
-			.each([&](flecs::entity e,stateChangeRequest request) {
 
-			ecs.set<AppContext>({ request.newContext });
+		processUICommandsSys = ecs.system<UICommand>("processUICommandsSys")
+			.kind(flecs::PreUpdate)
+			.immediate() // disable readonly mode for this system
+			.each([&](flecs::entity e, UICommand command) {
+			
+			switch (command.type) {
+			case UICommandType::NewGame:
+				ecs.lookup("newGameHandler").get<Callback>().callbackFunction();
+				break;
+			case UICommandType::LoadGame:
+				ecs.lookup("loadGameHandler").get<Callback>().callbackFunction();
+				break;
+			case UICommandType::GameOptions:
+				ecs.lookup("gameOptionsHandler").get<Callback>().callbackFunction();
+				break;
+			case UICommandType::MainMenu:
+				ecs.lookup("MainMenuHandler").get<Callback>().callbackFunction();
+				break;
+			case UICommandType::ExitGame:
+				ecs.lookup("ExitHandler").get<Callback>().callbackFunction();
+				break;
 
+			}
 			e.destruct();
 		});
-
-
-		
 
 	}
 
 	void getEntityHandles() {
 
-
 		playerCam = ecs.lookup("PlayerCam");
 		freeCam = ecs.lookup("FreeCam");
 
-		mainMenu = ecs.lookup("Main Menu");
-	}
-
-
-	void update() {
-
-		processContextChanges.run();
+		mainMenu = ecs.lookup("MainMenu");
+		pauseMenu = ecs.lookup("PauseMenu");
 	}
 
 
@@ -181,10 +195,19 @@ public:
 
 	void handleGamePause() {
 
+		enum AppContext::Type appContext = ecs.get<AppContext>().value;
+
+		//TODO fix bug where game can be paused from main menu
+			
 		bool & play = ecs.get_mut<PlayState>().play;
 		if (play) {
 			
 			play = false;
+
+			pauseMenu.enable();
+
+			ecs.set<AppContext>({ AppContext::Menu });
+
 			fisiks.physicsPhase.disable();
 			scene.sceneUpdatePhase.disable();
 			SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "PlayState::pause");
@@ -193,6 +216,10 @@ public:
 		else {
 
 			play = true;
+
+			pauseMenu.disable();
+
+			ecs.set<AppContext>({ AppContext::Player });
 
 			fisiks.physicsPhase.enable();
 			scene.sceneUpdatePhase.enable();
@@ -230,7 +257,7 @@ public:
 			switch (ctx.value) {
 			case AppContext::Menu:
 
-				mainMenu.add<Active>();
+			//	mainMenu.enable();
 
 				playerCam.remove<ActiveCamera>();
 				freeCam.remove<ActiveCamera>();
@@ -240,7 +267,7 @@ public:
 				break;
 			case AppContext::Player:
 
-				mainMenu.remove<Active>();
+				mainMenu.disable();
 
 				playerCam.add<ActiveCamera>();
 				freeCam.remove<ActiveCamera>();
@@ -250,7 +277,7 @@ public:
 				break;
 			case AppContext::FreeCam:
 
-				mainMenu.remove<Active>();
+				mainMenu.disable();
 
 				playerCam.remove<ActiveCamera>();
 				freeCam.add<ActiveCamera>();
@@ -259,7 +286,8 @@ public:
 				SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Context set to freeCam");
 				break;
 			case AppContext::Editor:
-				mainMenu.remove<Active>();
+
+				mainMenu.disable();
 
 				playerCam.remove<ActiveCamera>();
 				freeCam.remove<ActiveCamera>();
@@ -297,14 +325,15 @@ public:
 		SDL_GetRelativeMouseState(&dx, &dy);
 	}
 
+
 	void newGameCallback() {
 
-		const RenderConxtext& rendercontext = ecs.get<RenderConxtext>();
+		ecs.set<AppContext>({ AppContext::Player });
 
-		//Sending a request which will be handled during update()
-		ecs.entity().set<stateChangeRequest>({ AppContext::Player });
-
+		//This is needed because this code is runs in processUICommandsSys and systems are ran while the ecs is in "readonly" mode
+		ecs.defer_suspend();
 		scene.constructLevel();
+		ecs.defer_resume();
 
 		startGame();
 
@@ -312,16 +341,15 @@ public:
 
 	void loadGameCallback() {
 
-		const RenderConxtext& renderContext = ecs.get<RenderConxtext>();
-
-		//Sending a request which will be handled during update()
-		ecs.entity().set<stateChangeRequest>({ AppContext::Player });
-
+		ecs.set<AppContext>({ AppContext::Player });
 		//TODO check if a level is loaded if so then destroy the level or reset it
 		load();
 
+		//This is needed because this code is runs in processUICommandsSys and systems are ran while the ecs is in "readonly" mode
+		ecs.defer_suspend();
 		scene.constructLevel();
-
+		ecs.defer_resume();
+		
 		startGame();
 	}
 
@@ -330,6 +358,13 @@ public:
 	}
 
 	void toMainMenuCallback () {
+
+		mainMenu.enable();
+		pauseMenu.disable();
+
+		ecs.set<AppContext>({ AppContext::Menu });
+
+		//TODO Unload level
 
 	}
 

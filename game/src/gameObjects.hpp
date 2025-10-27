@@ -26,7 +26,6 @@ public:
 	Renderer& renderer;
 
 	Ref<CharacterVirtual>	mCharacter;
-
 	flecs::entity sceneUpdatePhase;
 
 	flecs::system updateActorsSys;
@@ -70,10 +69,11 @@ public:
 
 		/////////////////////////
 		// Main menu
+		EntityFactory::createMenuItemEntity(ecs, "MainMenu", mainMenuDraw);
 
-		EntityFactory::createMenulementEntity(ecs, "Main Menu", mainMenu);
-
-		createQuries();
+		//Pause Menu
+		EntityFactory::createMenuItemEntity(ecs, "PauseMenu", pauseMenuDraw);
+		
 
 		//////////////////////////////
 		// FreeCam
@@ -220,14 +220,6 @@ public:
 	}
 
 
-	void createQuries() {
-
-		q1 = ecs.query_builder<ActorBehavior>()
-			.cached()
-			.build();
-
-
-	}
 
 	void LVL1Script(PhysicsSystem& physicsSystem, JPH::Vec3Arg playerPos) {
 
