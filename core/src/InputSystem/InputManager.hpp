@@ -35,26 +35,26 @@ public:
 
 	void handleInput() {
 
-		enum AppContext::Type appContext = ecs.get<AppContext>().value;
+		//TODO implement switching based on InputState as well once we get there
 
-		switch (appContext) {
-		case AppContext::FreeCam:
+		//For now if PlayState is paused return
+		if (ecs.get<PlayState>() == PlayState::PAUSE) {
+			return;
+		}
+		
+		CameraState camState = ecs.get<CameraState>();
+
+		switch (camState) {
+		case CameraState::FREECAM:
 
 			processFreeCamKBMInput();
 			break;
 
-		case AppContext::Player:
+		case CameraState::PLAYER:
 
 			handlePlayerKBMInput();
 			break;
 
-		case AppContext::Menu:
-
-			break;
-
-		case AppContext::Editor:
-
-			break;
 
 		}
 
@@ -115,17 +115,16 @@ public:
 			stateManager.exitCallback();
 		}
 
-		//used for switching between menu and game
 		if (event.type == SDL_EVENT_KEY_DOWN && event.key.repeat == 0 && event.key.scancode == SDL_SCANCODE_ESCAPE) {
 
-			stateManager.handleGamePause();
+			stateManager.gamePauseHandler();
 
 		}
 
 		// Switch between playerCam and freeCam
 		if (event.type == SDL_EVENT_KEY_DOWN && event.key.repeat == 0 && event.key.scancode == SDL_SCANCODE_F2) {
 
-			stateManager.switchAppContext();
+			stateManager.cameraSwitchHandler();
 
 		}
 

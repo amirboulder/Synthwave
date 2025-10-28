@@ -384,7 +384,7 @@ public:
 
 	void registerPhase() {
 
-		physicsPhase = ecs.entity()
+		physicsPhase = ecs.entity("PhysicsPhase")
 			.add(flecs::Phase)
 			.depends_on(flecs::OnUpdate);
 

@@ -68,22 +68,23 @@ struct Render {
 struct JoltCharacter {
 	JPH::Character* characterPtr = nullptr;
 };
-//TODO rename
+//TODO rename CallbackComponent
 struct Callback {
 	std::function<void()> callbackFunction;
 };
 
-struct stateChangeRequest {
-	AppContext::Type newContext;
-};
 
-struct PlayState { bool play = false; };
-
-enum class MenuState { MAIN, OPTIONS, PAUSE };
+enum class MenuState { MAIN, OPTIONS, PAUSE, NONE };
+enum class CameraState { PLAYER, FREECAM, NONE };
+enum class PlayState {PLAY,PAUSE, NONE};
+enum class InputState {KBM,CONTROLLER};
 
 enum class UICommandType {
 	NewGame,
+	SaveGame,
 	LoadGame,
+	RestartLevel,
+	ResumeGame,
 	GameOptions,
 	MainMenu,
 	ExitGame

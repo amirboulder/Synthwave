@@ -267,7 +267,7 @@ public:
 	// This phase is created after physicsPhase so it will run after it
 	void registerPhase() {
 
-		sceneUpdatePhase = ecs.entity()
+		sceneUpdatePhase = ecs.entity("sceneUpdatePhase")
 			.add(flecs::Phase)
 			// maybe it should  depends on physicsPhase ?
 			.depends_on(flecs::OnUpdate);

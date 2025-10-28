@@ -90,8 +90,9 @@ void pauseMenuDraw(flecs::world& ecs) {
     const float buttonWidth = 300.0f * scale;
     const float buttonHeight = 70.0f * scale;
     const float spacing = 30.0f * scale;
-
-    ImVec2 screenCenter(windowSize.x * 0.5f, windowSize.y * 0.5f);
+    
+    //TODO find a more dyamic way than windowSize.y * 0.35f
+    ImVec2 screenCenter(windowSize.x * 0.5f, windowSize.y * 0.35f);
     float totalHeight = 4 * buttonHeight + 3 * spacing;
     float startY = screenCenter.y - totalHeight * 0.5f;
 
@@ -105,19 +106,31 @@ void pauseMenuDraw(flecs::world& ecs) {
     };
 
     // --- Buttons ---
-    if (CenteredButton("Load Game", 0.0f)) {
+    if (CenteredButton("Resume", 0.0f)) {
 
-        ecs.entity().set<UICommand>({ UICommandType::NewGame });
+        ecs.entity().set<UICommand>({ UICommandType::ResumeGame });
     }
-    if (CenteredButton("Options", buttonHeight + spacing)) {
+    if (CenteredButton("Restart Level", buttonHeight + spacing)) {
+
+        ecs.entity().set<UICommand>({ UICommandType::RestartLevel });
+    }
+    if (CenteredButton("Save Game", 2 * (buttonHeight + spacing))) {
+
+        ecs.entity().set<UICommand>({ UICommandType::SaveGame });
+    }
+    if (CenteredButton("Load Game", 3 * (buttonHeight + spacing))) {
+
+        ecs.entity().set<UICommand>({ UICommandType::LoadGame });
+    }
+    if (CenteredButton("Options", 4 * (buttonHeight + spacing))) {
 
         ecs.entity().set<UICommand>({ UICommandType::GameOptions });
     }
-    if (CenteredButton("Main Menu", 2 * (buttonHeight + spacing))) {
+    if (CenteredButton("Main Menu", 5 * (buttonHeight + spacing))) {
 
         ecs.entity().set<UICommand>({ UICommandType::MainMenu });
     }
-    if (CenteredButton("Exit", 3 * (buttonHeight + spacing))) {
+    if (CenteredButton("Exit", 6 * (buttonHeight + spacing))) {
 
         ecs.entity().set<UICommand>({ UICommandType::ExitGame });
     }

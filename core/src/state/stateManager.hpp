@@ -37,7 +37,7 @@ public:
 	StateManager(flecs::world& ecs,Renderer& renderer,Fisiks & fisiks ,TimeManager & time,Scene& scene ,bool& running)
 		: ecs(ecs), renderer(renderer), time(time), fisiks(fisiks), running(running), scene(scene)
 	{
-		createHooks();
+		registerHooks();
 
 		createComponents();
 
@@ -45,33 +45,14 @@ public:
 
 		RegisterSystems();
 
+		getEntityHandles();
 	}
 
-
+	// Setting state here to make sure that all entity references such as player and mainMenu are valid
+	// not strictly necessary because this class is constructed after most systems
 	void init() {
 
-		getEntityHandles();
-
-		mainMenu.enable();
-		pauseMenu.disable();
-	}
-
-
-	void startGame() {
-
-
-		flushMouseMovement();
-
-		time.startGameTime();
-		ecs.set<PlayState>({ true });
-
-		//enable physics updates
-		fisiks.physicsPhase.enable();
-
-		// enable Scene updates
-		scene.sceneUpdatePhase.enable();
-		
-
+		SetDefaultApplicationState();
 	}
 
 
@@ -82,6 +63,15 @@ public:
 
 		std::function<void()> loadGameFunction = [this]() { this->loadGameCallback(); };
 		ecs.entity("loadGameHandler").emplace<Callback>(loadGameFunction);
+
+		std::function<void()> saveGameFunction = [this]() { this->saveGameCallback(); };
+		ecs.entity("saveGameHandler").emplace<Callback>(saveGameFunction);
+
+		std::function<void()> restartLevelFunction = [this]() { this->restartLevelCallback(); };
+		ecs.entity("restartLevelHandler").emplace<Callback>(restartLevelFunction);
+
+		std::function<void()> resumeGameFunction = [this]() { this->resumeGameCallback(); };
+		ecs.entity("ResumeGameHandler").emplace<Callback>(resumeGameFunction);
 
 		std::function<void()> gameOptionsFunction = [this]() { this->gameOptionsCallback(); };
 		ecs.entity("gameOptionsHandler").emplace<Callback>(gameOptionsFunction);
@@ -96,18 +86,23 @@ public:
 
 
 
-	void createHooks() {
+	void registerHooks() {
 
-		appContextHook();
+	
+		playStateOnSetHook();
+		menuStateOnSetHook();
+		cameraStateOnSetHook();
+		InputStateOnSetHook();
 
 	}
 
 	void createComponents() {
 
-		ecs.add<AppContext>();
-
 		ecs.component<PlayState>().add(flecs::Singleton);
-		ecs.set<PlayState>({});
+		ecs.component<MenuState>().add(flecs::Singleton);
+		ecs.component<CameraState>().add(flecs::Singleton);
+		ecs.component<InputState>().add(flecs::Singleton);
+
 	}
 
 
@@ -123,8 +118,17 @@ public:
 			case UICommandType::NewGame:
 				ecs.lookup("newGameHandler").get<Callback>().callbackFunction();
 				break;
+			case UICommandType::SaveGame:
+				ecs.lookup("saveGameHandler").get<Callback>().callbackFunction();
+				break;
 			case UICommandType::LoadGame:
 				ecs.lookup("loadGameHandler").get<Callback>().callbackFunction();
+				break;
+			case UICommandType::RestartLevel:
+				ecs.lookup("restartLevelHandler").get<Callback>().callbackFunction();
+				break;
+			case UICommandType::ResumeGame:
+				ecs.lookup("ResumeGameHandler").get<Callback>().callbackFunction();
 				break;
 			case UICommandType::GameOptions:
 				ecs.lookup("gameOptionsHandler").get<Callback>().callbackFunction();
@@ -149,6 +153,34 @@ public:
 
 		mainMenu = ecs.lookup("MainMenu");
 		pauseMenu = ecs.lookup("PauseMenu");
+	}
+
+
+	void SetDefaultApplicationState() {
+
+		// When application opens just show main menu
+
+		ecs.set<PlayState>({ PlayState::NONE });
+		ecs.set<MenuState>({ MenuState::MAIN });
+		ecs.set<CameraState>({ CameraState::NONE });
+		ecs.set<InputState>({ InputState::KBM });
+
+	}
+
+	void startGame() {
+
+		flushMouseMovement();
+
+		time.startGameTime();
+
+		ecs.set<PlayState>({ PlayState::PLAY });
+		ecs.set<MenuState>({ MenuState::NONE });
+		ecs.set<CameraState>({ CameraState::PLAYER });
+
+
+		fisiks.physicsPhase.enable();
+		scene.sceneUpdatePhase.enable();
+
 	}
 
 
@@ -193,111 +225,163 @@ public:
 		return true;
 	}
 
-	void handleGamePause() {
+	void gamePauseHandler() {
 
-		enum AppContext::Type appContext = ecs.get<AppContext>().value;
+		PlayState state = ecs.get<PlayState>();
 
-		//TODO fix bug where game can be paused from main menu
-			
-		bool & play = ecs.get_mut<PlayState>().play;
-		if (play) {
-			
-			play = false;
+		if (state == PlayState::NONE) {
 
-			pauseMenu.enable();
-
-			ecs.set<AppContext>({ AppContext::Menu });
-
-			fisiks.physicsPhase.disable();
-			scene.sceneUpdatePhase.disable();
-			SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "PlayState::pause");
-
+			return;
 		}
-		else {
+		else if (state == PlayState::PLAY) {
 
-			play = true;
+			ecs.set<PlayState>(PlayState::PAUSE);
+		}
+		else if (state == PlayState::PAUSE) {
 
-			pauseMenu.disable();
-
-			ecs.set<AppContext>({ AppContext::Player });
-
-			fisiks.physicsPhase.enable();
-			scene.sceneUpdatePhase.enable();
-			flushMouseMovement();
-			SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "PlayState::play");
+			ecs.set<PlayState>(PlayState::PLAY);
 		}
 
 	}
 
 
 	// Switch between player and freeCam
-	void switchAppContext() {
+	void cameraSwitchHandler() {
 
-		const enum AppContext::Type appContext = ecs.get_mut<AppContext>().value;
+		CameraState state = ecs.get<CameraState>();
 
-		if (appContext == AppContext::Player) {
-			ecs.set<AppContext>({ AppContext::FreeCam });
+		if (state == CameraState::PLAYER) {
+			ecs.set<CameraState>({ CameraState::FREECAM });
 		}
-		else if (appContext == AppContext::FreeCam) {
-			ecs.set<AppContext>({ AppContext::Player });
+		else if (state == CameraState::FREECAM) {
+			ecs.set<CameraState>({ CameraState::PLAYER });
 		}
 	}
 
-	// Runs whenever appContext is changed
-	// Ensures that ActiveCamera Menu and RelativeMouseMode are set correctly
-	void appContextHook() {
+	void menuStateOnSetHook() {
+		
+		//TODO create disable all menus using prefabs
+		ecs.component<MenuState>()
+			.on_set([&](MenuState& newState) {
+			switch (newState) {
+			case MenuState::MAIN:
 
-		//assert(playerCam && "PlayerCam entity missing!");
-		//assert(freeCam && "FreeCam entity missing!");
-
-		const RenderConxtext& renderContext = ecs.get<RenderConxtext>();
-
-		ecs.component<AppContext>()
-			.on_set([&](AppContext& ctx) {
-			switch (ctx.value) {
-			case AppContext::Menu:
-
-			//	mainMenu.enable();
-
-				playerCam.remove<ActiveCamera>();
-				freeCam.remove<ActiveCamera>();
-				SDL_SetWindowRelativeMouseMode(renderContext.window, false);
-
-				SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Context set to menu");
+				mainMenu.enable();
+				pauseMenu.disable();
+				SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "MenuState::MAIN");
 				break;
-			case AppContext::Player:
+
+			case MenuState::PAUSE:
 
 				mainMenu.disable();
-
-				playerCam.add<ActiveCamera>();
-				freeCam.remove<ActiveCamera>();
-
-				SDL_SetWindowRelativeMouseMode(renderContext.window, true);
-				SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Context set to player");
+				pauseMenu.enable();
+				SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "MenuState::PAUSE");
 				break;
-			case AppContext::FreeCam:
+
+			case MenuState::OPTIONS:
+
+				SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "MenuState::OPTIONS");
+				break;
+			case MenuState::NONE:
+				
+				//Disable all menus
 
 				mainMenu.disable();
-
-				playerCam.remove<ActiveCamera>();
-				freeCam.add<ActiveCamera>();
-
-				SDL_SetWindowRelativeMouseMode(renderContext.window, true);
-				SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Context set to freeCam");
-				break;
-			case AppContext::Editor:
-
-				mainMenu.disable();
-
-				playerCam.remove<ActiveCamera>();
-				freeCam.remove<ActiveCamera>();
-
-				SDL_SetWindowRelativeMouseMode(renderContext.window, false);
-				SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Context set to editor (not implemented)");
+				pauseMenu.disable();
+				SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "MenuState::NONE");
 				break;
 			}
 		});
 	}
+
+	void playStateOnSetHook() {
+
+		const RenderConxtext& renderContext = ecs.get<RenderConxtext>();
+		
+
+		ecs.component<PlayState>()
+			.on_set([&](PlayState& newState) {
+			switch (newState) {
+			case PlayState::PLAY:
+
+				fisiks.physicsPhase.enable();
+				scene.sceneUpdatePhase.enable();
+				flushMouseMovement();
+				SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "PlayState::play");
+
+				SDL_SetWindowRelativeMouseMode(renderContext.window, true);
+				ecs.set<MenuState>({ MenuState::NONE });
+
+				break;
+			case PlayState::PAUSE:
+
+				fisiks.physicsPhase.disable();
+				scene.sceneUpdatePhase.disable();
+				
+				SDL_SetWindowRelativeMouseMode(renderContext.window, false);
+
+				ecs.set<MenuState>({ MenuState::PAUSE });
+
+				SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "PlayState::pause");
+				break;
+			case PlayState::NONE:
+
+				SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "PlayState::None");
+
+				break;
+
+			}
+		});
+	}
+	
+	void cameraStateOnSetHook() {
+
+		ecs.component<CameraState>()
+			.on_set([&](CameraState& newState) {
+			switch (newState) {
+			case CameraState::PLAYER:
+
+				playerCam.add<ActiveCamera>();
+				freeCam.remove<ActiveCamera>();
+				SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "CameraState::PLAYER");
+
+				break;
+			case CameraState::FREECAM:
+
+				playerCam.remove<ActiveCamera>();
+				freeCam.add<ActiveCamera>();
+				SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "CameraState::FREECAM");
+
+				break;
+			case CameraState::NONE:
+
+				playerCam.remove<ActiveCamera>();
+				freeCam.remove<ActiveCamera>();
+				SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "CameraState::NONE");
+
+				break;
+			}
+		});
+	}
+
+	void InputStateOnSetHook() {
+
+		ecs.component<InputState>()
+			.on_set([&](InputState& newState) {
+			switch (newState) {
+			case InputState::KBM:
+
+				SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "InputState::KBM");
+				break;
+
+			case InputState::CONTROLLER:
+
+				SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, " InputState::CONTROLLER");
+				break;
+			}
+		});
+	}
+	
 
 
 	void handleSavingRenderConfig() {
@@ -328,8 +412,6 @@ public:
 
 	void newGameCallback() {
 
-		ecs.set<AppContext>({ AppContext::Player });
-
 		//This is needed because this code is runs in processUICommandsSys and systems are ran while the ecs is in "readonly" mode
 		ecs.defer_suspend();
 		scene.constructLevel();
@@ -339,10 +421,9 @@ public:
 
 	}
 
+
 	void loadGameCallback() {
 
-		ecs.set<AppContext>({ AppContext::Player });
-		//TODO check if a level is loaded if so then destroy the level or reset it
 		load();
 
 		//This is needed because this code is runs in processUICommandsSys and systems are ran while the ecs is in "readonly" mode
@@ -353,6 +434,20 @@ public:
 		startGame();
 	}
 
+	void saveGameCallback() {
+		save();
+	}
+
+	void restartLevelCallback() {
+
+	}
+
+	void resumeGameCallback() {
+
+		gamePauseHandler();
+	}
+
+
 	void gameOptionsCallback() {
 
 	}
@@ -362,7 +457,7 @@ public:
 		mainMenu.enable();
 		pauseMenu.disable();
 
-		ecs.set<AppContext>({ AppContext::Menu });
+		ecs.set<MenuState>({ MenuState::MAIN });
 
 		//TODO Unload level
 
