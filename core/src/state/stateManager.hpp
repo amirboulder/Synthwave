@@ -30,6 +30,7 @@ public:
 
 	flecs::entity player;
 
+	flecs::entity inputPhase;
 	flecs::system processUICommandsSys;
 
 	bool & running ;
@@ -43,7 +44,13 @@ public:
 
 		createEntities();
 
+		registerPhase();
+
 		RegisterSystems();
+		
+		RegisterCustomPhaseDeps();
+
+		disableDefaultPhases();
 
 		getEntityHandles();
 	}
@@ -105,15 +112,72 @@ public:
 
 	}
 
+	void registerPhase() {
 
+		// Each phase has its own dependency, it ensures that
+		// 1.phases can be disabled without affecting other phases (disabling is transitive in flecs)
+		// 2.Phases can run in the order we want regardless of creation order 
+		//PhaseDependencies depend on each other, thats handled in StateManager.RegisterPhaseDependencies()
+		// that way phases created earlier in initialization can depend on phases created after them
+		flecs::entity inputPhaseDependency = ecs.entity("InputPhaseDependency");
+		inputPhase = ecs.entity("InputPhase").add(flecs::Phase).depends_on(inputPhaseDependency);
+
+	}
+
+	//sets the order of execution for systems
+	void RegisterCustomPhaseDeps() {
+
+		flecs::entity inputPhaseDependency = ecs.lookup("InputPhaseDependency");
+		flecs::entity physicsPhaseDependency = ecs.lookup("PhysicsPhaseDependency").depends_on(inputPhaseDependency);
+		//PhysicsRenderPhaseDependency is not really needed its just debug/ editor feature
+		flecs::entity physicsRenderPhaseDependency = ecs.entity("PhysicsRenderPhaseDependency").depends_on(physicsPhaseDependency);
+		// YES aiPhaseDependency should depends on PhysicsPhaseDependency not PhysicsRenderPhaseDependency
+		flecs::entity aiPhaseDependency = ecs.lookup("AIPhaseDependency").depends_on(physicsPhaseDependency);
+		//TODO Audio phase
+		//TODO maybe gameState phase
+		flecs::entity playerPhaseDependency = ecs.lookup("PlayerPhaseDependency").depends_on(aiPhaseDependency);
+
+		/* This still works with flecs builtin pipeline query :
+		world.pipeline()
+		  .with(flecs::System)
+		  .with(flecs::Phase).cascade(flecs::DependsOn)
+		  .without(flecs::Disabled).up(flecs::DependsOn)
+		  .without(flecs::Disabled).up(flecs::ChildOf)
+		  .build();
+		*/
+	}
+
+	void disableDefaultPhases() {
+
+		// Disable most the default phases so we don't see them
+
+		//ecs.entity(flecs::PreFrame).disable();
+		ecs.entity(flecs::OnLoad).disable();
+		ecs.entity(flecs::PostLoad).disable();
+		ecs.entity(flecs::PreUpdate).disable();
+		ecs.entity(flecs::OnUpdate).disable();
+		ecs.entity(flecs::OnValidate).disable();
+		ecs.entity(flecs::PostUpdate).disable();
+		ecs.entity(flecs::PreStore).disable();
+		ecs.entity(flecs::OnStore).disable();
+		//ecs.entity(flecs::PostFrame).disable();
+
+	}
+
+
+	
 	void RegisterSystems() {
 
+		processUICommandsSystem();
+	}
+
+	void processUICommandsSystem() {
 
 		processUICommandsSys = ecs.system<UICommand>("processUICommandsSys")
-			.kind(flecs::PreUpdate)
+			.kind(inputPhase)
 			.immediate() // disable readonly mode for this system
 			.each([&](flecs::entity e, UICommand command) {
-			
+
 			switch (command.type) {
 			case UICommandType::NewGame:
 				ecs.lookup("newGameHandler").get<Callback>().callbackFunction();
@@ -143,7 +207,6 @@ public:
 			}
 			e.destruct();
 		});
-
 	}
 
 	void getEntityHandles() {
@@ -179,7 +242,11 @@ public:
 
 
 		fisiks.physicsPhase.enable();
-		scene.sceneUpdatePhase.enable();
+		scene.aiUpdatePhase.enable();
+		scene.playerPhase.enable();
+
+		//enable here for now but will be incorporated into render settings later
+		fisiks.physicsRenderPhase.enable();
 
 	}
 
@@ -305,7 +372,7 @@ public:
 			case PlayState::PLAY:
 
 				fisiks.physicsPhase.enable();
-				scene.sceneUpdatePhase.enable();
+				scene.aiUpdatePhase.enable();
 				flushMouseMovement();
 				SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "PlayState::play");
 
@@ -316,7 +383,7 @@ public:
 			case PlayState::PAUSE:
 
 				fisiks.physicsPhase.disable();
-				scene.sceneUpdatePhase.disable();
+				scene.aiUpdatePhase.disable();
 				
 				SDL_SetWindowRelativeMouseMode(renderContext.window, false);
 
@@ -461,6 +528,48 @@ public:
 
 		//TODO Unload level
 
+	}
+
+
+	void printSystems() {
+
+		cout << "Print systems in pipeline execution order\n";
+		// Query systems in pipeline execution order
+		auto pipeline_query = ecs.query_builder<>()
+			.with(flecs::System)
+			.with(flecs::Phase).cascade(flecs::DependsOn)
+			.without(flecs::Disabled).up(flecs::DependsOn)
+			.without(flecs::Disabled).up(flecs::ChildOf)
+			.build();
+
+
+		pipeline_query.each([&](flecs::iter& it, size_t i) {
+
+			flecs::entity system = it.entity(i);
+
+			cout << "  System: " << system.name() << std::endl;
+
+		});
+	}
+
+	void printPhases() {
+
+		cout << "Print phases in pipeline execution order\n";
+		// Query systems in pipeline execution order
+		auto pipeline_query = ecs.query_builder<>()
+			.with(flecs::Phase)
+			.without(flecs::Disabled).up(flecs::DependsOn)
+			.without(flecs::Disabled).up(flecs::ChildOf)
+			.build();
+
+
+		pipeline_query.each([&](flecs::iter& it, size_t i) {
+
+			flecs::entity phase = it.entity(i);
+
+			cout << "  Phase: " << phase.name() << std::endl;
+
+		});
 	}
 
 	void exitCallback() {

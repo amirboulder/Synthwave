@@ -21,12 +21,14 @@ public:
 
 	flecs::entity playerEntity;
 
+	flecs::entity playerPhase;
+
 	Fisiks& fisiks;
 
 	Renderer& renderer;
 
 	Ref<CharacterVirtual>	mCharacter;
-	flecs::entity sceneUpdatePhase;
+	flecs::entity aiUpdatePhase;
 
 	flecs::system updateActorsSys;
 	flecs::system updatePlayerSys;
@@ -92,9 +94,8 @@ public:
 
 		playerEntity.get_mut<Player>().init(JPH::Vec3(1.0f, 15.0f, 0.0f), JPH::Quat(0.0f, 0.0f, 0.0f, 1.0f), 2.0f, 1.0f, playerEntity.id());
 
-		registerPhase();
+		registerPhases();
 		registerSystems();
-
 
 	}
 
@@ -255,7 +256,7 @@ public:
 	void updateActorsSystem() {
 
 		updateActorsSys = ecs.system<ActorBehavior>("ActorsUpdateSys")
-			.kind(sceneUpdatePhase)
+			.kind(aiUpdatePhase)
 			.each([&](flecs::entity e, ActorBehavior& update) {
 
 			update.actorUpdate(ecs, e);
@@ -264,30 +265,57 @@ public:
 
 	}
 
-	// This phase is created after physicsPhase so it will run after it
-	void registerPhase() {
+	void registerPhases() {
 
-		sceneUpdatePhase = ecs.entity("sceneUpdatePhase")
-			.add(flecs::Phase)
-			// maybe it should  depends on physicsPhase ?
-			.depends_on(flecs::OnUpdate);
-
-		// disabled by default so that we don't start simulating until a level is loaded
-		sceneUpdatePhase.disable();
+		registerAIPhase();
+		registerPlayerPhase();
 	}
 
-	// Player update system can be made independent of the scene which would allow the player to move around while the world is frozen which is can be intresting for gameplay.
+	void registerAIPhase() {
+
+		// Each phase has its own dependency, it ensures that
+		// 1.phases can be disabled without affecting other phases (disabling is transitive in flecs)
+		// 2.Phases can run in the order we want regardless of creation order 
+		//PhaseDependencies depend on each other, thats handled in StateManager.RegisterPhaseDependencies()
+		// that way phases created earlier in initialization can depend on phases created after them
+		flecs::entity aiPhaseDependency = ecs.entity("AIPhaseDependency");
+		aiUpdatePhase = ecs.entity("AIUpdatePhase")
+			.add(flecs::Phase)
+			.depends_on(aiPhaseDependency);
+
+		// disabled by default so that we don't start simulating until a level is loaded
+		aiUpdatePhase.disable();
+	}
+
+	void registerPlayerPhase() {
+
+		// Each phase has its own dependency, it ensures that
+		// 1.phases can be disabled without affecting other phases (disabling is transitive in flecs)
+		// 2.Phases can run in the order we want regardless of creation order 
+		//PhaseDependencies depend on each other, thats handled in StateManager.RegisterPhaseDependencies()
+		// that way phases created earlier in initialization can depend on phases created after them
+		flecs::entity playerPhaseDependency = ecs.entity("PlayerPhaseDependency");
+
+		playerPhase = ecs.entity("PlayerPhase")
+			.add(flecs::Phase)
+			.depends_on(playerPhaseDependency);
+
+		// disabled by default so that we don't start simulating until a level is loaded
+		playerPhase.disable();
+	}
+
+	// Player Phase is made independent of the scene which allows the player to move around while the world is frozen which is can be interesting for gameplay.
 	void updatePlayerSystem() {
 
 		flecs::system playerUpdateSys = ecs.system<Player>("PlayerUpdateSys")
-			.kind(sceneUpdatePhase)
+			.kind(playerPhase)
 			.each([&](flecs::entity e, Player & p) {
 
 			p.update();
 
 		});
 
-		//TODO seprate player body render to here and set to a different phase than sceneUpdatePhase
+		//TODO separate player body render to here and make it depend on PhysicsDebugRenderPhase
 
 	}
 

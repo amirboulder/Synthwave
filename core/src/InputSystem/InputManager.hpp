@@ -121,10 +121,30 @@ public:
 
 		}
 
+		if (event.type == SDL_EVENT_WINDOW_FOCUS_LOST) {
+			std::cout << "Window lost focus!" << std::endl;
+		}
+		if (event.type == SDL_EVENT_WINDOW_FOCUS_GAINED) {
+			std::cout << "Window gained focus!" << std::endl;
+		}
+
 		// Switch between playerCam and freeCam
 		if (event.type == SDL_EVENT_KEY_DOWN && event.key.repeat == 0 && event.key.scancode == SDL_SCANCODE_F2) {
 
 			stateManager.cameraSwitchHandler();
+
+		}
+
+		//TODO change these to buttons in the editor
+		if (event.type == SDL_EVENT_KEY_DOWN && event.key.repeat == 0 && event.key.scancode == SDL_SCANCODE_F3) {
+
+			stateManager.printSystems();
+
+		}
+
+		if (event.type == SDL_EVENT_KEY_DOWN && event.key.repeat == 0 && event.key.scancode == SDL_SCANCODE_F4) {
+
+			stateManager.printPhases();
 
 		}
 

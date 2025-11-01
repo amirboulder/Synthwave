@@ -273,6 +273,7 @@ public:
 	flecs::system debugRenderSys;
 
 	flecs::entity physicsPhase;
+	flecs::entity physicsRenderPhase;
 
 	Fisiks(flecs::world& ecs)
 		: broad_phase_layer_interface(),
@@ -354,7 +355,6 @@ public:
 
 	void init() {
 
-
 		registerComponents();
 		registerPhase();
 		registerSystems();
@@ -367,7 +367,6 @@ public:
 		updateSystem();
 		syncSystem();
 
-		//runs on PostUpdate phase
 		debugRenderSystem();
 
 	}
@@ -384,16 +383,25 @@ public:
 
 	void registerPhase() {
 
+		// Each phase has its own dependency, it ensures that
+		// 1.phases can be disabled without affecting other phases (disabling is transitive in flecs)
+		// 2.Phases can run in the order we want regardless of creation order 
+		//PhaseDependencies depend on each other, thats handled in StateManager.RegisterPhaseDependencies()
+		// that way phases created earlier in initialization can depend on phases created after them
+		flecs::entity physicsPhaseDependency = ecs.entity("PhysicsPhaseDependency");
+
 		physicsPhase = ecs.entity("PhysicsPhase")
 			.add(flecs::Phase)
-			.depends_on(flecs::OnUpdate);
+			.depends_on(physicsPhaseDependency);
 
 		// disabled by default so that we don't start simulating physics until a level is loaded
 		physicsPhase.disable();
 
+		renderPhase();
+
 	}
 
-	// Update system is part of the phyiscs phase
+	// Update system is part of the physics phase
 	void updateSystem() {
 
 		updateSys = ecs.system("PhysicsUpdateSys")
@@ -403,6 +411,7 @@ public:
 			physicsSystem.Update(timeStep, cCollisionSteps, temp_allocator, job_system);
 
 		});
+
 	}
 
 
@@ -426,8 +435,21 @@ public:
 		});
 	}
 
-	// run on OnUpdate phase rather than PhysicsPhase so that it still renders when PhysicsPhase is disabled 
-	// for example when the game is paused
+	
+	//May need to change if we add a physics body while the game is paused and nothing shows up.But It may not show up until an update is ran anyways
+	void renderPhase() {
+
+		//This phase does not really need to depend on anything
+		flecs::entity physicsRenderPhaseDependency = ecs.entity("PhysicsRenderPhaseDependency");
+
+		physicsRenderPhase = ecs.entity("PhysicsDebugRenderPhase")
+			.add(flecs::Phase)
+			.depends_on(physicsRenderPhaseDependency);
+
+		// disabled by default so that we don't creating and clearing batches before a level loads
+		physicsRenderPhase.disable();
+	}
+
 	void debugRenderSystem() {
 
 #ifdef	JPH_DEBUG_RENDERER
@@ -435,7 +457,7 @@ public:
 		debugRenderSys = ecs.system<fisiksDebugRenderer>("PhysicsRenderSys")
 			//.with<fisiksDebugRenderer>()
 			.term_at(0).src<fisiksDebugRenderer>()
-			.kind(flecs::OnUpdate)
+			.kind(physicsRenderPhase)
 			.each([&](fisiksDebugRenderer& fisiksRenderer) {
 
 			fisiksRenderer.batches.clear();
