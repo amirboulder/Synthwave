@@ -249,8 +249,6 @@ public:
 		UpdateVelocity();
 		UpdateCharacter();
 		updatePlayerCam();
-
-		renderCharacter();
 	}
 
 	void UpdateCharacter() {
@@ -310,20 +308,6 @@ public:
 
 
 		camera.updateVectors();
-
-	}
-
-	void renderCharacter() {
-
-#ifdef JPH_DEBUG_RENDERER
-
-		fisiksDebugRenderer& fisiksRenderer = ecs.get_mut<fisiksDebugRenderer>();
-
-		RMat44 com = mCharacter->GetCenterOfMassTransform();
-
-		mCharacter->GetShape()->Draw(& fisiksRenderer, com, Vec3::sOne(), Color::sWhite, false, true);
-
-#endif
 
 	}
 

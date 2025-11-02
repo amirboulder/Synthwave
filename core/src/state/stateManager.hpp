@@ -15,12 +15,12 @@ class StateManager {
 
 public:
 
+	flecs::world& ecs;
+
 	Renderer& renderer;
 	Fisiks& fisiks;
 	Scene& scene;
 	TimeManager& time;
-
-	flecs::world& ecs;
 
 	flecs::entity mainMenu;
 	flecs::entity pauseMenu;
@@ -58,6 +58,8 @@ public:
 	// Setting state here to make sure that all entity references such as player and mainMenu are valid
 	// not strictly necessary because this class is constructed after most systems
 	void init() {
+
+		renderer.init();
 
 		SetDefaultApplicationState();
 	}
@@ -129,13 +131,12 @@ public:
 
 		flecs::entity inputPhaseDependency = ecs.lookup("InputPhaseDependency");
 		flecs::entity physicsPhaseDependency = ecs.lookup("PhysicsPhaseDependency").depends_on(inputPhaseDependency);
-		//PhysicsRenderPhaseDependency is not really needed its just debug/ editor feature
-		flecs::entity physicsRenderPhaseDependency = ecs.entity("PhysicsRenderPhaseDependency").depends_on(physicsPhaseDependency);
-		// YES aiPhaseDependency should depends on PhysicsPhaseDependency not PhysicsRenderPhaseDependency
 		flecs::entity aiPhaseDependency = ecs.lookup("AIPhaseDependency").depends_on(physicsPhaseDependency);
 		//TODO Audio phase
 		//TODO maybe gameState phase
 		flecs::entity playerPhaseDependency = ecs.lookup("PlayerPhaseDependency").depends_on(aiPhaseDependency);
+
+		flecs::entity physicsRenderPhaseDependency = ecs.entity("PhysicsRenderPhaseDependency").depends_on(flecs::PostFrame);
 
 		/* This still works with flecs builtin pipeline query :
 		world.pipeline()
@@ -325,9 +326,22 @@ public:
 		}
 	}
 
+
+	void togglePhysicsRenderer() {
+
+		if (ecs.entity<fisiksDebugRenderer>().enabled<fisiksDebugRenderer>()) {
+
+			ecs.entity<fisiksDebugRenderer>().disable<fisiksDebugRenderer>();
+		}
+		else {
+
+			ecs.entity<fisiksDebugRenderer>().enable<fisiksDebugRenderer>();
+		}
+	}
+
 	void menuStateOnSetHook() {
 		
-		//TODO create disable all menus using prefabs
+		//TODO create disable all menus using prefabs once there are more menus
 		ecs.component<MenuState>()
 			.on_set([&](MenuState& newState) {
 			switch (newState) {

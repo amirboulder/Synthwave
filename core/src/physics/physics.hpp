@@ -270,7 +270,7 @@ public:
 
 	flecs::system updateSys;
 	flecs::system syncSys;
-	flecs::system debugRenderSys;
+	flecs::system createRenderBatchesSys;
 
 	flecs::entity physicsPhase;
 	flecs::entity physicsRenderPhase;
@@ -367,16 +367,16 @@ public:
 		updateSystem();
 		syncSystem();
 
-		debugRenderSystem();
+		createRenderBatchesSystem();
 
 	}
 
 	void registerComponents() {
 
 #ifdef JPH_DEBUG_RENDERER
-
+		ecs.component<fisiksDebugRenderer>("fisiksDebugRenderer").add(flecs::CanToggle);
+		//fisiksDebugRenderer relies on renderer being initialized
 		ecs.emplace<fisiksDebugRenderer>(ecs);
-
 #endif
 
 	}
@@ -386,7 +386,7 @@ public:
 		// Each phase has its own dependency, it ensures that
 		// 1.phases can be disabled without affecting other phases (disabling is transitive in flecs)
 		// 2.Phases can run in the order we want regardless of creation order 
-		//PhaseDependencies depend on each other, thats handled in StateManager.RegisterPhaseDependencies()
+		//PhaseDependencies depend on each other, that's handled in StateManager.RegisterPhaseDependencies()
 		// that way phases created earlier in initialization can depend on phases created after them
 		flecs::entity physicsPhaseDependency = ecs.entity("PhysicsPhaseDependency");
 
@@ -450,11 +450,12 @@ public:
 		physicsRenderPhase.disable();
 	}
 
-	void debugRenderSystem() {
+	//Rename to CreateRenderBatches
+	void createRenderBatchesSystem() {
 
 #ifdef	JPH_DEBUG_RENDERER
 
-		debugRenderSys = ecs.system<fisiksDebugRenderer>("PhysicsRenderSys")
+		createRenderBatchesSys = ecs.system<fisiksDebugRenderer>("CreateRenderBatchesSys")
 			//.with<fisiksDebugRenderer>()
 			.term_at(0).src<fisiksDebugRenderer>()
 			.kind(physicsRenderPhase)

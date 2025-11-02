@@ -43,6 +43,8 @@ struct Renderer {
 	flecs::query<Transform, ModelInstance>q1;
 	flecs::query<Transform, ModelInstance>q2;
 
+	flecs::system drawPhysicsBodiesSys;
+
 	UserInterface ui;
 
 	Renderer(flecs::world & ecs)
@@ -62,6 +64,13 @@ struct Renderer {
 		ui.init();
 
 		buildRenderQueries();
+
+		registerSystems();
+	}
+
+	void init() {
+
+		renderPhysicsSystem();
 	}
 
 	//Create singleton components
@@ -144,7 +153,7 @@ struct Renderer {
 		// SDL_GPU_PRESENTMODE_IMMEDIATE for uncapped fps
 		// SDL_GPU_PRESENTMODE_VSYNC for VSYNC
 		SDL_SetGPUSwapchainParameters(rendercontext.device, rendercontext.window,
-			SDL_GPU_SWAPCHAINCOMPOSITION_SDR, SDL_GPU_PRESENTMODE_VSYNC);
+			SDL_GPU_SWAPCHAINCOMPOSITION_SDR, SDL_GPU_PRESENTMODE_IMMEDIATE);
 
 		return true;
 	}
@@ -168,7 +177,7 @@ struct Renderer {
 
 		if (!defaultSampler) {
 			SDL_Log("Could not create GPU sampler!");
-			return -1;
+			return false;
 		}
 
 
@@ -177,7 +186,7 @@ struct Renderer {
 		if (imageData1 == NULL)
 		{
 			SDL_Log("Could not load first image data!");
-			return -1;
+			return false;
 		}
 
 		// Set up texture data
@@ -197,7 +206,7 @@ struct Renderer {
 
 		if (!defaultTexture) {
 			SDL_Log("Could not create GPU texture");
-			return -1;
+			return false;
 		}
 
 		SDL_SetGPUTextureName(
@@ -243,7 +252,7 @@ struct Renderer {
 		SDL_SubmitGPUCommandBuffer(uploadCmdBuf);
 
 
-
+		return true;
 		
 	}
 
@@ -324,6 +333,10 @@ struct Renderer {
 			.with<CustomPipeline>(flecs::Wildcard)  // Match any (CustomPipeline, *)
 			.group_by<CustomPipeline>()
 			.build();
+	}
+
+	void registerSystems() {
+
 	}
 
 
@@ -478,31 +491,34 @@ struct Renderer {
 	}
 
 
+	void renderPhysicsSystem() {
+
 #if defined(JPH_DEBUG_RENDERER)
-	void renderPhysics(SDL_GPURenderPass* renderPass) {
+		drawPhysicsBodiesSys = ecs.system<fisiksDebugRenderer>("DrawPhysicsBodiesSys")
+			.term_at(0).src<fisiksDebugRenderer>()
+			.kind(0)
+			.each([&](fisiksDebugRenderer& fisiksRenderer) {
 
-		fisiksDebugRenderer& fisiksRenderer = ecs.get_mut<fisiksDebugRenderer>();
+				ecs.query<Camera, ActiveCamera>()
+				.each([&](Camera& cam, ActiveCamera) {
 
-		ecs.query<Camera, ActiveCamera>()
-			.each([&](Camera& cam, ActiveCamera) {
+				RVec3Arg camPos(cam.position.x, cam.position.y, cam.position.z);
 
-			RVec3Arg camPos(cam.position.x, cam.position.y, cam.position.z);
+				fisiksRenderer.setCameraUniforms(camPos, cam.generateview(), cam.generateProj());
 
-			fisiksRenderer.setCameraUnifroms(camPos, cam.generateview(), cam.generateProj());
+			});
+
+			// The following are updated every frame so we pass them to fisiksRenderer here instead of during construction
+			fisiksRenderer.renderPass = mainRenderPass;
+
+			// actually draws
+			fisiksRenderer.drawAll();
 
 		});
-
-
-		// The following are updated everyframe so we need to pass them to fisiksRenderer
-		// here instead of during construction
-		fisiksRenderer.renderPass = renderPass;
-
-		// actually draws
-		fisiksRenderer.drawAll();
-
-	}
 #endif
 
+	}
+	
 	void endRenderPass() {
 
 		SDL_EndGPURenderPass(mainRenderPass);
@@ -542,7 +558,7 @@ struct Renderer {
 		drawModels();
 
 #if defined(JPH_DEBUG_RENDERER)
-		if (config.RenderPhysics)  renderPhysics(mainRenderPass);
+		drawPhysicsBodiesSys.run();
 #endif
 
 		endRenderPass();

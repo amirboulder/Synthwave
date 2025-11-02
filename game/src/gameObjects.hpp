@@ -27,14 +27,13 @@ public:
 
 	Renderer& renderer;
 
-	Ref<CharacterVirtual>	mCharacter;
 	flecs::entity aiUpdatePhase;
 
 	flecs::system updateActorsSys;
 	flecs::system updatePlayerSys;
 
-	flecs::query<ActorBehavior>q1;
-	
+	flecs::system drawVirtualCharacterPhysicsBodiesSys;
+
 	Scene(flecs::world & ecs,Fisiks& fisiks, Renderer& renderer)
 		: ecs(ecs), fisiks(fisiks), renderer(renderer)
 	{
@@ -64,7 +63,7 @@ public:
 
 
 		//SETTING DEFAULT PIPELINE
-		//TODO MOVE THIS 
+		//TODO MOVE THIS to RnderConfig
 		ecs.entity("RenderState")
 			.set<RenderState>({ entUnlitPipeline });
 
@@ -103,7 +102,7 @@ public:
 
 		updateActorsSystem();
 		updatePlayerSystem();
-
+		drawVirtualCharacterPhysicsBodies();
 	}
 
 	bool constructLevel() {
@@ -276,7 +275,7 @@ public:
 		// Each phase has its own dependency, it ensures that
 		// 1.phases can be disabled without affecting other phases (disabling is transitive in flecs)
 		// 2.Phases can run in the order we want regardless of creation order 
-		//PhaseDependencies depend on each other, thats handled in StateManager.RegisterPhaseDependencies()
+		//PhaseDependencies depend on each other, that's handled in StateManager.RegisterPhaseDependencies()
 		// that way phases created earlier in initialization can depend on phases created after them
 		flecs::entity aiPhaseDependency = ecs.entity("AIPhaseDependency");
 		aiUpdatePhase = ecs.entity("AIUpdatePhase")
@@ -292,7 +291,7 @@ public:
 		// Each phase has its own dependency, it ensures that
 		// 1.phases can be disabled without affecting other phases (disabling is transitive in flecs)
 		// 2.Phases can run in the order we want regardless of creation order 
-		//PhaseDependencies depend on each other, thats handled in StateManager.RegisterPhaseDependencies()
+		//PhaseDependencies depend on each other, that's handled in StateManager.RegisterPhaseDependencies()
 		// that way phases created earlier in initialization can depend on phases created after them
 		flecs::entity playerPhaseDependency = ecs.entity("PlayerPhaseDependency");
 
@@ -315,8 +314,26 @@ public:
 
 		});
 
-		//TODO separate player body render to here and make it depend on PhysicsDebugRenderPhase
+	}
 
+
+	// Eventually there will be a loop/query in this system which will draw all VirtualCharacterPhysicsBodies
+	void drawVirtualCharacterPhysicsBodies() {
+
+		flecs::entity physicsRenderPhase = ecs.lookup("PhysicsDebugRenderPhase");
+
+		drawVirtualCharacterPhysicsBodiesSys = ecs.system<fisiksDebugRenderer>("DrawVirtualCharacterPhysicsBodiesSys")
+			.term_at(0).src<fisiksDebugRenderer>()
+			.kind(physicsRenderPhase)
+			.each([&](fisiksDebugRenderer& fisiksRenderer) {
+
+			Ref<CharacterVirtual> mChar =  playerEntity.get_mut<Player>().mCharacter;
+
+			RMat44 com = mChar->GetCenterOfMassTransform();
+
+			mChar->GetShape()->Draw(&fisiksRenderer, com, Vec3::sOne(), Color::sWhite, false, true);
+
+		});
 	}
 
 };

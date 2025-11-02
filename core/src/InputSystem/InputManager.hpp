@@ -148,6 +148,11 @@ public:
 
 		}
 
+		// disable physics Renderer Phase
+		if (event.type == SDL_EVENT_KEY_DOWN && event.key.repeat == 0 && event.key.scancode == SDL_SCANCODE_F6) {
+
+			stateManager.togglePhysicsRenderer();
+		}
 	}
 
 	void handlePlayerKBMInput() {

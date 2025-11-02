@@ -66,7 +66,7 @@ public:
 		: ecs(ecs)
 
 	{
-
+		//requires RenderContext RendererConfig to be initlized by Renderer
 		const RenderConxtext& rendercontext = ecs.get<RenderConxtext>();
 		const RendererConfig& config = ecs.get<RendererConfig>();
 
@@ -76,8 +76,7 @@ public:
 
 		//shader::generateSpirvShaders("shaders/slang/physicsRender.slang", "shaders/compiled/physicsRender.vert.spv", "shaders/compiled/physicsRender.frag.spv");
 		RenderUtil::loadShaderSPRIV(rendercontext.device, vertexShader, "shaders/compiled/physicsRender.vert.spv", SDL_GPU_SHADERSTAGE_VERTEX, 0, 2, 0, 0);
-		RenderUtil::loadShaderSPRIV(rendercontext.device, fragmentShader, "shaders/compiled/physicsRender.frag.spv", SDL_GPU_SHADERSTAGE_FRAGMENT, 0, 0, 0, 0);
-
+		RenderUtil::loadShaderSPRIV(rendercontext.device, fragmentShader, "shaders/compiled/physicsRender.frag.spv", SDL_GPU_SHADERSTAGE_FRAGMENT, 0, 0, 0, 0); 
 		createPipeline();
 
 		//required by jolt
@@ -87,7 +86,7 @@ public:
 
 
 
-	void setCameraUnifroms(RVec3Arg inCameraPos, glm::mat4 view, glm::mat4 proj)
+	void setCameraUniforms(RVec3Arg inCameraPos, glm::mat4 view, glm::mat4 proj)
 	{
 		mCameraPos = inCameraPos;
 		mCameraPosSet = true;
