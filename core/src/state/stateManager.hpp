@@ -59,7 +59,7 @@ public:
 	// not strictly necessary because this class is constructed after most systems
 	void init() {
 
-		renderer.init();
+		renderer.initSubSystems();
 
 		SetDefaultApplicationState();
 	}
@@ -246,8 +246,6 @@ public:
 		scene.aiUpdatePhase.enable();
 		scene.playerPhase.enable();
 
-		//enable here for now but will be incorporated into render settings later
-		fisiks.physicsRenderPhase.enable();
 
 	}
 
@@ -387,6 +385,8 @@ public:
 
 				fisiks.physicsPhase.enable();
 				scene.aiUpdatePhase.enable();
+				scene.playerPhase.enable();
+
 				flushMouseMovement();
 				SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "PlayState::play");
 
@@ -398,6 +398,7 @@ public:
 
 				fisiks.physicsPhase.disable();
 				scene.aiUpdatePhase.disable();
+				scene.playerPhase.disable();
 				
 				SDL_SetWindowRelativeMouseMode(renderContext.window, false);
 

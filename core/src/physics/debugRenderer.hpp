@@ -15,7 +15,9 @@ JPH_NAMESPACE_BEGIN
 
 using namespace JPH;
 
-
+// This class is a part of the renderer because the call to draw all needs to happen
+// when a renderPass is active in the renderer so its called by the renderer.draw all
+// The batch creation happens at the same rate as physics updates as anything more than that would be a waste
 class fisiksDebugRenderer : public JPH::DebugRenderer
 {
 
@@ -79,13 +81,10 @@ public:
 		RenderUtil::loadShaderSPRIV(rendercontext.device, fragmentShader, "shaders/compiled/physicsRender.frag.spv", SDL_GPU_SHADERSTAGE_FRAGMENT, 0, 0, 0, 0); 
 		createPipeline();
 
-		//required by jolt
 		Initialize();
 	}
 
-
-
-
+	
 	void setCameraUniforms(RVec3Arg inCameraPos, glm::mat4 view, glm::mat4 proj)
 	{
 		mCameraPos = inCameraPos;
@@ -234,7 +233,6 @@ public:
 
 	void drawAll() {
 
-		//Bind pipeline
 
 		const FrameContext& frameContext = ecs.get<FrameContext>();
 

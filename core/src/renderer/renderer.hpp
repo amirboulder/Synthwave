@@ -68,9 +68,11 @@ struct Renderer {
 		registerSystems();
 	}
 
-	void init() {
 
-		renderPhysicsSystem();
+	void initSubSystems() {
+
+		initPhysicsRenderer();
+		
 	}
 
 	//Create singleton components
@@ -88,8 +90,8 @@ struct Renderer {
 		ecs.component<RendererConfig>();
 		ecs.set<RendererConfig>({});
 
-
-
+		// emplaced later
+		ecs.component<fisiksDebugRenderer>("fisiksDebugRenderer").add(flecs::CanToggle);
 	}
 
 
@@ -337,6 +339,8 @@ struct Renderer {
 
 	void registerSystems() {
 
+		createPhysicsBatchesSystem();
+		renderPhysicsSystem();
 	}
 
 
@@ -490,6 +494,44 @@ struct Renderer {
 
 	}
 
+
+	void initPhysicsRenderer() {
+#ifdef JPH_DEBUG_RENDERER
+		
+		ecs.emplace<fisiksDebugRenderer>(ecs);
+
+		const RendererConfig& config = ecs.get<RendererConfig>();
+
+		if (!config.RenderPhysics) {
+			ecs.entity<fisiksDebugRenderer>().disable<fisiksDebugRenderer>();
+
+		}
+		
+#endif
+	}
+
+	void createPhysicsBatchesSystem() {
+
+#ifdef	JPH_DEBUG_RENDERER
+
+		flecs::system createPhysicsBatchesSys = ecs.system<fisiksDebugRenderer>("CreatePhysicsBatchesSys")
+			//.with<fisiksDebugRenderer>()
+			.term_at(0).src<fisiksDebugRenderer>()
+			.kind(flecs::PostFrame)
+			.each([&](fisiksDebugRenderer& fisiksRenderer) {
+
+			fisiksRenderer.batches.clear();
+			fisiksRenderer.modelMatrices.clear();
+
+			JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
+
+			// Does not actually draw it just puts all render batches in vector so they can be drawn during a render pass
+			physicsSystem.DrawBodies(fisiksRenderer.drawSettings, &fisiksRenderer);
+
+		});
+
+#endif
+	}
 
 	void renderPhysicsSystem() {
 

@@ -270,7 +270,6 @@ public:
 
 	flecs::system updateSys;
 	flecs::system syncSys;
-	flecs::system createRenderBatchesSys;
 
 	flecs::entity physicsPhase;
 	flecs::entity physicsRenderPhase;
@@ -367,17 +366,13 @@ public:
 		updateSystem();
 		syncSystem();
 
-		createRenderBatchesSystem();
 
 	}
 
 	void registerComponents() {
 
-#ifdef JPH_DEBUG_RENDERER
-		ecs.component<fisiksDebugRenderer>("fisiksDebugRenderer").add(flecs::CanToggle);
-		//fisiksDebugRenderer relies on renderer being initialized
-		ecs.emplace<fisiksDebugRenderer>(ecs);
-#endif
+		ecs.component<PhysicsSystemRef>("PhysicsSystemRef");
+		ecs.emplace<PhysicsSystemRef>(physicsSystem);
 
 	}
 
@@ -397,7 +392,6 @@ public:
 		// disabled by default so that we don't start simulating physics until a level is loaded
 		physicsPhase.disable();
 
-		renderPhase();
 
 	}
 
@@ -435,42 +429,6 @@ public:
 		});
 	}
 
-	
-	//May need to change if we add a physics body while the game is paused and nothing shows up.But It may not show up until an update is ran anyways
-	void renderPhase() {
-
-		//This phase does not really need to depend on anything
-		flecs::entity physicsRenderPhaseDependency = ecs.entity("PhysicsRenderPhaseDependency");
-
-		physicsRenderPhase = ecs.entity("PhysicsDebugRenderPhase")
-			.add(flecs::Phase)
-			.depends_on(physicsRenderPhaseDependency);
-
-		// disabled by default so that we don't creating and clearing batches before a level loads
-		physicsRenderPhase.disable();
-	}
-
-	//Rename to CreateRenderBatches
-	void createRenderBatchesSystem() {
-
-#ifdef	JPH_DEBUG_RENDERER
-
-		createRenderBatchesSys = ecs.system<fisiksDebugRenderer>("CreateRenderBatchesSys")
-			//.with<fisiksDebugRenderer>()
-			.term_at(0).src<fisiksDebugRenderer>()
-			.kind(physicsRenderPhase)
-			.each([&](fisiksDebugRenderer& fisiksRenderer) {
-
-			fisiksRenderer.batches.clear();
-			fisiksRenderer.modelMatrices.clear();
-
-			// Does not actually draw it just puts all render batches in vector so they can be drawn by the renderer
-			physicsSystem.DrawBodies(fisiksRenderer.drawSettings, &fisiksRenderer);
-
-		});
-
-#endif
-	}
 
 	//TODO move these to physicsUtil
 	void PrintJPHMat4(const JPH::Mat44& mat, unsigned int index) {

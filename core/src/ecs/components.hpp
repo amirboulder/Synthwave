@@ -106,3 +106,7 @@ struct ActiveCamera {};
 
 struct MenuItem {};
 struct Active{};
+
+struct PhysicsSystemRef {
+	JPH::PhysicsSystem & physicsSystem;
+};

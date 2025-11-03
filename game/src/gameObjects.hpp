@@ -320,11 +320,10 @@ public:
 	// Eventually there will be a loop/query in this system which will draw all VirtualCharacterPhysicsBodies
 	void drawVirtualCharacterPhysicsBodies() {
 
-		flecs::entity physicsRenderPhase = ecs.lookup("PhysicsDebugRenderPhase");
 
 		drawVirtualCharacterPhysicsBodiesSys = ecs.system<fisiksDebugRenderer>("DrawVirtualCharacterPhysicsBodiesSys")
 			.term_at(0).src<fisiksDebugRenderer>()
-			.kind(physicsRenderPhase)
+			.kind(flecs::PostFrame)
 			.each([&](fisiksDebugRenderer& fisiksRenderer) {
 
 			Ref<CharacterVirtual> mChar =  playerEntity.get_mut<Player>().mCharacter;
