@@ -52,7 +52,7 @@ public:
 
 		disableDefaultPhases();
 
-		getEntityHandles();
+		getEntityRefs();
 	}
 
 	// Setting state here to make sure that all entity references such as player and mainMenu are valid
@@ -210,7 +210,7 @@ public:
 		});
 	}
 
-	void getEntityHandles() {
+	void getEntityRefs() {
 
 		playerCam = ecs.lookup("PlayerCam");
 		freeCam = ecs.lookup("FreeCam");
@@ -302,10 +302,12 @@ public:
 		else if (state == PlayState::PLAY) {
 
 			ecs.set<PlayState>(PlayState::PAUSE);
+			ecs.set<MenuState>({ MenuState::PAUSE });
 		}
 		else if (state == PlayState::PAUSE) {
 
 			ecs.set<PlayState>(PlayState::PLAY);
+			ecs.set<MenuState>({ MenuState::NONE });
 		}
 
 	}
@@ -391,7 +393,7 @@ public:
 				SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "PlayState::play");
 
 				SDL_SetWindowRelativeMouseMode(renderContext.window, true);
-				ecs.set<MenuState>({ MenuState::NONE });
+				
 
 				break;
 			case PlayState::PAUSE:
@@ -401,8 +403,6 @@ public:
 				scene.playerPhase.disable();
 				
 				SDL_SetWindowRelativeMouseMode(renderContext.window, false);
-
-				ecs.set<MenuState>({ MenuState::PAUSE });
 
 				SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "PlayState::pause");
 				break;
@@ -536,9 +536,7 @@ public:
 
 	void toMainMenuCallback () {
 
-		mainMenu.enable();
-		pauseMenu.disable();
-
+		
 		ecs.set<MenuState>({ MenuState::MAIN });
 
 		//TODO Unload level
