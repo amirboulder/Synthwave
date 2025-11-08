@@ -81,8 +81,8 @@ struct Renderer {
 		//They are all singleton entities
 		//TODO maybe replace ecs.component with ecs.emplace 
 
-		ecs.component<RenderConxtext>();
-		ecs.set<RenderConxtext>({});
+		ecs.component<RenderContext>();
+		ecs.set<RenderContext>({});
 
 		ecs.component<FrameContext>();
 		ecs.set<FrameContext>({});
@@ -110,7 +110,7 @@ struct Renderer {
 			return false;
 		}
 
-		RenderConxtext& rendercontext = ecs.get_mut<RenderConxtext>();
+		RenderContext& renderContext = ecs.get_mut<RenderContext>();
 		const RendererConfig& config = ecs.get<RendererConfig>();
 
 		//TODO have the option or rendering in other displays
@@ -120,32 +120,32 @@ struct Renderer {
 		//SDL_WindowFlags window_flags = SDL_WINDOW_HIGH_PIXEL_DENSITY;
 
 	
-		rendercontext.window = SDL_CreateWindow("Synthwave", config.windowWidth, config.windowHeight, NULL);
-		if (!rendercontext.window) {
+		renderContext.window = SDL_CreateWindow("Synthwave", config.windowWidth, config.windowHeight, NULL);
+		if (!renderContext.window) {
 			SDL_Log("Failed to create window!");
 			return false;
 		}
 		
-		SDL_SetWindowPosition(rendercontext.window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+		SDL_SetWindowPosition(renderContext.window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
 
 
-		SDL_SetWindowRelativeMouseMode(rendercontext.window, false);
+		SDL_SetWindowRelativeMouseMode(renderContext.window, false);
 
 		return true;
 	}
 
 	bool createAndClaimGPU() {
 
-		RenderConxtext& rendercontext = ecs.get_mut<RenderConxtext>();
+		RenderContext& renderContext = ecs.get_mut<RenderContext>();
 
-		rendercontext.device = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV, false, NULL);
-		if (!rendercontext.device)
+		renderContext.device = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV, false, NULL);
+		if (!renderContext.device)
 		{
 			SDL_Log("GPUCreateDevice failed: %s", SDL_GetError());
 			return false;
 		}
 
-		if (!SDL_ClaimWindowForGPUDevice(rendercontext.device, rendercontext.window))
+		if (!SDL_ClaimWindowForGPUDevice(renderContext.device, renderContext.window))
 		{
 			SDL_Log("GPUClaimWindow failed");
 			return false;
@@ -154,7 +154,7 @@ struct Renderer {
 		
 		// SDL_GPU_PRESENTMODE_IMMEDIATE for uncapped fps
 		// SDL_GPU_PRESENTMODE_VSYNC for VSYNC
-		SDL_SetGPUSwapchainParameters(rendercontext.device, rendercontext.window,
+		SDL_SetGPUSwapchainParameters(renderContext.device, renderContext.window,
 			SDL_GPU_SWAPCHAINCOMPOSITION_SDR, SDL_GPU_PRESENTMODE_IMMEDIATE);
 
 		return true;
@@ -163,7 +163,7 @@ struct Renderer {
 
 	bool createSamplerAndDefaultTexture() {
 
-		const RenderConxtext& rendercontext = ecs.get<RenderConxtext>();
+		const RenderContext& renderContext = ecs.get<RenderContext>();
 
 
 		SDL_GPUSamplerCreateInfo samplerCreateInfo{
@@ -175,7 +175,7 @@ struct Renderer {
 		.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
 		};
 
-		defaultSampler = SDL_CreateGPUSampler(rendercontext.device, &samplerCreateInfo);
+		defaultSampler = SDL_CreateGPUSampler(renderContext.device, &samplerCreateInfo);
 
 		if (!defaultSampler) {
 			SDL_Log("Could not create GPU sampler!");
@@ -204,7 +204,7 @@ struct Renderer {
 			.num_levels = 1,
 
 		};
-		defaultTexture = SDL_CreateGPUTexture(rendercontext.device, &textureCreateInfo);
+		defaultTexture = SDL_CreateGPUTexture(renderContext.device, &textureCreateInfo);
 
 		if (!defaultTexture) {
 			SDL_Log("Could not create GPU texture");
@@ -212,7 +212,7 @@ struct Renderer {
 		}
 
 		SDL_SetGPUTextureName(
-			rendercontext.device,
+			renderContext.device,
 			defaultTexture,
 			"Default Texture"
 		);
@@ -222,16 +222,16 @@ struct Renderer {
 			.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
 			.size = imageSizeInBytes
 		};
-		SDL_GPUTransferBuffer* textureTransferBuffer = SDL_CreateGPUTransferBuffer(rendercontext.device, &transferBufferInfo);
+		SDL_GPUTransferBuffer* textureTransferBuffer = SDL_CreateGPUTransferBuffer(renderContext.device, &transferBufferInfo);
 
-		void* textureTransferPtr = SDL_MapGPUTransferBuffer(rendercontext.device, textureTransferBuffer, false);
+		void* textureTransferPtr = SDL_MapGPUTransferBuffer(renderContext.device, textureTransferBuffer, false);
 
 		SDL_memcpy(textureTransferPtr, imageData1->pixels, imageSizeInBytes);
 
-		SDL_UnmapGPUTransferBuffer(rendercontext.device, textureTransferBuffer);
+		SDL_UnmapGPUTransferBuffer(renderContext.device, textureTransferBuffer);
 
 		// Upload the transfer data to the GPU resources
-		SDL_GPUCommandBuffer* uploadCmdBuf = SDL_AcquireGPUCommandBuffer(rendercontext.device);
+		SDL_GPUCommandBuffer* uploadCmdBuf = SDL_AcquireGPUCommandBuffer(renderContext.device);
 		SDL_GPUCopyPass* copyPass = SDL_BeginGPUCopyPass(uploadCmdBuf);
 
 
@@ -261,7 +261,7 @@ struct Renderer {
 
 	bool createRenderTargets() {
 
-		const RenderConxtext& rendercontext = ecs.get<RenderConxtext>();
+		const RenderContext& renderContext = ecs.get<RenderContext>();
 		const RendererConfig& config = ecs.get<RendererConfig>();
 
 		SDL_GPUTextureCreateInfo depthTextureCreateInfo = {
@@ -274,7 +274,7 @@ struct Renderer {
 		 .num_levels = 1,
 		.sample_count = config.sampleCountMSAA,
 		};
-		this->depthTexture = SDL_CreateGPUTexture(rendercontext.device, &depthTextureCreateInfo);
+		this->depthTexture = SDL_CreateGPUTexture(renderContext.device, &depthTextureCreateInfo);
 
 		if (!depthTexture) {
 			SDL_Log("Failed to create depth texture: %s", SDL_GetError());
@@ -293,7 +293,7 @@ struct Renderer {
 			.sample_count = config.sampleCountMSAA
 		};
 
-		msaaColorTarget = SDL_CreateGPUTexture(rendercontext.device, &colorTextureInfo);
+		msaaColorTarget = SDL_CreateGPUTexture(renderContext.device, &colorTextureInfo);
 		if (!msaaColorTarget) {
 			SDL_Log("Failed to create MSAA color target: %s", SDL_GetError());
 			return false;
@@ -310,7 +310,7 @@ struct Renderer {
 		.sample_count = SDL_GPU_SAMPLECOUNT_1  // Always 1x for resolve target
 		};
 
-		resolveTarget = SDL_CreateGPUTexture(rendercontext.device, &resolveTextureInfo);
+		resolveTarget = SDL_CreateGPUTexture(renderContext.device, &resolveTextureInfo);
 		if (!resolveTarget) {
 			SDL_Log("Failed to create resolve target: %s", SDL_GetError());
 			return false;
@@ -346,13 +346,13 @@ struct Renderer {
 
 	void beginRenderPass() {
 
-		const RenderConxtext& rendercontext = ecs.get<RenderConxtext>();
+		const RenderContext& renderContext = ecs.get<RenderContext>();
 		FrameContext& frameContext = ecs.get_mut<FrameContext>();
 
-		frameContext.commandBuffer = check_error_ptr(SDL_AcquireGPUCommandBuffer(rendercontext.device));
+		frameContext.commandBuffer = check_error_ptr(SDL_AcquireGPUCommandBuffer(renderContext.device));
 
 
-		check_error_bool(SDL_WaitAndAcquireGPUSwapchainTexture(frameContext.commandBuffer, rendercontext.window, &frameContext.swapchainTexture, &swapchainWidth, &swapchainHeight));
+		check_error_bool(SDL_WaitAndAcquireGPUSwapchainTexture(frameContext.commandBuffer, renderContext.window, &frameContext.swapchainTexture, &swapchainWidth, &swapchainHeight));
 
 		if (!frameContext.swapchainTexture) {
 			return; // Window is probably minimized
@@ -405,9 +405,9 @@ struct Renderer {
 		//const FrameContext& frameContext = ecs.get<FrameContext>();
 
 		glm::mat4 modelTranslation = glm::translate(glm::mat4(1.0f), transform.position);
-		glm::mat4 modelRototaion = glm::toMat4(transform.rotation);
+		glm::mat4 modelRotation = glm::toMat4(transform.rotation);
 		glm::mat4 modelScale = glm::scale(glm::mat4(1.0f), transform.scale);
-		glm::mat4 modelMat = modelTranslation * modelRototaion * modelScale;
+		glm::mat4 modelMat = modelTranslation * modelRotation * modelScale;
 
 		for (int j = 0; j < model.meshes.size(); j++) {
 

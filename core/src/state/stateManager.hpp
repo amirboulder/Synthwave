@@ -437,7 +437,7 @@ public:
 
 	void playStateOnSetHook() {
 
-		const RenderConxtext& renderContext = ecs.get<RenderConxtext>();
+		const RenderContext& renderContext = ecs.get<RenderContext>();
 		
 
 		ecs.component<PlayState>()

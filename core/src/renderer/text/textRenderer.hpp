@@ -72,12 +72,12 @@ public:
     //create a custom pipeline for text renderer
     void init() {
 
-        const RenderConxtext& rendercontext = ecs.get<RenderConxtext>();
+        const RenderContext& renderContext = ecs.get<RenderContext>();
 
        // shader::generateSpirvShaders("shaders/slang/textShader.slang", "shaders/compiled/text.vert.spv", "shaders/compiled/text.frag.spv");
 
-        RenderUtil::loadShaderSPRIV(rendercontext.device, vertexShader, "shaders/compiled/text.vert.spv", SDL_GPU_SHADERSTAGE_VERTEX,0, 1, 0, 0);
-        RenderUtil::loadShaderSPRIV(rendercontext.device, fragmentShader, "shaders/compiled/text.frag.spv", SDL_GPU_SHADERSTAGE_FRAGMENT,1, 0, 0, 0);
+        RenderUtil::loadShaderSPRIV(renderContext.device, vertexShader, "shaders/compiled/text.vert.spv", SDL_GPU_SHADERSTAGE_VERTEX,0, 1, 0, 0);
+        RenderUtil::loadShaderSPRIV(renderContext.device, fragmentShader, "shaders/compiled/text.frag.spv", SDL_GPU_SHADERSTAGE_FRAGMENT,1, 0, 0, 0);
 
        
         SDL_GPUVertexAttribute vertexAttributes[3] = {};
@@ -115,7 +115,7 @@ public:
 
         // Create pipeline with proper blending for text
         SDL_GPUColorTargetDescription coldescs = {};
-        coldescs.format = SDL_GetGPUSwapchainTextureFormat(rendercontext.device, rendercontext.window);
+        coldescs.format = SDL_GetGPUSwapchainTextureFormat(renderContext.device, renderContext.window);
 
         // Enable alpha blending for text
         coldescs.blend_state.enable_blend = true;
@@ -142,14 +142,14 @@ public:
 
        
        // pipeline = check_error_ptr(SDL_CreateGPUGraphicsPipeline(device, &pipeInfo));
-        pipeline = SDL_CreateGPUGraphicsPipeline(rendercontext.device, &pipeInfo);
+        pipeline = SDL_CreateGPUGraphicsPipeline(renderContext.device, &pipeInfo);
         if (!pipeline) {
             SDL_Log("Failed to create line pipeline: %s", SDL_GetError());
             return ;
         }
 
-        SDL_ReleaseGPUShader(rendercontext.device, vertexShader);
-        SDL_ReleaseGPUShader(rendercontext.device, fragmentShader);
+        SDL_ReleaseGPUShader(renderContext.device, vertexShader);
+        SDL_ReleaseGPUShader(renderContext.device, fragmentShader);
 
         // Create sampler once
         SDL_GPUSamplerCreateInfo sampler_info = {
@@ -160,7 +160,7 @@ public:
             .address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
             .address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE
         };
-        sampler = check_error_ptr(SDL_CreateGPUSampler(rendercontext.device, &sampler_info));
+        sampler = check_error_ptr(SDL_CreateGPUSampler(renderContext.device, &sampler_info));
 
         SDL_Log("text pipeline created!");
 
@@ -174,17 +174,17 @@ public:
         }
 
         TTF_SetFontWrapAlignment(font, TTF_HORIZONTAL_ALIGN_LEFT);
-        engine = check_error_ptr(TTF_CreateGPUTextEngine(rendercontext.device));
+        engine = check_error_ptr(TTF_CreateGPUTextEngine(renderContext.device));
 
         // Create initial text
-        updateText("Hello SDL GPU Text!",staticText, rendercontext.device);
+        updateText("Hello SDL GPU Text!",staticText, renderContext.device);
 
        
     }
 
     void updateText(const char* newText, TextData & textData, SDL_GPUDevice* device) {
         
-       // const RenderConxtext& rendercontext = ecs.get<RenderConxtext>();
+       // const RenderContext& renderContext = ecs.get<RenderContext>();
 
       //  SDL_Log("TextRenderer::updateText() - Text: '%s'", newText);
 
@@ -280,7 +280,7 @@ public:
     void drawAll(int screenWidth, int screenHeight) {
 
         FrameContext& frameContext = ecs.get_mut<FrameContext>();
-        const RenderConxtext& rendercontext = ecs.get<RenderConxtext>();
+        const RenderContext& renderContext = ecs.get<RenderContext>();
 
         //todo calculate text bounding box 
         // test if text fall within screen coordiantes

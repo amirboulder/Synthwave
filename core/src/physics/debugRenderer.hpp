@@ -69,7 +69,7 @@ public:
 
 	{
 		//requires RenderContext RendererConfig to be initlized by Renderer
-		const RenderConxtext& rendercontext = ecs.get<RenderConxtext>();
+		const RenderContext& renderContext = ecs.get<RenderContext>();
 		const RendererConfig& config = ecs.get<RendererConfig>();
 
 		
@@ -77,8 +77,8 @@ public:
 		drawSettings.mDrawShapeWireframe = config.DrawShapeWireframePhysics;
 
 		//shader::generateSpirvShaders("shaders/slang/physicsRender.slang", "shaders/compiled/physicsRender.vert.spv", "shaders/compiled/physicsRender.frag.spv");
-		RenderUtil::loadShaderSPRIV(rendercontext.device, vertexShader, "shaders/compiled/physicsRender.vert.spv", SDL_GPU_SHADERSTAGE_VERTEX, 0, 2, 0, 0);
-		RenderUtil::loadShaderSPRIV(rendercontext.device, fragmentShader, "shaders/compiled/physicsRender.frag.spv", SDL_GPU_SHADERSTAGE_FRAGMENT, 0, 0, 0, 0); 
+		RenderUtil::loadShaderSPRIV(renderContext.device, vertexShader, "shaders/compiled/physicsRender.vert.spv", SDL_GPU_SHADERSTAGE_VERTEX, 0, 2, 0, 0);
+		RenderUtil::loadShaderSPRIV(renderContext.device, fragmentShader, "shaders/compiled/physicsRender.frag.spv", SDL_GPU_SHADERSTAGE_FRAGMENT, 0, 0, 0, 0); 
 		createPipeline();
 
 		Initialize();
@@ -116,7 +116,7 @@ public:
 
 	virtual Batch CreateTriangleBatch(const Triangle* inTriangles, int inTriangleCount) override {
 
-		RenderConxtext& rendercontext = ecs.get_mut<RenderConxtext>();
+		RenderContext& renderContext = ecs.get_mut<RenderContext>();
 
 		BatchImpl* batch = new BatchImpl;
 		if (inTriangles == nullptr || inTriangleCount == 0)
@@ -143,8 +143,8 @@ public:
 		bufferCreateInfo.usage = SDL_GPU_BUFFERUSAGE_VERTEX;
 		bufferCreateInfo.size = vertices.size() * sizeof(glm::vec3);
 
-		batch->vertexBuffer = SDL_CreateGPUBuffer(rendercontext.device, &bufferCreateInfo);
-		RenderUtil::uploadBufferData(rendercontext.device, batch->vertexBuffer, vertices.data(),
+		batch->vertexBuffer = SDL_CreateGPUBuffer(renderContext.device, &bufferCreateInfo);
+		RenderUtil::uploadBufferData(renderContext.device, batch->vertexBuffer, vertices.data(),
 			vertices.size() * sizeof(glm::vec3), SDL_GPU_BUFFERUSAGE_VERTEX);
 
 		return batch;
@@ -153,7 +153,7 @@ public:
 	//TODO use indcies properly
 	virtual Batch CreateTriangleBatch(const Vertex* inVertices, int inVertexCount, const uint32* inIndices, int inIndexCount) override {
 
-		const RenderConxtext& rendercontext = ecs.get<RenderConxtext>();
+		const RenderContext& renderContext = ecs.get<RenderContext>();
 
 		BatchImpl* batch = new BatchImpl;
 		if (inVertices == nullptr || inVertexCount == 0 || inIndices == nullptr || inIndexCount == 0)
@@ -184,7 +184,7 @@ public:
 			}
 		}
 
-		RenderUtil::uploadBufferData(rendercontext.device, batch->vertexBuffer, vertices.data(),
+		RenderUtil::uploadBufferData(renderContext.device, batch->vertexBuffer, vertices.data(),
 			vertices.size() * sizeof(glm::vec3), SDL_GPU_BUFFERUSAGE_VERTEX);
 
 		return batch;
@@ -283,7 +283,7 @@ public:
 
 	void createPipeline(EDrawMode inDrawMode = EDrawMode::Wireframe) {
 
-		 const RenderConxtext& rendercontext = ecs.get<RenderConxtext>();
+		 const RenderContext& renderContext = ecs.get<RenderContext>();
 		 const RendererConfig& renderConfig = ecs.get<RendererConfig>();
 
 		// Vertex input state
@@ -309,7 +309,7 @@ public:
 
 		// Create pipeline
 		SDL_GPUColorTargetDescription coldescs = {};
-		coldescs.format = SDL_GetGPUSwapchainTextureFormat(rendercontext.device, rendercontext.window);
+		coldescs.format = SDL_GetGPUSwapchainTextureFormat(renderContext.device, renderContext.window);
 
 		SDL_GPUGraphicsPipelineCreateInfo pipeInfo = {};
 		SDL_zero(pipeInfo);
@@ -347,7 +347,7 @@ public:
 		pipeInfo.rasterizer_state.front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE;
 		pipeInfo.props = 0;
 
-		pipeline = SDL_CreateGPUGraphicsPipeline(rendercontext.device, &pipeInfo);
+		pipeline = SDL_CreateGPUGraphicsPipeline(renderContext.device, &pipeInfo);
 		if (!pipeline) {
 			SDL_Log("Failed to create fill pipeline: %s", SDL_GetError());
 			return;

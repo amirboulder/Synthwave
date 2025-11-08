@@ -26,7 +26,7 @@ public:
 		}
 
 
-		const RenderConxtext& rendercontext = ecs.get<RenderConxtext>();
+		const RenderContext& renderContext = ecs.get<RenderContext>();
 		const RendererConfig& renderConfig = ecs.get<RendererConfig>();
 
 		// Vertex input state
@@ -70,7 +70,7 @@ public:
 
 		// Create pipeline
 		SDL_GPUColorTargetDescription coldescs = {};
-		coldescs.format = SDL_GetGPUSwapchainTextureFormat(rendercontext.device, rendercontext.window);
+		coldescs.format = SDL_GetGPUSwapchainTextureFormat(renderContext.device, renderContext.window);
 
 		SDL_GPUGraphicsPipelineCreateInfo pipeInfo = {};
 		SDL_zero(pipeInfo);
@@ -102,7 +102,7 @@ public:
 		pipeInfo.rasterizer_state.front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE;
 		pipeInfo.props = 0;
 
-		pipeline = SDL_CreateGPUGraphicsPipeline(rendercontext.device, &pipeInfo);
+		pipeline = SDL_CreateGPUGraphicsPipeline(renderContext.device, &pipeInfo);
 		if (!pipeline) {
 			SDL_LogError(SDL_LOG_CATEGORY_RENDER, "Failed to create fill pipeline: %s", SDL_GetError());
 			return ;
@@ -110,7 +110,7 @@ public:
 
 		if (line) {
 			pipeInfo.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_LINE;
-			pipeline = SDL_CreateGPUGraphicsPipeline(rendercontext.device, &pipeInfo);
+			pipeline = SDL_CreateGPUGraphicsPipeline(renderContext.device, &pipeInfo);
 			if (!pipeline) {
 				SDL_LogError(SDL_LOG_CATEGORY_RENDER, "Failed to create line pipeline: %s", SDL_GetError());
 				return ;

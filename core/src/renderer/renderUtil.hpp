@@ -11,7 +11,7 @@ struct Context {
 	SDL_GPUSampleCount sampleCountMSAA;
 };
 
-struct RenderConxtext {
+struct RenderContext {
 	SDL_GPUDevice* device = NULL;
 	SDL_Window* window = NULL;
 };

@@ -23,7 +23,7 @@ public:
     // TODO create UI config
     void init() {
 
-        const RenderConxtext& rendercontext = ecs.get<RenderConxtext>();
+        const RenderContext& renderContext = ecs.get<RenderContext>();
         const RendererConfig& config = ecs.get<RendererConfig>();
 
         // Create SDL window graphics context
@@ -47,10 +47,10 @@ public:
         style.FrameRounding = 0.0f;             // Set initial font scale. (using io.ConfigDpiScaleFonts=true makes this unnecessary. We leave both here for documentation purpose)
 
         //Setup Platform/Renderer backends
-        ImGui_ImplSDL3_InitForSDLGPU(rendercontext.window);
+        ImGui_ImplSDL3_InitForSDLGPU(renderContext.window);
         ImGui_ImplSDLGPU3_InitInfo init_info = {};
-        init_info.Device = rendercontext.device;
-        init_info.ColorTargetFormat = SDL_GetGPUSwapchainTextureFormat(rendercontext.device, rendercontext.window);
+        init_info.Device = renderContext.device;
+        init_info.ColorTargetFormat = SDL_GetGPUSwapchainTextureFormat(renderContext.device, renderContext.window);
         //init_info.MSAASamples = SDL_GPU_SAMPLECOUNT_1;                      // Only used in multi-viewports mode.
        // init_info.SwapchainComposition = SDL_GPU_SWAPCHAINCOMPOSITION_SDR;  // Only used in multi-viewports mode.
         // Only used in multi-viewports mode. this gets overwritten by RendererConfig when rendering in the same view port

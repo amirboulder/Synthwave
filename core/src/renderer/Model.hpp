@@ -37,7 +37,7 @@ public:
 
 	ModelSource(flecs::world& ecs,const char * filePath)
 	{
-		RenderConxtext& rendercontext = ecs.get_mut<RenderConxtext>();
+		RenderContext& renderContext = ecs.get_mut<RenderContext>();
 
 		// init assimp and load the file
 		Assimp::Importer importer;
@@ -61,7 +61,7 @@ public:
 
 
 		MaterialLoader matLoader;
-		matLoader.loadMaterials(scene, materials,filePath, rendercontext.device);
+		matLoader.loadMaterials(scene, materials,filePath, renderContext.device);
 		
 
 		for (int i = 0; i < scene->mNumMeshes; i++) {
@@ -79,9 +79,9 @@ public:
 
 			currentMesh.transform = temp;
 
-			RenderUtil::uploadBufferData(rendercontext.device, currentMesh.vertexBuffer, currentMesh.vertices.data(),
+			RenderUtil::uploadBufferData(renderContext.device, currentMesh.vertexBuffer, currentMesh.vertices.data(),
 				currentMesh.vertices.size() * sizeof(Vertex), SDL_GPU_BUFFERUSAGE_VERTEX);
-			RenderUtil::uploadBufferData(rendercontext.device, currentMesh.indexBuffer, currentMesh.indices.data(),
+			RenderUtil::uploadBufferData(renderContext.device, currentMesh.indexBuffer, currentMesh.indices.data(),
 				currentMesh.indices.size() * sizeof(unsigned int), SDL_GPU_BUFFERUSAGE_INDEX);
 	
 			//get the first diffuse texture of the material which this mesh uses
@@ -100,7 +100,7 @@ public:
 	// for generated meshes
 	ModelSource(flecs::world& ecs,int rows, int cols) {
 
-		RenderConxtext& rendercontext = ecs.get_mut<RenderConxtext>();
+		RenderContext& renderContext = ecs.get_mut<RenderContext>();
 
 		meshes.emplace_back();
 
@@ -108,17 +108,17 @@ public:
 
 		GridGenerator::generateGrid(256, 256, mesh.vertices, mesh.indices);
 
-		RenderUtil::uploadBufferData(rendercontext.device, mesh.vertexBuffer, mesh.vertices.data(),
+		RenderUtil::uploadBufferData(renderContext.device, mesh.vertexBuffer, mesh.vertices.data(),
 			mesh.vertices.size() * sizeof(Vertex), SDL_GPU_BUFFERUSAGE_VERTEX);
 
-		RenderUtil::uploadBufferData(rendercontext.device, mesh.indexBuffer, mesh.indices.data(),
+		RenderUtil::uploadBufferData(renderContext.device, mesh.indexBuffer, mesh.indices.data(),
 			mesh.indices.size() * sizeof(unsigned int), SDL_GPU_BUFFERUSAGE_INDEX);
 	}
 
 	//for Wireframe Mountains
 	ModelSource(flecs::world& ecs,const char* filePath, bool mtn) {
 
-		RenderConxtext& rendercontext = ecs.get_mut<RenderConxtext>();
+		RenderContext& renderContext = ecs.get_mut<RenderContext>();
 
 		Assimp::Importer importer;
 		const aiScene* scene = importer.ReadFile(filePath, aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_FlipUVs | aiProcess_CalcTangentSpace);
@@ -152,9 +152,9 @@ public:
 
 			currentMesh.transform = temp;
 
-			RenderUtil::uploadBufferData(rendercontext.device, currentMesh.vertexBuffer, currentMesh.vertices.data(),
+			RenderUtil::uploadBufferData(renderContext.device, currentMesh.vertexBuffer, currentMesh.vertices.data(),
 				currentMesh.vertices.size() * sizeof(Vertex), SDL_GPU_BUFFERUSAGE_VERTEX);
-			RenderUtil::uploadBufferData(rendercontext.device, currentMesh.indexBuffer, currentMesh.indices.data(),
+			RenderUtil::uploadBufferData(renderContext.device, currentMesh.indexBuffer, currentMesh.indices.data(),
 				currentMesh.indices.size() * sizeof(unsigned int), SDL_GPU_BUFFERUSAGE_INDEX);
 
 		}
