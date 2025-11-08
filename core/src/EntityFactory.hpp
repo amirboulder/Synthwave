@@ -441,17 +441,31 @@ public:
 	}
 
 
-
-	static bool createMenuItemEntity(flecs::world& ecs, std::string name,
+	static flecs::entity createEditorItemEntity(flecs::world& ecs, std::string name, flecs::entity editorToggle,
 		std::function<void(flecs::world& ecs)> drawFunction) {
 
 		flecs::entity entity = ecs.entity(name.c_str())
 			.emplace<Render>(drawFunction)
-			.add<MenuItem>();
+			.add<EditorComponent>();
 
-		if (!validateEntityCreation(entity, name)) return false;
+		if (!validateEntityCreation(entity, name)) return flecs::entity::null();
 
-		return true;
+		//Adding entity to editorToggle enables us to disable all Editor Components by disabling it
+		editorToggle.add(entity);
+
+		return entity;
+	}
+
+	static flecs::entity createMenuItemEntity(flecs::world& ecs, std::string name,
+		std::function<void(flecs::world& ecs)> drawFunction) {
+
+		flecs::entity entity = ecs.entity(name.c_str())
+			.emplace<Render>(drawFunction)
+			.add<MenuComponent>();
+
+		if (!validateEntityCreation(entity, name)) return flecs::entity::null();
+
+		return entity;
 	}
 
 

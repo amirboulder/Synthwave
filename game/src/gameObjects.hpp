@@ -9,7 +9,6 @@
 #include "sensorBehaviors.hpp"
 #include "actorBehaviors.hpp"
 #include "hud.hpp"
-#include "menu.hpp"
 
 using std::vector;
 
@@ -66,15 +65,6 @@ public:
 		//TODO MOVE THIS to RnderConfig
 		ecs.entity("RenderState")
 			.set<RenderState>({ entUnlitPipeline });
-
-
-		/////////////////////////
-		// Main menu
-		EntityFactory::createMenuItemEntity(ecs, "MainMenu", mainMenuDraw);
-
-		//Pause Menu
-		EntityFactory::createMenuItemEntity(ecs, "PauseMenu", pauseMenuDraw);
-		
 
 		//////////////////////////////
 		// FreeCam

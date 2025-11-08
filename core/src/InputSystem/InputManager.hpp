@@ -35,7 +35,7 @@ public:
 
 	void handleInput() {
 
-		//TODO implement switching based on InputState as well once we get there
+		//TODO implement switching based on InputDeviceState as well once we get there
 
 		//For now if PlayState is paused return
 		if (ecs.get<PlayState>() == PlayState::PAUSE) {
@@ -99,17 +99,8 @@ public:
 
 	}
 
-	void handleEvents(SDL_Event event) {
+	void handleEvents(SDL_Event & event) {
 
-
-		if (event.type == SDL_EVENT_KEY_DOWN && event.key.repeat == 0 && event.key.scancode == SDL_SCANCODE_F1) {
-
-			stateManager.save();
-		}
-
-		if (event.type == SDL_EVENT_KEY_DOWN && event.key.repeat == 0 && event.key.scancode == closeWindow) {
-			stateManager.exitCallback();
-		}
 
 		if (event.type == SDL_EVENT_QUIT) {
 			stateManager.exitCallback();
@@ -119,6 +110,22 @@ public:
 
 			stateManager.gamePauseHandler();
 
+		}
+
+		handleEditorEvents(event);
+
+	}
+
+	// Put things in here that we don't want in distrubutrion mode.
+	void handleEditorEvents(SDL_Event& event) {
+
+		if (event.type == SDL_EVENT_KEY_DOWN && event.key.repeat == 0 && event.key.scancode == closeWindow) {
+			stateManager.exitCallback();
+		}
+
+		if (event.type == SDL_EVENT_KEY_DOWN && event.key.repeat == 0 && event.key.scancode == SDL_SCANCODE_F1) {
+
+			stateManager.toggleEditor();
 		}
 
 		if (event.type == SDL_EVENT_WINDOW_FOCUS_LOST) {
@@ -153,6 +160,11 @@ public:
 
 			stateManager.togglePhysicsRenderer();
 		}
+
+	}
+
+	void handleEditorInputs() {
+
 	}
 
 	void handlePlayerKBMInput() {

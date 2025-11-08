@@ -10,13 +10,17 @@ int main(int argc, char* argv[])
 
 	Fisiks fisiks(ecs);
 
+	MenuSystem menuSys(ecs);
+
 	TimeManager time(fisiks.timeStep);
 
 	Scene scene(ecs, fisiks, renderer);
 
-	StateManager stateManager(ecs, renderer, fisiks, time, scene, running);
+	Editor editor(ecs);
 
-	InputManager inputManager(ecs,stateManager);
+	StateManager stateManager(ecs, renderer, fisiks, menuSys, editor, time, scene, running);
+
+	InputManager inputManager(ecs, stateManager);
 
 	stateManager.init();
 
@@ -27,7 +31,7 @@ int main(int argc, char* argv[])
 		//OPTICK_FRAME("MainThread");
 
 		while (SDL_PollEvent(&event)) {
-			
+
 			inputManager.handleEvents(event);
 
 			ImGui_ImplSDL3_ProcessEvent(&event);

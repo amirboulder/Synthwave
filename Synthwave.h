@@ -12,4 +12,8 @@
 
 #include "core/src/time/timeManager.hpp"
 
+#include "core/src/MenuSystem/MenuSystem.hpp"
+
+#include "Editor/src/editor.hpp"
+
 

@@ -12,6 +12,7 @@ public:
 
     flecs::system HudRenderSys;
     flecs::system MenuRenderSys;
+    flecs::system EditorRenderSys;
 
     UserInterface(flecs::world& ecs)
         :   ecs(ecs)
@@ -58,8 +59,15 @@ public:
 
         ImGui_ImplSDLGPU3_Init(&init_info);
 
-        ImFont* font = io.Fonts->AddFontFromFileTTF("assets/fonts/Supermolot Light.otf");
-        IM_ASSERT(font != nullptr);
+        ImFont* mainFont = io.Fonts->AddFontFromFileTTF(
+            "assets/fonts/Orbitron-VariableFont_wght.ttf",
+            24.0f
+        );
+        IM_ASSERT(mainFont != nullptr);
+
+
+        // Build font atlas
+        io.Fonts->Build();
 
 
         registerSystems();
@@ -77,10 +85,19 @@ public:
 
         });
 
-        MenuRenderSys = ecs.system<Render, MenuItem>("MenuRenderSys")
+        MenuRenderSys = ecs.system<Render, MenuComponent>("MenuRenderSys")
             .kind(0)
             //.immediate()
-            .each([&](flecs::entity e, Render renderCallback, MenuItem) {
+            .each([&](flecs::entity e, Render renderCallback, MenuComponent) {
+
+            renderCallback.draw(ecs);
+
+        });
+
+
+        EditorRenderSys = ecs.system<Render, EditorComponent>("EditorRenderSys")
+            .kind(0)
+            .each([&](flecs::entity e, Render renderCallback, EditorComponent) {
 
             renderCallback.draw(ecs);
 
@@ -101,6 +118,7 @@ public:
 
         HudRenderSys.run();
         MenuRenderSys.run();
+        EditorRenderSys.run();
 
 
         ImGui::Render();

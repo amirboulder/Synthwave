@@ -8,6 +8,10 @@
 
 #include "../time/timeManager.hpp"
 
+#include "../MenuSystem/MenuSystem.hpp"
+
+#include "../../../Editor/src/editor.hpp"
+
 #include "../common.hpp"
 
 
@@ -19,28 +23,28 @@ public:
 
 	Renderer& renderer;
 	Fisiks& fisiks;
+	MenuSystem& menuSys;
+	Editor& editor;
 	Scene& scene;
 	TimeManager& time;
-
-	flecs::entity mainMenu;
-	flecs::entity pauseMenu;
 
 	flecs::entity playerCam;
 	flecs::entity freeCam;
 
-	flecs::entity player;
 
 	flecs::entity inputPhase;
 	flecs::system processUICommandsSys;
 
 	bool & running ;
 
-	StateManager(flecs::world& ecs,Renderer& renderer,Fisiks & fisiks ,TimeManager & time,Scene& scene ,bool& running)
-		: ecs(ecs), renderer(renderer), time(time), fisiks(fisiks), running(running), scene(scene)
+	StateManager(flecs::world& ecs,Renderer& renderer,Fisiks & fisiks, MenuSystem & menuSys,Editor & editor ,TimeManager & time,Scene& scene ,bool& running)
+		: ecs(ecs), renderer(renderer),fisiks(fisiks),menuSys(menuSys),editor(editor), time(time),scene(scene),running(running)
 	{
 		registerHooks();
 
 		createComponents();
+
+		registerObservers();
 
 		createEntities();
 
@@ -60,6 +64,8 @@ public:
 	void init() {
 
 		renderer.initSubSystems();
+
+		editor.init();
 
 		SetDefaultApplicationState();
 	}
@@ -97,21 +103,30 @@ public:
 
 	void registerHooks() {
 
-	
+		gameLoadedOnSetHook();
 		playStateOnSetHook();
 		menuStateOnSetHook();
 		cameraStateOnSetHook();
 		InputStateOnSetHook();
+		EditorStateOnSetHook();
 
 	}
 
 	void createComponents() {
 
+		ecs.component<GameLoadedState>().add(flecs::Singleton);
 		ecs.component<PlayState>().add(flecs::Singleton);
 		ecs.component<MenuState>().add(flecs::Singleton);
 		ecs.component<CameraState>().add(flecs::Singleton);
+		ecs.component<EditorState>().add(flecs::Singleton);
 		ecs.component<InputState>().add(flecs::Singleton);
 
+	}
+
+	void registerObservers() {
+
+		MenuObserver();
+		gameLoadedStateObserver();
 	}
 
 	void registerPhase() {
@@ -215,8 +230,6 @@ public:
 		playerCam = ecs.lookup("PlayerCam");
 		freeCam = ecs.lookup("FreeCam");
 
-		mainMenu = ecs.lookup("MainMenu");
-		pauseMenu = ecs.lookup("PauseMenu");
 	}
 
 
@@ -224,28 +237,29 @@ public:
 
 		// When application opens just show main menu
 
+		ecs.set<GameLoadedState>({ GameLoadedState::NotLoaded });
 		ecs.set<PlayState>({ PlayState::NONE });
 		ecs.set<MenuState>({ MenuState::MAIN });
 		ecs.set<CameraState>({ CameraState::NONE });
 		ecs.set<InputState>({ InputState::KBM });
+		ecs.set<EditorState>({ EditorState::NONE });
 
 	}
 
+	// PlayState and EditorState react to GameLoadedState and MenuState reacts to them
 	void startGame() {
 
 		flushMouseMovement();
 
 		time.startGameTime();
 
-		ecs.set<PlayState>({ PlayState::PLAY });
-		ecs.set<MenuState>({ MenuState::NONE });
+		ecs.set<GameLoadedState>({ GameLoadedState::Loaded });
 		ecs.set<CameraState>({ CameraState::PLAYER });
 
 
 		fisiks.physicsPhase.enable();
 		scene.aiUpdatePhase.enable();
 		scene.playerPhase.enable();
-
 
 	}
 
@@ -291,6 +305,7 @@ public:
 		return true;
 	}
 
+	//Switch between play and pause
 	void gamePauseHandler() {
 
 		PlayState state = ecs.get<PlayState>();
@@ -302,12 +317,10 @@ public:
 		else if (state == PlayState::PLAY) {
 
 			ecs.set<PlayState>(PlayState::PAUSE);
-			ecs.set<MenuState>({ MenuState::PAUSE });
 		}
 		else if (state == PlayState::PAUSE) {
 
 			ecs.set<PlayState>(PlayState::PLAY);
-			ecs.set<MenuState>({ MenuState::NONE });
 		}
 
 	}
@@ -339,23 +352,70 @@ public:
 		}
 	}
 
+	// if GameLoadedState is set to loaded it sets EditorState to Disabled which allows it to be toggled
+	// if GameLoadedState is NotLoaded Failed it set EditorState to none which prevents things like turning on the editor in main menu/
+	void toggleEditor() {
+
+		EditorState state = ecs.get<EditorState>();
+
+		if (state == EditorState::Enabled) {
+
+			ecs.set<EditorState>({ EditorState::Disabled });
+			ecs.set<PlayState>({ PlayState::PLAY });
+
+		}
+		else if (state == EditorState::Disabled) {
+
+			ecs.set<EditorState>({ EditorState::Enabled });
+			ecs.set<PlayState>({ PlayState::PAUSE });
+
+		}
+	}
+
+	// Empty for now but might be used later
+	void gameLoadedOnSetHook() {
+
+		ecs.component<GameLoadedState>()
+			.on_set([&](GameLoadedState& newState) {
+			switch (newState) {
+			case GameLoadedState::NotLoaded:
+
+				SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "GameLoadedState::NotLoaded");
+				break;
+
+			case GameLoadedState::Loaded:
+
+				SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "GameLoadedState::Loaded");
+				break;
+
+			case GameLoadedState::Failed:
+
+				SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "GameLoadedState::Failed");
+				break;
+			}
+		});
+
+	}
+
+	
 	void menuStateOnSetHook() {
 		
 		//TODO create disable all menus using prefabs once there are more menus
 		ecs.component<MenuState>()
 			.on_set([&](MenuState& newState) {
+
 			switch (newState) {
 			case MenuState::MAIN:
 
-				mainMenu.enable();
-				pauseMenu.disable();
+				menuSys.mainMenu.enable();
+				menuSys.pauseMenu.disable();
 				SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "MenuState::MAIN");
 				break;
 
 			case MenuState::PAUSE:
 
-				mainMenu.disable();
-				pauseMenu.enable();
+				menuSys.mainMenu.disable();
+				menuSys.pauseMenu.enable();
 				SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "MenuState::PAUSE");
 				break;
 
@@ -367,8 +427,8 @@ public:
 				
 				//Disable all menus
 
-				mainMenu.disable();
-				pauseMenu.disable();
+				menuSys.mainMenu.disable();
+				menuSys.pauseMenu.disable();
 				SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "MenuState::NONE");
 				break;
 			}
@@ -393,8 +453,6 @@ public:
 				SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "PlayState::play");
 
 				SDL_SetWindowRelativeMouseMode(renderContext.window, true);
-				
-
 				break;
 			case PlayState::PAUSE:
 
@@ -403,7 +461,6 @@ public:
 				scene.playerPhase.disable();
 				
 				SDL_SetWindowRelativeMouseMode(renderContext.window, false);
-
 				SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "PlayState::pause");
 				break;
 			case PlayState::NONE:
@@ -463,8 +520,94 @@ public:
 			}
 		});
 	}
-	
 
+	void EditorStateOnSetHook() {
+
+		ecs.component<EditorState>()
+			.on_set([&](EditorState& newState) {
+			switch (newState) {
+
+			case EditorState::Enabled:
+
+				editor.enable();
+
+				SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "EditorState::Enabled");
+				break;
+
+			case EditorState::Disabled:
+
+				editor.disable();
+
+				SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "EditorState::Disabled");
+				break;
+
+			case EditorState::NONE:
+
+				SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "EditorState::NONE");
+				break;
+			}
+
+		});
+	}
+	
+	//TODO Maybe fix the redundant calls at some point
+	void MenuObserver() {
+
+		ecs.observer<PlayState, EditorState>()
+			.term_at(0).src<PlayState>()
+			.term_at(1).src<EditorState>()
+			.event(flecs::OnSet)
+			.each([](flecs::iter& it, size_t i, PlayState& play, EditorState& editor) {
+
+
+
+			if (editor == EditorState::Enabled) {
+				it.world().set<MenuState>({ MenuState::NONE });
+				return;
+			}
+
+			switch (play) {
+			case PlayState::PLAY:
+				it.world().set<MenuState>({ MenuState::NONE });
+				break;
+			case PlayState::PAUSE:
+				it.world().set<MenuState>({ MenuState::PAUSE });
+				break;
+			}
+		});
+	}
+
+	// PlayState and EditorState react to GameLoadedState
+	void gameLoadedStateObserver() {
+
+		ecs.observer<GameLoadedState>()
+			.term_at(0).src<GameLoadedState>()
+			.event(flecs::OnSet)
+			.each([](flecs::iter& it, size_t i, GameLoadedState& gls) {
+
+			switch (gls) {
+			case GameLoadedState::NotLoaded:
+
+				it.world().set<PlayState>({ PlayState::NONE });
+				it.world().set<EditorState>({ EditorState::NONE });
+				break;
+
+			case GameLoadedState::Loaded:
+
+				it.world().set<PlayState>({ PlayState::PLAY });
+				it.world().set<EditorState>({ EditorState::Disabled });
+
+				break;
+
+			case GameLoadedState::Failed:
+
+				it.world().set<PlayState>({ PlayState::NONE });
+				it.world().set<EditorState>({ EditorState::NONE });
+
+				break;
+			}
+		});		
+	}
 
 	void handleSavingRenderConfig() {
 
@@ -538,6 +681,8 @@ public:
 
 		
 		ecs.set<MenuState>({ MenuState::MAIN });
+
+		ecs.set<GameLoadedState>({ GameLoadedState::NotLoaded });
 
 		//TODO Unload level
 

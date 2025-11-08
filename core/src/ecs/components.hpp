@@ -73,10 +73,11 @@ struct Callback {
 	std::function<void()> callbackFunction;
 };
 
-
+enum class GameLoadedState { NotLoaded, Loaded, Failed };
 enum class MenuState { MAIN, OPTIONS, PAUSE, NONE };
 enum class CameraState { PLAYER, FREECAM, NONE };
 enum class PlayState {PLAY,PAUSE, NONE};
+enum class EditorState {Enabled,Disabled, NONE};
 enum class InputState {KBM,CONTROLLER};
 
 enum class UICommandType {
@@ -103,10 +104,16 @@ struct CustomPipeline {};
 
 struct ActiveCamera {};
 
-
-struct MenuItem {};
+struct MenuComponent {};
+struct HudComponent {};
+struct EditorComponent {};
 struct Active{};
+
+struct IsActive {};
 
 struct PhysicsSystemRef {
 	JPH::PhysicsSystem & physicsSystem;
 };
+
+struct Game {};
+struct _Scene {};
