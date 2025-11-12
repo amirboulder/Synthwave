@@ -331,7 +331,7 @@ void to_json(json& j, const Player& p) {
 		{"moveSpeed", p.mMoveSpeed},
 		{"jumpSpeed", p.mJumpSpeed},
 		{"terminalVelocity", p.mTerminalVelocity},
-		{"cameraOffset", {p.cameraOffset.x, p.cameraOffset.y, p.cameraOffset.z}},
+		{"cameraOffset", {{"x", p.cameraOffset.x}, {"y", p.cameraOffset.y}, {"z", p.cameraOffset.z}}},
 
 	};
 }

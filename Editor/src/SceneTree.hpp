@@ -2,9 +2,11 @@
 
 #include "core/src/pch.h"
 
-namespace EditorNS {
+class SceneTree {
 
-    void SceneTreeDraw(flecs::world& ecs) {
+public:
+
+    static void SceneTreeDraw(flecs::world& ecs) {
         // Find active game
         //TODO make sure there is only 1
         flecs::entity activeGameEntity;
@@ -12,8 +14,8 @@ namespace EditorNS {
 
         ImGuiViewport* viewport = ImGui::GetMainViewport();
         ImGui::Begin("Scene Tree", nullptr,
-            ImGuiWindowFlags_NoCollapse 
-            
+            ImGuiWindowFlags_NoCollapse
+
         );
 
         auto q = ecs.query<Game, const IsActive>();
@@ -22,7 +24,7 @@ namespace EditorNS {
             foundActive = true;
         });
 
-      
+
 
         ImGui::SetNextWindowBgAlpha(0.8f);
 
@@ -35,6 +37,7 @@ namespace EditorNS {
         static flecs::entity selectedEntity;
 
         // Recursive lambda to draw tree nodes
+        //TODO move the lambda
         std::function<void(flecs::entity)> drawEntityTree = [&](flecs::entity entity) {
             std::string name = entity.name().c_str();
 
@@ -57,12 +60,12 @@ namespace EditorNS {
 
             if (hasChildren) {
                 // TreeNode for parents
-                ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | 
-                    ImGuiTreeNodeFlags_OpenOnDoubleClick |  
+                ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow |
+                    ImGuiTreeNodeFlags_OpenOnDoubleClick |
                     ImGuiTreeNodeFlags_DefaultOpen |
                     ImGuiTreeNodeFlags_SpanAvailWidth;
 
-               
+
                 if (selectedEntity == entity) {
                     flags |= ImGuiTreeNodeFlags_Selected;  // This provides the highlight
                 }
@@ -86,6 +89,36 @@ namespace EditorNS {
                         // Maybe expand/collapse or show game settings
                         std::cout << "Game settings for: " << name << std::endl;
                     }
+                }
+
+                // Right click menu for Scene
+                if (ImGui::BeginPopupContextItem()) {
+
+                    if (entity.has<_Scene>()) {
+                       
+                      
+                        if (ImGui::MenuItem("Add Child")) {
+                            
+                            std::cout << "Adding child Node to: " << name << std::endl;
+
+                            Transform capsule1Transfrom;
+                            capsule1Transfrom.position = glm::vec3(1.0f, 5.0f, 0.0f);
+                            capsule1Transfrom.rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
+                            capsule1Transfrom.scale = glm::vec3(1.0f);
+
+
+                            EntityFactory::createCapsuleEntity(ecs, entity, "CapsuleTest", "CapsuleModel", capsule1Transfrom);
+
+
+                        }
+                        if (ImGui::MenuItem("Delete")) {
+                            // Duplicate entity
+                            std::cout << "Delete Does nothing right now: " << name << std::endl;
+                        }
+                        ImGui::EndPopup();
+
+                    }
+                   
                 }
 
                 if (nodeOpen) {
@@ -140,15 +173,12 @@ namespace EditorNS {
         ImGui::End();
     }
 
-    // Helper functions you'd implement
-    void LoadScene(flecs::entity sceneEntity) {
-        // Your scene loading logic
+   
+    void static LoadScene(flecs::entity sceneEntity) {
+        
     }
 
-    void OpenPropertiesPanel(flecs::entity objectEntity) {
-        // Show properties panel, maybe set a global variable or state
-        // that another ImGui window reads to display properties
+    void static OpenPropertiesPanel(flecs::entity objectEntity) {
+       
     }
-
-
-}
+};

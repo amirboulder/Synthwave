@@ -203,7 +203,7 @@ public:
 	}
 
 	
-	ModelInstance createInstance() {
+	ModelInstance createInstance() const {
 
 		ModelInstance instance;
 

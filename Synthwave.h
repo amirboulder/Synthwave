@@ -14,6 +14,8 @@
 
 #include "core/src/MenuSystem/MenuSystem.hpp"
 
+#include "core/src/AssetLibrary/AssetLibrary.hpp"
+
 #include "Editor/src/editor.hpp"
 
 

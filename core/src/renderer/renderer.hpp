@@ -6,6 +6,7 @@
 #include "../physics/physics.hpp"
 
 #include "UI/UserInterface.hpp"
+#include "PipelineLibrary/PipelineLibrary.hpp"
 
 #include "Grid.hpp"
 #include "RendererConfig.hpp"
@@ -47,8 +48,10 @@ struct Renderer {
 
 	UserInterface ui;
 
+	PipelineLibrary pipelineLib;
+
 	Renderer(flecs::world & ecs)
-		: ecs(ecs), ui(ecs)
+		: ecs(ecs), ui(ecs), pipelineLib(ecs)
 	{
 
 		createComponents();
@@ -73,6 +76,7 @@ struct Renderer {
 
 		initPhysicsRenderer();
 		
+		pipelineLib.createPipelineEnts();
 	}
 
 	//Create singleton components
@@ -155,7 +159,7 @@ struct Renderer {
 		// SDL_GPU_PRESENTMODE_IMMEDIATE for uncapped fps
 		// SDL_GPU_PRESENTMODE_VSYNC for VSYNC
 		SDL_SetGPUSwapchainParameters(renderContext.device, renderContext.window,
-			SDL_GPU_SWAPCHAINCOMPOSITION_SDR, SDL_GPU_PRESENTMODE_IMMEDIATE);
+			SDL_GPU_SWAPCHAINCOMPOSITION_SDR, SDL_GPU_PRESENTMODE_VSYNC);
 
 		return true;
 	}

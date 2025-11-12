@@ -19,6 +19,15 @@ struct Transform {
 
 };
 
+struct Position {
+	glm::vec3 position = glm::vec3(1);
+};
+
+
+struct LinearVelocity {
+	glm::vec3 position = glm::vec3(1);
+};
+
 
 struct PlayerInput {
 	glm::vec3 direction = glm::vec3(0);
@@ -78,7 +87,7 @@ enum class MenuState { MAIN, OPTIONS, PAUSE, NONE };
 enum class CameraState { PLAYER, FREECAM, NONE };
 enum class PlayState {PLAY,PAUSE, NONE};
 enum class EditorState {Enabled,Disabled, NONE};
-enum class InputState {KBM,CONTROLLER};
+enum class InputDeviceState {KBM,CONTROLLER};
 
 enum class UICommandType {
 	NewGame,
@@ -117,3 +126,15 @@ struct PhysicsSystemRef {
 
 struct Game {};
 struct _Scene {};
+
+
+struct ModelSourceRef {
+	std::string name;
+};
+
+
+
+struct ObjectType {
+	std::string name; 
+};
+

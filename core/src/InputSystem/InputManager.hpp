@@ -37,10 +37,8 @@ public:
 
 		//TODO implement switching based on InputDeviceState as well once we get there
 
-		//For now if PlayState is paused return
-		if (ecs.get<PlayState>() == PlayState::PAUSE) {
-			return;
-		}
+		
+		
 		
 		CameraState camState = ecs.get<CameraState>();
 
@@ -51,6 +49,11 @@ public:
 			break;
 
 		case CameraState::PLAYER:
+
+			// If game is paused don't handle player input
+			if (ecs.get<PlayState>() == PlayState::PAUSE) {
+				return;
+			}
 
 			handlePlayerKBMInput();
 			break;
@@ -99,7 +102,8 @@ public:
 
 	}
 
-	void handleEvents(SDL_Event & event) {
+	void handleEvents(SDL_Event& event) {
+
 
 
 		if (event.type == SDL_EVENT_QUIT) {
@@ -112,11 +116,24 @@ public:
 
 		}
 
-		handleEditorEvents(event);
+		
+			handleEditorEvents(event);
 
 	}
 
-	// Put things in here that we don't want in distrubutrion mode.
+	void handleAlwaysEvents(SDL_Event& event) {
+
+	}
+
+	void handlePlayerEvents(SDL_Event& event) {
+
+	}
+
+	void handleMenuEvents(SDL_Event& event) {
+
+	}
+
+	// Put things in here that we don't want in distribution mode.
 	void handleEditorEvents(SDL_Event& event) {
 
 		if (event.type == SDL_EVENT_KEY_DOWN && event.key.repeat == 0 && event.key.scancode == closeWindow) {

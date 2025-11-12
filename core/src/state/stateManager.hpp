@@ -115,11 +115,23 @@ public:
 	void createComponents() {
 
 		ecs.component<GameLoadedState>().add(flecs::Singleton);
+		ecs.set<GameLoadedState>({ GameLoadedState::NotLoaded });
+
 		ecs.component<PlayState>().add(flecs::Singleton);
+		ecs.set<PlayState>({ PlayState::NONE });
+
 		ecs.component<MenuState>().add(flecs::Singleton);
+		ecs.set<MenuState>({ MenuState::MAIN });
+
 		ecs.component<CameraState>().add(flecs::Singleton);
+		//ecs.set<CameraState>({ CameraState::NONE });
+
 		ecs.component<EditorState>().add(flecs::Singleton);
-		ecs.component<InputState>().add(flecs::Singleton);
+		ecs.set<EditorState>({ EditorState::NONE });
+
+		ecs.component<InputDeviceState>().add(flecs::Singleton);
+		ecs.set<InputDeviceState>({ InputDeviceState::KBM });
+
 
 	}
 
@@ -241,7 +253,7 @@ public:
 		ecs.set<PlayState>({ PlayState::NONE });
 		ecs.set<MenuState>({ MenuState::MAIN });
 		ecs.set<CameraState>({ CameraState::NONE });
-		ecs.set<InputState>({ InputState::KBM });
+		ecs.set<InputDeviceState>({ InputDeviceState::KBM });
 		ecs.set<EditorState>({ EditorState::NONE });
 
 	}
@@ -301,7 +313,7 @@ public:
 		ecs.lookup("player").get_mut<Player>().load(j);
 		playerCam.get_mut<Camera>().loadTransform(j);
 
-		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "game saved successfully");
+		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "game loaded successfully");
 		return true;
 	}
 
@@ -366,8 +378,18 @@ public:
 		}
 		else if (state == EditorState::Disabled) {
 
+
+			//this is here to prevent opening the editor when in pause Menu
+			PlayState playState = ecs.get<PlayState>();
+			if (playState == PlayState::PAUSE) {
+				return; // Can't open editor from paused game
+			}
+
 			ecs.set<EditorState>({ EditorState::Enabled });
 			ecs.set<PlayState>({ PlayState::PAUSE });
+			
+
+			
 
 		}
 	}
@@ -505,15 +527,15 @@ public:
 
 	void InputStateOnSetHook() {
 
-		ecs.component<InputState>()
-			.on_set([&](InputState& newState) {
+		ecs.component<InputDeviceState>()
+			.on_set([&](InputDeviceState& newState) {
 			switch (newState) {
-			case InputState::KBM:
+			case InputDeviceState::KBM:
 
 				SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "InputState::KBM");
 				break;
 
-			case InputState::CONTROLLER:
+			case InputDeviceState::CONTROLLER:
 
 				SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, " InputState::CONTROLLER");
 				break;
@@ -560,7 +582,6 @@ public:
 			.each([](flecs::iter& it, size_t i, PlayState& play, EditorState& editor) {
 
 
-
 			if (editor == EditorState::Enabled) {
 				it.world().set<MenuState>({ MenuState::NONE });
 				return;
@@ -575,6 +596,28 @@ public:
 				break;
 			}
 		});
+	}
+
+	// menuState reacts to editorState changes
+	void menuEditorStateObserver() {
+
+		ecs.observer<EditorState>()
+			.term_at(0).src<EditorState>()
+			.event(flecs::OnSet)
+			.each([](flecs::iter& it, size_t i,EditorState& editor) {
+
+			// If we're in a menu do
+			if (it.world().get<MenuState>() != MenuState::NONE) {
+				return;
+			}
+			if (editor == EditorState::Enabled) {
+				it.world().set<MenuState>({ MenuState::NONE });
+				return;
+			}
+
+			
+		});
+
 	}
 
 	// PlayState and EditorState react to GameLoadedState
@@ -651,9 +694,16 @@ public:
 
 		load();
 
+	
+
 		//This is needed because this code is runs in processUICommandsSys and systems are ran while the ecs is in "readonly" mode
 		ecs.defer_suspend();
+
+		//TODO remove
 		scene.constructLevel();
+
+		//TODO use game loader
+		//editor.loadGameEntities2();
 		ecs.defer_resume();
 		
 		startGame();
@@ -661,6 +711,9 @@ public:
 
 	void saveGameCallback() {
 		save();
+
+		//TODO use game loader
+		editor.saveGameEntities2();
 	}
 
 	void restartLevelCallback() {
@@ -679,6 +732,8 @@ public:
 
 	void toMainMenuCallback () {
 
+
+		editor.unload();
 		
 		ecs.set<MenuState>({ MenuState::MAIN });
 

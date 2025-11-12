@@ -6,8 +6,14 @@ class EntityFactory {
 
 public:
 
+	flecs::world& ecs;
 
-	EntityFactory() {};
+	EntityFactory(flecs::world& ecs)
+		: ecs(ecs)
+	{
+	};
+
+
 
 
 	//TODO
@@ -160,19 +166,25 @@ public:
 		return true;
 	}
 
-	//Creates a capsule shaped entity
-	static bool createCapsuleEntity(flecs::world& ecs, Fisiks& fisiks, std::string name, ModelSource& modelSource, Transform transform) {
 
-		if (!EntityFactory::validateName(name)) return false;
+	//Creates a capsule shaped entity
+	static bool createCapsuleEntity(flecs::world& ecs,const flecs::entity parent ,const std::string name,const std::string ModelSrcName, const Transform transform) {
+
+		if (!EntityFactory::validateName(ecs,parent,name)) return false;
 		if (!EntityFactory::validateTransform(transform, name.c_str())) return false;
 
+		//Get the modelSource from Asset Library
+		AssetLibRef ref = ecs.get<AssetLibRef>();
+		ModelSource* modelSource = ref.assetLib->get(ModelSrcName);
 
+		if (!EntityFactory::validateModelSrcExistence(modelSource, ModelSrcName)) return false;
+		
 		float meshX;
 		float meshY;
 		float meshZ;
 
-		// Asumming modelSource has only 1 mesh
-		calculateMeshSize(modelSource.meshes[0], meshX, meshY, meshZ);
+		// Assuming modelSource has only 1 mesh
+		calculateMeshSize(modelSource->meshes[0], meshX, meshY, meshZ);
 
 		// Compute capsule dimensions
 		float modelRadius = meshX / 2.0f; // Unscaled model radius
@@ -205,35 +217,46 @@ public:
 		pillSettings.mOverrideMassProperties = JPH::EOverrideMassProperties::CalculateInertia;
 		pillSettings.mMassPropertiesOverride.mMass = 50.1f;
 
+		JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
 
 		// Create and add body
-		const BodyID physicsID = fisiks.bodyInterface.CreateAndAddBody(pillSettings, JPH::EActivation::Activate);
+		const BodyID physicsID = physicsSystem.GetBodyInterface().CreateAndAddBody(pillSettings, JPH::EActivation::Activate);
 
 		if (!validatePhysicsBodyCreation(physicsID, name)) return false;
 
+
+
 		const flecs::entity entity = ecs.entity(name.c_str())
+			.set<ObjectType>({ "Capsule" })
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
-			.set<ModelInstance>(modelSource.createInstance())
+			.set<ModelInstance>(modelSource->createInstance())
+			.set<ModelSourceRef>({ ModelSrcName })
 			.set<JPH::BodyID>(physicsID)
+			.child_of(parent)
 			;
 
+		cout << entity.type().str() << std::endl;
 
 		// Store the entity ID in the physics body which gives us a two way mapping between entity and bodyId
-		fisiks.bodyInterface.SetUserData(physicsID, entity.id());
+		physicsSystem.GetBodyInterface().SetUserData(physicsID, entity.id());
 
 		if (!validateEntityCreation(entity, name))  return false;
 
 		return true;
 	}
 
-	static bool createActorEntity(flecs::world& ecs, Fisiks& fisiks, std::string name,
-		ModelSource& modelSource, Transform transform, JPH::CharacterSettings settings,
+	
+	static bool createActorEntity(flecs::world& ecs, flecs::entity parent, const std::string name, const std::string ModelSrcName, Transform transform, JPH::CharacterSettings settings,
 		std::function<void(flecs::world& ecs, flecs::entity self)> actorUpdate) {
 
 		if (!EntityFactory::validateName(name)) return false;
 		if (!EntityFactory::validateTransform(transform, name.c_str())) return false;
 
+		//Get the modelSource from Asset Library
+		AssetLibRef ref = ecs.get<AssetLibRef>();
+		ModelSource* modelSource = ref.assetLib->get(ModelSrcName);
+		if (!EntityFactory::validateModelSrcExistence(modelSource, ModelSrcName)) return false;
 
 		// Convert GLM to Jolt types
 		JPH::Vec3 joltPosition(transform.position.x, transform.position.y, transform.position.z);
@@ -245,16 +268,19 @@ public:
 		flecs::entity actorEnt = ecs.entity(name.c_str())
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
-			.set<ModelInstance>(modelSource.createInstance())
+			.set<ModelInstance>(modelSource->createInstance())
 			.add<JoltCharacter>()
 			.add<JPH::BodyID>()
 			.emplace<ActorBehavior>(actorUpdate);
 
 		if (!validateEntityCreation(actorEnt, name)) return false;
 
-		JPH::Character* & joltCharacter = actorEnt.get_mut<JoltCharacter>().characterPtr;
+		JPH::Character*& joltCharacter = actorEnt.get_mut<JoltCharacter>().characterPtr;
 
-		joltCharacter = new JPH::Character(&settings, joltPosition, joltRotation, actorEnt.id(), &fisiks.physicsSystem);
+		JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
+
+
+		joltCharacter = new JPH::Character(&settings, joltPosition, joltRotation, actorEnt.id(), &physicsSystem);
 
 		joltCharacter->AddToPhysicsSystem(JPH::EActivation::Activate);
 
@@ -266,8 +292,8 @@ public:
 		return true;
 	}
 
-
 	// A Renderable is just a model and a transform no physics body
+	//TODO Update
 	static bool createRenderableEntity(flecs::world& ecs, std::string name, ModelSource& modelSource, Transform transform, const char* pipelineName = NULL) {
 
 		if (!EntityFactory::validateName(name)) return false;
@@ -288,18 +314,22 @@ public:
 
 	}
 
-	static bool createStaticMeshEntity(flecs::world& ecs, Fisiks& fisiks, std::string name, ModelSource& modelSource, Transform transform, const char* pipelineName = NULL) {
+	static bool createStaticMeshEntity(flecs::world& ecs, const flecs::entity parent, const std::string name, const std::string ModelSrcName, Transform transform, const char* pipelineName = NULL) {
 
 		if (!EntityFactory::validateName(name)) return false;
 		if (!EntityFactory::validateTransform(transform, name.c_str())) return false;
 
 		float scaleFactor = 1.0f;
 
+		//Get the modelSource from Asset Library
+		AssetLibRef ref = ecs.get<AssetLibRef>();
+		ModelSource* modelSource = ref.assetLib->get(ModelSrcName);
+		if (!EntityFactory::validateModelSrcExistence(modelSource, ModelSrcName)) return false;
 
 		// Scale vertices
 		//ASSUMING the model only has one mesh
 		VertexList scaledVertexList;
-		for (const Vertex& vertexData : modelSource.meshes[0].vertices) {
+		for (const Vertex& vertexData : modelSource->meshes[0].vertices) {
 			glm::vec3 scaledVertex = vertexData.position * scaleFactor; // Apply scale
 			scaledVertexList.push_back(Float3(scaledVertex.x, scaledVertex.y, scaledVertex.z));
 		}
@@ -308,11 +338,11 @@ public:
 		// Create triangle list
 		//ASSUMING the model only has one mesh
 		IndexedTriangleList triangleList;
-		for (size_t i = 0; i < modelSource.meshes[0].indices.size(); i += 3) {
+		for (size_t i = 0; i < modelSource->meshes[0].indices.size(); i += 3) {
 			triangleList.push_back(IndexedTriangle(
-				modelSource.meshes[0].indices[i],
-				modelSource.meshes[0].indices[i + 1],
-				modelSource.meshes[0].indices[i + 2]
+				modelSource->meshes[0].indices[i],
+				modelSource->meshes[0].indices[i + 1],
+				modelSource->meshes[0].indices[i + 2]
 			));
 		}
 
@@ -338,8 +368,11 @@ public:
 			Layers::NON_MOVING
 		);
 
+		JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
+
+
 		// Create and add body
-		BodyID physicsID = fisiks.bodyInterface.CreateAndAddBody(
+		BodyID physicsID = physicsSystem.GetBodyInterface().CreateAndAddBody(
 			meshBodySettings,
 			EActivation::DontActivate
 		);
@@ -349,7 +382,7 @@ public:
 		const flecs::entity entity = ecs.entity(name.c_str())
 			.add<StaticEnt>()
 			.set<Transform>(transform)
-			.set<ModelInstance>(modelSource.createInstance())
+			.set<ModelInstance>(modelSource->createInstance())
 			.set<JPH::BodyID>(physicsID);
 
 		if (pipelineName) {
@@ -358,17 +391,23 @@ public:
 		}
 
 		// Store the entity ID in the physics body which gives us a two way mapping between entity and bodyId
-		fisiks.bodyInterface.SetUserData(physicsID, entity.id());
+		physicsSystem.GetBodyInterface().SetUserData(physicsID, entity.id());
 
 		if (!validateEntityCreation(entity, name)) return false;
 
 		return true;
 	}
 
-	static bool createGridEntity(flecs::world& ecs, Fisiks& fisiks, std::string name, ModelSource& modelSource, Transform  transform, const char* pipelineName, int rows, int cols) {
+	
+	static bool createGridEntity(flecs::world& ecs, const flecs::entity parent, const std::string name, const std::string ModelSrcName, Transform transform, const char* pipelineName, int rows, int cols) {
 
 		if (!EntityFactory::validateName(name)) return false;
 		if (!EntityFactory::validateTransform(transform, name.c_str())) return false;
+
+		//Get the modelSource from Asset Library
+		AssetLibRef ref = ecs.get<AssetLibRef>();
+		ModelSource* modelSource = ref.assetLib->get(ModelSrcName);
+		if (!EntityFactory::validateModelSrcExistence(modelSource, ModelSrcName)) return false;
 
 
 		float boxThickness = 1;
@@ -399,8 +438,10 @@ public:
 		boxBodySettings.mRestitution = 0.1f; // High restitution for bounciness
 		boxBodySettings.mFriction = 1.0f;    // Low friction for sliding
 
+		JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
 
-		BodyID physicsID = fisiks.bodyInterface.CreateAndAddBody(boxBodySettings, EActivation::Activate);
+
+		BodyID physicsID = physicsSystem.GetBodyInterface().CreateAndAddBody(boxBodySettings, EActivation::Activate);
 
 		if (!validatePhysicsBodyCreation(physicsID, name)) return false;
 
@@ -411,7 +452,7 @@ public:
 		const flecs::entity entity = ecs.entity(name.c_str())
 			.add<StaticEnt>()
 			.set<Transform>(transform)
-			.set<ModelInstance>(modelSource.createInstance())
+			.set<ModelInstance>(modelSource->createInstance())
 			.set<JPH::BodyID>(physicsID);
 
 		if (pipelineName) {
@@ -420,7 +461,7 @@ public:
 		}
 
 		// Store the entity ID in the physics body which gives us a two way mapping between entity and bodyId
-		fisiks.bodyInterface.SetUserData(physicsID, entity.id());
+		physicsSystem.GetBodyInterface().SetUserData(physicsID, entity.id());
 
 		if (!validateEntityCreation(entity, name)) return false;
 
@@ -476,6 +517,39 @@ public:
 		}
 		if (name.length() > 256) {
 			SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Error Entity name %s  ' exceeds 256 characters ", name.c_str());
+			return false;
+		}
+
+		//TODO validate Entity Name uniqueness
+		// Check if an entity with the same name already exists in the global scope
+		//flecs::entity existing;
+		//existing = ecs.lookup(name.c_str());
+
+		return true;
+	}
+
+	static bool validateName(flecs::world& ecs, flecs::entity parent, std::string name) {
+		if (name.empty()) {
+			SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Error name cannot be empty");
+			return false;
+		}
+		if (name.length() > 256) {
+			SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Error Entity name '%s' exceeds 256 characters", name.c_str());
+			return false;
+		}
+
+		// Check if an entity with the same name already exists in this scope
+		flecs::entity existing;
+
+		if (parent.is_valid()) {
+			// Look up the entity within the parent's scope
+			existing = parent.lookup(name.c_str());
+		}
+		
+		if (existing.is_valid()) {
+			SDL_LogError(SDL_LOG_CATEGORY_ERROR, "EntityFactory Error: Entity with name '%s' already exists under parent '%s'",
+				name.c_str(),
+				parent.name().c_str());
 			return false;
 		}
 		return true;
@@ -549,6 +623,16 @@ public:
 			return false;
 		}
 		return true;
+	}
+
+	static bool validateModelSrcExistence(ModelSource* model,const std::string modelName) {
+
+		if (!model) {
+			SDL_LogError(SDL_LOG_CATEGORY_ERROR, "EntityFactory Error ModelSource does not exist! : %s", modelName.c_str());
+			return false;
+		}
+		return true;
+
 	}
 
 	//TODO move this function

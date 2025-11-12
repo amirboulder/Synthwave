@@ -10,6 +10,8 @@ int main(int argc, char* argv[])
 
 	Fisiks fisiks(ecs);
 
+	AssetLibrary assetLib(ecs);
+
 	MenuSystem menuSys(ecs);
 
 	TimeManager time(fisiks.timeStep);
