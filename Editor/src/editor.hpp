@@ -111,13 +111,35 @@ public:
 	
 	void unload() {
 
-		ecs.defer_begin();
+		JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
+		JPH::BodyInterface& bodyInterface = physicsSystem.GetBodyInterface();
+
+		// Build a fresh query on each unload to avoid stale cache
+		activeGameQuery = ecs.query_builder()
+			.with<Game>()
+			.term_at(0).self()
+			.cascade(flecs::ChildOf)
+			.build();
+
 		activeGameQuery.each([&](flecs::entity e) {
 
-			e.destruct();
+			if (e.is_alive()) {
 
+				cout << e.name()<< " " << e.id() << std::endl;
+
+				if (e.has<JPH::BodyID>()) {
+
+					const JPH::BodyID bodyID = e.get<JPH::BodyID>();
+
+					if (bodyInterface.IsAdded(bodyID))
+						bodyInterface.RemoveBody(bodyID);
+
+					bodyInterface.DestroyBody(bodyID);
+				}
+
+				e.destruct();
+			}
 		});
-		ecs.defer_end();
 
 	}
 

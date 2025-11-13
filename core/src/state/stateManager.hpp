@@ -694,8 +694,6 @@ public:
 
 		load();
 
-	
-
 		//This is needed because this code is runs in processUICommandsSys and systems are ran while the ecs is in "readonly" mode
 		ecs.defer_suspend();
 
@@ -739,7 +737,6 @@ public:
 
 		ecs.set<GameLoadedState>({ GameLoadedState::NotLoaded });
 
-		//TODO Unload level
 
 	}
 

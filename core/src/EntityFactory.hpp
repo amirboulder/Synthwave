@@ -113,7 +113,8 @@ public:
 	}
 	*/
 
-	// create a static box shaped sensor 
+	// create a static box shaped sensor
+	//TODO fix
 	static bool createBoxSensorEntity(flecs::world& ecs, Fisiks& fisiks, std::string name,
 		Transform transform, JPH::Vec3Arg size,
 		std::function<void(flecs::world& ecs, flecs::entity self, flecs::entity other)> onContactAdded) {
@@ -225,7 +226,6 @@ public:
 		if (!validatePhysicsBodyCreation(physicsID, name)) return false;
 
 
-
 		const flecs::entity entity = ecs.entity(name.c_str())
 			.set<ObjectType>({ "Capsule" })
 			.add<DynamicEnt>()
@@ -235,8 +235,6 @@ public:
 			.set<JPH::BodyID>(physicsID)
 			.child_of(parent)
 			;
-
-		cout << entity.type().str() << std::endl;
 
 		// Store the entity ID in the physics body which gives us a two way mapping between entity and bodyId
 		physicsSystem.GetBodyInterface().SetUserData(physicsID, entity.id());
@@ -250,7 +248,7 @@ public:
 	static bool createActorEntity(flecs::world& ecs, flecs::entity parent, const std::string name, const std::string ModelSrcName, Transform transform, JPH::CharacterSettings settings,
 		std::function<void(flecs::world& ecs, flecs::entity self)> actorUpdate) {
 
-		if (!EntityFactory::validateName(name)) return false;
+		if (!EntityFactory::validateName(ecs, parent, name)) return false;
 		if (!EntityFactory::validateTransform(transform, name.c_str())) return false;
 
 		//Get the modelSource from Asset Library
@@ -265,29 +263,34 @@ public:
 			joltRotation = joltRotation.Normalized();
 		}
 
+		JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
+
+
+		JPH::Character* joltCharacter = new JPH::Character(
+			&settings, joltPosition, joltRotation, 0, &physicsSystem
+		);
+
+		if (!validatePhysicsBodyCreation(joltCharacter->GetBodyID(), name)) {
+			delete joltCharacter;
+			return false;
+		}
+
 		flecs::entity actorEnt = ecs.entity(name.c_str())
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
 			.set<ModelInstance>(modelSource->createInstance())
-			.add<JoltCharacter>()
-			.add<JPH::BodyID>()
-			.emplace<ActorBehavior>(actorUpdate);
+			.set<JoltCharacter>({ joltCharacter })
+			.set<JPH::BodyID>(joltCharacter->GetBodyID())
+			.emplace<ActorBehavior>(actorUpdate)
+			.child_of(parent);
 
-		if (!validateEntityCreation(actorEnt, name)) return false;
-
-		JPH::Character*& joltCharacter = actorEnt.get_mut<JoltCharacter>().characterPtr;
-
-		JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
-
-
-		joltCharacter = new JPH::Character(&settings, joltPosition, joltRotation, actorEnt.id(), &physicsSystem);
+		if (!validateEntityCreation(actorEnt, name)) {
+			delete joltCharacter;
+			return false;
+		}
 
 		joltCharacter->AddToPhysicsSystem(JPH::EActivation::Activate);
-
-		if (!validatePhysicsBodyCreation(joltCharacter->GetBodyID(), name)) return false;
-
-		actorEnt.get_mut<JPH::BodyID>() = joltCharacter->GetBodyID();
-
+		physicsSystem.GetBodyInterface().SetUserData(joltCharacter->GetBodyID(), actorEnt.id());
 
 		return true;
 	}
@@ -316,7 +319,7 @@ public:
 
 	static bool createStaticMeshEntity(flecs::world& ecs, const flecs::entity parent, const std::string name, const std::string ModelSrcName, Transform transform, const char* pipelineName = NULL) {
 
-		if (!EntityFactory::validateName(name)) return false;
+		if (!EntityFactory::validateName(ecs, parent, name)) return false;
 		if (!EntityFactory::validateTransform(transform, name.c_str())) return false;
 
 		float scaleFactor = 1.0f;
@@ -383,7 +386,8 @@ public:
 			.add<StaticEnt>()
 			.set<Transform>(transform)
 			.set<ModelInstance>(modelSource->createInstance())
-			.set<JPH::BodyID>(physicsID);
+			.set<JPH::BodyID>(physicsID)
+			.child_of(parent);
 
 		if (pipelineName) {
 			entity.add<CustomPipeline>(ecs.lookup(pipelineName));
@@ -401,7 +405,7 @@ public:
 	
 	static bool createGridEntity(flecs::world& ecs, const flecs::entity parent, const std::string name, const std::string ModelSrcName, Transform transform, const char* pipelineName, int rows, int cols) {
 
-		if (!EntityFactory::validateName(name)) return false;
+		if (!EntityFactory::validateName(ecs, parent, name)) return false;
 		if (!EntityFactory::validateTransform(transform, name.c_str())) return false;
 
 		//Get the modelSource from Asset Library
@@ -453,7 +457,8 @@ public:
 			.add<StaticEnt>()
 			.set<Transform>(transform)
 			.set<ModelInstance>(modelSource->createInstance())
-			.set<JPH::BodyID>(physicsID);
+			.set<JPH::BodyID>(physicsID)
+			.child_of(parent);
 
 		if (pipelineName) {
 			entity.add<CustomPipeline>(ecs.lookup(pipelineName));

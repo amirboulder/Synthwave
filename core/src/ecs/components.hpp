@@ -138,3 +138,13 @@ struct ObjectType {
 	std::string name; 
 };
 
+enum class EntityType {
+	Empty,
+	Actor,
+	Capsule,
+	Sphere,
+	Cube,
+	Light,
+	Camera,
+	COUNT
+};

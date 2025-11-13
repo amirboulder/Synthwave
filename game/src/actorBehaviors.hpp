@@ -4,7 +4,7 @@
 
 void actor1Update(flecs::world& ecs, flecs::entity self) {
 
-	JPH::Character* joltCharacter = self.get_mut<JoltCharacter>().characterPtr;
+	JPH::Character* joltCharacter = self.get<JoltCharacter>().characterPtr;
 
 	JPH::Vec3 position = joltCharacter->GetPosition();
 

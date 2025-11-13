@@ -106,9 +106,9 @@ public:
 
 
 		//Grid
-		Transform gridTransfrom;
-		gridTransfrom.rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
-		EntityFactory::createGridEntity(ecs,Scene1,"GridChunk1","Grid256", gridTransfrom, "pipelineGrid", 256, 256);
+		Transform gridTransform;
+		gridTransform.rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
+		EntityFactory::createGridEntity(ecs,Scene1,"GridChunk1","Grid256", gridTransform, "pipelineGrid", 256, 256);
 
 		//MTN
 		Transform mtnTransform;
@@ -145,17 +145,19 @@ public:
 		// Sensors
 
 		//Sensor1
-		//TODO updata factory function
-		Transform boxSensorTransform;
+		//TODO update factory function
+		/*Transform boxSensorTransform;
 		boxSensorTransform.position = glm::vec3(1.0f, 3.0f, 0.0f);
 		JPH::Vec3 boxSensorSize = JPH::Vec3(15.0f, 15.0f, 15.0f);
-		EntityFactory::createBoxSensorEntity(ecs, fisiks, "Sensor1", boxSensorTransform, boxSensorSize,sensor1Behavoir);
+		EntityFactory::createBoxSensorEntity(ecs, fisiks, "Sensor1", boxSensorTransform, boxSensorSize,sensor1Behavoir);*/
 
 
 		/////////////////////////
 		
 		// Create game HUD
-		EntityFactory::createHUDElementEntity(ecs,"fps", FPSDraw);
+		//FPS counter should not be part of game hud
+		//TODO make a part of the renderer
+		//EntityFactory::createHUDElementEntity(ecs,"fps", FPSDraw);
 
 		
 
