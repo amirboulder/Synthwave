@@ -142,6 +142,8 @@ enum class EntityType {
 	Empty,
 	Actor,
 	Capsule,
+	Grid,
+	StaticMesh,
 	Sphere,
 	Cube,
 	Light,

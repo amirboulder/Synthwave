@@ -476,21 +476,21 @@ struct Renderer {
 
 		});
 
-
+		
 		q2.run([&](flecs::iter& it) {
 			while (it.next()) {
+				auto transforms = it.field<Transform>(0);
+				auto models = it.field<ModelInstance>(1);
 
 				flecs::entity pipeline_entity = flecs::entity(it.world(), it.group_id());
 
 				const Pipeline* pipelineSecond = &pipeline_entity.get<Pipeline>();
 				SDL_BindGPUGraphicsPipeline(mainRenderPass, pipelineSecond->pipeline);
 
+				// Process all entities in this group
 				for (auto i : it) {
-
-					Transform& transform = *it.field<Transform>(0);
-					ModelInstance& model = *it.field<ModelInstance>(1);
-
-					drawModel(model, transform, frameContext.commandBuffer);
+					
+					drawModel(models[i], transforms[i], frameContext.commandBuffer);
 
 				}
 			}
