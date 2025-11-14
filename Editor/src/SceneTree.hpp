@@ -13,6 +13,8 @@ private:
         char childNameBuffer[128] = "";
         bool showAddChildPopup = false;
         EntityType selectedType = EntityType::Empty;
+        bool isNameValid = true;
+        char errorMessage[256] = "";
     };
 
     static State s_state;
@@ -91,6 +93,11 @@ void SceneTree::SceneTreeDraw(flecs::world& ecs) {
         ImGui::Separator();
         ImGui::Text("Selected: %s", s_state.selectedEntity.name().c_str());
     }
+
+    
+
+    
+
 
     // must be called every frame
     drawAddChildPopup(ecs);
@@ -199,10 +206,18 @@ void SceneTree::drawAddChildPopup(flecs::world& ecs) {
         s_state.selectedType = EntityType::Empty;  // Reset to default
     }
 
+    
     // Render popup modal
     if (ImGui::BeginPopupModal("Add Child Entity", NULL, ImGuiWindowFlags_AlwaysAutoResize)) {
-        ImGui::Text("Entity Type:");
-        ImGui::SetNextItemWidth(300.0f);
+
+        float windowWidth = ImGui::GetWindowSize().x;
+        const char* entTypeTxt = "Entity Type:";
+        float textWidth = ImGui::CalcTextSize(entTypeTxt).x;
+        ImGui::SetCursorPosX((windowWidth - textWidth) * 0.5f);
+
+        ImGui::Text("%s", entTypeTxt);
+
+        ImGui::SetNextItemWidth(500.0f);
 
         // Dropdown for entity type
         if (ImGui::BeginCombo("##entitytype", GetEntityTypeName(s_state.selectedType))) {
@@ -222,8 +237,18 @@ void SceneTree::drawAddChildPopup(flecs::world& ecs) {
         }
 
         ImGui::Spacing();
-        ImGui::Text("Enter entity name:");
+        const char* entNameTxt = "Enter entity name:";
+        textWidth = ImGui::CalcTextSize(entNameTxt).x;
+        ImGui::SetCursorPosX((windowWidth - textWidth) * 0.5f);
+        ImGui::Text("%s", entNameTxt);
 
+        if (!s_state.isNameValid) {
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.3f, 0.3f, 1.0f)); // Red text
+            ImGui::TextWrapped("%s", s_state.errorMessage);
+            ImGui::PopStyleColor();
+        }
+
+        ImGui::SetCursorPosX((windowWidth - 300.0f) * 0.5f);
         ImGui::SetNextItemWidth(300.0f);
         bool enterPressed = ImGui::InputText("##childname", s_state.childNameBuffer,
             IM_ARRAYSIZE(s_state.childNameBuffer),
@@ -233,52 +258,69 @@ void SceneTree::drawAddChildPopup(flecs::world& ecs) {
         ImGui::Separator();
         ImGui::Spacing();
 
-        // Create button (or Enter key)
-        if (ImGui::Button("Create", ImVec2(140, 0)) || enterPressed) {
+        float buttonWidth = 140.0f;
+        float spacing = ImGui::GetStyle().ItemSpacing.x;
+        float totalWidth = buttonWidth * 2 + spacing;
+        float availWidth = ImGui::GetContentRegionAvail().x;
+        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (availWidth - totalWidth) * 0.5f);
+        if (ImGui::Button("Create", ImVec2(buttonWidth, 0)) || enterPressed) {
+
             if (strlen(s_state.childNameBuffer) > 0) {
+
+                if (EntityFactory::validateName(ecs, s_state.contextEntity, s_state.childNameBuffer)) {
+                    s_state.isNameValid = true;
+                
                 std::cout << "Creating " << GetEntityTypeName(s_state.selectedType)
                     << " entity '" << s_state.childNameBuffer
                     << "' under " << s_state.contextEntity.name().c_str() << std::endl;
 
-                
-                 switch (s_state.selectedType) {
-                     case EntityType::Empty:
+                    switch (s_state.selectedType) {
+                        case EntityType::Empty:
 
-                         SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Adding Empty not yet implemented");
-                         break;
-                     case EntityType::Actor:
+                            SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Adding Empty not yet implemented");
+                            break;
+                        case EntityType::Actor:
 
-                         createActorChild(ecs);
-                         break;
-                     case EntityType::Capsule:
+                            createActorChild(ecs);
+                            break;
+                        case EntityType::Capsule:
 
-                         createCapsuleChild(ecs);
-                         break;
-                     case EntityType::Sphere:
-                         SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Adding Sphere not yet implemented");
-                         break;
-                     case EntityType::Cube:
-                         SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Adding Cube not yet implemented");
-                         break;
-                     case EntityType::Light:
-                         SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, " Adding Camera not yet implemented");
-                         break;
-                     case EntityType::Camera:
-                         SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, " Adding Camera not yet implemented");
-                         break;
-                 }
+                            createCapsuleChild(ecs);
+                            break;
+                        case EntityType::Sphere:
+                            SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Adding Sphere not yet implemented");
+                            break;
+                        case EntityType::Cube:
+                            SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Adding Cube not yet implemented");
+                            break;
+                        case EntityType::Light:
+                            SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, " Adding Camera not yet implemented");
+                            break;
+                        case EntityType::Camera:
+                            SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, " Adding Camera not yet implemented");
+                            break;
+                    }
 
                 s_state.childNameBuffer[0] = '\0';
                 s_state.contextEntity = flecs::entity();
                 s_state.selectedType = EntityType::Empty;
                 ImGui::CloseCurrentPopup();
+                }
+                else {
+                        
+                    s_state.isNameValid = false;
+                    snprintf(s_state.errorMessage, sizeof(s_state.errorMessage), "Entity name '%s' is already taken", s_state.childNameBuffer);
+
+                }
             }
         }
 
         ImGui::SameLine();
 
+        
+        //Exiting the editor does not clear the buffer 
         // Cancel button (or ESC key)
-        if (ImGui::Button("Cancel", ImVec2(140, 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+        if (ImGui::Button("Cancel", ImVec2(buttonWidth, 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
             s_state.childNameBuffer[0] = '\0';
             s_state.contextEntity = flecs::entity();
             s_state.selectedType = EntityType::Empty;

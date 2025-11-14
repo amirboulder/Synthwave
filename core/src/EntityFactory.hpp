@@ -114,8 +114,7 @@ public:
 	*/
 
 	// create a static box shaped sensor
-	//TODO fix
-	static bool createBoxSensorEntity(flecs::world& ecs, Fisiks& fisiks, std::string name,
+	static bool createBoxSensorEntity(flecs::world& ecs, const flecs::entity parent, const std::string name,
 		Transform transform, JPH::Vec3Arg size,
 		std::function<void(flecs::world& ecs, flecs::entity self, flecs::entity other)> onContactAdded) {
 
@@ -147,8 +146,9 @@ public:
 		//Make it a sensor!
 		sensorSetting.mIsSensor = true;
 
-		// Create and add body
-		BodyID physicsID = fisiks.bodyInterface.CreateAndAddBody(sensorSetting, JPH::EActivation::Activate);
+		JPH::BodyInterface & bodyInterface = ecs.get<PhysicsSystemRef>().physicsSystem.GetBodyInterface();
+
+		BodyID physicsID = bodyInterface.CreateAndAddBody(sensorSetting, JPH::EActivation::Activate);
 
 		if (!validatePhysicsBodyCreation(physicsID, name)) return false;
 
@@ -157,12 +157,13 @@ public:
 			.add<Sensor>()
 			.set<Transform>(transform)
 			.set<JPH::BodyID>(physicsID)
-			.emplace<SensorBehavior>(onContactAdded);
+			.emplace<SensorBehavior>(onContactAdded)
+			.child_of(parent);
 
 		if (!validateEntityCreation(entity, name)) return false;
 
 		// Store the entity ID in the physics body which gives us a two way mapping between entity and bodyId
-		fisiks.bodyInterface.SetUserData(physicsID, entity.id());
+		bodyInterface.SetUserData(physicsID, entity.id());
 
 		return true;
 	}
@@ -218,10 +219,10 @@ public:
 		pillSettings.mOverrideMassProperties = JPH::EOverrideMassProperties::CalculateInertia;
 		pillSettings.mMassPropertiesOverride.mMass = 50.1f;
 
-		JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
+		JPH::BodyInterface& bodyInterface = ecs.get<PhysicsSystemRef>().physicsSystem.GetBodyInterface();
 
 		// Create and add body
-		const BodyID physicsID = physicsSystem.GetBodyInterface().CreateAndAddBody(pillSettings, JPH::EActivation::Activate);
+		const BodyID physicsID = bodyInterface.CreateAndAddBody(pillSettings, JPH::EActivation::Activate);
 
 		if (!validatePhysicsBodyCreation(physicsID, name)) return false;
 
@@ -237,7 +238,7 @@ public:
 			;
 
 		// Store the entity ID in the physics body which gives us a two way mapping between entity and bodyId
-		physicsSystem.GetBodyInterface().SetUserData(physicsID, entity.id());
+		bodyInterface.SetUserData(physicsID, entity.id());
 
 		if (!validateEntityCreation(entity, name))  return false;
 
@@ -297,7 +298,7 @@ public:
 
 	// A Renderable is just a model and a transform no physics body
 	//TODO Update
-	static bool createRenderableEntity(flecs::world& ecs, std::string name, ModelSource& modelSource, Transform transform, const char* pipelineName = NULL) {
+	static bool createRenderableEntity(flecs::world& ecs, flecs::entity parent, std::string name, ModelSource& modelSource, Transform transform, const char* pipelineName = NULL) {
 
 		if (!EntityFactory::validateName(name)) return false;
 		if (!EntityFactory::validateTransform(transform, name.c_str())) return false;
@@ -371,11 +372,11 @@ public:
 			Layers::NON_MOVING
 		);
 
-		JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
+		JPH::BodyInterface& bodyInterface = ecs.get<PhysicsSystemRef>().physicsSystem.GetBodyInterface();
 
 
 		// Create and add body
-		BodyID physicsID = physicsSystem.GetBodyInterface().CreateAndAddBody(
+		BodyID physicsID = bodyInterface.CreateAndAddBody(
 			meshBodySettings,
 			EActivation::DontActivate
 		);
@@ -395,7 +396,7 @@ public:
 		}
 
 		// Store the entity ID in the physics body which gives us a two way mapping between entity and bodyId
-		physicsSystem.GetBodyInterface().SetUserData(physicsID, entity.id());
+		bodyInterface.SetUserData(physicsID, entity.id());
 
 		if (!validateEntityCreation(entity, name)) return false;
 
@@ -442,10 +443,10 @@ public:
 		boxBodySettings.mRestitution = 0.1f; // High restitution for bounciness
 		boxBodySettings.mFriction = 1.0f;    // Low friction for sliding
 
-		JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
+		JPH::BodyInterface& bodyInterface = ecs.get<PhysicsSystemRef>().physicsSystem.GetBodyInterface();
 
 
-		BodyID physicsID = physicsSystem.GetBodyInterface().CreateAndAddBody(boxBodySettings, EActivation::Activate);
+		BodyID physicsID = bodyInterface.CreateAndAddBody(boxBodySettings, EActivation::Activate);
 
 		if (!validatePhysicsBodyCreation(physicsID, name)) return false;
 
@@ -466,7 +467,7 @@ public:
 		}
 
 		// Store the entity ID in the physics body which gives us a two way mapping between entity and bodyId
-		physicsSystem.GetBodyInterface().SetUserData(physicsID, entity.id());
+		bodyInterface.SetUserData(physicsID, entity.id());
 
 		if (!validateEntityCreation(entity, name)) return false;
 

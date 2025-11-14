@@ -145,11 +145,10 @@ public:
 		// Sensors
 
 		//Sensor1
-		//TODO update factory function
-		/*Transform boxSensorTransform;
+		Transform boxSensorTransform;
 		boxSensorTransform.position = glm::vec3(1.0f, 3.0f, 0.0f);
 		JPH::Vec3 boxSensorSize = JPH::Vec3(15.0f, 15.0f, 15.0f);
-		EntityFactory::createBoxSensorEntity(ecs, fisiks, "Sensor1", boxSensorTransform, boxSensorSize,sensor1Behavoir);*/
+		EntityFactory::createBoxSensorEntity(ecs, Scene1,"Sensor1", boxSensorTransform, boxSensorSize,sensor1Behavior);
 
 
 		/////////////////////////
