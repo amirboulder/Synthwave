@@ -144,7 +144,7 @@ public:
 	}
 
 	//using flecs to serialize for now
-	void saveGameEntities2(const std::string& path = "data/game1.json") {
+	void saveGameToJson(const std::string& path ) {
 
 		
 		std::ostringstream jsonArray;
@@ -228,7 +228,9 @@ public:
 	// GRID
 	//MTN
 	//ACtor
-	void loadGameEntities(const std::string& path = "data/game.json") {
+	void loadGameFromJson(const std::string& path = "data/game.json") {
+
+
 
 		std::ifstream file(path);
 		if (!file.is_open()) {

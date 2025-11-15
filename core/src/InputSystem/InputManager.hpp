@@ -116,8 +116,7 @@ public:
 
 		}
 
-		
-			handleEditorEvents(event);
+		handleEditorEvents(event);
 
 	}
 
@@ -169,13 +168,25 @@ public:
 		if (event.type == SDL_EVENT_KEY_DOWN && event.key.repeat == 0 && event.key.scancode == SDL_SCANCODE_F4) {
 
 			stateManager.printPhases();
-
 		}
 
 		// disable physics Renderer Phase
 		if (event.type == SDL_EVENT_KEY_DOWN && event.key.repeat == 0 && event.key.scancode == SDL_SCANCODE_F6) {
 
 			stateManager.togglePhysicsRenderer();
+		}
+
+		EditorState state = ecs.get<EditorState>();
+
+		//All the things that should only happen when editor is enabled
+		if (state == EditorState::Enabled) {
+
+			if (event.type == SDL_EVENT_KEY_DOWN && event.key.repeat == 0 && event.key.scancode == SDL_SCANCODE_F5) {
+
+				stateManager.saveGameData();
+
+			}
+
 		}
 
 	}

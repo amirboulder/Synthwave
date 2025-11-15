@@ -654,7 +654,6 @@ public:
 
 	void handleSavingRenderConfig() {
 
-
 		RendererConfig& config = ecs.get_mut<RendererConfig>();
 
 		const Camera& camera = ecs.lookup("FreeCam").get<Camera>();
@@ -669,6 +668,56 @@ public:
 		RendererConfig::saveRendererConfigINIFile(ecs,"config/renderConfig.ini");
 	}
 
+	void saveGameData() {
+		namespace fs = std::filesystem;
+
+		fs::path path = fs::path(__FILE__).lexically_normal();
+		fs::path repoRoot = path.parent_path().parent_path().parent_path().parent_path();
+		fs::path jsonPath = repoRoot / "games" / "CrashTheSim" / "src" / "GameData.json";
+
+		//Get current time using SDL
+		SDL_Time now;
+		SDL_GetCurrentTime(&now);    // ticks since epoch
+
+		SDL_DateTime dt;
+		if (!SDL_TimeToDateTime(now, &dt, true)) {   // true = local time
+			SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Failed to convert time.");
+			return;
+		}
+
+		//Build timestamp
+		char timestamp[64];
+		SDL_snprintf(timestamp, sizeof(timestamp),
+			"%04d-%02d-%02d_%02d-%02d-%02d",
+			dt.year, dt.month, dt.day,
+			dt.hour, dt.minute, dt.second);
+
+		// Create backup folder path
+		fs::path backupFolder = jsonPath.parent_path() / "backups";
+
+		// Ensure the backup folder exists
+		fs::create_directories(backupFolder);
+
+		// Create backup file path inside the backups folder
+		fs::path backupPath =
+			backupFolder /
+			(jsonPath.stem().string() +
+				"_backup_" + timestamp +
+				jsonPath.extension().string());
+
+		//Copy original to backup
+		if (fs::exists(jsonPath)) {
+			fs::copy_file(jsonPath, backupPath, fs::copy_options::overwrite_existing);
+		}
+
+		//Save new game data
+		editor.saveGameToJson(jsonPath.string());
+
+		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Saved GameData.json");
+		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Backup created: %s", backupPath.string().c_str());
+
+	}
+
 	//TODO maybe put in common
 	void flushMouseMovement() {
 
@@ -676,6 +725,7 @@ public:
 		float dx, dy;
 		SDL_GetRelativeMouseState(&dx, &dy);
 	}
+
 
 
 	void newGameCallback() {
@@ -697,11 +747,13 @@ public:
 		//This is needed because this code is runs in processUICommandsSys and systems are ran while the ecs is in "readonly" mode
 		ecs.defer_suspend();
 
+	
 		//TODO remove
 		scene.constructLevel();
 
 		//TODO use game loader
 		//editor.loadGameEntities2();
+		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "ERRRM");
 		ecs.defer_resume();
 		
 		startGame();
@@ -711,7 +763,7 @@ public:
 		save();
 
 		//TODO use game loader
-		editor.saveGameEntities2();
+//		editor.saveGameToJson();
 	}
 
 	void restartLevelCallback() {
