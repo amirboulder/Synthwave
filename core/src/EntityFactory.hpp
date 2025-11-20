@@ -153,6 +153,7 @@ public:
 		if (!validatePhysicsBodyCreation(physicsID, name)) return false;
 
 		const flecs::entity entity = ecs.entity(name.c_str())
+			.set<EntityType>({ EntityType::Sensor })
 			.add<StaticEnt>()
 			.add<Sensor>()
 			.set<Transform>(transform)
@@ -228,7 +229,7 @@ public:
 
 
 		const flecs::entity entity = ecs.entity(name.c_str())
-			.set<ObjectType>({ "Capsule" })
+			.set<EntityType>({ EntityType::Capsule })
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
 			.set<ModelInstance>(modelSource->createInstance())
@@ -277,11 +278,13 @@ public:
 		}
 
 		flecs::entity actorEnt = ecs.entity(name.c_str())
+			.set<EntityType>({ EntityType::Actor})
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
 			.set<ModelInstance>(modelSource->createInstance())
 			.set<JoltCharacter>({ joltCharacter })
 			.set<JPH::BodyID>(joltCharacter->GetBodyID())
+			.set<ModelSourceRef>({ ModelSrcName })
 			.emplace<ActorBehavior>(actorUpdate)
 			.child_of(parent);
 
@@ -384,8 +387,10 @@ public:
 		if (!validatePhysicsBodyCreation(physicsID, name)) return false;
 
 		const flecs::entity entity = ecs.entity(name.c_str())
+			.set<EntityType>({ EntityType::StaticMesh })
 			.add<StaticEnt>()
 			.set<Transform>(transform)
+			.set<ModelSourceRef>({ ModelSrcName })
 			.set<ModelInstance>(modelSource->createInstance())
 			.set<JPH::BodyID>(physicsID)
 			.child_of(parent);
@@ -414,14 +419,10 @@ public:
 		ModelSource* modelSource = ref.assetLib->get(ModelSrcName);
 		if (!EntityFactory::validateModelSrcExistence(modelSource, ModelSrcName)) return false;
 
-
+		// any thickness less than 0.01 will break jolt!
 		float boxThickness = 1;
-
-		// any tickenss less than 0.01 will break jolt!
 		Vec3 boxHalfExtents(rows * 0.5, boxThickness * 0.5, cols * 0.5);
 
-
-		// Create BoxShape
 		Ref<Shape> boxShape = new BoxShape(boxHalfExtents);
 
 		// Convert GLM to Jolt types
@@ -455,8 +456,10 @@ public:
 		transform.position.y += boxThickness + 0.5;
 
 		const flecs::entity entity = ecs.entity(name.c_str())
+			.set<EntityType>({ EntityType::Grid })
 			.add<StaticEnt>()
 			.set<Transform>(transform)
+			.set<ModelSourceRef>({ ModelSrcName })
 			.set<ModelInstance>(modelSource->createInstance())
 			.set<JPH::BodyID>(physicsID)
 			.child_of(parent);
@@ -482,9 +485,7 @@ public:
 
 		if (!validateEntityCreation(entity, name)) return false;
 
-
 		return true;
-
 	}
 
 

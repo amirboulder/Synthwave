@@ -19,6 +19,8 @@ public:
 		: timeStep(timeStep) 
 	{
 		appStartTime = SDL_GetTicks();
+
+		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "TimeManager Initialized");
 	}
 
 	void startGameTime()

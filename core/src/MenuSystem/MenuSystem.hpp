@@ -18,6 +18,8 @@ public:
 		:ecs(ecs)
 	{
 		registerEntities();
+
+		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "MenuSystem Initialized");
 	}
 
 	void registerEntities() {

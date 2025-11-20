@@ -145,6 +145,7 @@ enum class EntityType {
 	Grid,
 	StaticMesh,
 	Sphere,
+	Sensor,
 	Cube,
 	Light,
 	Camera,

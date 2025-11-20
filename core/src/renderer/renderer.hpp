@@ -69,6 +69,8 @@ struct Renderer {
 		buildRenderQueries();
 
 		registerSystems();
+
+		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Renderer Initialized");
 	}
 
 
@@ -77,6 +79,9 @@ struct Renderer {
 		initPhysicsRenderer();
 		
 		pipelineLib.createPipelineEnts();
+
+		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Renderer SubSystems Initialized");
+
 	}
 
 	//Create singleton components

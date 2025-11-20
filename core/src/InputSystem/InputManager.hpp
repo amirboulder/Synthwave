@@ -29,7 +29,7 @@ public:
 	InputManager(flecs::world& ecs, StateManager& stateManager)
 		: ecs(ecs), stateManager(stateManager)
 	{
-
+		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "InputManager Initilized");
 	}
 
 

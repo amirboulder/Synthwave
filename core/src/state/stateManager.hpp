@@ -57,6 +57,9 @@ public:
 		disableDefaultPhases();
 
 		getEntityRefs();
+
+		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "StateManager Initialized");
+
 	}
 
 	// Setting state here to make sure that all entity references such as player and mainMenu are valid
@@ -669,6 +672,7 @@ public:
 	}
 
 	void saveGameData() {
+
 		namespace fs = std::filesystem;
 
 		fs::path path = fs::path(__FILE__).lexically_normal();
@@ -751,9 +755,14 @@ public:
 		//TODO remove
 		scene.constructLevel();
 
-		//TODO use game loader
-		//editor.loadGameEntities2();
-		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "ERRRM");
+		namespace fs = std::filesystem;
+		fs::path path = fs::path(__FILE__).lexically_normal();
+		fs::path repoRoot = path.parent_path().parent_path().parent_path().parent_path();
+		fs::path jsonPath = repoRoot / "games" / "CrashTheSim" / "src" / "GameData.json";
+
+		//TODO use serializer
+		editor.loadGameFromJson(jsonPath.string());
+
 		ecs.defer_resume();
 		
 		startGame();

@@ -27,6 +27,8 @@ public:
         // Register the ref component
         ecs.component<AssetLibRef>();
         ecs.set<AssetLibRef>({ this });
+
+        SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "AssetLibrary Initialized");
     }
 
     ModelSource* get(const std::string& id) {
@@ -40,7 +42,6 @@ public:
 
 	void defaultAssets() {
 
-
         add("robot", std::make_unique<ModelSource>(ecs, "assets/robot4Wheels.glb"));
         add("CapsuleModel", std::make_unique<ModelSource>(ecs, "assets/capsule4.glb"));
         add("Grid256", std::make_unique<ModelSource>(ecs, 256, 256));
@@ -49,9 +50,8 @@ public:
 
         //sponza
         //ModelSource sponzaSource("assets/Sponza/sponza.obj", renderer.context.device);
-
-
 	}
+
 
     //TODO fix
     ~AssetLibrary() {

@@ -3,9 +3,7 @@
 #include "core/src/pch.h"
 
 #include "Mesh.hpp"
-
 #include "Material.hpp"
-
 #include "renderUtil.hpp"
 
 using std::vector;
@@ -31,26 +29,41 @@ public:
 
 	vector <MeshSource> meshes;
 	vector<aiMatrix4x4> aiMeshTransforms;
-	 
-	std::vector<MaterialSMPL> materials;
-
+	vector<MaterialSMPL> materials;
 
 	ModelSource(flecs::world& ecs,const char * filePath)
 	{
-		RenderContext& renderContext = ecs.get_mut<RenderContext>();
-
-		// init assimp and load the file
+		if (!validateFile(filePath)) return;
+		
 		Assimp::Importer importer;
-		const aiScene* scene = importer.ReadFile(filePath, aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_FlipUVs | aiProcess_CalcTangentSpace);
-		if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
-		{
-			cout << "ERROR::ASSIMP:: " << importer.GetErrorString() << '\n';
+		const aiScene* scene = nullptr;
+
+		try {
+			scene = importer.ReadFile(
+				filePath,
+				aiProcess_Triangulate |
+				aiProcess_GenSmoothNormals |
+				aiProcess_FlipUVs |
+				aiProcess_CalcTangentSpace
+			);
+		}
+		catch (const std::exception& e) {
+			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Assimp threw exception: %s", e.what());
+			return;
+		}
+		catch (...) {
+			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Assimp threw an unknown exception");
 			return;
 		}
 
-		//TODO change to sdl log
-		cout << "processsing model : " << filePath << '\n';
-		
+		if (!scene) {
+			const char* error = importer.GetErrorString();
+			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
+				"ASSIMP Error: %s", error ? error : "Unknown error");
+			return;
+		}
+
+		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "processing model : %s", filePath);
 
 		// using resize instead of reserve to set the transforms to identity matrix 
 		aiMeshTransforms.resize(scene->mNumMeshes);
@@ -59,6 +72,7 @@ public:
 
 		meshes.reserve(scene->mNumMeshes);
 
+		RenderContext& renderContext = ecs.get_mut<RenderContext>();
 
 		MaterialLoader matLoader;
 		matLoader.loadMaterials(scene, materials,filePath, renderContext.device);
@@ -90,7 +104,6 @@ public:
 			if (scene->mMaterials[importedMeshCurrent->mMaterialIndex]->GetTexture(aiTextureType_DIFFUSE, 0, &str) == aiReturn_SUCCESS) {
 
 				currentMesh.diffuseTexture = materials[importedMeshCurrent->mMaterialIndex].diffuseTexture;
-
 			}
 		}
 
@@ -118,18 +131,39 @@ public:
 	//for Wireframe Mountains
 	ModelSource(flecs::world& ecs,const char* filePath, bool mtn) {
 
+		if (!validateFile(filePath)) return;
+
 		RenderContext& renderContext = ecs.get_mut<RenderContext>();
 
 		Assimp::Importer importer;
-		const aiScene* scene = importer.ReadFile(filePath, aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_FlipUVs | aiProcess_CalcTangentSpace);
+		const aiScene* scene = nullptr;
 
-		if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
-		{
-			cout << "ERROR::ASSIMP:: " << importer.GetErrorString() << '\n';
+		try {
+			scene = importer.ReadFile(
+				filePath,
+				aiProcess_Triangulate |
+				aiProcess_GenSmoothNormals |
+				aiProcess_FlipUVs |
+				aiProcess_CalcTangentSpace
+			);
+		}
+		catch (const std::exception& e) {
+			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Assimp threw exception: %s", e.what());
+			return;
+		}
+		catch (...) {
+			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Assimp threw an unknown exception");
 			return;
 		}
 
-		cout << "processsing model : " << filePath << '\n';
+		if (!scene) {
+			const char* error = importer.GetErrorString();
+			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
+				"ASSIMP Error: %s", error ? error : "Unknown error");
+			return;
+		}
+
+		cout << "processing model : " << filePath << '\n';
 		//cout << "Number of meshes : " << scene->mNumMeshes << '\n';
 
 		aiMeshTransforms.resize(scene->mNumMeshes);
@@ -166,6 +200,22 @@ public:
 	{
 		printf("\033[33mModel copy constructor called!\033[0m\n");
 	}
+
+	bool validateFile(const char* filePath) {
+
+		if (!filePath) {
+			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "filePath is null");
+			return false;
+		}
+		std::filesystem::path folderPath = filePath;
+		if (!std::filesystem::exists(folderPath)) {
+			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "File does not exist: %s", filePath);
+			return false;
+		}
+
+		return true;
+	}
+
 
 
 	void ExtractMeshTransforms(const aiNode* node, const aiMatrix4x4& parentTransform, const aiScene* scene) {

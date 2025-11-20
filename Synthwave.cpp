@@ -26,7 +26,7 @@ int main(int argc, char* argv[])
 
 	stateManager.init();
 
-	printf("\033[35mInitializing simulation\033[0m\n");
+	SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "\033[35mInitializing simulation 🤖\033[0m\n");
 	SDL_Event event;
 	while (running) {
 
@@ -52,7 +52,6 @@ int main(int argc, char* argv[])
 		renderer.drawAll();
 
 	}
-
-	printf("\033[35mGoodbye!\033[0m\n");
+	SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "\033[35mGoodbye!\033[0m\n");
 	return 0;
 }

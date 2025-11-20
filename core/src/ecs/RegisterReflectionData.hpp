@@ -39,6 +39,16 @@ void registerReflectionData(flecs::world & ecs){
    ecs.component<ObjectType>()
        .member<std::string>("name");
 
+   ecs.component<EntityType>()
+       .constant("Empty", EntityType::Empty)
+       .constant("Actor", EntityType::Actor)
+       .constant("Capsule", EntityType::Capsule)
+       .constant("Grid", EntityType::Grid)
+       .constant("StaticMesh", EntityType::StaticMesh)
+       .constant("Sphere", EntityType::Sphere)
+       .constant("Cube", EntityType::Cube)
+       .constant("Light", EntityType::Light)
+       .constant("Camera", EntityType::Camera);
 
 
 }
