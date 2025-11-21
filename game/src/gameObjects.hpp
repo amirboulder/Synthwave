@@ -62,6 +62,7 @@ public:
 		registerPhases();
 		registerSystems();
 
+		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Scene Initialized");
 	}
 
 	void registerSystems() {
@@ -73,22 +74,25 @@ public:
 
 	bool constructLevel() {
 
-
+		/*
 		flecs::entity Game1 = ecs.entity("Game1")
 			.add<Game>()
+			.set<EntityType>({ EntityType::Game })
 			.add<IsActive>().add(flecs::CanToggle);
 
 		flecs::entity Scene1 = ecs.entity("Scene1")
 			.add<_Scene>()
+			.set<EntityType>({ EntityType::Scene })
 			.add<IsActive>().add(flecs::CanToggle)
 			.child_of(Game1);
+		*/
 
 		///////////////////////////
 	
 
 		//Entities
 
-
+		/*
 		//Actor 1
 		Transform actorTransform;
 		actorTransform.position = glm::vec3(4.0f, 17.0f, 0.0f);
@@ -103,27 +107,27 @@ public:
 		settings.mLayer = Layers::MOVING;
 		settings.mGravityFactor = 1;
 		EntityFactory::createActorEntity(ecs, Scene1, "Actor1", "ActorModel", actorTransform, settings, actor1Update);
+		*/
 
 
 		//Grid
-		Transform gridTransform;
+		/*Transform gridTransform;
 		gridTransform.rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
-		EntityFactory::createGridEntity(ecs,Scene1,"GridChunk1","Grid256", gridTransform, "pipelineGrid", 256, 256);
+		EntityFactory::createGridEntity(ecs,Scene1,"GridChunk1","Grid256", gridTransform, "pipelineGrid", 256, 256);*/
 
 		//MTN
-		Transform mtnTransform;
-		mtnTransform.position = glm::vec3(0.0f, -50.0f, 0.0f);
-		mtnTransform.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
-		EntityFactory::createStaticMeshEntity(ecs,Scene1,"Mountains","Mountains", mtnTransform, "pipelineMtn");
+		//Transform mtnTransform;
+		//mtnTransform.position = glm::vec3(0.0f, -50.0f, 0.0f);
+		//mtnTransform.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+		//EntityFactory::createStaticMeshEntity(ecs,Scene1,"Mountains","Mountains", mtnTransform, "pipelineMtn");
 
+		/*
 		////Capsule1
-	
 		Transform capsule1Transform;
 		capsule1Transform.position = glm::vec3(1.0f, 5.0f, 0.0f);
 		capsule1Transform.rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
 		capsule1Transform.scale = glm::vec3(1.0f);
 		EntityFactory::createCapsuleEntity(ecs, Scene1, "Capsule1", "CapsuleModel", capsule1Transform);
-
 
 		//Capsule2
 		Transform capsule2Transform;
@@ -132,23 +136,23 @@ public:
 		capsule2Transform.scale = glm::vec3(1.0f);
 		EntityFactory::createCapsuleEntity(ecs, Scene1, "Capsule2", "CapsuleModel", capsule2Transform);
 
-
 		//Capsule3
 		Transform capsule3Transform;
 		capsule3Transform.position = glm::vec3(1.0f, 29.0f, 0.0f);
 		capsule3Transform.rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
 		capsule3Transform.scale = glm::vec3(1.0f);
 		EntityFactory::createCapsuleEntity(ecs, Scene1, "Capsule3", "CapsuleModel", capsule3Transform);
+		*/
 
 		
 		///////////////////////////
 		// Sensors
 
 		//Sensor1
-		Transform boxSensorTransform;
+		/*Transform boxSensorTransform;
 		boxSensorTransform.position = glm::vec3(1.0f, 3.0f, 0.0f);
 		JPH::Vec3 boxSensorSize = JPH::Vec3(15.0f, 15.0f, 15.0f);
-		EntityFactory::createBoxSensorEntity(ecs, Scene1,"Sensor1", boxSensorTransform, boxSensorSize,sensor1Behavior);
+		EntityFactory::createBoxSensorEntity(ecs, Scene1,"Sensor1", boxSensorTransform, boxSensorSize,sensor1Behavior);*/
 
 
 		/////////////////////////

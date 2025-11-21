@@ -13,6 +13,10 @@ if(MSVC)
     add_compile_options(/MP)
 endif()
 
+if(MSVC)
+    add_compile_options(/utf-8)
+endif()
+
 
 include(FetchContent)
 set(FETCHCONTENT_QUIET FALSE)
@@ -27,8 +31,6 @@ endif()
 
 # Add source to this project's executable.
 add_executable (Synthwave "Synthwave.cpp" "Synthwave.h" )
-
-
 
 #=============================================
 #Slang
@@ -123,17 +125,31 @@ FetchContent_Declare(
     )
 FetchContent_MakeAvailable(SDL_ttf)
 
-
-
 #=============================================
 #assimp for importing assets
 #=============================================
 FetchContent_Declare(
   assimp 
   GIT_REPOSITORY https://github.com/assimp/assimp.git
-  GIT_TAG v5.2.5 # Use a specific, stable tag or commit hash
-  GIT_SHALLOW TRUE
+  GIT_TAG v5.4.0
+
 )
+    
+set(ASSIMP_NO_CHARSET ON CACHE BOOL "" FORCE)   
+
+set(ASSIMP_NO_EXPORT            ON  CACHE BOOL "" FORCE)  
+set(ASSIMP_BUILD_ASSIMP_TOOLS   OFF CACHE BOOL "" FORCE)  
+set(ASSIMP_BUILD_SAMPLES        OFF CACHE BOOL "" FORCE)
+set(ASSIMP_BUILD_TESTS          OFF CACHE BOOL "" FORCE)
+
+# Disable all importers except obj and gltf
+set(ASSIMP_BUILD_ALL_IMPORTERS_BY_DEFAULT OFF CACHE BOOL "" FORCE)
+
+set(ASSIMP_BUILD_OBJ_IMPORTER  ON  CACHE BOOL "" FORCE)
+set(ASSIMP_BUILD_GLTF_IMPORTER ON  CACHE BOOL "" FORCE)
+
+set(ASSIMP_BUILD_ZLIB          ON CACHE BOOL "" FORCE) 
+set(ASSIMP_INSTALL             OFF CACHE BOOL "" FORCE)
 
 FetchContent_MakeAvailable(assimp)
 
@@ -143,7 +159,7 @@ FetchContent_MakeAvailable(assimp)
 FetchContent_Declare(
 	glm
 	GIT_REPOSITORY	https://github.com/g-truc/glm.git
-	GIT_TAG 	bf71a834948186f4097caa076cd2663c69a10e1e #refs/tags/1.0.1
+	GIT_TAG 	bf71a834948186f4097caa076cd2663c69a10e1e 
     GIT_SHALLOW TRUE
 )
 
@@ -153,8 +169,13 @@ FetchContent_MakeAvailable(glm)
 #=============================================
 #nlohmann_json
 #=============================================
-FetchContent_Declare(json URL https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz)
-FetchContent_MakeAvailable(json)
+FetchContent_Declare(
+    nlohmann_json
+    GIT_REPOSITORY https://github.com/nlohmann/json.git
+    GIT_TAG v3.12.0
+    GIT_SHALLOW TRUE
+)
+FetchContent_MakeAvailable(nlohmann_json)
 
 #=============================================
 #JOLT physics
@@ -238,7 +259,7 @@ target_include_directories(Synthwave PRIVATE ${inih_SOURCE_DIR}/cpp)
 FetchContent_Declare(
     flecs
     GIT_REPOSITORY https://github.com/SanderMertens/flecs.git
-    GIT_TAG v4.1.1
+    GIT_TAG 8a126f0
 )
 
 set(FLECS_STATIC ON CACHE BOOL "" FORCE)
@@ -249,6 +270,29 @@ set(FLECS_REST OFF CACHE BOOL "" FORCE)
 set(FLECS_DOC OFF CACHE BOOL "" FORCE)
 
 FetchContent_MakeAvailable(flecs)
+
+
+#=============================================
+#rapidjson JSON
+#=============================================
+
+
+
+FetchContent_Declare(
+    rapidjson
+    GIT_REPOSITORY https://github.com/Tencent/rapidjson.git
+    GIT_TAG        24b5e7a          
+    GIT_SHALLOW    TRUE
+)
+
+set(RAPIDJSON_BUILD_DOC OFF CACHE BOOL "" FORCE)
+set(RAPIDJSON_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(RAPIDJSON_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+
+FetchContent_MakeAvailable(rapidjson)
+
+
+target_include_directories(Synthwave PRIVATE ${rapidjson_SOURCE_DIR}/include)
 
 
 #=============================================
@@ -309,6 +353,8 @@ flecs::flecs
 target_precompile_headers(Synthwave PRIVATE 
     "${CMAKE_SOURCE_DIR}/core/src/pch.h"
 )
+
+
 
 file(COPY core/src/renderer/shaders/slang DESTINATION ${CMAKE_BINARY_DIR}/shaders/)
 file(COPY assets DESTINATION ${CMAKE_BINARY_DIR})

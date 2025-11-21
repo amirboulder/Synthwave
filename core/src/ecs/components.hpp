@@ -140,6 +140,8 @@ struct ObjectType {
 
 enum class EntityType {
 	Empty,
+	Game,
+	Scene,
 	Actor,
 	Capsule,
 	Grid,

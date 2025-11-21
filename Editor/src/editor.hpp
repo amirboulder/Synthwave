@@ -3,7 +3,7 @@
 #include "core/src/pch.h"
 
 #include "../../core/src/EntityFactory.hpp"
-
+#include "../../core/src/Serialization/serialization.hpp"
 #include "../../core/src/ecs/RegisterReflectionData.hpp"
 
 #include "EditorItems.hpp"
@@ -16,11 +16,11 @@ class Editor {
 	flecs::query<> activeGameQuery;
 
 public:
-	
+
 	flecs::world& ecs;
 
 	Editor(flecs::world& ecs)
-		:	ecs(ecs)
+		: ecs(ecs)
 	{
 		registerReflectionData(ecs);
 	}
@@ -35,7 +35,8 @@ public:
 		registerQuery();
 
 		editorToggle.disable();
-		
+
+		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Editor Initialized");
 	}
 
 	// All editor Items are created using the prefab editorComponent this allows us to disable all of them by disabling editorComponent
@@ -47,15 +48,15 @@ public:
 	void registerQuery() {
 
 		activeGameQuery = ecs.query_builder()
-			.with<Game>()            
-			.term_at(0).self()       
+			.with<Game>()
+			.term_at(0).self()
 			.cascade(flecs::ChildOf)
 			.build();
 	}
 
 	void registerEditorItems() {
 
-		EntityFactory::createEditorItemEntity(ecs, "SceneTree", editorToggle,SceneTree::SceneTreeDraw);
+		EntityFactory::createEditorItemEntity(ecs, "SceneTree", editorToggle, SceneTree::SceneTreeDraw);
 	}
 
 	void disable() {
@@ -108,7 +109,7 @@ public:
 			.child_of(sampleScene2);
 	}
 
-	
+
 	void unload() {
 
 		JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
@@ -125,7 +126,7 @@ public:
 
 			if (e.is_alive()) {
 
-				cout << e.name()<< " " << e.id() << std::endl;
+				cout << e.name() << " " << e.id() << std::endl;
 
 				if (e.has<JPH::BodyID>()) {
 
@@ -143,143 +144,377 @@ public:
 
 	}
 
-	//using flecs to serialize for now
-	void saveGameToJson(const std::string& path ) {
+	void saveGameToJson(const std::string& path) {
+		rapidjson::Document jsonArray;
+		jsonArray.SetArray();
+		rapidjson::Document::AllocatorType& allocator = jsonArray.GetAllocator();
 
-		
-		std::ostringstream jsonArray;
-		jsonArray << "[\n";
-
-		bool first = true;
 		activeGameQuery.each([&](flecs::entity e) {
-			if (!first) {
-				jsonArray << ",\n";
-			}
-			first = false;
+			if (!e.is_alive()) return;
 
-			// Serialize each entity with its components and relationships
 			flecs::string entityJson = e.to_json();
-			jsonArray << "  " << entityJson.c_str();
+
+			// Parse directly into a new Document
+			rapidjson::Document entityDoc(&allocator);
+			entityDoc.Parse(entityJson.c_str());
+
+			// Move it into the array
+			jsonArray.PushBack(entityDoc, allocator);
 		});
 
-		jsonArray << "\n]";
+		// Write to file with pretty formatting
+		std::ofstream file(path);
+		rapidjson::StringBuffer buffer;
+		rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(buffer);
+		writer.SetIndent(' ', 2);
+		jsonArray.Accept(writer);
 
-		std::ofstream out(path);
-		out << jsonArray.str();
-		out.close();
+		file << buffer.GetString();
 	}
 
-	//Deprecated
-	/*
-	void loadGameEntities2(const std::string& path = "data/game.json") {
-		std::ifstream in(path);
-		std::string content((std::istreambuf_iterator<char>(in)),
-			std::istreambuf_iterator<char>());
-		in.close();
-
-		// Simple JSON array parser
-		std::vector<std::string> entities;
-		size_t pos = content.find('[');
-		if (pos == std::string::npos) return;
-
-		int braceCount = 0;
-		size_t startPos = 0;
-		bool inString = false;
-		char prevChar = '\0';
-
-		for (size_t i = pos + 1; i < content.length(); i++) {
-			char c = content[i];
-
-			// Track string boundaries (escaped quotes don't count)
-			if (c == '"' && prevChar != '\\') {
-				inString = !inString;
-			}
-
-			if (!inString) {
-				if (c == '{') {
-					if (braceCount == 0) {
-						startPos = i;
-					}
-					braceCount++;
-				}
-				else if (c == '}') {
-					braceCount--;
-					if (braceCount == 0) {
-						entities.push_back(content.substr(startPos, i - startPos + 1));
-					}
-				}
-			}
-
-			prevChar = c;
-		}
-
-		// Load each entity
-		for (const auto& entityJson : entities) {
-			//std::cout << entityJson << std::endl;
-			flecs::entity newEnt = ecs.entity();
-			const char* result = newEnt.from_json(entityJson.c_str());
-		}
-	}
-	*/
-
-	//Still needs work
-	// only  works for capsules for now
-	//TODO
-	// GRID
-	//MTN
-	//ACtor
-	void loadGameFromJson(const std::string& path = "data/game.json") {
-
-
-
+	
+	void loadGameFromJson(const std::string& path) {
 		std::ifstream file(path);
 		if (!file.is_open()) {
 			std::cerr << "Failed to open " << path << "\n";
 			return;
 		}
 
-		nlohmann::json j;
-		file >> j;
+		rapidjson::IStreamWrapper isw(file);
+		rapidjson::Document doc;
+		doc.ParseStream(isw);
 
-	
-		for (auto& ent : j) {
-			// Safely extract ObjectType name
-			std::string name = ent.value("name", "Unknown");
+		if (doc.HasParseError()) {
+			std::cerr << "JSON parse error: " << doc.GetParseError()
+				<< " at offset " << doc.GetErrorOffset() << "\n";
+			return;
+		}
 
-			std::string type = "";
+		// Use the document...
+		if (doc.IsObject()) {
+			std::cout << "Successfully loaded JSON object\n";
+		}
 
-			if (ent.contains("components") && ent["components"].is_object()) {
-				const auto& comps = ent["components"];
-				if (comps.contains("ObjectType") && comps["ObjectType"].is_object()) {
-					const auto& ot = comps["ObjectType"];
-					if (ot.contains("name") && ot["name"].is_string()) {
-						type = ot["name"].get<std::string>();
-					}
-				}
+		if (!doc.IsArray()) {
+			std::cout << "Root value is not a JSON array!" << std::endl;
+			return;
+		}
+
+		// Method A: Using range-based for loop (C++11)
+		std::cout << "Array has " << doc.Size() << " elements\n";
+
+
+		for (const auto& item : doc.GetArray()) {
+
+
+			if (!item.IsObject()) {
+				SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "ERROR item in json is not object!!!");
+
 			}
 
-			if (type == "Capsule") {
-				std::string name = ent.value("name", "Unnamed");
-				Transform transform = ent["components"]["Transform"].get<Transform>();
+			if (item.HasMember("components") && item["components"].IsObject()) {
+				const auto& components = item["components"];
 
-				std::string parentName = ent["parent"].get<std::string>();
+				if (components.HasMember("EntityType") && components["EntityType"].IsString()) {
 
-				// Lookup the parent entity by its path
-				flecs::entity parentEnt = ecs.lookup(parentName.c_str(), ".");
+					string entType = item["components"]["EntityType"].GetString();
 
-				// Debug print
-				if (parentEnt.is_valid()) {
-					std::cout << "Found parent: " << parentEnt.name() << std::endl;
+					if (entType == "Game") {
 
-					EntityFactory::createCapsuleEntity(ecs, parentEnt, name, "CapsuleModel", transform);
+						createGameEntFromJson(item);
+					}
+					else if (entType == "Scene") {
+
+						createSceneEntFromJson(item);
+					}
+					else if (entType == "Capsule") {
+
+						createCapsuleEntFromJson(item);
+					}
+					else if (entType == "Actor") {
+
+						createActorEntFromJson(item);
+					}
+					else if (entType == "Sensor") {
+
+						createSensorEntFromJson(item);
+					}
+					else if (entType == "Grid") {
+
+						createGridEntFromJson(item);
+					}
+					else if (entType == "StaticMesh") {
+
+						createStaticMeshEntFromJson(item);
+					}
 				}
-				else {
-					std::cout << "Parent not found: " << parentName << std::endl;
-				}
-
-				
 			}
 		}
 	}
 
+	bool createGameEntFromJson(const rapidjson::Value& item) {
+
+		std::string name;
+
+		if (!validateName(item)) return false;
+		name = item["name"].GetString();
+
+		//TODO create Factory function
+			ecs.entity(name.c_str())
+			.add<Game>()
+			.set<EntityType>({ EntityType::Game })
+			.add<IsActive>().add(flecs::CanToggle);
+
+		return true;
+	}
+
+	bool createSceneEntFromJson(const rapidjson::Value& item) {
+
+		std::string name;
+		std::string parentName;
+
+		if (!validateName(item)) return false;
+		name = item["name"].GetString();
+
+		if (!validateParent(item)) return false;
+		parentName = item["parent"].GetString();
+		flecs::entity parentEnt = ecs.lookup(parentName.c_str(), ".");
+
+		//TODO create Factory function
+		ecs.entity(name.c_str())
+			.add<_Scene>()
+			.set<EntityType>({ EntityType::Scene })
+			.add<IsActive>().add(flecs::CanToggle)
+			.child_of(parentEnt);
+
+		return true;
+	}
+
+	bool createCapsuleEntFromJson(const rapidjson::Value & item) {
+
+		std::string name;
+		std::string parentName;
+		std::string modelSrcName;
+		Transform transform;
+
+		if (!validateName(item)) return false;
+		name = item["name"].GetString();
+			
+		if (!validateTransform(item)) return false;
+		auto optTransform = serde::deserializeTransform(item["components"]["Transform"]);
+
+		if (!optTransform) return false;
+		transform = optTransform.value();
+
+		//validate modelSrc
+		if (!validateModelSrc(item)) return false;
+		modelSrcName = item["components"]["ModelSourceRef"]["name"].GetString();
+		
+		if (!validateParent(item)) return false;
+		parentName = item["parent"].GetString();
+		flecs::entity parentEnt = ecs.lookup(parentName.c_str(), ".");
+
+		if (!EntityFactory::createCapsuleEntity(ecs, parentEnt, name, "CapsuleModel", transform)) {
+			return false;
+		}
+
+		return true;
+	}
+
+	bool createActorEntFromJson(const rapidjson::Value& item) {
+
+		std::string name;
+		std::string parentName;
+		Transform transform;
+
+		//By the time we get here We know the item already has components
+
+		if (!validateName(item)) return false;
+		name = item["name"].GetString();
+
+		if (!validateTransform(item)) return false;
+		auto optTransform = serde::deserializeTransform(item["components"]["Transform"]);
+
+		if (!optTransform) return false;
+		transform = optTransform.value();
+
+		if (!validateParent(item)) return false;
+		parentName = item["parent"].GetString();
+		flecs::entity parentEnt = ecs.lookup(parentName.c_str(), ".");
+
+		// Character settings
+		JPH::CharacterSettings settings;
+		settings.mShape = new CapsuleShape(2.0f, 1.0f);
+		settings.mMass = 2000.0f;
+		settings.mMaxSlopeAngle = DegreesToRadians(20.0f); // Max walkable slope
+		settings.mLayer = Layers::MOVING;
+		settings.mGravityFactor = 1;
+
+		if (!EntityFactory::createActorEntity(ecs, parentEnt, name, "ActorModel", transform, settings, actor1Update)) {
+			return false;
+		}
+
+		return true;
+	}
+
+	bool createSensorEntFromJson(const rapidjson::Value& item) {
+
+		std::string name;
+		std::string parentName;
+		Transform transform;
+
+		if (!validateName(item)) return false;
+		if (!validateTransform(item)) return false;
+		if (!validateParent(item)) return false;
+
+		name = item["name"].GetString();
+		parentName = item["parent"].GetString();
+
+		std::optional<Transform> optTransform = serde::deserializeTransform(item["components"]["Transform"]);
+		if (!optTransform) return false;
+		transform = optTransform.value();
+
+		flecs::entity parentEnt = ecs.lookup(parentName.c_str(), ".");
+		JPH::Vec3 boxSensorSize = JPH::Vec3(15.0f, 15.0f, 15.0f);
+		if (!EntityFactory::createBoxSensorEntity(ecs, parentEnt, name, transform, boxSensorSize, sensor1Behavior)) {
+			return false;
+		}
+
+		return true;
+	}
+
+	bool createGridEntFromJson(const rapidjson::Value& item) {
+
+		std::string name;
+		std::string parentName;
+		std::string modelSrcName;
+		Transform transform;
+
+		if (!validateName(item)) return false;
+		if (!validateTransform(item)) return false;
+		if (!validateParent(item)) return false;
+		if (!validateModelSrc(item)) return false;
+
+		//TODO entityFactory validate Name 
+
+		name = item["name"].GetString();
+		parentName = item["parent"].GetString();
+		modelSrcName = item["components"]["ModelSourceRef"]["name"].GetString();
+
+
+		std::optional<Transform> optTransform = serde::deserializeTransform(item["components"]["Transform"]);
+		if (!optTransform) return false;
+		transform = optTransform.value();
+
+		flecs::entity parentEnt = ecs.lookup(parentName.c_str(), ".");
+		if (!EntityFactory::createGridEntity(ecs, parentEnt, name, modelSrcName,transform, "pipelineGrid", 256, 256)) {
+			return false;
+		}
+
+		return true;
+	}
+
+	bool createStaticMeshEntFromJson(const rapidjson::Value& item) {
+
+		std::string name;
+		std::string parentName;
+		std::string modelSrcName;
+		Transform transform;
+
+		if (!validateName(item)) return false;
+		if (!validateTransform(item)) return false;
+		if (!validateParent(item)) return false;
+		if (!validateModelSrc(item)) return false;
+
+		//TODO entityFactory validate Name 
+
+		name = item["name"].GetString();
+		parentName = item["parent"].GetString();
+		modelSrcName = item["components"]["ModelSourceRef"]["name"].GetString();
+
+
+		std::optional<Transform> optTransform = serde::deserializeTransform(item["components"]["Transform"]);
+		if (!optTransform) return false;
+		transform = optTransform.value();
+
+		flecs::entity parentEnt = ecs.lookup(parentName.c_str(), ".");
+		if (!EntityFactory::createStaticMeshEntity(ecs, parentEnt, name, modelSrcName, transform, "pipelineMtn")) {
+			return false;
+		}
+
+		return true;
+	}
+
+
+	bool validateParent(const rapidjson::Value& item) const {
+
+		if (!item.HasMember("parent") || !item["parent"].IsString()) {
+
+			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "ERROR Json entity does not have parent");
+			return false;
+		}
+
+		std::string parentName = item["parent"].GetString();
+
+		flecs::entity parentEnt = ecs.lookup(parentName.c_str(), ".");
+
+		if (!parentEnt.is_valid()) {
+			
+			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "ERROR parentEnt name read from json is invalid");
+			return false;
+		}
+
+		return true;
+
+	}
+
+	// does not check if components is valid because we assume that has already been checked
+	bool validateName(const rapidjson::Value& item) {
+
+		if (!item.HasMember("name") || !item["name"].IsString()) {
+
+			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "ERROR this poor entity doesn't even have a name!");
+			return false;
+		}
+		return true;
+	}
+
+	bool validateComponents(const rapidjson::Value& item) {
+
+	}
+
+	bool validateModelSrc(const rapidjson::Value& item) {
+
+		if (!item["components"].HasMember("ModelSourceRef")) {
+
+			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "ERROR components does not have ModelSourceRef");
+			return false;
+		}
+
+		if (!item["components"]["ModelSourceRef"].HasMember("name")) {
+
+			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "ERROR components does not have ModelSourceRef name");
+			return false;
+		}
+
+		if (!item["components"]["ModelSourceRef"]["name"].IsString()) {
+
+			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "ERROR components does not have ModelSourceRef name string");
+			return false;
+		}
+		return true;
+	}
+
+	//validates and gets transform from json
+	bool validateTransform(const rapidjson::Value& item) {
+
+		if (!item["components"].HasMember("Transform")) {
+
+			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "ERROR components does not have Transform");
+			return false;
+		}
+		return true;		
+	}
 };
+
+

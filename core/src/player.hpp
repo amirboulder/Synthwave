@@ -315,13 +315,6 @@ public:
 
 // serialization
 
-inline void to_json(json& j, const Vec3& v) {
-	j = json{ v.GetX(), v.GetY(), v.GetZ() };
-}
-inline void from_json(const json& j, Vec3& v) {
-	if (j.is_array() && j.size() >= 3)
-		v = Vec3(j[0].get<float>(), j[1].get<float>(), j[2].get<float>());
-}
 
 
 void to_json(json& j, const Player& p) {

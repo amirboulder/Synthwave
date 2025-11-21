@@ -5,61 +5,69 @@
       "Game",
       "IsActive",
       "flecs.core.CanToggle"
-    ]
+    ],
+    "components": {
+      "EntityType": "Game"
+    }
   },
   {
-    "name": "Scene1",
     "parent": "Game1",
+    "name": "Scene1",
     "tags": [
       "IsActive",
       "_Scene",
       "flecs.core.CanToggle"
-    ]
+    ],
+    "components": {
+      "EntityType": "Scene"
+    }
   },
   {
+    "parent": "Game1.Scene1",
+    "name": "GridChunk1",
+    "tags": [
+      "StaticEnt"
+    ],
+    "pairs": {
+      "CustomPipeline": "pipelineGrid"
+    },
     "components": {
-      "EntityType": "Grid",
-      "JPH.BodyID": null,
-      "ModelInstance": null,
-      "ModelSourceRef": {
-        "name": "Grid256"
-      },
       "Transform": {
         "position": {
           "x": 1,
-          "y": 2.5,
+          "y": 7,
           "z": 1
         },
         "rotation": {
-          "w": 0,
           "x": 0,
           "y": 0,
-          "z": 1
+          "z": 1,
+          "w": 0
         },
         "scale": {
           "x": 1,
           "y": 1,
           "z": 1
         }
-      }
-    },
-    "name": "GridChunk1",
-    "pairs": {
-      "CustomPipeline": "pipelineGrid"
-    },
-    "parent": "Game1.Scene1",
-    "tags": [
-      "StaticEnt"
-    ]
+      },
+      "ModelInstance": null,
+      "JPH.BodyID": null,
+      "ModelSourceRef": {
+        "name": "Grid256"
+      },
+      "EntityType": "Grid"
+    }
   },
   {
+    "parent": "Game1.Scene1",
+    "name": "Mountains",
+    "tags": [
+      "StaticEnt"
+    ],
+    "pairs": {
+      "CustomPipeline": "pipelineMtn"
+    },
     "components": {
-      "EntityType": "StaticMesh",
-      "JPH.BodyID": null,
-      "ModelInstance": null,
-      "ModelSourceRef": {
-        "name": "Mountains"
-      },
       "Transform": {
         "position": {
           "x": 0,
@@ -67,190 +75,188 @@
           "z": 0
         },
         "rotation": {
-          "w": 1,
           "x": 0,
           "y": 0,
-          "z": 0
+          "z": 0,
+          "w": 1
         },
         "scale": {
           "x": 1,
           "y": 1,
           "z": 1
         }
-      }
-    },
-    "name": "Mountains",
-    "pairs": {
-      "CustomPipeline": "pipelineMtn"
-    },
-    "parent": "Game1.Scene1",
-    "tags": [
-      "StaticEnt"
-    ]
+      },
+      "ModelInstance": null,
+      "JPH.BodyID": null,
+      "ModelSourceRef": {
+        "name": "Mountains"
+      },
+      "EntityType": "StaticMesh"
+    }
   },
   {
-    "components": {
-      "EntityType": "Sensor",
-      "JPH.BodyID": null,
-      "SensorBehavior": null,
-      "Transform": {
-        "position": {
-          "x": 1,
-          "y": 1,
-          "z": 1
-        },
-        "rotation": {
-          "w": 0,
-          "x": 0,
-          "y": 0,
-          "z": 1
-        },
-        "scale": {
-          "x": 1,
-          "y": 1,
-          "z": 1
-        }
-      }
-    },
-    "name": "Sensor1",
     "parent": "Game1.Scene1",
+    "name": "Sensor1",
     "tags": [
       "StaticEnt",
       "Sensor"
-    ]
+    ],
+    "components": {
+      "Transform": {
+        "position": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 1,
+          "w": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      },
+      "JPH.BodyID": null,
+      "EntityType": "Sensor",
+      "SensorBehavior": null
+    }
   },
   {
+    "parent": "Game1.Scene1",
+    "name": "Actor1",
+    "tags": [
+      "DynamicEnt"
+    ],
     "components": {
-      "ActorBehavior": null,
-      "EntityType": "Actor",
-      "JPH.BodyID": null,
-      "JoltCharacter": null,
+      "Transform": {
+        "position": {
+          "x": 0.9999679327,
+          "y": 8.9799976349,
+          "z": -0.0000449212
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 1,
+          "w": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      },
       "ModelInstance": null,
+      "JPH.BodyID": null,
+      "ActorBehavior": null,
       "ModelSourceRef": {
         "name": "ActorModel"
       },
-      "Transform": {
-        "position": {
-          "x": 1,
-          "y": 5,
-          "z": 0
-        },
-        "rotation": {
-          "w": 0,
-          "x": 0,
-          "y": 0,
-          "z": 1
-        },
-        "scale": {
-          "x": 1,
-          "y": 1,
-          "z": 1
-        }
-      }
-    },
-    "name": "Actor1",
-    "parent": "Game1.Scene1",
-    "tags": [
-      "DynamicEnt"
-    ]
+      "EntityType": "Actor",
+      "JoltCharacter": null
+    }
   },
   {
-    "components": {
-      "EntityType": "Capsule",
-      "JPH.BodyID": null,
-      "ModelInstance": null,
-      "ModelSourceRef": {
-        "name": "CapsuleModel"
-      },
-      "Transform": {
-        "position": {
-          "x": 1,
-          "y": 19,
-          "z": 0
-        },
-        "rotation": {
-          "w": -0.4058158696,
-          "x": -0.1104936302,
-          "y": 0.5174669623,
-          "z": 0.7452064157
-        },
-        "scale": {
-          "x": 1,
-          "y": 1,
-          "z": 1
-        }
-      }
-    },
+    "parent": "Game1.Scene1",
     "name": "Capsule1",
-    "parent": "Game1.Scene1",
     "tags": [
       "DynamicEnt"
-    ]
-  },
-  {
+    ],
     "components": {
-      "EntityType": "Capsule",
-      "JPH.BodyID": null,
-      "ModelInstance": null,
-      "ModelSourceRef": {
-        "name": "CapsuleModel"
-      },
       "Transform": {
         "position": {
-          "x": 1,
-          "y": 29,
-          "z": 0
+          "x": 1.4635719061,
+          "y": 13.1661882401,
+          "z": 0.4783177972
         },
         "rotation": {
-          "w": -0.1293228716,
-          "x": -0.4348449707,
-          "y": -0.699201107,
-          "z": 0.5525425673
+          "x": 0.0261994191,
+          "y": 0.3078124523,
+          "z": 0.9284600019,
+          "w": -0.2062211484
         },
         "scale": {
           "x": 1,
           "y": 1,
           "z": 1
         }
-      }
-    },
+      },
+      "ModelInstance": null,
+      "JPH.BodyID": null,
+      "ModelSourceRef": {
+        "name": "CapsuleModel"
+      },
+      "EntityType": "Capsule"
+    }
+  },
+  {
+    "parent": "Game1.Scene1",
     "name": "Capsule2",
-    "parent": "Game1.Scene1",
     "tags": [
       "DynamicEnt"
-    ]
-  },
-  {
+    ],
     "components": {
-      "EntityType": "Capsule",
-      "JPH.BodyID": null,
-      "ModelInstance": null,
-      "ModelSourceRef": {
-        "name": "CapsuleModel"
-      },
       "Transform": {
         "position": {
-          "x": 3.7471928596,
-          "y": 3.5031182766,
-          "z": 0.2320632339
+          "x": 0.6973926425,
+          "y": 16.2265453339,
+          "z": -0.3297579587
         },
         "rotation": {
-          "w": 0.1056499109,
-          "x": -0.198822245,
-          "y": -0.1785848588,
-          "z": 0.9578179717
+          "x": 0.4490942061,
+          "y": 0.0635095984,
+          "z": 0.4664539099,
+          "w": -0.7594088316
         },
         "scale": {
           "x": 1,
           "y": 1,
           "z": 1
         }
-      }
-    },
-    "name": "Capsule3",
+      },
+      "ModelInstance": null,
+      "JPH.BodyID": null,
+      "ModelSourceRef": {
+        "name": "CapsuleModel"
+      },
+      "EntityType": "Capsule"
+    }
+  },
+  {
     "parent": "Game1.Scene1",
+    "name": "Capsule3",
     "tags": [
       "DynamicEnt"
-    ]
+    ],
+    "components": {
+      "Transform": {
+        "position": {
+          "x": 2.2649617195,
+          "y": -6.6916584969,
+          "z": -5.7736215591
+        },
+        "rotation": {
+          "x": -0.9689211845,
+          "y": 0.2419801056,
+          "z": 0.0257818475,
+          "w": 0.0444156788
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      },
+      "ModelInstance": null,
+      "JPH.BodyID": null,
+      "ModelSourceRef": {
+        "name": "CapsuleModel"
+      },
+      "EntityType": "Capsule"
+    }
   }
 ]
