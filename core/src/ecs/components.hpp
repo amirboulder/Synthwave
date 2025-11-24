@@ -127,6 +127,8 @@ struct PhysicsSystemRef {
 struct Game {};
 struct _Scene {};
 
+struct PlayerRef { flecs::entity value = flecs::entity::null(); };
+struct PlayerCamRef { flecs::entity value = flecs::entity::null(); };
 
 struct ModelSourceRef {
 	std::string name;
@@ -142,6 +144,7 @@ enum class EntityType {
 	Empty,
 	Game,
 	Scene,
+	Player,
 	Actor,
 	Capsule,
 	Grid,

@@ -397,6 +397,7 @@ struct Renderer {
 
 		//SDL_BindGPUFragmentSamplers(mainRenderPass, 0, &defaultSamplerBinding, 1);
 
+		// Maybe have an observer that runs each time camera is switched so that we don't query which cam is active every frame
 		ecs.query<Camera, ActiveCamera>()
 			.each([&](Camera& cam, ActiveCamera) {
 

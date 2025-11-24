@@ -29,7 +29,7 @@ public:
 	InputManager(flecs::world& ecs, StateManager& stateManager)
 		: ecs(ecs), stateManager(stateManager)
 	{
-		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "InputManager Initilized");
+		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "InputManager Initialized");
 	}
 
 
@@ -37,9 +37,7 @@ public:
 
 		//TODO implement switching based on InputDeviceState as well once we get there
 
-		
-		
-		
+
 		CameraState camState = ecs.get<CameraState>();
 
 		switch (camState) {
@@ -66,7 +64,13 @@ public:
 
 	void processFreeCamKBMInput() {
 		//TODO keep a ref instead of looking up by name
-		Camera& camera = ecs.lookup("FreeCam").get_mut<Camera>();
+
+		flecs::entity cameraEnt = ecs.lookup("FreeCam");
+		if (!cameraEnt ) {
+			return;
+		}
+
+		Camera& camera = cameraEnt.get_mut<Camera>();
 
 		const bool* keystates = SDL_GetKeyboardState(NULL);
 
@@ -194,11 +198,27 @@ public:
 	void handleEditorInputs() {
 
 	}
-
+	
+	//TODO look into decoupling inputManager and Player/PlayerCam
 	void handlePlayerKBMInput() {
-		//TODO keep a ref instead of looking up by name
-		Camera& camera = ecs.lookup("PlayerCam").get_mut<Camera>();
-		Player & player = ecs.lookup("player").get_mut<Player>();
+
+		flecs::entity playerEnt;
+		flecs::entity cameraEnt;
+		
+		if (!ecs.try_get<PlayerRef>() || !ecs.try_get<PlayerCamRef>()) {
+			return;
+		}
+
+		playerEnt = ecs.get<PlayerRef>().value;
+		cameraEnt = ecs.get<PlayerCamRef>().value;
+
+
+		if (!cameraEnt || !playerEnt) {
+			return;
+		}
+
+		Camera& camera = cameraEnt.get_mut<Camera>();
+		Player & player = playerEnt.get_mut<Player>();
 
 		const bool* keystates = SDL_GetKeyboardState(NULL);
 

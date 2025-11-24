@@ -425,8 +425,9 @@ public:
 
 		Ref<Shape> boxShape = new BoxShape(boxHalfExtents);
 
-		// Convert GLM to Jolt types
-		Vec3 joltPosition(transform.position.x, transform.position.y, transform.position.z);
+		// - 0.5 is needed to visually align the grid render with the physics body #MAGICNUMBER
+		//TODO find out why the grid render slightly below its physics body by default
+		Vec3 joltPosition(transform.position.x, transform.position.y - boxThickness - 0.5, transform.position.z);
 		Quat joltRotation(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
 		if (!joltRotation.IsNormalized()) {
 			joltRotation = joltRotation.Normalized();
@@ -449,11 +450,10 @@ public:
 
 		BodyID physicsID = bodyInterface.CreateAndAddBody(boxBodySettings, EActivation::Activate);
 
+		
+
 		if (!validatePhysicsBodyCreation(physicsID, name)) return false;
 
-		//needed to visually align the grid render with the physics body #MAGICNUMBER
-		//TODO find out why the grid render slightly below its physics body by default
-		transform.position.y += boxThickness + 0.5;
 
 		const flecs::entity entity = ecs.entity(name.c_str())
 			.set<EntityType>({ EntityType::Grid })
@@ -474,6 +474,33 @@ public:
 
 		if (!validateEntityCreation(entity, name)) return false;
 
+		return true;
+
+	}
+
+	//TODO add error checking
+	//TODO use transform
+	static bool createPlayerEntity(flecs::world& ecs, const flecs::entity parent, Transform transform, const std::string ModelSrcName = " ", const char* pipelineName = " ") {
+
+		const RendererConfig& config = ecs.get<RendererConfig>();
+
+		flecs::entity playerEntity = ecs.entity("player")
+			
+			.set<EntityType>({ EntityType::Player })
+			.child_of(parent);
+
+		playerEntity.emplace<Player>(ecs, JPH::Vec3(1.0f, 15.0f, 0.0f), JPH::Quat(0.0f, 0.0f, 0.0f, 1.0f), 2.0f, 1.0f, playerEntity.id());
+
+		ecs.set<PlayerRef>({ playerEntity });
+
+		flecs::entity playerCam = ecs.entity("PlayerCam")
+			.set<EntityType>({ EntityType::Camera })
+			.emplace<Camera>(config)
+			.child_of(parent);
+
+		ecs.set<PlayerCamRef>({ playerCam });
+
+		
 		return true;
 
 	}

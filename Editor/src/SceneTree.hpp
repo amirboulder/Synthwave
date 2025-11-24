@@ -23,6 +23,8 @@ public:
     static const char* GetEntityTypeName(EntityType type) {
         switch (type) {
         case EntityType::Empty: return "Empty";
+        case EntityType::Scene: return "Scene";
+        case EntityType::Player: return "Player";
         case EntityType::Actor: return "Actor";
         case EntityType::Capsule: return "Capsule";
         case EntityType::Grid: return "Grid";
@@ -259,6 +261,11 @@ public:
 
                             SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Adding Empty not yet implemented");
                             break;
+                        case EntityType::Player:
+
+                            //TODO move creation to under Game
+                            createPlayerChild(ecs);
+                            break;
                         case EntityType::Actor:
 
                             createActorChild(ecs);
@@ -317,6 +324,25 @@ public:
 
             ImGui::EndPopup();
         }
+    }
+
+    static void createSceneChild(flecs::world& ecs) {
+
+       
+
+
+    }
+
+    static void createPlayerChild(flecs::world& ecs) {
+
+        //Transforms does nothing yet
+        Transform playerTransform;
+        playerTransform.position = glm::vec3(1.0f, 5.0f, 0.0f);
+        playerTransform.rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
+        playerTransform.scale = glm::vec3(1.0f);
+
+        EntityFactory::createPlayerEntity(ecs, s_state.contextEntity, playerTransform);
+
     }
 
 

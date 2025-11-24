@@ -2,11 +2,7 @@
 
 #include "core/src/pch.h"
 
-#include "rapidjson/document.h"
-#include "rapidjson/writer.h"
-#include "rapidjson/stringbuffer.h"
-#include "rapidjson/prettywriter.h"
-#include "rapidjson/istreamwrapper.h"
+
 
 //both serialization and deserialization
 namespace serialization {

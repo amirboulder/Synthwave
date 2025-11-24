@@ -4,12 +4,11 @@
 
 #include "../../core/src/ecs/components.hpp"
 
+#include "../../core/src/player.hpp"
+
 #include "../../core/src/EntityFactory.hpp"
 
 #include "../../core/src/physics/physicsUtil.hpp"
-
-#include "../../core/src/player.hpp"
-
 
 #include "sensorBehaviors.hpp"
 #include "actorBehaviors.hpp"
@@ -23,12 +22,9 @@ public:
 
 	flecs::world& ecs;
 
-	flecs::entity playerEntity;
-
 	flecs::entity playerPhase;
 
 	Fisiks& fisiks;
-
 	Renderer& renderer;
 
 	flecs::entity aiUpdatePhase;
@@ -41,23 +37,18 @@ public:
 	Scene(flecs::world & ecs,Fisiks& fisiks, Renderer& renderer)
 		: ecs(ecs), fisiks(fisiks), renderer(renderer)
 	{
-		
-		//////////////////////////////
-		// FreeCam
+		/*
 		const RendererConfig& config = ecs.get<RendererConfig>();
-
-		ecs.entity("FreeCam")
-			.emplace<Camera>(config);
-
-		ecs.entity("PlayerCam")
-			.emplace<Camera>(config);
-
-		//////////////////////////////
 		//Player
+		flecs::entity playerCam = ecs.entity("PlayerCam")
+			.emplace<Camera>(config);
 
-		playerEntity = ecs.entity("player").emplace<Player>(ecs, fisiks);
+		playerEntity = ecs.entity("player")
+			.emplace<Player>(ecs)
+			.add(playerCam);
 
 		playerEntity.get_mut<Player>().init(JPH::Vec3(1.0f, 15.0f, 0.0f), JPH::Quat(0.0f, 0.0f, 0.0f, 1.0f), 2.0f, 1.0f, playerEntity.id());
+		*/
 
 		registerPhases();
 		registerSystems();
@@ -273,22 +264,27 @@ public:
 		});
 
 	}
-
+	
 
 	// Eventually there will be a loop/query in this system which will draw all VirtualCharacterPhysicsBodies
+	// by disabling fisiksDebugRenderer we are effectively disabling this system as it won't be found by the query
 	void drawVirtualCharacterPhysicsBodies() {
-
 
 		drawVirtualCharacterPhysicsBodiesSys = ecs.system<fisiksDebugRenderer>("DrawVirtualCharacterPhysicsBodiesSys")
 			.term_at(0).src<fisiksDebugRenderer>()
 			.kind(flecs::PostFrame)
 			.each([&](fisiksDebugRenderer& fisiksRenderer) {
 
-			Ref<CharacterVirtual> mChar =  playerEntity.get_mut<Player>().mCharacter;
 
-			RMat44 com = mChar->GetCenterOfMassTransform();
+			if (!ecs.try_get<PlayerRef>()) return;
 
-			mChar->GetShape()->Draw(&fisiksRenderer, com, Vec3::sOne(), Color::sWhite, false, true);
+			flecs::entity playerEntity = ecs.get<PlayerRef>().value;
+
+			if (playerEntity.is_valid()) {
+				Ref<CharacterVirtual> mChar = playerEntity.get_mut<Player>().mCharacter;
+				RMat44 com = mChar->GetCenterOfMassTransform();
+				mChar->GetShape()->Draw(&fisiksRenderer, com, Vec3::sOne(), Color::sWhite, false, true);
+			}
 
 		});
 	}

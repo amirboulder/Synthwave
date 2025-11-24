@@ -72,7 +72,7 @@ public:
 
 		meshes.reserve(scene->mNumMeshes);
 
-		RenderContext& renderContext = ecs.get_mut<RenderContext>();
+		const RenderContext& renderContext = ecs.get<RenderContext>();
 
 		MaterialLoader matLoader;
 		matLoader.loadMaterials(scene, materials,filePath, renderContext.device);
@@ -113,7 +113,7 @@ public:
 	// for generated meshes
 	ModelSource(flecs::world& ecs,int rows, int cols) {
 
-		RenderContext& renderContext = ecs.get_mut<RenderContext>();
+		const RenderContext& renderContext = ecs.get<RenderContext>();
 
 		meshes.emplace_back();
 
@@ -180,7 +180,7 @@ public:
 			MeshSource& currentMesh = meshes.back();
 			currentMesh.processMeshsequential(importedMesh);
 
-			// set mesh transfrom
+			// set mesh transform
 			Transform temp;
 			decomposeModelMatrix(ConvertMatrix(aiMeshTransforms[i]), temp);
 

@@ -23,6 +23,10 @@ public:
 		: ecs(ecs)
 	{
 		registerReflectionData(ecs);
+
+		const RendererConfig& config = ecs.get<RendererConfig>();
+		ecs.entity("FreeCam")
+			.emplace<Camera>(config);
 	}
 
 	//This is called by StateManager
@@ -126,8 +130,6 @@ public:
 
 			if (e.is_alive()) {
 
-				cout << e.name() << " " << e.id() << std::endl;
-
 				if (e.has<JPH::BodyID>()) {
 
 					const JPH::BodyID bodyID = e.get<JPH::BodyID>();
@@ -136,6 +138,13 @@ public:
 						bodyInterface.RemoveBody(bodyID);
 
 					bodyInterface.DestroyBody(bodyID);
+				}
+
+				//Maybe not needed
+				if (e.has<Player>()) {
+
+					ecs.set<PlayerRef>({ flecs::entity::null()});
+					ecs.set<PlayerCamRef>({ flecs::entity::null()});
 				}
 
 				e.destruct();
@@ -149,7 +158,15 @@ public:
 		jsonArray.SetArray();
 		rapidjson::Document::AllocatorType& allocator = jsonArray.GetAllocator();
 
+		// Build a fresh query on each unload to avoid stale cache
+		activeGameQuery = ecs.query_builder()
+			.with<Game>()
+			.term_at(0).self()
+			.cascade(flecs::ChildOf)
+			.build();
+
 		activeGameQuery.each([&](flecs::entity e) {
+
 			if (!e.is_alive()) return;
 
 			flecs::string entityJson = e.to_json();
@@ -185,25 +202,20 @@ public:
 		doc.ParseStream(isw);
 
 		if (doc.HasParseError()) {
-			std::cerr << "JSON parse error: " << doc.GetParseError()
-				<< " at offset " << doc.GetErrorOffset() << "\n";
+			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "JSON parse error: %s at offset %s", doc.GetParseError(), doc.GetErrorOffset());
 			return;
 		}
 
-		// Use the document...
 		if (doc.IsObject()) {
-			std::cout << "Successfully loaded JSON object\n";
+			SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Successfully loaded JSON object");
 		}
 
 		if (!doc.IsArray()) {
-			std::cout << "Root value is not a JSON array!" << std::endl;
+			SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Root value is not a JSON array");
 			return;
 		}
 
-		// Method A: Using range-based for loop (C++11)
-		std::cout << "Array has " << doc.Size() << " elements\n";
-
-
+	
 		for (const auto& item : doc.GetArray()) {
 
 
@@ -227,6 +239,10 @@ public:
 
 						createSceneEntFromJson(item);
 					}
+					else if (entType == "Player") {
+
+						createPlayerEntFromJson(item);
+					}
 					else if (entType == "Capsule") {
 
 						createCapsuleEntFromJson(item);
@@ -247,11 +263,16 @@ public:
 
 						createStaticMeshEntFromJson(item);
 					}
+					else {
+
+						SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Entity type %s exists in Game File", entType.c_str());
+					}
 				}
 			}
 		}
 	}
 
+	//TODO create entityFactory function
 	bool createGameEntFromJson(const rapidjson::Value& item) {
 
 		std::string name;
@@ -268,6 +289,7 @@ public:
 		return true;
 	}
 
+	//TODO create entityFactory function
 	bool createSceneEntFromJson(const rapidjson::Value& item) {
 
 		std::string name;
@@ -286,6 +308,29 @@ public:
 			.set<EntityType>({ EntityType::Scene })
 			.add<IsActive>().add(flecs::CanToggle)
 			.child_of(parentEnt);
+
+		return true;
+	}
+
+	bool createPlayerEntFromJson(const rapidjson::Value& item) {
+
+		std::string name;
+		std::string parentName;
+
+		if (!validateParent(item)) return false;
+		parentName = item["parent"].GetString();
+		flecs::entity parentEnt = ecs.lookup(parentName.c_str(), ".");
+
+
+		//Transforms does nothing yet
+		Transform playerTransform;
+		playerTransform.position = glm::vec3(1.0f, 5.0f, 0.0f);
+		playerTransform.rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
+		playerTransform.scale = glm::vec3(1.0f);
+
+		if (!EntityFactory::createPlayerEntity(ecs, parentEnt, playerTransform)) {
+			return false;
+		}
 
 		return true;
 	}

@@ -17,6 +17,17 @@ void registerReflectionData(flecs::world & ecs){
         .member<float>("z")
         .member<float>("w");
 
+    ecs.component<JPH::Vec3>()
+        .member<float>("x")
+        .member<float>("y")
+        .member<float>("z");
+
+    ecs.component<JPH::Quat>()
+        .member<float>("x")
+        .member<float>("y")
+        .member<float>("z")
+        .member<float>("w");
+
    ecs.component<Transform>()
         .member<glm::vec3>("position")
         .member<glm::quat>("rotation")
@@ -50,5 +61,19 @@ void registerReflectionData(flecs::world & ecs){
        .constant("Light", EntityType::Light)
        .constant("Camera", EntityType::Camera);
 
+   ecs.component<Player>()
+       .member<JPH::Vec3>("position")
+       .member<JPH::Quat>("rotation")
+       .member<float>("moveSpeed")
+       .member<float>("jumpSpeed")
+       .member<float>("terminalVelocity")
+       .member<JPH::Vec3>("gravity")
+       .member<glm::vec3>("cameraOffset")
+       ;
+
+   ecs.component<Camera>()
+       .member<float>("yaw")
+       .member<float>("pitch")
+       ;
 
 }

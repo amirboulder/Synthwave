@@ -75,6 +75,12 @@
 //JSON
 #include <nlohmann/json.hpp>
 
+#include "rapidjson/document.h"
+#include "rapidjson/writer.h"
+#include "rapidjson/stringbuffer.h"
+#include "rapidjson/prettywriter.h"
+#include "rapidjson/istreamwrapper.h"
+
 //INIReader
 #include "INIReader.h"
 

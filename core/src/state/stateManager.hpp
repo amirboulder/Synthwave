@@ -28,9 +28,6 @@ public:
 	Scene& scene;
 	TimeManager& time;
 
-	flecs::entity playerCam;
-	flecs::entity freeCam;
-
 
 	flecs::entity inputPhase;
 	flecs::system processUICommandsSys;
@@ -56,7 +53,6 @@ public:
 
 		disableDefaultPhases();
 
-		getEntityRefs();
 
 		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "StateManager Initialized");
 
@@ -127,7 +123,7 @@ public:
 		ecs.set<MenuState>({ MenuState::MAIN });
 
 		ecs.component<CameraState>().add(flecs::Singleton);
-		//ecs.set<CameraState>({ CameraState::NONE });
+		ecs.set<CameraState>({ CameraState::NONE });
 
 		ecs.component<EditorState>().add(flecs::Singleton);
 		ecs.set<EditorState>({ EditorState::NONE });
@@ -240,12 +236,7 @@ public:
 		});
 	}
 
-	void getEntityRefs() {
 
-		playerCam = ecs.lookup("PlayerCam");
-		freeCam = ecs.lookup("FreeCam");
-
-	}
 
 
 	void SetDefaultApplicationState() {
@@ -271,11 +262,15 @@ public:
 		ecs.set<GameLoadedState>({ GameLoadedState::Loaded });
 		ecs.set<CameraState>({ CameraState::PLAYER });
 
-
 		fisiks.physicsPhase.enable();
 		scene.aiUpdatePhase.enable();
 		scene.playerPhase.enable();
 
+
+		SDL_LogInfo(
+			SDL_LOG_CATEGORY_APPLICATION,
+			"\x1b[32mGame started\x1b[0m"
+		);
 	}
 
 
@@ -284,37 +279,38 @@ public:
 
 		handleSavingRenderConfig();
 
-		std::string path = "data/save1.json";
+		//std::string path = "data/save1.json";
 
-		json j;
+		//json j;
 
-		ecs.lookup("player").get<Player>().save(j);
-		playerCam.get<Camera>().saveTransform(j);
+		//ecs.lookup("player").get<Player>().save(j);
+		//playerCam.get<Camera>().saveTransform(j);
 
-		std::ofstream file(path);
-		if (!file.is_open()) {
-			throw std::runtime_error("Failed to open file for writing: " + path);
-		}
-		file << j.dump(4); // pretty-print
+		//std::ofstream file(path);
+		//if (!file.is_open()) {
+		//	throw std::runtime_error("Failed to open file for writing: " + path);
+		//}
+		//file << j.dump(4); // pretty-print
 
-		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "game saved successfully");
+		//(SDL_LOG_CATEGORY_APPLICATION, "game saved successfully");
 		return true;
 	}
 
 	bool load() {
 
+		/*
 		std::string path = "data/save1.json";
 		std::ifstream file(path);
 		if (!file.is_open()) {
 			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to open save file");
 			return false;
 		}
-
 		json j;
 		file >> j;
-
 		ecs.lookup("player").get_mut<Player>().load(j);
 		playerCam.get_mut<Camera>().loadTransform(j);
+		*/
+
 
 		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "game loaded successfully");
 		return true;
@@ -497,34 +493,67 @@ public:
 			}
 		});
 	}
-	
+
+	//PlayerCam may not be created yet which is why we have all the if statements here
 	void cameraStateOnSetHook() {
 
 		ecs.component<CameraState>()
 			.on_set([&](CameraState& newState) {
+
+			flecs::entity playerCam = flecs::entity::null();
+
+			if (auto ref = ecs.try_get<PlayerCamRef>()) {         
+				flecs::entity cam = ref->value;               
+
+				if (cam.is_alive()) {                        
+					playerCam = cam;
+				}
+			}
+
+			//TODO change to use FreeCam ref for this too!
+			flecs::entity freeCam = ecs.lookup("FreeCam");
+
 			switch (newState) {
 			case CameraState::PLAYER:
 
-				playerCam.add<ActiveCamera>();
-				freeCam.remove<ActiveCamera>();
+				if (playerCam.is_valid()) {
+					playerCam.add<ActiveCamera>();
+				};
+
+				if (freeCam.is_valid()) {
+					freeCam.remove<ActiveCamera>();
+				};
+
 				SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "CameraState::PLAYER");
 
 				break;
 			case CameraState::FREECAM:
 
-				playerCam.remove<ActiveCamera>();
-				freeCam.add<ActiveCamera>();
+				if (playerCam.is_valid()) {
+					playerCam.remove<ActiveCamera>();
+				};
+
+				if (freeCam.is_valid()) {
+					freeCam.add<ActiveCamera>();
+				};
+
 				SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "CameraState::FREECAM");
 
 				break;
 			case CameraState::NONE:
 
-				playerCam.remove<ActiveCamera>();
-				freeCam.remove<ActiveCamera>();
+				if (playerCam.is_valid()) {
+					playerCam.remove<ActiveCamera>();
+				};
+
+				if (freeCam.is_valid()) {
+					freeCam.remove<ActiveCamera>();
+				};
 				SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "CameraState::NONE");
 
 				break;
 			}
+
 		});
 	}
 
@@ -736,7 +765,15 @@ public:
 
 		//This is needed because this code is runs in processUICommandsSys and systems are ran while the ecs is in "readonly" mode
 		ecs.defer_suspend();
-		scene.constructLevel();
+
+		namespace fs = std::filesystem;
+		fs::path path = fs::path(__FILE__).lexically_normal();
+		fs::path repoRoot = path.parent_path().parent_path().parent_path().parent_path();
+		fs::path jsonPath = repoRoot / "games" / "CrashTheSim" / "src" / "GameData.json";
+
+		//TODO use serializer class
+		editor.loadGameFromJson(jsonPath.string());
+
 		ecs.defer_resume();
 
 		startGame();
@@ -748,19 +785,17 @@ public:
 
 		load();
 
-		//This is needed because this code is runs in processUICommandsSys and systems are ran while the ecs is in "readonly" mode
+		//This is needed because this code is runs in processUICommandsSys and systems are ran while the ecs is in "read-only" mode
 		ecs.defer_suspend();
 
-	
-		//TODO remove
-		scene.constructLevel();
-
+		//TODO load from Save file instead
+		
 		namespace fs = std::filesystem;
 		fs::path path = fs::path(__FILE__).lexically_normal();
 		fs::path repoRoot = path.parent_path().parent_path().parent_path().parent_path();
 		fs::path jsonPath = repoRoot / "games" / "CrashTheSim" / "src" / "GameData.json";
 
-		//TODO use serializer
+		//TODO use serializer class
 		editor.loadGameFromJson(jsonPath.string());
 
 		ecs.defer_resume();

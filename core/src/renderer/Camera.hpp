@@ -4,7 +4,6 @@
 
 #include "RendererConfig.hpp"
 
-using json = nlohmann::json;
 
 
 class Camera {
@@ -29,7 +28,7 @@ public:
     float farPlane;      // Far clipping plane
 
     // Camera movement
-    float movementSpeed = 0.1f;
+    float movementSpeed = 0.5f;
     float mouseSensitivity;
 
 
@@ -97,30 +96,6 @@ public:
 
     }
 
-    void save() {
 
-    }
-
-    void saveTransform(json& j) const {
-        j["camera"] = json{
-            {"yaw", yaw},
-            {"pitch", pitch}
-        };
-    }
-
-    bool loadTransform(json& j) {  // Remove const - you're modifying the Camera
-        if (j.contains("camera")) {
-            auto& cam = j["camera"];
-            if (cam.contains("yaw"))
-                yaw = cam["yaw"].get<float>();
-            if (cam.contains("pitch"))
-                pitch = cam["pitch"].get<float>();
-            return true;
-        }
-        else {
-            SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Player Camera is not in save file");
-            return false;
-        }
-    }
     
 };
