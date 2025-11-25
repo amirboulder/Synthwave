@@ -18,15 +18,17 @@ int main(int argc, char* argv[])
 
 	Scene scene(ecs, fisiks, renderer);
 
+	Serializer serde(ecs);
+
 	Editor editor(ecs);
 
-	StateManager stateManager(ecs, renderer, fisiks, menuSys, editor, time, scene, running);
+	StateManager stateManager(ecs, renderer, fisiks, serde, menuSys, editor, time, scene, running);
 
 	InputManager inputManager(ecs, stateManager);
 
 	stateManager.init();
 
-	SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "\033[35mInitializing simulation 🤖\033[0m\n");
+	SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, Synth "Initializing simulation 🤖" RESET);
 	SDL_Event event;
 	while (running) {
 
@@ -52,6 +54,6 @@ int main(int argc, char* argv[])
 		renderer.drawAll();
 
 	}
-	SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "\033[35mGoodbye!\033[0m\n");
+	SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, Synth "Goodbye!" RESET);
 	return 0;
 }

@@ -70,7 +70,7 @@ struct Renderer {
 
 		registerSystems();
 
-		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Renderer Initialized");
+		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, GOOD "Renderer Initialized" RESET);
 	}
 
 
@@ -80,7 +80,7 @@ struct Renderer {
 		
 		pipelineLib.createPipelineEnts();
 
-		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Renderer SubSystems Initialized");
+		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, GOOD "Renderer SubSystems Initialized" RESET);
 
 	}
 

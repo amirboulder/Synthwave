@@ -12,6 +12,9 @@
 
 #include "../../../Editor/src/editor.hpp"
 
+#include "../Serialization/serialization.hpp"
+#include "../saveSystem/saveSystem.hpp"
+
 #include "../common.hpp"
 
 
@@ -23,6 +26,7 @@ public:
 
 	Renderer& renderer;
 	Fisiks& fisiks;
+	Serializer& serde;
 	MenuSystem& menuSys;
 	Editor& editor;
 	Scene& scene;
@@ -34,8 +38,8 @@ public:
 
 	bool & running ;
 
-	StateManager(flecs::world& ecs,Renderer& renderer,Fisiks & fisiks, MenuSystem & menuSys,Editor & editor ,TimeManager & time,Scene& scene ,bool& running)
-		: ecs(ecs), renderer(renderer),fisiks(fisiks),menuSys(menuSys),editor(editor), time(time),scene(scene),running(running)
+	StateManager(flecs::world& ecs,Renderer& renderer,Fisiks & fisiks,Serializer & serde ,MenuSystem & menuSys,Editor & editor ,TimeManager & time,Scene& scene ,bool& running)
+		: ecs(ecs), renderer(renderer),fisiks(fisiks), serde(serde), menuSys(menuSys), editor(editor), time(time), scene(scene), running(running)
 	{
 		registerHooks();
 
@@ -202,7 +206,7 @@ public:
 
 		processUICommandsSys = ecs.system<UICommand>("processUICommandsSys")
 			.kind(inputPhase)
-			.immediate() // disable readonly mode for this system
+			.immediate() // disable read-only mode for this system
 			.each([&](flecs::entity e, UICommand command) {
 
 			switch (command.type) {
@@ -312,7 +316,7 @@ public:
 		*/
 
 
-		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "game loaded successfully");
+		//SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "game loaded successfully");
 		return true;
 	}
 
@@ -744,7 +748,7 @@ public:
 		}
 
 		//Save new game data
-		editor.saveGameToJson(jsonPath.string());
+		serde.saveGameToJson(jsonPath.string());
 
 		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Saved GameData.json");
 		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Backup created: %s", backupPath.string().c_str());
@@ -772,7 +776,7 @@ public:
 		fs::path jsonPath = repoRoot / "games" / "CrashTheSim" / "src" / "GameData.json";
 
 		//TODO use serializer class
-		editor.loadGameFromJson(jsonPath.string());
+		serde.loadGameFromJson(jsonPath.string());
 
 		ecs.defer_resume();
 
@@ -780,34 +784,40 @@ public:
 
 	}
 
+	// TODO receive data from user as to which save file to load
+	void loadGameCallback(const std::string filePath = "data/GameSave1.json") {
 
-	void loadGameCallback() {
+		if (serde.gameLoaded) {
 
-		load();
+			
+			serde.unload();
+		}
 
 		//This is needed because this code is runs in processUICommandsSys and systems are ran while the ecs is in "read-only" mode
+		// Stopping suspend is needed because entity parents are validated during creation if suspended then they don't exist so it fails
 		ecs.defer_suspend();
-
-		//TODO load from Save file instead
-		
-		namespace fs = std::filesystem;
-		fs::path path = fs::path(__FILE__).lexically_normal();
-		fs::path repoRoot = path.parent_path().parent_path().parent_path().parent_path();
-		fs::path jsonPath = repoRoot / "games" / "CrashTheSim" / "src" / "GameData.json";
-
-		//TODO use serializer class
-		editor.loadGameFromJson(jsonPath.string());
-
+		bool success = serde.loadGameFromJson(filePath);
 		ecs.defer_resume();
-		
+
+
+		if (!success) {
+
+			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, ERROR "Failed to load game returning to main menu %s" RESET, filePath.c_str());
+			ecs.entity().set<UICommand>({ UICommandType::MainMenu });
+			return;
+		}
+
 		startGame();
 	}
 
-	void saveGameCallback() {
-		save();
+	// TODO receive the name of the save file
+	void saveGameCallback(const std::string filePath = "data/GameSave1.json") {
 
-		//TODO use game loader
-//		editor.saveGameToJson();
+		//This save just saves the render config 
+		//TODO move that somewhere else
+		save();
+		
+		serde.saveGameToJson(filePath);
 	}
 
 	void restartLevelCallback() {
@@ -827,7 +837,7 @@ public:
 	void toMainMenuCallback () {
 
 
-		editor.unload();
+		serde.unload();
 		
 		ecs.set<MenuState>({ MenuState::MAIN });
 

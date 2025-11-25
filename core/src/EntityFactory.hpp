@@ -478,27 +478,35 @@ public:
 
 	}
 
-	//TODO add error checking
 	//TODO use transform
 	static bool createPlayerEntity(flecs::world& ecs, const flecs::entity parent, Transform transform, const std::string ModelSrcName = " ", const char* pipelineName = " ") {
 
 		const RendererConfig& config = ecs.get<RendererConfig>();
 
-		flecs::entity playerEntity = ecs.entity("player")
-			
+		string playerName = "player";
+		string playerCamName = "PlayerCam";
+
+		if (!EntityFactory::validateName(ecs, parent, playerName)) return false;
+		if (!EntityFactory::validateName(ecs, parent, playerCamName)) return false;
+
+		flecs::entity playerEntity = ecs.entity(playerName.c_str())
 			.set<EntityType>({ EntityType::Player })
 			.child_of(parent);
-
 		playerEntity.emplace<Player>(ecs, JPH::Vec3(1.0f, 15.0f, 0.0f), JPH::Quat(0.0f, 0.0f, 0.0f, 1.0f), 2.0f, 1.0f, playerEntity.id());
 
 		ecs.set<PlayerRef>({ playerEntity });
 
-		flecs::entity playerCam = ecs.entity("PlayerCam")
+		if (!validateEntityCreation(playerEntity, playerName)) return false;
+
+
+		flecs::entity playerCam = ecs.entity(playerCamName.c_str())
 			.set<EntityType>({ EntityType::Camera })
 			.emplace<Camera>(config)
 			.child_of(parent);
 
 		ecs.set<PlayerCamRef>({ playerCam });
+
+		if (!validateEntityCreation(playerCam, playerCamName)) return false;
 
 		
 		return true;
