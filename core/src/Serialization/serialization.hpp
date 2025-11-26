@@ -28,46 +28,46 @@ public:
     }
 
     //TODO make sure everything is unloaded
-    void unload() {
+	void unload() {
+		JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
+		JPH::BodyInterface& bodyInterface = physicsSystem.GetBodyInterface();
 
-        JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
-        JPH::BodyInterface& bodyInterface = physicsSystem.GetBodyInterface();
+		// We must collect entities to delete first then delete them outside the query for two reasons
+		// 1. Normally the table is locked during iteration so this would cause an error unless its run as a part of a system which will defer table modifications
+		// 2. This may be called from a defer_suspend() block such as when load game is called from pause menu. which will cause an error if we delete while iterating
 
-        // Build a fresh query on each unload to avoid stale cache
-        activeGameQuery = ecs.query_builder()
-            .with<Game>()
-            .term_at(0).self()
-            .cascade(flecs::ChildOf)
-            .build();
+		std::vector<flecs::entity> entitiesToDelete;
 
-        activeGameQuery.each([&](flecs::entity e) {
+		// Build a fresh query on each unload to avoid stale cache
+		activeGameQuery = ecs.query_builder()
+			.with<Game>()
+			.term_at(0).self()
+			.cascade(flecs::ChildOf)
+			.build();
 
-            if (e.is_alive()) {
+		activeGameQuery.each([&](flecs::entity e) {
+			if (e.is_alive()) {
+				if (e.has<JPH::BodyID>()) {
+					const JPH::BodyID bodyID = e.get<JPH::BodyID>();
+					if (bodyInterface.IsAdded(bodyID))
+						bodyInterface.RemoveBody(bodyID);
+					bodyInterface.DestroyBody(bodyID);
+				}
+				if (e.has<Player>()) {
+					ecs.set<PlayerRef>({ flecs::entity::null() });
+					ecs.set<PlayerCamRef>({ flecs::entity::null() });
+				}
+				entitiesToDelete.push_back(e);
+			}
+		});
 
-                if (e.has<JPH::BodyID>()) {
-
-                    const JPH::BodyID bodyID = e.get<JPH::BodyID>();
-
-                    if (bodyInterface.IsAdded(bodyID))
-                        bodyInterface.RemoveBody(bodyID);
-
-                    bodyInterface.DestroyBody(bodyID);
-                }
-
-                //Maybe not needed
-                if (e.has<Player>()) {
-
-                    ecs.set<PlayerRef>({ flecs::entity::null() });
-                    ecs.set<PlayerCamRef>({ flecs::entity::null() });
-                }
-
-                e.destruct();
-            }
-        });
+		// Now delete all entities after the query iteration is complete
+		for (flecs::entity e : entitiesToDelete) {
+			e.destruct();
+		}
 
 		gameLoaded = false;
-
-    }
+	}
 
     //Currently does not check if the file already exist. it will override it
     bool saveGameToJson(const std::string& path) {
@@ -105,7 +105,7 @@ public:
 
         file << buffer.GetString();
 
-		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, Synth "🎮 saved to  %s" RESET , path.c_str());
+		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, Synth "💾 saved to  %s" RESET , path.c_str());
 
 		return true;
     }
@@ -184,6 +184,10 @@ public:
 
 						createStaticMeshEntFromJson(item);
 					}
+					else if (entType == "Camera") {
+
+						//PlayerCam is created with the player for now.
+					}
 					else {
 
 						SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, WARN "Entity type %s exists in Game File" RESET, entType.c_str());
@@ -205,10 +209,12 @@ public:
 		name = item["name"].GetString();
 
 		//TODO create Factory function
-		ecs.entity(name.c_str())
+		flecs::entity game = ecs.entity(name.c_str())
 			.add<Game>()
 			.set<EntityType>({ EntityType::Game })
 			.add<IsActive>().add(flecs::CanToggle);
+
+		if(!EntityFactory::validateEntityCreation(game, name)) return false;
 
 		return true;
 	}
@@ -227,11 +233,13 @@ public:
 		flecs::entity parentEnt = ecs.lookup(parentName.c_str(), ".");
 
 		//TODO create Factory function
-		ecs.entity(name.c_str())
+		flecs::entity scene = ecs.entity(name.c_str())
 			.add<_Scene>()
 			.set<EntityType>({ EntityType::Scene })
 			.add<IsActive>().add(flecs::CanToggle)
 			.child_of(parentEnt);
+
+		if (!EntityFactory::validateEntityCreation(scene, name)) return false;
 
 		return true;
 	}

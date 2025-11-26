@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "core/src/pch.h"
 
@@ -58,7 +58,7 @@ public:
 		disableDefaultPhases();
 
 
-		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "StateManager Initialized");
+		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, GOOD "StateManager Initialized" RESET);
 
 	}
 
@@ -208,7 +208,7 @@ public:
 			.kind(inputPhase)
 			.immediate() // disable read-only mode for this system
 			.each([&](flecs::entity e, UICommand command) {
-
+			
 			switch (command.type) {
 			case UICommandType::NewGame:
 				ecs.lookup("newGameHandler").get<Callback>().callbackFunction();
@@ -270,11 +270,7 @@ public:
 		scene.aiUpdatePhase.enable();
 		scene.playerPhase.enable();
 
-
-		SDL_LogInfo(
-			SDL_LOG_CATEGORY_APPLICATION,
-			"\x1b[32mGame started\x1b[0m"
-		);
+		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,GOOD "🚀 Game started" RESET);
 	}
 
 
@@ -763,19 +759,25 @@ public:
 		SDL_GetRelativeMouseState(&dx, &dy);
 	}
 
-
-
+	
+	//defer_suspend is needed for loadGameFromJson because each entity validates its parent because being created
+	// and without defer_suspend the validation would fail because a parent ent such as scene won't fully exist before it children are created
+	//Secondly unload needs defer_suspend to make sure it deletes ents before loadGameFromJson loads them again.
+	//This run in processUICommandsSys and systems are ran while the ecs is in "read-only" mode
 	void newGameCallback() {
 
-		//This is needed because this code is runs in processUICommandsSys and systems are ran while the ecs is in "readonly" mode
 		ecs.defer_suspend();
+
+		if (serde.gameLoaded) {
+			serde.unload();
+		}
 
 		namespace fs = std::filesystem;
 		fs::path path = fs::path(__FILE__).lexically_normal();
 		fs::path repoRoot = path.parent_path().parent_path().parent_path().parent_path();
 		fs::path jsonPath = repoRoot / "games" / "CrashTheSim" / "src" / "GameData.json";
 
-		//TODO use serializer class
+		//Load from game src
 		serde.loadGameFromJson(jsonPath.string());
 
 		ecs.defer_resume();
@@ -784,29 +786,26 @@ public:
 
 	}
 
-	// TODO receive data from user as to which save file to load
+	//defer_suspend is needed for loadGameFromJson because each entity validates its parent because being created
+	// and without defer_suspend the validation would fail because a parent ent such as scene won't fully exist before it children are created
+	//Secondly unload needs defer_suspend to make sure it deletes ents before loadGameFromJson loads them again.
+	//This run in processUICommandsSys and systems are ran while the ecs is in "read-only" mode
 	void loadGameCallback(const std::string filePath = "data/GameSave1.json") {
 
+		ecs.defer_suspend();
 		if (serde.gameLoaded) {
-
-			
-			serde.unload();
+			serde.unload();  
 		}
 
-		//This is needed because this code is runs in processUICommandsSys and systems are ran while the ecs is in "read-only" mode
-		// Stopping suspend is needed because entity parents are validated during creation if suspended then they don't exist so it fails
-		ecs.defer_suspend();
 		bool success = serde.loadGameFromJson(filePath);
+
 		ecs.defer_resume();
 
-
 		if (!success) {
-
-			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, ERROR "Failed to load game returning to main menu %s" RESET, filePath.c_str());
+			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, ERROR "Failed to load game" RESET);
 			ecs.entity().set<UICommand>({ UICommandType::MainMenu });
 			return;
 		}
-
 		startGame();
 	}
 

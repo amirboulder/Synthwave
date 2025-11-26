@@ -28,7 +28,7 @@ int main(int argc, char* argv[])
 
 	stateManager.init();
 
-	SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, Synth "Initializing simulation 🤖" RESET);
+	SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, Synth "Initializing Simulation 🤖" RESET);
 	SDL_Event event;
 	while (running) {
 

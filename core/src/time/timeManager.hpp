@@ -10,7 +10,7 @@ public:
 	uint64_t lastTime = 0;
 
 	float deltaTime = 0.0f;
-	float maxAccumulator = timeStep * 60.0f;
+	//float maxAccumulator = timeStep * 60.0f;
 
 	uint64_t appStartTime = 0;
 
@@ -37,10 +37,10 @@ public:
 		accumulator += deltaTime;
 
 		// Clamp to prevent spiral of death
-		if (accumulator > maxAccumulator) {
+		/*if (accumulator > maxAccumulator) {
 			accumulator = maxAccumulator;
 			SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Game is running too slow - spiral of death!");
-		}
+		}*/
 	}
 
 
