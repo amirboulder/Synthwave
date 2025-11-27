@@ -1,6 +1,12 @@
 
 namespace Menu {
 
+    const ImGuiWindowFlags menuFlags =
+        ImGuiWindowFlags_NoMove |
+        ImGuiWindowFlags_NoResize |
+        ImGuiWindowFlags_NoCollapse |
+        ImGuiWindowFlags_NoTitleBar |
+        ImGuiWindowFlags_NoBringToFrontOnFocus;
 
     void mainMenuDraw(flecs::world& ecs) {
         ImGuiViewport* viewport = ImGui::GetMainViewport();
@@ -13,10 +19,7 @@ namespace Menu {
         ImGui::SetNextWindowBgAlpha(0.8f);
 
         ImGui::Begin("Main Menu", nullptr,
-            ImGuiWindowFlags_NoMove |
-            ImGuiWindowFlags_NoResize |
-            ImGuiWindowFlags_NoCollapse |
-            ImGuiWindowFlags_NoTitleBar
+            menuFlags
         );
 
         // --- Dynamic layout settings ---
@@ -78,10 +81,7 @@ namespace Menu {
         ImGui::SetNextWindowBgAlpha(0.5f);
 
         ImGui::Begin("Pause Menu", nullptr,
-            ImGuiWindowFlags_NoMove |
-            ImGuiWindowFlags_NoResize |
-            ImGuiWindowFlags_NoCollapse |
-            ImGuiWindowFlags_NoTitleBar
+            menuFlags
         );
 
         // --- Dynamic layout settings ---

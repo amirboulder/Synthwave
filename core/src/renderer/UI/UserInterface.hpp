@@ -13,6 +13,7 @@ public:
     flecs::system HudRenderSys;
     flecs::system MenuRenderSys;
     flecs::system EditorRenderSys;
+    flecs::system OverlayRenderSys;
 
     UserInterface(flecs::world& ecs)
         :   ecs(ecs)
@@ -103,6 +104,14 @@ public:
 
         });
 
+        OverlayRenderSys = ecs.system<Draw,OverlayComponent>("OverlayRenderSys")
+            .kind(0)
+            .each([&](flecs::entity e, Draw drawFunction, OverlayComponent) {
+
+            drawFunction.draw();
+
+        });
+
     }
 
 
@@ -119,6 +128,7 @@ public:
         HudRenderSys.run();
         MenuRenderSys.run();
         EditorRenderSys.run();
+        OverlayRenderSys.run();
 
 
         ImGui::Render();

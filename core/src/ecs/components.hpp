@@ -72,6 +72,9 @@ struct HudRender {
 struct Render {
 	std::function<void(flecs::world& ecs)> draw;
 };
+struct Draw {
+	std::function<void()> draw;
+};
 
 
 struct JoltCharacter {
@@ -116,6 +119,7 @@ struct ActiveCamera {};
 struct MenuComponent {};
 struct HudComponent {};
 struct EditorComponent {};
+struct OverlayComponent {};
 struct Active{};
 
 struct IsActive {};

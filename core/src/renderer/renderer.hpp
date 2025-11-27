@@ -12,6 +12,7 @@
 #include "RendererConfig.hpp"
 #include "Camera.hpp"
 #include "text/textRenderer.hpp"
+#include "overlay/overlay.hpp"
 
 #include "../util/util.hpp"
 
@@ -47,11 +48,11 @@ struct Renderer {
 	flecs::system drawPhysicsBodiesSys;
 
 	UserInterface ui;
-
 	PipelineLibrary pipelineLib;
+	Overlay overlay;
 
 	Renderer(flecs::world & ecs)
-		: ecs(ecs), ui(ecs), pipelineLib(ecs)
+		: ecs(ecs), ui(ecs), pipelineLib(ecs), overlay(ecs)
 	{
 
 		createComponents();
@@ -79,6 +80,8 @@ struct Renderer {
 		initPhysicsRenderer();
 		
 		pipelineLib.createPipelineEnts();
+
+		overlay.init();
 
 		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, GOOD "Renderer SubSystems Initialized" RESET);
 
@@ -124,7 +127,7 @@ struct Renderer {
 
 		//TODO have the option or rendering in other displays
 		float main_scale = SDL_GetDisplayContentScale(SDL_GetPrimaryDisplay());
-		//TODO make window resizeable maybe
+		//TODO make window resizable maybe
 		//SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN | 
 		//SDL_WindowFlags window_flags = SDL_WINDOW_HIGH_PIXEL_DENSITY;
 
