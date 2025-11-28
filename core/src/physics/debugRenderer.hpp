@@ -9,6 +9,7 @@
 
 #include "../renderer/renderUtil.hpp"
 #include "../renderer/rendererConfig.hpp"
+#include "../renderer/PipelineLibrary/PipelineLibrary.hpp"
 
 
 JPH_NAMESPACE_BEGIN
@@ -71,12 +72,15 @@ public:
 		//requires RenderContext RendererConfig to be initlized by Renderer
 		const RenderContext& renderContext = ecs.get<RenderContext>();
 		const RendererConfig& config = ecs.get<RendererConfig>();
-
 		
 		drawSettings.mDrawBoundingBox = config.DrawBoundingBoxPhysics;
 		drawSettings.mDrawShapeWireframe = config.DrawShapeWireframePhysics;
 
-		//shader::generateSpirvShaders("shaders/slang/physicsRender.slang", "shaders/compiled/physicsRender.vert.spv", "shaders/compiled/physicsRender.frag.spv");
+		//TODO this should be use PipelineLibrary
+		if (!PipelineLibrary::validateShaderExistance("shaders/compiled/physicsRender.vert.spv", "shaders/compiled/physicsRender.frag.spv")) {
+			shader::generateSpirvShaders("shaders/slang/physicsRender.slang", "shaders/compiled/physicsRender.vert.spv", "shaders/compiled/physicsRender.frag.spv");
+		}
+
 		RenderUtil::loadShaderSPRIV(renderContext.device, vertexShader, "shaders/compiled/physicsRender.vert.spv", SDL_GPU_SHADERSTAGE_VERTEX, 0, 2, 0, 0);
 		RenderUtil::loadShaderSPRIV(renderContext.device, fragmentShader, "shaders/compiled/physicsRender.frag.spv", SDL_GPU_SHADERSTAGE_FRAGMENT, 0, 0, 0, 0); 
 		createPipeline();

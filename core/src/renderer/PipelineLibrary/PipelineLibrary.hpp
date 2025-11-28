@@ -5,7 +5,6 @@
 #include "../pipeline.hpp"
 
 // Container class for pipelines
-
 //TODO HOT reloading for shaders!!!
 class PipelineLibrary {
 
@@ -19,35 +18,63 @@ public:
 
 	}
 
+	//TODO don't create a slang session for each shader. Create it once and compile all shaders
 	void createPipelineEnts() {
 
 		///////////////creating shaders
-		RenderContext& renderContext = ecs.get_mut<RenderContext>();
+		const RenderContext& renderContext = ecs.get<RenderContext>();
 
-		flecs::entity entUnlitPipeline = ecs.entity("pipelineUnlit").set<Pipeline>({});
-		Pipeline& unlit = entUnlitPipeline.get_mut<Pipeline>();
-		//shader::generateSpirvShaders("shaders/slang/shaders.slang", "shaders/compiled/VertexShader.spv", "shaders/compiled/FragmentShader.spv");
-		RenderUtil::loadShaderSPRIV(renderContext.device, unlit.vertexShader, "shaders/compiled/VertexShader.spv", SDL_GPU_SHADERSTAGE_VERTEX, 0, 2, 0, 0);
-		RenderUtil::loadShaderSPRIV(renderContext.device, unlit.fragmentShader, "shaders/compiled/FragmentShader.spv", SDL_GPU_SHADERSTAGE_FRAGMENT, 1, 0, 0, 0);
-		unlit.createPipeline(ecs, "Blinn-Phong", false);
+		createPipelineEnt("pipelineUnlit", "shaders/slang/shaders.slang",
+			"shaders/compiled/VertexShader.spv", "shaders/compiled/FragmentShader.spv",
+			glm::ivec4(0, 2, 0, 0), glm::ivec4(1, 0, 0, 0), renderContext);
 
-		flecs::entity entGridPipeline = ecs.entity("pipelineGrid").set<Pipeline>({});
-		Pipeline& gridPipeline = entGridPipeline.get_mut<Pipeline>();
-		//shader::generateSpirvShaders("shaders/slang/gridshader.slang", "shaders/compiled/grid.vert.spv", "shaders/compiled/grid.frag.spv");
-		RenderUtil::loadShaderSPRIV(renderContext.device, gridPipeline.vertexShader, "shaders/compiled/grid.vert.spv", SDL_GPU_SHADERSTAGE_VERTEX, 0, 2, 0, 0);
-		RenderUtil::loadShaderSPRIV(renderContext.device, gridPipeline.fragmentShader, "shaders/compiled/grid.frag.spv", SDL_GPU_SHADERSTAGE_FRAGMENT, 0, 0, 0, 0);
-		gridPipeline.createPipeline(ecs, "Grid", false);
+		createPipelineEnt("pipelineGrid", "shaders/slang/gridshader.slang",
+			"shaders/compiled/grid.vert.spv", "shaders/compiled/grid.frag.spv",
+			glm::ivec4(0, 2, 0, 0), glm::ivec4(0, 0, 0, 0), renderContext);
 
-		flecs::entity e_Mtn = ecs.entity("pipelineMtn").set<Pipeline>({});
-		Pipeline& mtnPipeline = e_Mtn.get_mut<Pipeline>();
-		//shader::generateSpirvShaders("shaders/slang/wireframe.slang", "shaders/compiled/wireframe.vert.spv", "shaders/compiled/wireframe.frag.spv");
-		RenderUtil::loadShaderSPRIV(renderContext.device, mtnPipeline.vertexShader, "shaders/compiled/wireframe.vert.spv", SDL_GPU_SHADERSTAGE_VERTEX, 0, 2, 0, 0);
-		RenderUtil::loadShaderSPRIV(renderContext.device, mtnPipeline.fragmentShader, "shaders/compiled/wireframe.frag.spv", SDL_GPU_SHADERSTAGE_FRAGMENT, 0, 0, 0, 0);
-		mtnPipeline.createPipeline(ecs, "Mtn", false);
+		createPipelineEnt("pipelineMtn", "shaders/slang/wireframe.slang",
+			"shaders/compiled/wireframe.vert.spv", "shaders/compiled/wireframe.frag.spv",
+			glm::ivec4(0, 2, 0, 0), glm::ivec4(0, 0, 0, 0), renderContext);
 
-		//TODO move this 
+		//TODO move this
 		ecs.entity("RenderState")
-			.set<RenderState>({ entUnlitPipeline });
+			.set<RenderState>({ ecs.lookup("pipelineUnlit") });
+	}
+
+	static bool validateShaderExistance(const std::string& filePathVS, const std::string& filePathFS) {
+		namespace fs = std::filesystem;
+		return fs::exists(filePathVS) && fs::exists(filePathFS);
+	}
+
+	bool createPipelineEnt(const std::string shaderName, const std::string filePathShaderSrc,
+		const std::string& filePathVS, const std::string& filePathFS, glm::ivec4 paramsVS,
+		glm::ivec4 paramsFS, const RenderContext& renderContext) {
+
+		flecs::entity pipelineEnt = ecs.entity(shaderName.c_str()).set<Pipeline>({});
+
+		if (!pipelineEnt) {
+
+			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, ERROR "Failed to create entity: %s" RESET, shaderName);
+			return false;
+		}
+
+		Pipeline& pipelneRef = pipelineEnt.get_mut<Pipeline>();
+
+		if (!validateShaderExistance(filePathVS, filePathFS)) {
+			int returnVal = shader::generateSpirvShaders(filePathShaderSrc.c_str(), filePathVS.c_str(), filePathFS.c_str());
+
+			if (returnVal != 0) {
+				return false;
+			}
+		}
+
+		if (!RenderUtil::loadShaderSPRIV(renderContext.device, pipelneRef.vertexShader,
+			filePathVS, SDL_GPU_SHADERSTAGE_VERTEX, paramsVS.x, paramsVS.y, paramsVS.z, paramsVS.w)) return false;
+		if(!RenderUtil::loadShaderSPRIV(renderContext.device, pipelneRef.fragmentShader,
+			filePathFS, SDL_GPU_SHADERSTAGE_FRAGMENT, paramsFS.x, paramsFS.y, paramsFS.z, paramsFS.w)) return false;
+		if(!pipelneRef.createPipeline(ecs, shaderName.c_str(), false)) return false;
+
+		return true;
 	}
 
 };

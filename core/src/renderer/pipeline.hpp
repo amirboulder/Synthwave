@@ -15,7 +15,7 @@ public:
 
 
 	/// create pipeline for Struct Vertex
-	void createPipeline(flecs::world& ecs,const char * name, bool line = false)
+	bool createPipeline(flecs::world& ecs,const char * name, bool line = false)
 	{
 		//Check vertex and fragment shader not being null
 		if (!vertexShader) {
@@ -105,7 +105,7 @@ public:
 		pipeline = SDL_CreateGPUGraphicsPipeline(renderContext.device, &pipeInfo);
 		if (!pipeline) {
 			SDL_LogError(SDL_LOG_CATEGORY_RENDER, "Failed to create fill pipeline: %s", SDL_GetError());
-			return ;
+			return false;
 		}
 
 		if (line) {
@@ -113,14 +113,14 @@ public:
 			pipeline = SDL_CreateGPUGraphicsPipeline(renderContext.device, &pipeInfo);
 			if (!pipeline) {
 				SDL_LogError(SDL_LOG_CATEGORY_RENDER, "Failed to create line pipeline: %s", SDL_GetError());
-				return ;
+				return false;
 			}
 
 		}
 
 		SDL_LogInfo(SDL_LOG_CATEGORY_RENDER,"Built pipeline %s", name);
 
-		return ;
+		return true;
 
 	}
 };
