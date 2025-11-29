@@ -29,7 +29,7 @@
       "StaticEnt"
     ],
     "pairs": {
-      "CustomPipeline": "pipelineGrid"
+      "RenderPipeline": "pipelineGrid"
     },
     "components": {
       "Transform": {
@@ -65,7 +65,7 @@
       "StaticEnt"
     ],
     "pairs": {
-      "CustomPipeline": "pipelineMtn"
+      "RenderPipeline": "pipelineMtn"
     },
     "components": {
       "Transform": {
@@ -131,6 +131,9 @@
     "tags": [
       "DynamicEnt"
     ],
+    "pairs": {
+      "RenderPipeline": "pipelineUnlit"
+    },
     "components": {
       "Transform": {
         "position": {
@@ -166,11 +169,14 @@
     "tags": [
       "DynamicEnt"
     ],
+    "pairs": {
+      "RenderPipeline": "pipelineUnlit"
+    },
     "components": {
       "Transform": {
         "position": {
           "x": 27.7658958435,
-          "y": 15.6966571808,
+          "y": 14.8511285782,
           "z": -8.4368858337
         },
         "rotation": {
@@ -199,11 +205,14 @@
     "tags": [
       "DynamicEnt"
     ],
+    "pairs": {
+      "RenderPipeline": "pipelineUnlit"
+    },
     "components": {
       "Transform": {
         "position": {
           "x": -53.4476242065,
-          "y": 15.0136575699,
+          "y": 14.1681289673,
           "z": 6.9404273033
         },
         "rotation": {
@@ -232,11 +241,14 @@
     "tags": [
       "DynamicEnt"
     ],
+    "pairs": {
+      "RenderPipeline": "pipelineUnlit"
+    },
     "components": {
       "Transform": {
         "position": {
           "x": 11.4319419861,
-          "y": 13.3256597519,
+          "y": 12.4801311493,
           "z": -10.1494483948
         },
         "rotation": {
@@ -265,12 +277,12 @@
     "components": {
       "Player": {
         "position": {
-          "x": 6391.69140625,
+          "x": 0,
           "y": 0,
-          "z": -26126368
+          "z": 0
         },
         "rotation": {
-          "x": -135049233668505600,
+          "x": "-.1079493855461653504e37",
           "y": 0,
           "z": 0,
           "w": 0
@@ -280,7 +292,7 @@
         "terminalVelocity": 0,
         "gravity": {
           "x": 1,
-          "y": 12.9000005722,
+          "y": 14.1500005722,
           "z": 0
         },
         "cameraOffset": {
@@ -302,7 +314,7 @@
       "EntityType": "Camera",
       "Camera": {
         "yaw": 1,
-        "pitch": 14.9000005722
+        "pitch": 16.1500015259
       }
     }
   }

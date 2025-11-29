@@ -260,7 +260,7 @@ public:
 		playerTransform.rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
 		playerTransform.scale = glm::vec3(1.0f);
 
-		if (!EntityFactory::createPlayerEntity(ecs, parentEnt, playerTransform)) {
+		if (!EntityFactory::createPlayerEntity(ecs, parentEnt, playerTransform, "pipelineUnlit")) {
 			return false;
 		}
 
@@ -291,7 +291,7 @@ public:
 		parentName = item["parent"].GetString();
 		flecs::entity parentEnt = ecs.lookup(parentName.c_str(), ".");
 
-		if (!EntityFactory::createCapsuleEntity(ecs, parentEnt, name, "CapsuleModel", transform)) {
+		if (!EntityFactory::createCapsuleEntity(ecs, parentEnt, name, "CapsuleModel", transform, "pipelineUnlit")) {
 			return false;
 		}
 
@@ -327,7 +327,7 @@ public:
 		settings.mLayer = Layers::MOVING;
 		settings.mGravityFactor = 1;
 
-		if (!EntityFactory::createActorEntity(ecs, parentEnt, name, "ActorModel", transform, settings, actor1Update)) {
+		if (!EntityFactory::createActorEntity(ecs, parentEnt, name, "ActorModel", transform, settings, actor1Update,"pipelineUnlit")) {
 			return false;
 		}
 

@@ -112,7 +112,7 @@ struct DynamicEnt {};
 struct StaticEnt {};
 struct Sensor {};
 
-struct CustomPipeline {};
+struct RenderPipeline {};
 
 struct ActiveCamera {};
 

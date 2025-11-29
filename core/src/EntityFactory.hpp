@@ -11,6 +11,7 @@ public:
 	EntityFactory(flecs::world& ecs)
 		: ecs(ecs)
 	{
+
 	};
 
 
@@ -171,16 +172,17 @@ public:
 
 
 	//Creates a capsule shaped entity
-	static bool createCapsuleEntity(flecs::world& ecs,const flecs::entity parent ,const std::string name,const std::string ModelSrcName, const Transform transform) {
+	static bool createCapsuleEntity(flecs::world& ecs,const flecs::entity parent ,const std::string name,const std::string ModelSrcName, const Transform transform, const std::string pipelineName) {
 
-		if (!EntityFactory::validateName(ecs,parent,name)) return false;
-		if (!EntityFactory::validateTransform(transform, name.c_str())) return false;
+		if (!validateName(ecs,parent,name)) return false;
+		if (!validateTransform(transform, name.c_str())) return false;
+		if(!validatePipelineExistence(ecs,pipelineName)) return false;
 
 		//Get the modelSource from Asset Library
 		AssetLibRef ref = ecs.get<AssetLibRef>();
 		ModelSource* modelSource = ref.assetLib->get(ModelSrcName);
 
-		if (!EntityFactory::validateModelSrcExistence(modelSource, ModelSrcName)) return false;
+		if (!validateModelSrcExistence(modelSource, ModelSrcName)) return false;
 		
 		float meshX;
 		float meshY;
@@ -235,6 +237,7 @@ public:
 			.set<ModelInstance>(modelSource->createInstance())
 			.set<ModelSourceRef>({ ModelSrcName })
 			.set<JPH::BodyID>(physicsID)
+			.add<RenderPipeline>(ecs.lookup(pipelineName.c_str()))
 			.child_of(parent)
 			;
 
@@ -248,15 +251,16 @@ public:
 
 	
 	static bool createActorEntity(flecs::world& ecs, flecs::entity parent, const std::string name, const std::string ModelSrcName, Transform transform, JPH::CharacterSettings settings,
-		std::function<void(flecs::world& ecs, flecs::entity self)> actorUpdate) {
+		std::function<void(flecs::world& ecs, flecs::entity self)> actorUpdate, const std::string pipelineName) {
 
-		if (!EntityFactory::validateName(ecs, parent, name)) return false;
-		if (!EntityFactory::validateTransform(transform, name.c_str())) return false;
+		if (!validateName(ecs, parent, name)) return false;
+		if (!validateTransform(transform, name.c_str())) return false;
+		if (!validatePipelineExistence(ecs, pipelineName)) return false;
 
 		//Get the modelSource from Asset Library
 		AssetLibRef ref = ecs.get<AssetLibRef>();
 		ModelSource* modelSource = ref.assetLib->get(ModelSrcName);
-		if (!EntityFactory::validateModelSrcExistence(modelSource, ModelSrcName)) return false;
+		if (!validateModelSrcExistence(modelSource, ModelSrcName)) return false;
 
 		// Convert GLM to Jolt types
 		JPH::Vec3 joltPosition(transform.position.x, transform.position.y, transform.position.z);
@@ -286,6 +290,7 @@ public:
 			.set<JPH::BodyID>(joltCharacter->GetBodyID())
 			.set<ModelSourceRef>({ ModelSrcName })
 			.emplace<ActorBehavior>(actorUpdate)
+			.add<RenderPipeline>(ecs.lookup(pipelineName.c_str()))
 			.child_of(parent);
 
 		if (!validateEntityCreation(actorEnt, name)) {
@@ -311,7 +316,7 @@ public:
 			.set<Transform>(transform)
 			.set<ModelInstance>(modelSource.createInstance());
 		if (pipelineName) {
-			entity.add<CustomPipeline>(ecs.lookup(pipelineName));
+			entity.add<RenderPipeline>(ecs.lookup(pipelineName));
 
 		}
 
@@ -321,17 +326,18 @@ public:
 
 	}
 
-	static bool createStaticMeshEntity(flecs::world& ecs, const flecs::entity parent, const std::string name, const std::string ModelSrcName, Transform transform, const char* pipelineName = NULL) {
+	static bool createStaticMeshEntity(flecs::world& ecs, const flecs::entity parent, const std::string name, const std::string ModelSrcName, Transform transform, const std::string pipelineName) {
 
-		if (!EntityFactory::validateName(ecs, parent, name)) return false;
-		if (!EntityFactory::validateTransform(transform, name.c_str())) return false;
+		if (!validateName(ecs, parent, name)) return false;
+		if (!validateTransform(transform, name.c_str())) return false;
+		if (!validatePipelineExistence(ecs, pipelineName)) return false;
 
 		float scaleFactor = 1.0f;
 
 		//Get the modelSource from Asset Library
 		AssetLibRef ref = ecs.get<AssetLibRef>();
 		ModelSource* modelSource = ref.assetLib->get(ModelSrcName);
-		if (!EntityFactory::validateModelSrcExistence(modelSource, ModelSrcName)) return false;
+		if (!validateModelSrcExistence(modelSource, ModelSrcName)) return false;
 
 		// Scale vertices
 		//ASSUMING the model only has one mesh
@@ -393,12 +399,9 @@ public:
 			.set<ModelSourceRef>({ ModelSrcName })
 			.set<ModelInstance>(modelSource->createInstance())
 			.set<JPH::BodyID>(physicsID)
+			.add<RenderPipeline>( ecs.lookup(pipelineName.c_str()))
 			.child_of(parent);
 
-		if (pipelineName) {
-			entity.add<CustomPipeline>(ecs.lookup(pipelineName));
-
-		}
 
 		// Store the entity ID in the physics body which gives us a two way mapping between entity and bodyId
 		bodyInterface.SetUserData(physicsID, entity.id());
@@ -409,15 +412,16 @@ public:
 	}
 
 	
-	static bool createGridEntity(flecs::world& ecs, const flecs::entity parent, const std::string name, const std::string ModelSrcName, Transform transform, const char* pipelineName, int rows, int cols) {
+	static bool createGridEntity(flecs::world& ecs, const flecs::entity parent, const std::string name, const std::string ModelSrcName, Transform transform, const std::string pipelineName, int rows, int cols) {
 
-		if (!EntityFactory::validateName(ecs, parent, name)) return false;
-		if (!EntityFactory::validateTransform(transform, name.c_str())) return false;
+		if (!validateName(ecs, parent, name)) return false;
+		if (!validateTransform(transform, name.c_str())) return false;
+		if (!validatePipelineExistence(ecs, pipelineName)) return false;
 
 		//Get the modelSource from Asset Library
 		AssetLibRef ref = ecs.get<AssetLibRef>();
 		ModelSource* modelSource = ref.assetLib->get(ModelSrcName);
-		if (!EntityFactory::validateModelSrcExistence(modelSource, ModelSrcName)) return false;
+		if (!validateModelSrcExistence(modelSource, ModelSrcName)) return false;
 
 		// any thickness less than 0.01 will break jolt!
 		float boxThickness = 1;
@@ -462,12 +466,8 @@ public:
 			.set<ModelSourceRef>({ ModelSrcName })
 			.set<ModelInstance>(modelSource->createInstance())
 			.set<JPH::BodyID>(physicsID)
+			.add<RenderPipeline>(ecs.lookup(pipelineName.c_str()))
 			.child_of(parent);
-
-		if (pipelineName) {
-			entity.add<CustomPipeline>(ecs.lookup(pipelineName));
-
-		}
 
 		// Store the entity ID in the physics body which gives us a two way mapping between entity and bodyId
 		bodyInterface.SetUserData(physicsID, entity.id());
@@ -479,15 +479,15 @@ public:
 	}
 
 	//TODO use transform
-	static bool createPlayerEntity(flecs::world& ecs, const flecs::entity parent, Transform transform, const std::string ModelSrcName = " ", const char* pipelineName = " ") {
+	static bool createPlayerEntity(flecs::world& ecs, const flecs::entity parent, Transform transform, const std::string pipelineName,  const std::string ModelSrcName = " ") {
 
 		const RendererConfig& config = ecs.get<RendererConfig>();
 
 		string playerName = "player";
 		string playerCamName = "PlayerCam";
 
-		if (!EntityFactory::validateName(ecs, parent, playerName)) return false;
-		if (!EntityFactory::validateName(ecs, parent, playerCamName)) return false;
+		if (!validateName(ecs, parent, playerName)) return false;
+		if (!validateName(ecs, parent, playerCamName)) return false;
 
 		flecs::entity playerEntity = ecs.entity(playerName.c_str())
 			.set<EntityType>({ EntityType::Player })
@@ -659,6 +659,15 @@ public:
 		return true;
 	}
 
+	static bool validatePipelineExistence(flecs::world& ecs,std::string pipelineName) {
+
+		flecs::entity pipelineEnt = ecs.lookup(pipelineName.c_str());
+
+		if (!pipelineEnt.is_valid()) {
+			SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Pipeline entity does not exist : %s", pipelineName.c_str());
+			return false;
+		}
+	}
 	static bool validateEntityCreation(flecs::entity entity, std::string name) {
 		if (!entity.is_valid()) {
 			SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Error creating Entity : %s", name.c_str());

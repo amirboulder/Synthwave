@@ -341,7 +341,7 @@ public:
         playerTransform.rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
         playerTransform.scale = glm::vec3(1.0f);
 
-        EntityFactory::createPlayerEntity(ecs, s_state.contextEntity, playerTransform);
+        EntityFactory::createPlayerEntity(ecs, s_state.contextEntity, playerTransform, "pipelineUnlit");
 
     }
 
@@ -352,7 +352,7 @@ public:
         capsule1Transform.position = glm::vec3(1.0f, 5.0f, 0.0f);
         capsule1Transform.rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
         capsule1Transform.scale = glm::vec3(1.0f);
-        EntityFactory::createCapsuleEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, "CapsuleModel", capsule1Transform);
+        EntityFactory::createCapsuleEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, "CapsuleModel", capsule1Transform, "pipelineUnlit");
 
     }
 
@@ -370,7 +370,7 @@ public:
         settings.mMaxSlopeAngle = DegreesToRadians(20.0f); // Max walkable slope
         settings.mLayer = Layers::MOVING;
         settings.mGravityFactor = 1;
-        EntityFactory::createActorEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, "ActorModel", actorTransform, settings, actor1Update);
+        EntityFactory::createActorEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, "ActorModel", actorTransform, settings, actor1Update, "pipelineUnlit");
 
     }
 

@@ -42,8 +42,7 @@ struct Renderer {
 
 	flecs::world & ecs;
 
-	flecs::query<Transform, ModelInstance>q1;
-	flecs::query<Transform, ModelInstance>q2;
+	flecs::query<Transform, ModelInstance >renderQuery;
 
 	flecs::system drawPhysicsBodiesSys;
 
@@ -334,18 +333,11 @@ struct Renderer {
 
 	void buildRenderQueries() {
 
-		//TODO consider using <PipelineType> tag instead of .without and .with, do performance benchmarks
-
-		q1 = ecs.query_builder<Transform, ModelInstance>()
-			.without<CustomPipeline>(flecs::Wildcard) // no custom pipeline
-			.cached()
-			.build();
-
 
 		// Queries that use cascade(), group_by() or order_by() are cached
-		q2 = ecs.query_builder<Transform, ModelInstance>()
-			.with<CustomPipeline>(flecs::Wildcard)  // Match any (CustomPipeline, *)
-			.group_by<CustomPipeline>()
+		renderQuery = ecs.query_builder<Transform, ModelInstance>()
+			.with<RenderPipeline>(flecs::Wildcard)  
+			.group_by<RenderPipeline>()
 			.build();
 	}
 
@@ -474,19 +466,7 @@ struct Renderer {
 
 		const FrameContext& frameContext = ecs.get<FrameContext>();
 
-		const RenderState& state = ecs.lookup("RenderState").get<RenderState>();
-		const Pipeline& pipeline = state.activePipeline.get<Pipeline>();
-
-		SDL_BindGPUGraphicsPipeline(mainRenderPass, pipeline.pipeline);
-
-		q1.each([&](flecs::entity e, Transform& transform, ModelInstance& model) {
-
-			drawModel(model, transform, frameContext.commandBuffer);
-
-		});
-
-		
-		q2.run([&](flecs::iter& it) {
+		renderQuery.run([&](flecs::iter& it) {
 			while (it.next()) {
 				auto transforms = it.field<Transform>(0);
 				auto models = it.field<ModelInstance>(1);
@@ -494,7 +474,7 @@ struct Renderer {
 				flecs::entity pipeline_entity = flecs::entity(it.world(), it.group_id());
 
 				const Pipeline* pipelineSecond = &pipeline_entity.get<Pipeline>();
-				SDL_BindGPUGraphicsPipeline(mainRenderPass, pipelineSecond->pipeline);
+				SDL_BindGPUGraphicsPipeline(mainRenderPass, pipelineSecond->pipeline); 
 
 				// Process all entities in this group
 				for (auto i : it) {
