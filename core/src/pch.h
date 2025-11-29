@@ -72,9 +72,7 @@
 #include "imgui_impl_sdl3.h"
 #include "imgui_impl_sdlgpu3.h"
 
-//JSON
-#include <nlohmann/json.hpp>
-
+//rapidjson
 #include "rapidjson/document.h"
 #include "rapidjson/writer.h"
 #include "rapidjson/stringbuffer.h"
