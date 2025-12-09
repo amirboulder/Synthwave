@@ -48,9 +48,11 @@ public:
 	flecs::world& ecs;
 
 	SDL_GPUGraphicsPipeline* pipeline = NULL;
-
 	SDL_GPUShader* vertexShader = NULL;
 	SDL_GPUShader* fragmentShader = NULL;
+
+	SDL_GPUGraphicsPipeline* pipelineLine;
+	SDL_GPUBuffer* lineVertexBuffer = NULL;
 
 	SDL_GPURenderPass* renderPass = NULL;
 
@@ -65,11 +67,13 @@ public:
 	vector<const BatchImpl*> batches;
 	vector<glm::mat4> modelMatrices;
 
+	vector<LineVertex> lines;
+
 	fisiksDebugRenderer(flecs::world& ecs)
 		: ecs(ecs)
 
 	{
-		//requires RenderContext RendererConfig to be initlized by Renderer
+		//requires RenderContext RendererConfig to be initialized by Renderer
 		const RenderContext& renderContext = ecs.get<RenderContext>();
 		const RendererConfig& config = ecs.get<RendererConfig>();
 		
@@ -77,7 +81,7 @@ public:
 		drawSettings.mDrawShapeWireframe = config.DrawShapeWireframePhysics;
 
 		//TODO this should be use PipelineLibrary
-		if (!PipelineLibrary::validateShaderExistance("shaders/compiled/physicsRender.vert.spv", "shaders/compiled/physicsRender.frag.spv")) {
+		if (!PipelineLibrary::validateShaderExistence("shaders/compiled/physicsRender.vert.spv", "shaders/compiled/physicsRender.frag.spv")) {
 			shader::generateSpirvShaders("shaders/slang/physicsRender.slang", "shaders/compiled/physicsRender.vert.spv", "shaders/compiled/physicsRender.frag.spv");
 		}
 
@@ -85,7 +89,11 @@ public:
 		RenderUtil::loadShaderSPRIV(renderContext.device, fragmentShader, "shaders/compiled/physicsRender.frag.spv", SDL_GPU_SHADERSTAGE_FRAGMENT, 0, 0, 0, 0); 
 		createPipeline();
 
+		pipelineLine = ecs.lookup("pipelineLine").get<Pipeline>().pipeline;
+
 		Initialize();
+
+		configDrawSettings(true,true);
 	}
 
 	
@@ -101,9 +109,15 @@ public:
 
 	virtual void DrawLine(JPH::RVec3Arg inFrom, JPH::RVec3Arg inTo, JPH::ColorArg inColor) override
 	{
-		// NO
-		//TODO collect all lines so that we can draw bounding boxes!
-		cout << "fisiksDebugRenderer:: DrawLine was called \n";
+		// Convert color from 0-255 to 0.0-1.0 range
+		lines.emplace_back(
+			glm::vec3(inFrom.GetX(), inFrom.GetY(), inFrom.GetZ()),
+			glm::vec4(inColor.r / 255.0f, inColor.g / 255.0f, inColor.b / 255.0f, inColor.a / 255.0f)
+		);
+		lines.emplace_back(
+			glm::vec3(inTo.GetX(), inTo.GetY(), inTo.GetZ()),
+			glm::vec4(inColor.r / 255.0f, inColor.g / 255.0f, inColor.b / 255.0f, inColor.a / 255.0f)
+		);
 	}
 
 	virtual void DrawTriangle(JPH::RVec3Arg inV1, JPH::RVec3Arg inV2, JPH::RVec3Arg inV3, JPH::ColorArg inColor, ECastShadow inCastShadow) override
@@ -154,7 +168,7 @@ public:
 		return batch;
 	};
 
-	//TODO use indcies properly
+	//TODO use indices properly
 	virtual Batch CreateTriangleBatch(const Vertex* inVertices, int inVertexCount, const uint32* inIndices, int inIndexCount) override {
 
 		const RenderContext& renderContext = ecs.get<RenderContext>();
@@ -192,6 +206,31 @@ public:
 			vertices.size() * sizeof(glm::vec3), SDL_GPU_BUFFERUSAGE_VERTEX);
 
 		return batch;
+	}
+
+	bool CreateLineBatch() {
+		const RenderContext& renderContext = ecs.get<RenderContext>();
+
+		if (lines.size() == 0) {
+			return true;
+		}
+
+		// Release old buffer if it exists
+		if (lineVertexBuffer) {
+			SDL_ReleaseGPUBuffer(renderContext.device, lineVertexBuffer);
+			lineVertexBuffer = nullptr;
+		}
+
+
+		RenderUtil::uploadBufferData(
+			renderContext.device,
+			lineVertexBuffer,
+			lines.data(),
+			lines.size() * sizeof(LineVertex),
+			SDL_GPU_BUFFERUSAGE_VERTEX
+		);
+
+		return lineVertexBuffer != nullptr; 
 	}
 
 
@@ -237,7 +276,6 @@ public:
 
 	void drawAll() {
 
-
 		const FrameContext& frameContext = ecs.get<FrameContext>();
 
 		SDL_BindGPUGraphicsPipeline(renderPass, pipeline);
@@ -249,7 +287,6 @@ public:
 			SDL_GPUBufferBinding vertexBufferBinding = {};
 			vertexBufferBinding.buffer = batch->vertexBuffer;
 			vertexBufferBinding.offset = 0;
-
 
 			SDL_BindGPUVertexBuffers(renderPass, 0, &vertexBufferBinding, 1);
 			//SDL_BindGPUIndexBuffer(renderPass, &indexBufferBinding, SDL_GPU_INDEXELEMENTSIZE_32BIT);
@@ -266,19 +303,33 @@ public:
 
 			SDL_PushGPUVertexUniformData(frameContext.commandBuffer, 1, &modelUnifroms, sizeof(modelUnifroms));
 
-
 			SDL_DrawGPUPrimitives(renderPass, batch->mTriangles.size() * 3, 1, 0, 0);
 
 		}
 
-		//Batches are cleared during phyiscs update	
+
+		if (lines.size() > 0) {
+			if (!CreateLineBatch()) {
+				SDL_LogError(SDL_LOG_CATEGORY_RENDER, "Failed to create line batch");
+				return;
+			}
+
+			SDL_BindGPUGraphicsPipeline(renderPass, pipelineLine);
+
+			SDL_GPUBufferBinding vertexBufferBinding = {};
+			vertexBufferBinding.buffer = lineVertexBuffer;
+			vertexBufferBinding.offset = 0;
+			SDL_BindGPUVertexBuffers(renderPass, 0, &vertexBufferBinding, 1);
+
+			SDL_DrawGPUPrimitives(renderPass, lines.size(), 1, 0, 0);
+		}
+		
 
 	}
 
 	void configDrawSettings(bool drawBoundingBox,bool drawShapeWireframe) {
 
-		// keep drawBoundingBox false until DrawLine is implimented
-		drawSettings.mDrawBoundingBox = false;
+		drawSettings.mDrawBoundingBox = drawBoundingBox;
 		drawSettings.mDrawShapeWireframe = drawShapeWireframe;
 		
 
@@ -312,8 +363,8 @@ public:
 
 
 		// Create pipeline
-		SDL_GPUColorTargetDescription coldescs = {};
-		coldescs.format = SDL_GetGPUSwapchainTextureFormat(renderContext.device, renderContext.window);
+		SDL_GPUColorTargetDescription colorDescs = {};
+		colorDescs.format = SDL_GetGPUSwapchainTextureFormat(renderContext.device, renderContext.window);
 
 		SDL_GPUGraphicsPipelineCreateInfo pipeInfo = {};
 		SDL_zero(pipeInfo);
@@ -321,7 +372,7 @@ public:
 		pipeInfo.fragment_shader = fragmentShader;
 		pipeInfo.primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST;
 
-		pipeInfo.target_info.color_target_descriptions = &coldescs;
+		pipeInfo.target_info.color_target_descriptions = &colorDescs;
 		pipeInfo.target_info.num_color_targets = 1;
 		pipeInfo.target_info.depth_stencil_format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT;
 		pipeInfo.target_info.has_depth_stencil_target = true;
@@ -359,6 +410,7 @@ public:
 
 		SDL_Log("Successfully created pipeline");
 	}
+
 
 	glm::mat4 ConvertToGLMMat4(const RMat44Arg& inModelMatrix)
 	{

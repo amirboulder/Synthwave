@@ -76,10 +76,10 @@ struct Renderer {
 
 	void initSubSystems() {
 
-		initPhysicsRenderer();
-		
 		pipelineLib.createPipelineEnts();
 
+		initPhysicsRenderer();
+		
 		overlay.init();
 
 		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, GOOD "Renderer SubSystems Initialized" RESET);
@@ -513,15 +513,20 @@ struct Renderer {
 			.kind(flecs::PostFrame)
 			.each([&](fisiksDebugRenderer& fisiksRenderer) {
 
+			//Clear all the old data
 			fisiksRenderer.batches.clear();
 			fisiksRenderer.modelMatrices.clear();
+			fisiksRenderer.lines.clear();
 
 			JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
 
 			// Does not actually draw it just puts all render batches in vector so they can be drawn during a render pass
 			physicsSystem.DrawBodies(fisiksRenderer.drawSettings, &fisiksRenderer);
 
-		});
+			physicsSystem.DrawConstraints(&fisiksRenderer);
+
+
+			});
 
 #endif
 	}

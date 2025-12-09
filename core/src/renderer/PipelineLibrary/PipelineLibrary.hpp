@@ -26,29 +26,33 @@ public:
 
 		createPipelineEnt("pipelineUnlit", "shaders/slang/shaders.slang",
 			"shaders/compiled/VertexShader.spv", "shaders/compiled/FragmentShader.spv",
-			glm::ivec4(0, 2, 0, 0), glm::ivec4(1, 0, 0, 0), renderContext);
+			glm::ivec4(0, 2, 0, 0), glm::ivec4(1, 0, 0, 0), renderContext, PipelineType::Vertex);
 
 		createPipelineEnt("pipelineGrid", "shaders/slang/gridshader.slang",
 			"shaders/compiled/grid.vert.spv", "shaders/compiled/grid.frag.spv",
-			glm::ivec4(0, 2, 0, 0), glm::ivec4(0, 0, 0, 0), renderContext);
+			glm::ivec4(0, 2, 0, 0), glm::ivec4(0, 0, 0, 0), renderContext, PipelineType::Vertex);
 
 		createPipelineEnt("pipelineMtn", "shaders/slang/wireframe.slang",
 			"shaders/compiled/wireframe.vert.spv", "shaders/compiled/wireframe.frag.spv",
-			glm::ivec4(0, 2, 0, 0), glm::ivec4(0, 0, 0, 0), renderContext);
+			glm::ivec4(0, 2, 0, 0), glm::ivec4(0, 0, 0, 0), renderContext, PipelineType::Vertex);
+
+		createPipelineEnt("pipelineLine", "shaders/slang/lineShader.slang",
+			"shaders/compiled/lineShader.vert.spv", "shaders/compiled/lineShader.frag.spv",
+			glm::ivec4(0, 1, 0, 0), glm::ivec4(0, 0, 0, 0), renderContext, PipelineType::LineVertex);
 
 		//TODO move this
 		ecs.entity("RenderState")
 			.set<RenderState>({ ecs.lookup("pipelineUnlit") });
 	}
 
-	static bool validateShaderExistance(const std::string& filePathVS, const std::string& filePathFS) {
+	static bool validateShaderExistence(const std::string& filePathVS, const std::string& filePathFS) {
 		namespace fs = std::filesystem;
 		return fs::exists(filePathVS) && fs::exists(filePathFS);
 	}
 
 	bool createPipelineEnt(const std::string shaderName, const std::string filePathShaderSrc,
 		const std::string& filePathVS, const std::string& filePathFS, glm::ivec4 paramsVS,
-		glm::ivec4 paramsFS, const RenderContext& renderContext) {
+		glm::ivec4 paramsFS, const RenderContext& renderContext, PipelineType type) {
 
 		flecs::entity pipelineEnt = ecs.entity(shaderName.c_str()).set<Pipeline>({});
 
@@ -60,7 +64,7 @@ public:
 
 		Pipeline& pipelneRef = pipelineEnt.get_mut<Pipeline>();
 
-		if (!validateShaderExistance(filePathVS, filePathFS)) {
+		if (!validateShaderExistence(filePathVS, filePathFS)) {
 			int returnVal = shader::generateSpirvShaders(filePathShaderSrc.c_str(), filePathVS.c_str(), filePathFS.c_str());
 
 			if (returnVal != 0) {
@@ -72,7 +76,26 @@ public:
 			filePathVS, SDL_GPU_SHADERSTAGE_VERTEX, paramsVS.x, paramsVS.y, paramsVS.z, paramsVS.w)) return false;
 		if(!RenderUtil::loadShaderSPRIV(renderContext.device, pipelneRef.fragmentShader,
 			filePathFS, SDL_GPU_SHADERSTAGE_FRAGMENT, paramsFS.x, paramsFS.y, paramsFS.z, paramsFS.w)) return false;
-		if(!pipelneRef.createPipeline(ecs, shaderName.c_str(), false)) return false;
+
+		switch (type)
+		{
+		case PipelineType::Vertex:
+			if (!pipelneRef.createPipeline(ecs, shaderName.c_str(), false)) return false;
+
+			pipelneRef.type = type;
+
+			break;
+		case PipelineType::LineVertex:
+
+			if (!pipelneRef.createLineVertPipeline(ecs, shaderName.c_str())) return false;
+
+			pipelneRef.type = type;
+
+			break;
+		default:
+			break;
+		}
+
 
 		return true;
 	}

@@ -11,6 +11,11 @@ struct Vertex {
 	glm::vec4 color;
 };
 
+struct LineVertex {
+	glm::vec3 position;
+	glm::vec4 color;
+};
+
 //TODO stop using as a component use it only for entity creation
 struct Transform {
 	glm::vec3 position = glm::vec3(1);
@@ -23,6 +28,11 @@ struct Position {
 	glm::vec3 position = glm::vec3(1);
 };
 
+enum class PipelineType {
+	Vertex,
+	LineVertex,
+
+};
 
 struct LinearVelocity {
 	glm::vec3 position = glm::vec3(1);
@@ -80,6 +90,23 @@ struct Draw {
 struct JoltCharacter {
 	JPH::Character* characterPtr = nullptr;
 };
+
+struct JoltRagdoll {
+	JPH::Ragdoll* ragdollPtr = nullptr;
+};
+
+struct JoltAnimation {
+	JPH::SkeletalAnimation* animationPtr = nullptr;
+};
+
+struct JoltPose {
+	JPH::SkeletonPose* posePtr = nullptr;
+};
+
+struct AnimationTime {
+	float time = 0.0f;
+};
+
 //TODO rename CallbackComponent
 struct Callback {
 	std::function<void()> callbackFunction;
@@ -149,6 +176,10 @@ enum class EntityType {
 	Game,
 	Scene,
 	Player,
+	Humanoid,
+	Ragdoll,
+	RobotArm,
+	Snake,
 	Actor,
 	Capsule,
 	Grid,
