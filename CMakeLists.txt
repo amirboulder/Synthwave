@@ -191,13 +191,17 @@ set(USE_LZCNT ON)
 set(USE_TZCNT ON)
 set(USE_F16C ON)
 set(USE_FMADD ON)
+set(ENABLE_OBJECT_STREAM ON CACHE BOOL "" FORCE)
 # set(BUILD_SHARED_LIBS ON)
 set(INTERPROCEDURAL_OPTIMIZATION=${IS_IPO_SUPPORTED})
 if(NOT JoltPhysics_POPULATED)
     FetchContent_MakeAvailable(JoltPhysics)
-
   set(PHYSICS_REPO_ROOT ${joltphysics_SOURCE_DIR})
   include(${joltphysics_SOURCE_DIR}/Jolt/Jolt.cmake)
+  
+  # Enable object stream support for serialization
+  target_compile_definitions(Jolt PUBLIC JPH_OBJECT_STREAM)
+  
   target_compile_definitions(Jolt PUBLIC "$<$<CONFIG:RelWithDebInfo>:JPH_PROFILE_ENABLED;JPH_DEBUG_RENDERER>")
   target_compile_definitions(Jolt PUBLIC "$<$<CONFIG:Debug>:JPH_PROFILE_ENABLED;JPH_DEBUG_RENDERER>")
   target_compile_definitions(Jolt PUBLIC "$<$<CONFIG:Release>:JPH_PROFILE_ENABLED;JPH_DEBUG_RENDERER>")
@@ -342,8 +346,29 @@ target_precompile_headers(Synthwave PRIVATE
 )
 
 
+# Collect all shader files
+file(GLOB_RECURSE SHADER_FILES
+    ${CMAKE_SOURCE_DIR}/core/src/renderer/shaders/slang/*)
 
-file(COPY core/src/renderer/shaders/slang DESTINATION ${CMAKE_BINARY_DIR}/shaders/)
+# Copy them at build time
+add_custom_command(
+    OUTPUT ${CMAKE_BINARY_DIR}/shaders.stamp
+    COMMAND ${CMAKE_COMMAND} -E make_directory
+            ${CMAKE_BINARY_DIR}/shaders/slang
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+            ${CMAKE_SOURCE_DIR}/core/src/renderer/shaders/slang
+            ${CMAKE_BINARY_DIR}/shaders/slang
+    COMMAND ${CMAKE_COMMAND} -E touch ${CMAKE_BINARY_DIR}/shaders.stamp
+    DEPENDS ${SHADER_FILES}
+    COMMENT "Copying shader files..."
+)
+
+# Target that depends on the copy step
+add_custom_target(copy_shaders ALL
+    DEPENDS ${CMAKE_BINARY_DIR}/shaders.stamp)
+
+add_dependencies(Synthwave copy_shaders)
+
 file(COPY assets DESTINATION ${CMAKE_BINARY_DIR})
 file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/data)
 file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/config)

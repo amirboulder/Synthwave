@@ -9,8 +9,6 @@ layout(set = 1, binding = 1) cbuffer PerModel {
     float4x4 mvp;
 };
 
-
-
 struct VertexInput
 {
     float3 position : POSITION;
@@ -35,6 +33,5 @@ VertexOutput vertexMain(VertexInput input)
 [shader("fragment")]
 float4 fragmentMain(VertexOutput fragInput)
 {
-   
-    return float4(1,1,1,1);
+    return float4(1, 1, 1, 1); 
 }

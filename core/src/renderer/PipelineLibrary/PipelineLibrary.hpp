@@ -36,6 +36,11 @@ public:
 			"shaders/compiled/wireframe.vert.spv", "shaders/compiled/wireframe.frag.spv",
 			glm::ivec4(0, 2, 0, 0), glm::ivec4(0, 0, 0, 0), renderContext, PipelineType::Vertex);
 
+
+		createPipelineEnt("pipelinePhysics", "shaders/slang/physicsRender.slang",
+			"shaders/compiled/physicsRender.vert.spv", "shaders/compiled/physicsRender.frag.spv",
+			glm::ivec4(0, 2, 0, 0), glm::ivec4(0, 0, 0, 0), renderContext, PipelineType::PhysicsDebug);
+
 		createPipelineEnt("pipelineLine", "shaders/slang/lineShader.slang",
 			"shaders/compiled/lineShader.vert.spv", "shaders/compiled/lineShader.frag.spv",
 			glm::ivec4(0, 1, 0, 0), glm::ivec4(0, 0, 0, 0), renderContext, PipelineType::LineVertex);
@@ -82,20 +87,25 @@ public:
 		case PipelineType::Vertex:
 			if (!pipelneRef.createPipeline(ecs, shaderName.c_str(), false)) return false;
 
-			pipelneRef.type = type;
-
 			break;
+
 		case PipelineType::LineVertex:
 
 			if (!pipelneRef.createLineVertPipeline(ecs, shaderName.c_str())) return false;
 
-			pipelneRef.type = type;
+			break;
+
+		case PipelineType::PhysicsDebug:
+
+			if (!pipelneRef.createPhysicsDebugPipeline(ecs, shaderName.c_str())) return false;
 
 			break;
+
 		default:
 			break;
 		}
 
+		pipelneRef.type = type;
 
 		return true;
 	}

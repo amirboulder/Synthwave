@@ -30,6 +30,7 @@ struct Position {
 
 enum class PipelineType {
 	Vertex,
+	PhysicsDebug,
 	LineVertex,
 
 };

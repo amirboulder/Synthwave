@@ -34,7 +34,6 @@ struct PerModelUniforms {
     glm::mat4 mvp;
 };
 
-
 class RenderUtil {
 
 
@@ -162,19 +161,19 @@ public:
 			return false;
 		}
 
-		SDL_GPUShaderCreateInfo createinfo = {};
-		createinfo.num_samplers = sampler_count;
-		createinfo.num_storage_buffers = storage_buffer_count;
-		createinfo.num_storage_textures = storage_texture_count;
-		createinfo.num_uniform_buffers = uniform_buffer_count;
-		createinfo.props = 0;
-		createinfo.format = SDL_GPU_SHADERFORMAT_SPIRV;
-		createinfo.code = spirvCode.data();
-		createinfo.code_size = spirvCode.size();
-		createinfo.entrypoint = "main";
-		createinfo.stage = stage;
+		SDL_GPUShaderCreateInfo createInfo = {};
+		createInfo.num_samplers = sampler_count;
+		createInfo.num_storage_buffers = storage_buffer_count;
+		createInfo.num_storage_textures = storage_texture_count;
+		createInfo.num_uniform_buffers = uniform_buffer_count;
+		createInfo.props = 0;
+		createInfo.format = SDL_GPU_SHADERFORMAT_SPIRV;
+		createInfo.code = spirvCode.data();
+		createInfo.code_size = spirvCode.size();
+		createInfo.entrypoint = "main";
+		createInfo.stage = stage;
 
-		shader = SDL_CreateGPUShader(device, &createinfo);
+		shader = SDL_CreateGPUShader(device, &createInfo);
 
 		if (shader == NULL) {
 			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,"Failed to create fragment shader!");
