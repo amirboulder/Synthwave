@@ -1,8 +1,5 @@
 #pragma once
 
-
-// This class only exists in debug mode
-
 #ifdef JPH_DEBUG_RENDERER
 
 #include "core/src/pch.h"
@@ -39,6 +36,8 @@ class fisiksDebugRenderer : public JPH::DebugRenderer
 
 		SDL_GPUBuffer* vertexBuffer = NULL;
 
+		glm::vec4 color;
+
 	private:
 		atomic<uint32>			mRefCount = 0;
 	};
@@ -47,26 +46,20 @@ public:
 
 	flecs::world& ecs;
 
-	SDL_GPUGraphicsPipeline* pipeline = NULL;
-	SDL_GPUShader* vertexShader = NULL;
-	SDL_GPUShader* fragmentShader = NULL;
+	SDL_GPUGraphicsPipeline* pipelineMain = NULL;
+	SDL_GPUGraphicsPipeline* pipelineLine = NULL;
 
-	SDL_GPUGraphicsPipeline* pipelineLine;
 	SDL_GPUBuffer* lineVertexBuffer = NULL;
 
 	SDL_GPURenderPass* renderPass = NULL;
 
 	BodyManager::DrawSettings drawSettings;
 
-	
-
 	glm::mat4 view;
 	glm::mat4 proj;
 
-	//used for all the rendering that happens outside main renderPass cleared in the next frame
-	vector<const BatchImpl*> batches;
+	vector<BatchImpl*> batches;
 	vector<glm::mat4> modelMatrices;
-
 	vector<LineVertex> lines;
 
 	fisiksDebugRenderer(flecs::world& ecs)
@@ -80,20 +73,11 @@ public:
 		drawSettings.mDrawBoundingBox = config.DrawBoundingBoxPhysics;
 		drawSettings.mDrawShapeWireframe = config.DrawShapeWireframePhysics;
 
-		//TODO this should be use PipelineLibrary
-		if (!PipelineLibrary::validateShaderExistence("shaders/compiled/physicsRender.vert.spv", "shaders/compiled/physicsRender.frag.spv")) {
-			shader::generateSpirvShaders("shaders/slang/physicsRender.slang", "shaders/compiled/physicsRender.vert.spv", "shaders/compiled/physicsRender.frag.spv");
-		}
-
-		RenderUtil::loadShaderSPRIV(renderContext.device, vertexShader, "shaders/compiled/physicsRender.vert.spv", SDL_GPU_SHADERSTAGE_VERTEX, 0, 2, 0, 0);
-		RenderUtil::loadShaderSPRIV(renderContext.device, fragmentShader, "shaders/compiled/physicsRender.frag.spv", SDL_GPU_SHADERSTAGE_FRAGMENT, 0, 0, 0, 0); 
-		createPipeline();
-
+		pipelineMain = ecs.lookup("pipelinePhysics").get<Pipeline>().pipeline;
 		pipelineLine = ecs.lookup("pipelineLine").get<Pipeline>().pipeline;
 
 		Initialize();
 
-		configDrawSettings(true,true);
 	}
 
 	
@@ -251,7 +235,7 @@ public:
 		if (!lod)
 			return;
 
-		const BatchImpl* batch = static_cast<const BatchImpl*>(lod->mTriangleBatch.GetPtr());
+		BatchImpl* batch = static_cast<BatchImpl*>(lod->mTriangleBatch.GetPtr());
 		if (!batch)
 			return;
 		
@@ -268,6 +252,7 @@ public:
 
 
 		batches.push_back(batch);
+		batch->color = glm::vec4(inModelColor.r / 255.0f, inModelColor.g / 255.0f, inModelColor.b / 255.0f, inModelColor.a / 255.0f);
 		modelMatrices.push_back(ConvertToGLMMat4(inModelMatrix));
 
 		return;
@@ -278,7 +263,7 @@ public:
 
 		const FrameContext& frameContext = ecs.get<FrameContext>();
 
-		SDL_BindGPUGraphicsPipeline(renderPass, pipeline);
+		SDL_BindGPUGraphicsPipeline(renderPass, pipelineMain);
 		
 		for (int i = 0; i < batches.size(); i++ ) {
 
@@ -297,11 +282,11 @@ public:
 
 			mvp = glm::transpose(mvp);
 
-			PerModelUniforms modelUnifroms;
-			modelUnifroms.mvp = mvp;
-			modelUnifroms.model = meshMat;
+			PerModelUniforms modelUniforms;
+			modelUniforms.mvp = mvp;
+			modelUniforms.model = meshMat;
 
-			SDL_PushGPUVertexUniformData(frameContext.commandBuffer, 1, &modelUnifroms, sizeof(modelUnifroms));
+			SDL_PushGPUVertexUniformData(frameContext.commandBuffer, 1, &modelUniforms, sizeof(modelUniforms));
 
 			SDL_DrawGPUPrimitives(renderPass, batch->mTriangles.size() * 3, 1, 0, 0);
 
@@ -331,84 +316,7 @@ public:
 
 		drawSettings.mDrawBoundingBox = drawBoundingBox;
 		drawSettings.mDrawShapeWireframe = drawShapeWireframe;
-		
 
-	}
-
-
-	void createPipeline(EDrawMode inDrawMode = EDrawMode::Wireframe) {
-
-		 const RenderContext& renderContext = ecs.get<RenderContext>();
-		 const RendererConfig& renderConfig = ecs.get<RendererConfig>();
-
-		// Vertex input state
-		SDL_GPUVertexAttribute vertexAttributes[1] = {};
-
-		// Position attribute
-		vertexAttributes[0].location = 0;
-		vertexAttributes[0].buffer_slot = 0;
-		vertexAttributes[0].format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3;
-		vertexAttributes[0].offset = 0;
-
-		SDL_GPUVertexBufferDescription vertexBufferDescription = {};
-		vertexBufferDescription.slot = 0;
-		vertexBufferDescription.pitch = sizeof(glm::vec3);
-		vertexBufferDescription.input_rate = SDL_GPU_VERTEXINPUTRATE_VERTEX;
-
-		SDL_GPUVertexInputState vertexInputState = {};
-		vertexInputState.vertex_buffer_descriptions = &vertexBufferDescription;
-		vertexInputState.num_vertex_buffers = 1;
-		vertexInputState.vertex_attributes = vertexAttributes;
-		vertexInputState.num_vertex_attributes = 1;
-
-
-		// Create pipeline
-		SDL_GPUColorTargetDescription colorDescs = {};
-		colorDescs.format = SDL_GetGPUSwapchainTextureFormat(renderContext.device, renderContext.window);
-
-		SDL_GPUGraphicsPipelineCreateInfo pipeInfo = {};
-		SDL_zero(pipeInfo);
-		pipeInfo.vertex_shader = vertexShader;
-		pipeInfo.fragment_shader = fragmentShader;
-		pipeInfo.primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST;
-
-		pipeInfo.target_info.color_target_descriptions = &colorDescs;
-		pipeInfo.target_info.num_color_targets = 1;
-		pipeInfo.target_info.depth_stencil_format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT;
-		pipeInfo.target_info.has_depth_stencil_target = true;
-
-		pipeInfo.depth_stencil_state = {
-		.compare_op = SDL_GPU_COMPAREOP_LESS,
-		.enable_depth_test = true,
-		.enable_depth_write = true,
-		};
-
-		//MSAA
-		pipeInfo.multisample_state = {
-			.sample_count = renderConfig.sampleCountMSAA,  // Enable MSAA in pipeline
-			.sample_mask = 0  // Use all samples
-		};
-
-		pipeInfo.vertex_input_state = vertexInputState;
-
-		if (drawSettings.mDrawShapeWireframe ) {
-			pipeInfo.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_LINE;
-		}
-		else {
-			pipeInfo.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_FILL;
-		}
-
-		pipeInfo.rasterizer_state.cull_mode = SDL_GPU_CULLMODE_BACK;
-		pipeInfo.rasterizer_state.front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE;
-		pipeInfo.props = 0;
-
-		pipeline = SDL_CreateGPUGraphicsPipeline(renderContext.device, &pipeInfo);
-		if (!pipeline) {
-			SDL_Log("Failed to create fill pipeline: %s", SDL_GetError());
-			return;
-		}
-
-		SDL_Log("Successfully created pipeline");
 	}
 
 
