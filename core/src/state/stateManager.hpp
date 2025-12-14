@@ -13,7 +13,6 @@
 #include "../../../Editor/src/editor.hpp"
 
 #include "../Serialization/serialization.hpp"
-#include "../saveSystem/saveSystem.hpp"
 
 #include "../common.hpp"
 
@@ -259,7 +258,7 @@ public:
 	// PlayState and EditorState react to GameLoadedState and MenuState reacts to them
 	void startGame() {
 
-		flushMouseMovement();
+		CMN::flushMouseMovement();
 
 		time.startGameTime();
 
@@ -470,7 +469,7 @@ public:
 				scene.aiUpdatePhase.enable();
 				scene.playerPhase.enable();
 
-				flushMouseMovement();
+				CMN::flushMouseMovement();
 				SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "PlayState::play");
 
 				SDL_SetWindowRelativeMouseMode(renderContext.window, true);
@@ -749,14 +748,6 @@ public:
 		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Saved GameData.json");
 		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Backup created: %s", backupPath.string().c_str());
 
-	}
-
-	//TODO maybe put in common
-	void flushMouseMovement() {
-
-		// flushing all the mouse movement accumulated during pause/load to avoid camera jerk
-		float dx, dy;
-		SDL_GetRelativeMouseState(&dx, &dy);
 	}
 
 	

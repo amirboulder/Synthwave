@@ -7,4 +7,16 @@
 #define RESET "\x1b[0m"
 #define Synth "\x1b[35m"
 
+namespace CMN {
+
+	void flushMouseMovement() {
+		// flushing all the mouse movement accumulated during pause/load to avoid camera jerk
+		float dx, dy;
+		SDL_GetRelativeMouseState(&dx, &dy);
+	}
+
+
+}
+
+
 

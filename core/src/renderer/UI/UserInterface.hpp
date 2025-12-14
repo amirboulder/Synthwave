@@ -27,13 +27,14 @@ public:
         const RenderContext& renderContext = ecs.get<RenderContext>();
         const RendererConfig& config = ecs.get<RendererConfig>();
 
-        // Create SDL window graphics context
         float main_scale = SDL_GetDisplayContentScale(SDL_GetPrimaryDisplay());
-
+       
         // Setup Dear ImGui context
         IMGUI_CHECKVERSION();
         ImGui::CreateContext();
         ImGuiIO& io = ImGui::GetIO(); (void)io;
+       // io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+        io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
         io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
         //io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
 
@@ -52,10 +53,10 @@ public:
         ImGui_ImplSDLGPU3_InitInfo init_info = {};
         init_info.Device = renderContext.device;
         init_info.ColorTargetFormat = SDL_GetGPUSwapchainTextureFormat(renderContext.device, renderContext.window);
-        //init_info.MSAASamples = SDL_GPU_SAMPLECOUNT_1;                      // Only used in multi-viewports mode.
-       // init_info.SwapchainComposition = SDL_GPU_SWAPCHAINCOMPOSITION_SDR;  // Only used in multi-viewports mode.
+        //init_info.MSAASamples = config.sampleCountMSAA;                      // Only used in multi-viewports mode.
+        //init_info.SwapchainComposition = SDL_GPU_SWAPCHAINCOMPOSITION_SDR;  // Only used in multi-viewports mode.
         // Only used in multi-viewports mode. this gets overwritten by RendererConfig when rendering in the same view port
-       // init_info.PresentMode = SDL_GPU_PRESENTMODE_VSYNC;  
+        //init_info.PresentMode = SDL_GPU_PRESENTMODE_VSYNC;  
 
 
         ImGui_ImplSDLGPU3_Init(&init_info);
@@ -69,7 +70,6 @@ public:
 
         // Build font atlas
         io.Fonts->Build();
-
 
         registerSystems();
     }
@@ -124,6 +124,8 @@ public:
         ImGui_ImplSDL3_NewFrame();
         ImGui::NewFrame();
 
+        // Create a dockspace over the main viewport
+        ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
 
         HudRenderSys.run();
         MenuRenderSys.run();
@@ -147,6 +149,13 @@ public:
         ImGui_ImplSDLGPU3_RenderDrawData(draw_data, frameContext.commandBuffer, renderPass);
 
         SDL_EndGPURenderPass(renderPass);
+
+        //Needeed for multiview ports
+        /* ImGuiIO& io = ImGui::GetIO();
+        if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
+            ImGui::UpdatePlatformWindows();
+            ImGui::RenderPlatformWindowsDefault();
+        }*/
 
     }
 };

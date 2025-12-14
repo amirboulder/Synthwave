@@ -166,7 +166,9 @@ struct ModelSourceRef {
 	std::string name;
 };
 
-
+struct CameraMVMTState {
+	bool locked = false;
+};
 
 struct ObjectType {
 	std::string name; 

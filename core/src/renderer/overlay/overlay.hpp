@@ -36,19 +36,20 @@ public:
 
     }
 
-   
-    //Maybe part of a larger overlay window in the future
+   //For now we can place it wherever
+   //TODO RELEASE give player option to place it top left or top right
     void drawFPS() {
 
-        ImGui::SetNextWindowPos(ImVec2(10, 10));
+       // ImGui::SetNextWindowPos(ImVec2(10, 10));
         ImGui::SetNextWindowBgAlpha(0.0f);
 
-        ImGui::Begin("HUD", nullptr,
-            ImGuiWindowFlags_NoMove |           // Prevent moving
+        ImGui::Begin("HUD", nullptr,          
             ImGuiWindowFlags_NoResize |         // Prevent resizing
             ImGuiWindowFlags_NoCollapse |       // Prevent collapsing
             ImGuiWindowFlags_AlwaysAutoResize | // Auto-fit content
-            ImGuiWindowFlags_NoTitleBar         // Remove title bar 
+            ImGuiWindowFlags_NoTitleBar        
+            | ImGuiWindowFlags_NoDocking
+
             
         );
 

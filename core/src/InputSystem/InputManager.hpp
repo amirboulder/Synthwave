@@ -29,7 +29,15 @@ public:
 	InputManager(flecs::world& ecs, StateManager& stateManager)
 		: ecs(ecs), stateManager(stateManager)
 	{
-		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "InputManager Initialized");
+
+		ecs.component<PlayerInput2>().add(flecs::Singleton);
+		ecs.set<PlayerInput2>({});
+
+		ecs.component<Direction>().add(flecs::Singleton);
+		ecs.set<Direction>({ Direction::forward});
+
+
+		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, GOOD "InputManager Initialized" RESET);
 	}
 
 
@@ -59,6 +67,8 @@ public:
 
 		}
 
+		captureInput();
+
 
 	}
 
@@ -71,10 +81,14 @@ public:
 		}
 
 		Camera& camera = cameraEnt.get_mut<Camera>();
+		bool camLocked = cameraEnt.get<CameraMVMTState>().locked;
+
+		if (camLocked) {
+			return;
+		}
 
 		const bool* keystates = SDL_GetKeyboardState(NULL);
 
-		
 		// Handle WASD movement
 		if (keystates[SDL_SCANCODE_W]) {
 			camera.position += camera.front  * camera.movementSpeed;
@@ -139,6 +153,8 @@ public:
 	// Put things in here that we don't want in distribution mode.
 	void handleEditorEvents(SDL_Event& event) {
 
+		const RenderContext& renderContext = ecs.get<RenderContext>();
+
 		if (event.type == SDL_EVENT_KEY_DOWN && event.key.repeat == 0 && event.key.scancode == closeWindow) {
 			stateManager.exitCallback();
 		}
@@ -188,6 +204,29 @@ public:
 			if (event.type == SDL_EVENT_KEY_DOWN && event.key.repeat == 0 && event.key.scancode == SDL_SCANCODE_F5) {
 
 				stateManager.saveGameData();
+
+			}
+
+			//FreeCam is created with the editor so we assume it exists (not checking for null)
+			flecs::entity cameraEnt = ecs.lookup("FreeCam");
+			CameraMVMTState* state = cameraEnt.try_get_mut<CameraMVMTState>();
+			if (!state) {
+
+				SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, ERROR "CameraMVMTState does not exist!" RESET);
+				return;
+			}
+
+			if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN && event.button.button == SDL_BUTTON_MIDDLE) {
+				
+				state->locked = false;
+				SDL_SetWindowRelativeMouseMode(renderContext.window, true);
+				CMN::flushMouseMovement();
+			
+			}
+			else if(event.type == SDL_EVENT_MOUSE_BUTTON_UP && event.button.button == SDL_BUTTON_MIDDLE) {
+				
+				state->locked = true;
+				SDL_SetWindowRelativeMouseMode(renderContext.window, false);
 
 			}
 
@@ -265,7 +304,7 @@ public:
 		float deltaX, deltaY;
 		SDL_GetRelativeMouseState(&deltaX, &deltaY);
 
-		//TODO parameterlize
+		//TODO parameterize
 		float smoothingFactor = 0.7f; // Adjust between 0-1 (lower = smoother)
 		static float smoothedXOffset = 0.0f, smoothedYOffset = 0.0f;
 
@@ -275,6 +314,46 @@ public:
 
 		player.offsetX = smoothedXOffset;
 		player.offsetY = smoothedYOffset;
+
+	}
+
+	//TO be used for ragdoll
+	void captureInput() {
+
+		const bool* keystates = SDL_GetKeyboardState(NULL);
+
+		/*
+		JPH::Vec3 & input =  ecs.get_mut<PlayerInput2>().direction;
+		// Handle WASD movement
+		if (keystates[SDL_SCANCODE_UP]) {
+			input += JPH::Vec3(1,0,0);
+		}
+		if (keystates[SDL_SCANCODE_DOWN]) {
+			input -= JPH::Vec3(1, 0, 0);
+		}
+		if (keystates[SDL_SCANCODE_LEFT]) {
+			input += JPH::Vec3(0, 0, 1);
+		}
+		if (keystates[SDL_SCANCODE_RIGHT]) {
+			input -= JPH::Vec3(0, 0, 1);;
+		}
+		// Normalize direction to prevent faster diagonal movement
+		input = input.Normalized();
+
+		*/
+
+		Direction& dir = ecs.get_mut<Direction>();
+
+		if (keystates[SDL_SCANCODE_UP]) {
+			dir = Direction::forward;
+		}
+		if (keystates[SDL_SCANCODE_DOWN]) {
+			dir = Direction::backward;
+		}
+
+		
+		
+
 
 	}
 

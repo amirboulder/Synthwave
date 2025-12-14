@@ -6,14 +6,16 @@
 #include "../../core/src/Serialization/serialization.hpp"
 #include "../../core/src/ecs/RegisterReflectionData.hpp"
 
-#include "EditorItems.hpp"
 #include "SceneTree.hpp"
+#include "RagdollBuilder.hpp"
 
 class Editor {
 
 	flecs::entity editorToggle;
 
 	flecs::query<> activeGameQuery;
+
+	flecs::entity freeCam;
 
 public:
 
@@ -25,8 +27,9 @@ public:
 		registerReflectionData(ecs);
 
 		const RendererConfig& config = ecs.get<RendererConfig>();
-		ecs.entity("FreeCam")
-			.emplace<Camera>(config);
+		freeCam = ecs.entity("FreeCam")
+			.emplace<Camera>(config)
+			.set<CameraMVMTState>({false});
 	}
 
 	//This is called by StateManager
@@ -61,6 +64,7 @@ public:
 	void registerEditorItems() {
 
 		EntityFactory::createEditorItemEntity(ecs, "SceneTree", editorToggle, SceneTree::SceneTreeDraw);
+		EntityFactory::createEditorItemEntity(ecs, "RagdollCreator", editorToggle, RagdollBuilder::draw);
 	}
 
 	void disable() {
@@ -72,6 +76,8 @@ public:
 	void enable() {
 
 		editorToggle.enable();
+
+		freeCam.get_mut<CameraMVMTState>().locked = true;
 
 	}
 
@@ -112,6 +118,15 @@ public:
 			.add<IsActive>().add(flecs::CanToggle)
 			.child_of(sampleScene2);
 	}
+
+
+	static void setEditorCamPos(flecs::world& ecs,glm::vec3 newPos) {
+
+		flecs::entity freeCamEnt =  ecs.lookup("FreeCam");
+		freeCamEnt.get_mut<Camera>().position = newPos;
+
+	}
+
 };
 
 

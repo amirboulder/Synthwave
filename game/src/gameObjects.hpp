@@ -1,14 +1,6 @@
 #pragma once
 
-#include "../../core/src/AssetLibrary/AssetLibrary.hpp"
-
-#include "../../core/src/ecs/components.hpp"
-
 #include "../../core/src/player.hpp"
-
-#include "../../core/src/EntityFactory.hpp"
-
-#include "../../core/src/physics/physicsUtil.hpp"
 
 #include "sensorBehaviors.hpp"
 #include "actorBehaviors.hpp"
@@ -24,9 +16,6 @@ public:
 
 	flecs::entity playerPhase;
 
-	Fisiks& fisiks;
-	Renderer& renderer;
-
 	flecs::entity aiUpdatePhase;
 
 	flecs::system updateActorsSys;
@@ -34,21 +23,9 @@ public:
 
 	flecs::system drawVirtualCharacterPhysicsBodiesSys;
 
-	Scene(flecs::world & ecs,Fisiks& fisiks, Renderer& renderer)
-		: ecs(ecs), fisiks(fisiks), renderer(renderer)
+	Scene(flecs::world & ecs)
+		: ecs(ecs)
 	{
-		/*
-		const RendererConfig& config = ecs.get<RendererConfig>();
-		//Player
-		flecs::entity playerCam = ecs.entity("PlayerCam")
-			.emplace<Camera>(config);
-
-		playerEntity = ecs.entity("player")
-			.emplace<Player>(ecs)
-			.add(playerCam);
-
-		playerEntity.get_mut<Player>().init(JPH::Vec3(1.0f, 15.0f, 0.0f), JPH::Quat(0.0f, 0.0f, 0.0f, 1.0f), 2.0f, 1.0f, playerEntity.id());
-		*/
 
 		registerPhases();
 		registerSystems();
@@ -62,112 +39,6 @@ public:
 		updatePlayerSystem();
 		drawVirtualCharacterPhysicsBodies();
 	}
-
-	bool constructLevel() {
-
-		/*
-		flecs::entity Game1 = ecs.entity("Game1")
-			.add<Game>()
-			.set<EntityType>({ EntityType::Game })
-			.add<IsActive>().add(flecs::CanToggle);
-
-		flecs::entity Scene1 = ecs.entity("Scene1")
-			.add<_Scene>()
-			.set<EntityType>({ EntityType::Scene })
-			.add<IsActive>().add(flecs::CanToggle)
-			.child_of(Game1);
-		*/
-
-		///////////////////////////
-	
-
-		//Entities
-
-		/*
-		//Actor 1
-		Transform actorTransform;
-		actorTransform.position = glm::vec3(4.0f, 17.0f, 0.0f);
-		actorTransform.rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
-		actorTransform.scale = glm::vec3(1.0f);
-		
-		// Character settings
-		JPH::CharacterSettings settings;
-		settings.mShape = new CapsuleShape(2.0f, 1.0f);
-		settings.mMass = 2000.0f;
-		settings.mMaxSlopeAngle = DegreesToRadians(20.0f); // Max walkable slope
-		settings.mLayer = Layers::MOVING;
-		settings.mGravityFactor = 1;
-		EntityFactory::createActorEntity(ecs, Scene1, "Actor1", "ActorModel", actorTransform, settings, actor1Update);
-		*/
-
-
-		//Grid
-		/*Transform gridTransform;
-		gridTransform.rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
-		EntityFactory::createGridEntity(ecs,Scene1,"GridChunk1","Grid256", gridTransform, "pipelineGrid", 256, 256);*/
-
-		//MTN
-		//Transform mtnTransform;
-		//mtnTransform.position = glm::vec3(0.0f, -50.0f, 0.0f);
-		//mtnTransform.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
-		//EntityFactory::createStaticMeshEntity(ecs,Scene1,"Mountains","Mountains", mtnTransform, "pipelineMtn");
-
-		/*
-		////Capsule1
-		Transform capsule1Transform;
-		capsule1Transform.position = glm::vec3(1.0f, 5.0f, 0.0f);
-		capsule1Transform.rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
-		capsule1Transform.scale = glm::vec3(1.0f);
-		EntityFactory::createCapsuleEntity(ecs, Scene1, "Capsule1", "CapsuleModel", capsule1Transform);
-
-		//Capsule2
-		Transform capsule2Transform;
-		capsule2Transform.position = glm::vec3(1.0f, 19.0f, 0.0f);
-		capsule2Transform.rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
-		capsule2Transform.scale = glm::vec3(1.0f);
-		EntityFactory::createCapsuleEntity(ecs, Scene1, "Capsule2", "CapsuleModel", capsule2Transform);
-
-		//Capsule3
-		Transform capsule3Transform;
-		capsule3Transform.position = glm::vec3(1.0f, 29.0f, 0.0f);
-		capsule3Transform.rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
-		capsule3Transform.scale = glm::vec3(1.0f);
-		EntityFactory::createCapsuleEntity(ecs, Scene1, "Capsule3", "CapsuleModel", capsule3Transform);
-		*/
-
-		
-		///////////////////////////
-		// Sensors
-
-		//Sensor1
-		/*Transform boxSensorTransform;
-		boxSensorTransform.position = glm::vec3(1.0f, 3.0f, 0.0f);
-		JPH::Vec3 boxSensorSize = JPH::Vec3(15.0f, 15.0f, 15.0f);
-		EntityFactory::createBoxSensorEntity(ecs, Scene1,"Sensor1", boxSensorTransform, boxSensorSize,sensor1Behavior);*/
-
-
-		/////////////////////////
-		
-		// Create game HUD
-		//FPS counter should not be part of game hud
-		//TODO make a part of the renderer
-		//EntityFactory::createHUDElementEntity(ecs,"fps", FPSDraw);
-
-		
-
-		/*Transform sponzaTransform;
-		sponzaTransform.scale.x = 0.1;
-		sponzaTransform.scale.y = 0.1;
-		sponzaTransform.scale.z = 0.1;
-		EntityFactory::createRenderableEntity(ecs,"Sponza", sponzaSource, sponzaTransform);*/
-
-
-		return true;
-
-
-		
-	}
-
 
 
 	void LVL1Script(PhysicsSystem& physicsSystem, JPH::Vec3Arg playerPos) {

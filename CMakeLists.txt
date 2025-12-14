@@ -28,9 +28,19 @@ if (POLICY CMP0141)
   set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<IF:$<AND:$<C_COMPILER_ID:MSVC>,$<CXX_COMPILER_ID:MSVC>>,$<$<CONFIG:Debug,RelWithDebInfo>:EditAndContinue>,$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>>")
 endif()
 
+#=============================================
+#Executable
+#=============================================
 
-# Add source to this project's executable.
-add_executable (Synthwave "Synthwave.cpp" "Synthwave.h" )
+
+add_executable (Synthwave "Synthwave.cpp")
+
+# non library modules don't work with intelliSense just yet so I'm not using them YET!
+#target_sources(Synthwave
+#        PUBLIC  
+#       FILE_SET CXX_MODULES FILES
+#        core/src/renderer/Shader.ixx
+#)
 
 #=============================================
 #Slang
@@ -44,10 +54,11 @@ FetchContent_Declare(Slang
     OVERRIDE_FIND_PACKAGE
     EXCLUDE_FROM_ALL
     SYSTEM
+
 )
 
 set(SLANG_EMBED_CORE_MODULE ON)
-set(SLANG_EMBED_CORE_MODULE_SOURCE OFF)
+set(SLANG_EMBED_CORE_MODULE_SOURCE ON)
 set(SLANG_ENABLE_DXIL OFF)
 set(SLANG_ENABLE_ASAN OFF)
 set(SLANG_ENABLE_FULL_IR_VALIDATION OFF)
@@ -78,7 +89,8 @@ set(SLANG_USE_SYSTEM_VULKAN_HEADERS ON)
 set(SLANG_USE_SYSTEM_SPIRV_HEADERS OFF)
 set(SLANG_USE_SYSTEM_UNORDERED_DENSE OFF)
 
-FetchContent_MakeAvailable(Slang)
+
+find_package(Slang REQUIRED)
 
 #=============================================
 #SDL
@@ -295,7 +307,7 @@ include(FetchContent)
 FetchContent_Declare(
     imgui
     GIT_REPOSITORY https://github.com/ocornut/imgui.git
-    GIT_TAG v1.92.4
+    GIT_TAG v1.92.5-docking
 )
 FetchContent_MakeAvailable(imgui)
 

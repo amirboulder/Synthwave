@@ -4,7 +4,7 @@ int main(int argc, char* argv[])
 {
 	bool running = true;
 
-	flecs::world ecs;
+	flecs::world ecs; 
 
 	Renderer renderer(ecs);
 
@@ -16,7 +16,7 @@ int main(int argc, char* argv[])
 
 	TimeManager time(fisiks.timeStep);
 
-	Scene scene(ecs, fisiks, renderer);
+	Scene scene(ecs);
 
 	Serializer serde(ecs);
 

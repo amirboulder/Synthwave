@@ -2,6 +2,8 @@
 
 #include "core/src/pch.h"
 
+#include "../EntityFactory.hpp"
+
 #include "MenuFunctions.hpp"
 
 class MenuSystem {
