@@ -32,8 +32,19 @@ enum class PipelineType {
 	Vertex,
 	PhysicsDebug,
 	LineVertex,
-
+	stencilMask,
+	stencilOutline,
 };
+
+struct VertexBuffer {
+	SDL_GPUBuffer* handle = nullptr;
+	bool owns = false;
+};
+
+struct LineVertices {
+	std::vector<LineVertex> data;
+};
+
 
 struct LinearVelocity {
 	glm::vec3 position = glm::vec3(1);
@@ -146,7 +157,8 @@ struct ActiveCamera {};
 
 struct MenuComponent {};
 struct HudComponent {};
-struct EditorComponent {};
+struct EditorUIComponent {};
+struct EditorVisuals {};
 struct OverlayComponent {};
 struct Active{};
 

@@ -3,12 +3,12 @@
 #include "core/src/pch.h"
 
 #include "../ecs/components.hpp"
+#include "../ecs/eventComponents.hpp"
 
 #include "../common.hpp"
 
-#include "../state/stateManager.hpp"
-
-
+//TODO decouple from everything and rename to inputSystem
+//Proceses input and emits events
 class InputManager {
 
 	flecs::world& ecs;
@@ -24,18 +24,37 @@ public:
 
 	uint16_t closeWindow = SDL_SCANCODE_END;
 
-	StateManager& stateManager;
 
-	InputManager(flecs::world& ecs, StateManager& stateManager)
-		: ecs(ecs), stateManager(stateManager)
+	InputManager(flecs::world& ecs)
+		: ecs(ecs)
 	{
 
 		ecs.component<PlayerInput2>().add(flecs::Singleton);
 		ecs.set<PlayerInput2>({});
 
 		ecs.component<Direction>().add(flecs::Singleton);
-		ecs.set<Direction>({ Direction::forward});
+		ecs.set<Direction>({ Direction::forward });
 
+		ecs.component<MouseClickEvent>().add(flecs::Singleton);
+		//ecs.set<MouseClickEvent>({});
+
+		ecs.component<ExitEvent>().add(flecs::Singleton);
+		ecs.set<ExitEvent>({});
+
+		ecs.component<GamePauseEvent>().add(flecs::Singleton);
+		ecs.set<GamePauseEvent>({});
+
+		ecs.component<EditorToggleEvent>().add(flecs::Singleton);
+		ecs.set<EditorToggleEvent>({});
+
+		ecs.component<CameraSwitchEvent>().add(flecs::Singleton);
+		ecs.set<CameraSwitchEvent>({});
+
+		ecs.component<PhysicsRenderToggleEvent>().add(flecs::Singleton);
+		ecs.set<PhysicsRenderToggleEvent>({});
+		
+		ecs.component<SaveGameSrcEvent>().add(flecs::Singleton);
+		ecs.set<SaveGameSrcEvent>({});
 
 		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, GOOD "InputManager Initialized" RESET);
 	}
@@ -88,7 +107,7 @@ public:
 		}
 
 		const bool* keystates = SDL_GetKeyboardState(NULL);
-
+		 
 		// Handle WASD movement
 		if (keystates[SDL_SCANCODE_W]) {
 			camera.position += camera.front  * camera.movementSpeed;
@@ -125,13 +144,23 @@ public:
 
 
 		if (event.type == SDL_EVENT_QUIT) {
-			stateManager.exitCallback();
+			//stateManager.exitCallback();
+			
+			ecs.set<ExitEvent>({ true });
+
 		}
 
 		if (event.type == SDL_EVENT_KEY_DOWN && event.key.repeat == 0 && event.key.scancode == SDL_SCANCODE_ESCAPE) {
 
-			stateManager.gamePauseHandler();
 
+			ecs.set<GamePauseEvent>({true});
+
+		}
+
+		
+		if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN && event.button.button == SDL_BUTTON_LEFT) {
+
+			ecs.set<MouseClickEvent>({ event.button.x,event.button.y });
 		}
 
 		handleEditorEvents(event);
@@ -156,12 +185,12 @@ public:
 		const RenderContext& renderContext = ecs.get<RenderContext>();
 
 		if (event.type == SDL_EVENT_KEY_DOWN && event.key.repeat == 0 && event.key.scancode == closeWindow) {
-			stateManager.exitCallback();
+			ecs.set<ExitEvent>({true});
 		}
 
 		if (event.type == SDL_EVENT_KEY_DOWN && event.key.repeat == 0 && event.key.scancode == SDL_SCANCODE_F1) {
 
-			stateManager.toggleEditor();
+			ecs.set<EditorToggleEvent>({ true });
 		}
 
 		if (event.type == SDL_EVENT_WINDOW_FOCUS_LOST) {
@@ -174,26 +203,26 @@ public:
 		// Switch between playerCam and freeCam
 		if (event.type == SDL_EVENT_KEY_DOWN && event.key.repeat == 0 && event.key.scancode == SDL_SCANCODE_F2) {
 
-			stateManager.cameraSwitchHandler();
+			ecs.set<CameraSwitchEvent>({ true });
 
 		}
 
 		//TODO change these to buttons in the editor
 		if (event.type == SDL_EVENT_KEY_DOWN && event.key.repeat == 0 && event.key.scancode == SDL_SCANCODE_F3) {
 
-			stateManager.printSystems();
+			//stateManager.printSystems();
 
 		}
 
 		if (event.type == SDL_EVENT_KEY_DOWN && event.key.repeat == 0 && event.key.scancode == SDL_SCANCODE_F4) {
 
-			stateManager.printPhases();
+			//stateManager.printPhases();
 		}
 
 		// disable physics Renderer Phase
 		if (event.type == SDL_EVENT_KEY_DOWN && event.key.repeat == 0 && event.key.scancode == SDL_SCANCODE_F6) {
 
-			stateManager.togglePhysicsRenderer();
+			ecs.set<PhysicsRenderToggleEvent>({ true });
 		}
 
 		EditorState state = ecs.get<EditorState>();
@@ -203,8 +232,7 @@ public:
 
 			if (event.type == SDL_EVENT_KEY_DOWN && event.key.repeat == 0 && event.key.scancode == SDL_SCANCODE_F5) {
 
-				stateManager.saveGameData();
-
+				ecs.set<SaveGameSrcEvent>({ true });
 			}
 
 			//FreeCam is created with the editor so we assume it exists (not checking for null)
@@ -322,26 +350,6 @@ public:
 
 		const bool* keystates = SDL_GetKeyboardState(NULL);
 
-		/*
-		JPH::Vec3 & input =  ecs.get_mut<PlayerInput2>().direction;
-		// Handle WASD movement
-		if (keystates[SDL_SCANCODE_UP]) {
-			input += JPH::Vec3(1,0,0);
-		}
-		if (keystates[SDL_SCANCODE_DOWN]) {
-			input -= JPH::Vec3(1, 0, 0);
-		}
-		if (keystates[SDL_SCANCODE_LEFT]) {
-			input += JPH::Vec3(0, 0, 1);
-		}
-		if (keystates[SDL_SCANCODE_RIGHT]) {
-			input -= JPH::Vec3(0, 0, 1);;
-		}
-		// Normalize direction to prevent faster diagonal movement
-		input = input.Normalized();
-
-		*/
-
 		Direction& dir = ecs.get_mut<Direction>();
 
 		if (keystates[SDL_SCANCODE_UP]) {
@@ -350,11 +358,6 @@ public:
 		if (keystates[SDL_SCANCODE_DOWN]) {
 			dir = Direction::backward;
 		}
-
-		
-		
-
-
 	}
 
 

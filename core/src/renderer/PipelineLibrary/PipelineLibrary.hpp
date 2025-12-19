@@ -45,6 +45,15 @@ public:
 			"shaders/compiled/lineShader.vert.spv", "shaders/compiled/lineShader.frag.spv",
 			glm::ivec4(0, 1, 0, 0), glm::ivec4(0, 0, 0, 0), renderContext, PipelineType::LineVertex);
 
+		////StencilMask
+		//createPipelineEnt("pipelineLine", "shaders/slang/lineShader.slang",
+		//	"shaders/compiled/lineShader.vert.spv", "shaders/compiled/lineShader.frag.spv",
+		//	glm::ivec4(0, 1, 0, 0), glm::ivec4(0, 0, 0, 0), renderContext, PipelineType::stencilMask);
+		////StencilOutline
+		//createPipelineEnt("pipelineLine", "shaders/slang/lineShader.slang",
+		//	"shaders/compiled/lineShader.vert.spv", "shaders/compiled/lineShader.frag.spv",
+		//	glm::ivec4(0, 1, 0, 0), glm::ivec4(0, 0, 0, 0), renderContext, PipelineType::stencilOutline);
+
 		//TODO move this
 		ecs.entity("RenderState")
 			.set<RenderState>({ ecs.lookup("pipelineUnlit") });
@@ -98,6 +107,16 @@ public:
 		case PipelineType::PhysicsDebug:
 
 			if (!pipelneRef.createPhysicsDebugPipeline(ecs, shaderName.c_str())) return false;
+
+			break;
+		case PipelineType::stencilMask:
+
+			if (!pipelneRef.createStencilMaskPipeline(ecs, shaderName.c_str())) return false;
+
+			break;
+		case PipelineType::stencilOutline:
+
+			if (!pipelneRef.createStencilOutlinePipeline(ecs, shaderName.c_str())) return false;
 
 			break;
 

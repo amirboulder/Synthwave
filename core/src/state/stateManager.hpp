@@ -3,7 +3,6 @@
 #include "core/src/pch.h"
 
 #include "../renderer/renderer.hpp"
-
 #include"../renderer/RendererConfig.hpp"
 
 #include "../time/timeManager.hpp"
@@ -15,6 +14,7 @@
 #include "../Serialization/serialization.hpp"
 
 #include "../common.hpp"
+#include "../ecs/eventComponents.hpp"
 
 
 class StateManager {
@@ -109,8 +109,17 @@ public:
 		playStateOnSetHook();
 		menuStateOnSetHook();
 		cameraStateOnSetHook();
+
 		InputStateOnSetHook();
 		EditorStateOnSetHook();
+
+		mouseClickEventHook();
+		exitEventHook();
+		gamePauseEventHook();
+		editorToggleHook();
+		cameraSwitchEventHook();
+		physicsRenderToggleEventHook();
+		saveGameSrcEventHook();
 
 	}
 
@@ -273,48 +282,6 @@ public:
 	}
 
 
-	bool save() {
-
-
-		handleSavingRenderConfig();
-
-		//std::string path = "data/save1.json";
-
-		//json j;
-
-		//ecs.lookup("player").get<Player>().save(j);
-		//playerCam.get<Camera>().saveTransform(j);
-
-		//std::ofstream file(path);
-		//if (!file.is_open()) {
-		//	throw std::runtime_error("Failed to open file for writing: " + path);
-		//}
-		//file << j.dump(4); // pretty-print
-
-		//(SDL_LOG_CATEGORY_APPLICATION, "game saved successfully");
-		return true;
-	}
-
-	bool load() {
-
-		/*
-		std::string path = "data/save1.json";
-		std::ifstream file(path);
-		if (!file.is_open()) {
-			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to open save file");
-			return false;
-		}
-		json j;
-		file >> j;
-		ecs.lookup("player").get_mut<Player>().load(j);
-		playerCam.get_mut<Camera>().loadTransform(j);
-		*/
-
-
-		//SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "game loaded successfully");
-		return true;
-	}
-
 	//Switch between play and pause
 	void gamePauseHandler() {
 
@@ -376,7 +343,6 @@ public:
 		}
 		else if (state == EditorState::Disabled) {
 
-
 			//this is here to prevent opening the editor when in pause Menu
 			PlayState playState = ecs.get<PlayState>();
 			if (playState == PlayState::PAUSE) {
@@ -385,9 +351,6 @@ public:
 
 			ecs.set<EditorState>({ EditorState::Enabled });
 			ecs.set<PlayState>({ PlayState::PAUSE });
-			
-
-			
 
 		}
 	}
@@ -602,6 +565,89 @@ public:
 
 		});
 	}
+
+
+	void mouseClickEventHook() {
+
+		ecs.component<MouseClickEvent>()
+			.on_set([&](MouseClickEvent& event) {
+
+			//cout << event.x << "  " << event.y << std::endl;
+		});
+	}
+
+	void exitEventHook() {
+
+		ecs.component<ExitEvent>()
+			.on_set([&](ExitEvent& event) {
+
+			if (event.occurred == true) {
+				//we could just set running to false here but calling exitCallback for consistency.
+				exitCallback();
+			}
+		});
+	}
+
+	void gamePauseEventHook() {
+
+		ecs.component<GamePauseEvent>()
+			.on_set([&](GamePauseEvent& event) {
+
+			if (event.occurred == true) {
+
+				gamePauseHandler();
+			}
+		});
+	}
+
+	void editorToggleHook() {
+
+		ecs.component<EditorToggleEvent>()
+			.on_set([&](EditorToggleEvent& event) {
+
+			if (event.occurred == true) {
+				
+				toggleEditor();
+			}
+		});
+	}
+
+	void cameraSwitchEventHook() {
+
+		ecs.component<CameraSwitchEvent>()
+			.on_set([&](CameraSwitchEvent& event) {
+
+			if (event.occurred == true) {
+				
+				cameraSwitchHandler();
+			}
+		});
+	}
+
+	void physicsRenderToggleEventHook() {
+
+		ecs.component<PhysicsRenderToggleEvent>()
+			.on_set([&](PhysicsRenderToggleEvent& event) {
+
+			if (event.occurred == true) {
+
+				togglePhysicsRenderer();
+			}
+		});
+	}
+
+
+	void saveGameSrcEventHook() {
+
+		ecs.component<SaveGameSrcEvent>()
+			.on_set([&](SaveGameSrcEvent& event) {
+
+			if (event.occurred == true) {
+
+				saveGameSRCData();
+			}
+		});
+	}
 	
 	//TODO Maybe fix the redundant calls at some point
 	void MenuObserver() {
@@ -699,7 +745,7 @@ public:
 		RendererConfig::saveRendererConfigINIFile(ecs,"config/renderConfig.ini");
 	}
 
-	void saveGameData() {
+	void saveGameSRCData() {
 
 		namespace fs = std::filesystem;
 
@@ -805,7 +851,7 @@ public:
 
 		//This save just saves the render config 
 		//TODO move that somewhere else
-		save();
+		handleSavingRenderConfig();
 		
 		serde.saveGameToJson(filePath);
 	}

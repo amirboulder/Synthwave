@@ -45,6 +45,7 @@ struct Renderer {
 	flecs::query<Transform, ModelInstance >renderQuery;
 
 	flecs::system drawPhysicsBodiesSys;
+	flecs::system drawEditorVisualsSys;
 
 	UserInterface ui;
 	PipelineLibrary pipelineLib;
@@ -345,6 +346,29 @@ struct Renderer {
 
 		createPhysicsBatchesSystem();
 		renderPhysicsSystem();
+		drawEditorVisualsSystem();
+	}
+
+	void drawAll() {
+
+		const FrameContext& frameContext = ecs.get<FrameContext>();
+		const RendererConfig& config = ecs.get<RendererConfig>();
+
+		beginRenderPass();
+
+		drawModels();
+
+#if defined(JPH_DEBUG_RENDERER)
+		drawPhysicsBodiesSys.run();
+#endif
+
+		drawEditorVisualsSys.run();
+
+		endRenderPass();
+
+		ui.drawUI();
+
+		SDL_SubmitGPUCommandBuffer(frameContext.commandBuffer);
 	}
 
 
@@ -558,6 +582,28 @@ struct Renderer {
 #endif
 
 	}
+
+
+	void drawEditorVisualsSystem() {
+
+		drawEditorVisualsSys = ecs.system<EditorVisuals>("EditorVisualsRenderSys")
+			.kind(0)
+			.each([&](flecs::entity e,EditorVisuals visualElement) {
+			
+			flecs::entity pipelineEnt = e.target<RenderPipeline>();
+			const Pipeline pipeline = pipelineEnt.get<Pipeline>();
+
+			SDL_BindGPUGraphicsPipeline(mainRenderPass, pipeline.pipeline);
+
+			SDL_GPUBufferBinding vertexBufferBinding = {};
+			vertexBufferBinding.buffer = e.get<VertexBuffer>().handle;
+			vertexBufferBinding.offset = 0;
+			SDL_BindGPUVertexBuffers(mainRenderPass, 0, &vertexBufferBinding, 1);
+
+			SDL_DrawGPUPrimitives(mainRenderPass, e.get<LineVertices>().data.size(), 1, 0, 0);
+		});
+	}
+
 	
 	void endRenderPass() {
 
@@ -588,24 +634,6 @@ struct Renderer {
 
 	}
 
-	void drawAll() {
-
-		const FrameContext& frameContext = ecs.get<FrameContext>();
-		const RendererConfig& config = ecs.get<RendererConfig>();
-
-		beginRenderPass();
-
-		drawModels();
-
-#if defined(JPH_DEBUG_RENDERER)
-		drawPhysicsBodiesSys.run();
-#endif
-
-		endRenderPass();
-
-		ui.drawUI();
-
-		SDL_SubmitGPUCommandBuffer(frameContext.commandBuffer);
-	}
+	
 
 };

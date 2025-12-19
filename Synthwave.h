@@ -18,4 +18,5 @@
 
 #include "Editor/src/editor.hpp"
 
+#include "core/src/state/stateManager.hpp"
 

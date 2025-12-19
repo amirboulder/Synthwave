@@ -257,6 +257,9 @@ public:
 
 		//mCharacter->ExtendedUpdate(physicsTickRate, gravity, broadphase_layer_filter, object_layer_filter, body_filter, shapeFilter, *fisiks.temp_allocator);
 
+		position = mCharacter->GetPosition();
+		rotation = mCharacter->GetRotation();
+
 	}
 
 	void SetMoveInput(Vec3 input) {

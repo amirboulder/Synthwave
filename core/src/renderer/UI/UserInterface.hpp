@@ -12,7 +12,7 @@ public:
 
     flecs::system HudRenderSys;
     flecs::system MenuRenderSys;
-    flecs::system EditorRenderSys;
+    flecs::system EditorUIRenderSys;
     flecs::system OverlayRenderSys;
 
     UserInterface(flecs::world& ecs)
@@ -96,9 +96,9 @@ public:
         });
 
 
-        EditorRenderSys = ecs.system<Render, EditorComponent>("EditorRenderSys")
+        EditorUIRenderSys = ecs.system<Render, EditorUIComponent>("EditorUIRenderSys")
             .kind(0)
-            .each([&](flecs::entity e, Render renderCallback, EditorComponent) {
+            .each([&](flecs::entity e, Render renderCallback, EditorUIComponent) {
 
             renderCallback.draw(ecs);
 
@@ -115,6 +115,7 @@ public:
     }
 
 
+
     void drawUI() {
 
         FrameContext& frameContext = ecs.get_mut<FrameContext>();
@@ -124,12 +125,12 @@ public:
         ImGui_ImplSDL3_NewFrame();
         ImGui::NewFrame();
 
-        // Create a dockspace over the main viewport
+        // Create a dock space over the main viewport
         ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
 
         HudRenderSys.run();
         MenuRenderSys.run();
-        EditorRenderSys.run();
+        EditorUIRenderSys.run();
         OverlayRenderSys.run();
 
 

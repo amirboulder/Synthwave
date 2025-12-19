@@ -280,8 +280,6 @@ FetchContent_MakeAvailable(flecs)
 #rapidjson JSON
 #=============================================
 
-
-
 FetchContent_Declare(
     rapidjson
     GIT_REPOSITORY https://github.com/Tencent/rapidjson.git

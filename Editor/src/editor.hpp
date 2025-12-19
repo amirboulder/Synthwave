@@ -16,6 +16,7 @@ class Editor {
 	flecs::query<> activeGameQuery;
 
 	flecs::entity freeCam;
+	flecs::entity selectedEntity;
 
 public:
 
@@ -40,6 +41,8 @@ public:
 		registerEditorItems();
 
 		registerQuery();
+
+		registerVisualizations();
 
 		editorToggle.disable();
 
@@ -71,6 +74,7 @@ public:
 
 		editorToggle.disable();
 
+		freeCam.get_mut<CameraMVMTState>().locked = false;
 	}
 
 	void enable() {
@@ -119,13 +123,52 @@ public:
 			.child_of(sampleScene2);
 	}
 
-
+	//Static function so we lookup FreeCam
 	static void setEditorCamPos(flecs::world& ecs,glm::vec3 newPos) {
 
 		flecs::entity freeCamEnt =  ecs.lookup("FreeCam");
 		freeCamEnt.get_mut<Camera>().position = newPos;
 
 	}
+
+	// All the Gizmos, highlights, Helper geometry , etc 
+	void registerVisualizations() const {
+
+		Transform xyzAxisTransform;
+		xyzAxisTransform.position = glm::vec3(0.0f, 0.0f, 0.0f);
+		xyzAxisTransform.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+
+		vector<LineVertex> xyzLines;
+
+		xyzLines.reserve(6);
+
+		//X is red
+		xyzLines.emplace_back(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec4(1.0f, 0.0f, 0.0f, 1.0f));
+		xyzLines.emplace_back(glm::vec3(100.0f, 0.0f, 0.0f), glm::vec4(1.0f, 0.0f, 0.0f, 1.0f));
+
+		//Y is green
+		xyzLines.emplace_back(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec4(0.0f, 1.0f, 0.0f, 1.0f));
+		xyzLines.emplace_back(glm::vec3(0.0f, 100.0f, 0.0f), glm::vec4(0.0f, 1.0f, 0.0f, 1.0f));
+
+		//Z is blue
+		xyzLines.emplace_back(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec4(0.0f, 0.0f, 1.0f, 1.0f));
+		xyzLines.emplace_back(glm::vec3(0.0f, 0.0f, 100.0f), glm::vec4(0.0f, 0.0f, 1.0f, 1.0f));
+
+		flecs::entity xyzAxis = ecs.entity("XYZAxis")
+			.add<EditorVisuals>()
+			.set<LineVertices>({xyzLines})
+			.add<RenderPipeline>(ecs.lookup("pipelineLine"))
+			.set<VertexBuffer>({})
+			.set<Transform>(xyzAxisTransform);
+
+		const RenderContext& renderContext = ecs.get<RenderContext>();
+
+		RenderUtil::uploadBufferData(renderContext.device, xyzAxis.get_mut<VertexBuffer>().handle, xyzLines.data(),
+			xyzLines.size() * sizeof(LineVertex), SDL_GPU_BUFFERUSAGE_VERTEX);
+
+	}
+
+
 
 };
 

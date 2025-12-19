@@ -24,7 +24,7 @@ int main(int argc, char* argv[])
 
 	StateManager stateManager(ecs, renderer, fisiks, serde, menuSys, editor, time, scene, running);
 
-	InputManager inputManager(ecs, stateManager);
+	InputManager inputManager(ecs);
 
 	stateManager.init();
 

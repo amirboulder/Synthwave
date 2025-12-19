@@ -302,6 +302,230 @@ public:
 
 		SDL_Log("Successfully created pipeline");
 	}
+
+	bool createStencilMaskPipeline(flecs::world& ecs, const char* name)
+	{
+		// Check shaders
+		if (!vertexShader) {
+			SDL_LogError(SDL_LOG_CATEGORY_RENDER, "Vertex Shader is NULL unable to create stencil pipeline");
+			return false;
+		}
+		if (!fragmentShader) {
+			SDL_LogError(SDL_LOG_CATEGORY_RENDER, "Fragment Shader is NULL unable to create stencil pipeline");
+			return false;
+		}
+
+		const RenderContext& renderContext = ecs.get<RenderContext>();
+		const RendererConfig& renderConfig = ecs.get<RendererConfig>();
+
+		SDL_GPUVertexAttribute vertexAttributes[4] = {};
+		vertexAttributes[0].location = 0;
+		vertexAttributes[0].buffer_slot = 0;
+		vertexAttributes[0].format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3;
+		vertexAttributes[0].offset = 0;
+
+		vertexAttributes[1].location = 1;
+		vertexAttributes[1].buffer_slot = 0;
+		vertexAttributes[1].format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3;
+		vertexAttributes[1].offset = sizeof(glm::vec3);
+
+		vertexAttributes[2].location = 2;
+		vertexAttributes[2].buffer_slot = 0;
+		vertexAttributes[2].format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2;
+		vertexAttributes[2].offset = sizeof(glm::vec3) + sizeof(glm::vec3);
+
+		vertexAttributes[3].location = 3;
+		vertexAttributes[3].buffer_slot = 0;
+		vertexAttributes[3].format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT4;
+		vertexAttributes[3].offset = sizeof(glm::vec3) + sizeof(glm::vec3) + sizeof(glm::vec2);
+
+		SDL_GPUVertexBufferDescription vertexBufferDescription = {};
+		vertexBufferDescription.slot = 0;
+		vertexBufferDescription.pitch = sizeof(Vertex);
+		vertexBufferDescription.input_rate = SDL_GPU_VERTEXINPUTRATE_VERTEX;
+
+		SDL_GPUVertexInputState vertexInputState = {};
+		vertexInputState.vertex_buffer_descriptions = &vertexBufferDescription;
+		vertexInputState.num_vertex_buffers = 1;
+		vertexInputState.vertex_attributes = vertexAttributes;
+		vertexInputState.num_vertex_attributes = 4;
+
+		// Color target
+		SDL_GPUColorTargetDescription coldescs = {};
+		coldescs.format = SDL_GetGPUSwapchainTextureFormat(renderContext.device, renderContext.window);
+
+		// Pipeline info
+		SDL_GPUGraphicsPipelineCreateInfo pipeInfo = {};
+		SDL_zero(pipeInfo);
+		pipeInfo.vertex_shader = vertexShader;
+		pipeInfo.fragment_shader = fragmentShader;
+		pipeInfo.primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST;
+		pipeInfo.target_info.color_target_descriptions = &coldescs;
+		pipeInfo.target_info.num_color_targets = 1;
+
+		// IMPORTANT: Use depth-stencil format that includes stencil
+		pipeInfo.target_info.depth_stencil_format = SDL_GPU_TEXTUREFORMAT_D24_UNORM_S8_UINT;
+		pipeInfo.target_info.has_depth_stencil_target = true;
+
+		// STENCIL CONFIGURATION FOR MASKING
+		pipeInfo.depth_stencil_state = {
+			.compare_op = SDL_GPU_COMPAREOP_LESS,          
+			.back_stencil_state = {
+				.fail_op = SDL_GPU_STENCILOP_KEEP,
+				.pass_op = SDL_GPU_STENCILOP_REPLACE,
+				.depth_fail_op = SDL_GPU_STENCILOP_KEEP,
+				.compare_op = SDL_GPU_COMPAREOP_ALWAYS,
+
+			},
+			.front_stencil_state = {
+				.fail_op = SDL_GPU_STENCILOP_KEEP,          // Keep on stencil fail
+				.pass_op = SDL_GPU_STENCILOP_REPLACE,       // Write reference value on pass
+				.depth_fail_op = SDL_GPU_STENCILOP_KEEP,   // Keep on depth fail
+				.compare_op = SDL_GPU_COMPAREOP_ALWAYS,     // Always pass stencil test
+
+			},
+			.compare_mask = 0xFF,                           // Compare all bits
+			.write_mask = 0xFF,								// Write all bits
+			.enable_depth_test = true,
+			.enable_depth_write = true,
+			.enable_stencil_test = true,                    // Enable stencil
+
+		};
+
+		// MSAA
+		pipeInfo.multisample_state = {
+			.sample_count = renderConfig.sampleCountMSAA,
+			.sample_mask = 0xFFFFFFFF
+		};
+
+		pipeInfo.vertex_input_state = vertexInputState;
+		pipeInfo.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_FILL;
+		pipeInfo.rasterizer_state.cull_mode = SDL_GPU_CULLMODE_BACK;
+		pipeInfo.rasterizer_state.front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE;
+		pipeInfo.props = 0;
+
+		pipeline = SDL_CreateGPUGraphicsPipeline(renderContext.device, &pipeInfo);
+		if (!pipeline) {
+			SDL_LogError(SDL_LOG_CATEGORY_RENDER, "Failed to create stencil mask pipeline: %s", SDL_GetError());
+			return false;
+		}
+
+		SDL_LogInfo(SDL_LOG_CATEGORY_RENDER, "Built stencil mask pipeline: %s", name);
+		return true;
+	}
+
+	bool createStencilOutlinePipeline(flecs::world& ecs, const char* name)
+	{
+		// Check shaders
+		if (!vertexShader) {
+			SDL_LogError(SDL_LOG_CATEGORY_RENDER, "Vertex Shader is NULL unable to create outline pipeline");
+			return false;
+		}
+		if (!fragmentShader) {
+			SDL_LogError(SDL_LOG_CATEGORY_RENDER, "Fragment Shader is NULL unable to create outline pipeline");
+			return false;
+		}
+
+		const RenderContext& renderContext = ecs.get<RenderContext>();
+		const RendererConfig& renderConfig = ecs.get<RendererConfig>();
+
+		// Vertex input state (same as before)
+		SDL_GPUVertexAttribute vertexAttributes[4] = {};
+		vertexAttributes[0].location = 0;
+		vertexAttributes[0].buffer_slot = 0;
+		vertexAttributes[0].format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3;
+		vertexAttributes[0].offset = 0;
+
+		vertexAttributes[1].location = 1;
+		vertexAttributes[1].buffer_slot = 0;
+		vertexAttributes[1].format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3;
+		vertexAttributes[1].offset = sizeof(glm::vec3);
+
+		vertexAttributes[2].location = 2;
+		vertexAttributes[2].buffer_slot = 0;
+		vertexAttributes[2].format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2;
+		vertexAttributes[2].offset = sizeof(glm::vec3) + sizeof(glm::vec3);
+
+		vertexAttributes[3].location = 3;
+		vertexAttributes[3].buffer_slot = 0;
+		vertexAttributes[3].format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT4;
+		vertexAttributes[3].offset = sizeof(glm::vec3) + sizeof(glm::vec3) + sizeof(glm::vec2);
+
+		SDL_GPUVertexBufferDescription vertexBufferDescription = {};
+		vertexBufferDescription.slot = 0;
+		vertexBufferDescription.pitch = sizeof(Vertex);
+		vertexBufferDescription.input_rate = SDL_GPU_VERTEXINPUTRATE_VERTEX;
+
+		SDL_GPUVertexInputState vertexInputState = {};
+		vertexInputState.vertex_buffer_descriptions = &vertexBufferDescription;
+		vertexInputState.num_vertex_buffers = 1;
+		vertexInputState.vertex_attributes = vertexAttributes;
+		vertexInputState.num_vertex_attributes = 4;
+
+		// Color target
+		SDL_GPUColorTargetDescription coldescs = {};
+		coldescs.format = SDL_GetGPUSwapchainTextureFormat(renderContext.device, renderContext.window);
+
+		// Pipeline info
+		SDL_GPUGraphicsPipelineCreateInfo pipeInfo = {};
+		SDL_zero(pipeInfo);
+		pipeInfo.vertex_shader = vertexShader;
+		pipeInfo.fragment_shader = fragmentShader;
+		pipeInfo.primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST;
+		pipeInfo.target_info.color_target_descriptions = &coldescs;
+		pipeInfo.target_info.num_color_targets = 1;
+
+		// Same depth-stencil format
+		pipeInfo.target_info.depth_stencil_format = SDL_GPU_TEXTUREFORMAT_D24_UNORM_S8_UINT;
+		pipeInfo.target_info.has_depth_stencil_target = true;
+
+		// STENCIL CONFIGURATION FOR OUTLINE
+		pipeInfo.depth_stencil_state = {
+			.compare_op = SDL_GPU_COMPAREOP_ALWAYS, // Don't use depth test for outline
+			// Only draw where stencil DOESN'T match (creates outline)
+			.back_stencil_state = {
+				.fail_op = SDL_GPU_STENCILOP_KEEP,
+				.pass_op = SDL_GPU_STENCILOP_KEEP,
+				.depth_fail_op = SDL_GPU_STENCILOP_KEEP,
+				.compare_op = SDL_GPU_COMPAREOP_NOT_EQUAL,
+
+			},
+
+			.front_stencil_state = {
+				.fail_op = SDL_GPU_STENCILOP_KEEP,          // Don't modify stencil
+				.pass_op = SDL_GPU_STENCILOP_KEEP,          // Don't modify stencil
+				.depth_fail_op = SDL_GPU_STENCILOP_KEEP,
+				.compare_op = SDL_GPU_COMPAREOP_NOT_EQUAL,  // Draw where stencil != reference
+				
+			},
+			.compare_mask = 0xFF,                           // Compare all bits
+			.write_mask = 0x00,                              // DON'T write to stencil
+			.enable_depth_test = false,                     // Disable depth test
+			.enable_depth_write = false,                    // Don't write depth
+			.enable_stencil_test = true,                    // Enable stencil
+		};
+
+		// MSAA
+		pipeInfo.multisample_state = {
+			.sample_count = renderConfig.sampleCountMSAA,
+			.sample_mask = 0xFFFFFFFF
+		};
+
+		pipeInfo.vertex_input_state = vertexInputState;
+		pipeInfo.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_FILL;
+		pipeInfo.rasterizer_state.cull_mode = SDL_GPU_CULLMODE_FRONT;  // Flip culling for outline
+		pipeInfo.rasterizer_state.front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE;
+		pipeInfo.props = 0;
+
+		pipeline = SDL_CreateGPUGraphicsPipeline(renderContext.device, &pipeInfo);
+		if (!pipeline) {
+			SDL_LogError(SDL_LOG_CATEGORY_RENDER, "Failed to create stencil outline pipeline: %s", SDL_GetError());
+			return false;
+		}
+
+		SDL_LogInfo(SDL_LOG_CATEGORY_RENDER, "Built stencil outline pipeline: %s", name);
+		return true;
+	}
 };
 
 
