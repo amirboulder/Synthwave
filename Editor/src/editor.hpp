@@ -16,7 +16,6 @@ class Editor {
 	flecs::query<> activeGameQuery;
 
 	flecs::entity freeCam;
-	flecs::entity selectedEntity;
 
 public:
 
@@ -31,6 +30,9 @@ public:
 		freeCam = ecs.entity("FreeCam")
 			.emplace<Camera>(config)
 			.set<CameraMVMTState>({false});
+
+		ecs.component<HighlightedEntRef>().add(flecs::Singleton);
+		ecs.set<HighlightedEntRef>({ flecs::entity::null() });
 	}
 
 	//This is called by StateManager
@@ -168,7 +170,10 @@ public:
 
 	}
 
+	void entitySelected(flecs::entity ent) {
 
+		ecs.set<HighlightedEntRef>({ ent });
+	}
 
 };
 

@@ -566,15 +566,21 @@ public:
 		});
 	}
 
-
+	//If mouse click event returns a validEnt then an entitySelected event is triggered
 	void mouseClickEventHook() {
 
 		ecs.component<MouseClickEvent>()
 			.on_set([&](MouseClickEvent& event) {
 
-			//cout << event.x << "  " << event.y << std::endl;
-		});
+			uint32_t entID = renderer.readFromTexture(event.x, event.y);
+			flecs::entity ent = ecs.entity(entID);
+			
+			editor.entitySelected(ent);
+			
+
+			});
 	}
+
 
 	void exitEventHook() {
 

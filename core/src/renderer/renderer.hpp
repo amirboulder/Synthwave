@@ -31,27 +31,32 @@ struct Renderer {
 	SDL_GPUSampler* defaultSampler = NULL;
 	SDL_GPUTextureSamplerBinding defaultSamplerBinding;
 
-	SDL_GPUTexture* depthTexture = NULL;
+	SDL_GPUTexture* depthStencilTexture = NULL;
+	
 
 	SDL_GPUTexture* msaaColorTarget;
 	SDL_GPUTexture* resolveTarget;
+
+	SDL_GPUTexture* entIdColorTarget;
+	SDL_GPUTexture* entIDDepthTexture = NULL;
 
 	SDL_GPURenderPass* mainRenderPass;
 
 	FrameDataUniforms uniforms;
 
-	flecs::world & ecs;
+	flecs::world& ecs;
 
 	flecs::query<Transform, ModelInstance >renderQuery;
 
 	flecs::system drawPhysicsBodiesSys;
 	flecs::system drawEditorVisualsSys;
+	flecs::system drawHighlightedEntSys;
 
 	UserInterface ui;
 	PipelineLibrary pipelineLib;
 	Overlay overlay;
 
-	Renderer(flecs::world & ecs)
+	Renderer(flecs::world& ecs)
 		: ecs(ecs), ui(ecs), pipelineLib(ecs), overlay(ecs)
 	{
 
@@ -80,8 +85,11 @@ struct Renderer {
 		pipelineLib.createPipelineEnts();
 
 		initPhysicsRenderer();
-		
+
 		overlay.init();
+
+		//This system queries data from editor which is created after renderer so it must be created here which happens after editor constructor
+		drawHighlightedEntSystem();
 
 		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, GOOD "Renderer SubSystems Initialized" RESET);
 
@@ -109,7 +117,7 @@ struct Renderer {
 
 
 	void loadConfig() {
-		
+
 		//TODO MOVE HARDCODED path
 		RendererConfig::loadRendererConfigINIFile(ecs, "config/renderConfig.ini");
 
@@ -131,13 +139,13 @@ struct Renderer {
 		//SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN | 
 		//SDL_WindowFlags window_flags = SDL_WINDOW_HIGH_PIXEL_DENSITY;
 
-	
+
 		renderContext.window = SDL_CreateWindow("Synthwave", config.windowWidth, config.windowHeight, NULL);
 		if (!renderContext.window) {
 			SDL_Log("Failed to create window!");
 			return false;
 		}
-		
+
 		SDL_SetWindowPosition(renderContext.window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
 
 
@@ -150,7 +158,7 @@ struct Renderer {
 
 		RenderContext& renderContext = ecs.get_mut<RenderContext>();
 
-		renderContext.device = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV, false, NULL);
+		renderContext.device = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV, true, NULL);
 		if (!renderContext.device)
 		{
 			SDL_Log("GPUCreateDevice failed: %s", SDL_GetError());
@@ -163,7 +171,7 @@ struct Renderer {
 			return false;
 		}
 
-		
+
 		// SDL_GPU_PRESENTMODE_IMMEDIATE for uncapped fps
 		// SDL_GPU_PRESENTMODE_VSYNC for VSYNC
 		SDL_SetGPUSwapchainParameters(renderContext.device, renderContext.window,
@@ -267,7 +275,7 @@ struct Renderer {
 
 
 		return true;
-		
+
 	}
 
 
@@ -275,20 +283,21 @@ struct Renderer {
 
 		const RenderContext& renderContext = ecs.get<RenderContext>();
 		const RendererConfig& config = ecs.get<RendererConfig>();
+		
 
 		SDL_GPUTextureCreateInfo depthTextureCreateInfo = {
-		 .type = SDL_GPU_TEXTURETYPE_2D,
-		 .format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT,
-		 .usage = SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET,
-		 .width = static_cast<uint32_t>(config.windowWidth),
-		 .height = static_cast<uint32_t>(config.windowHeight),
-		 .layer_count_or_depth = 1,
-		 .num_levels = 1,
-		.sample_count = config.sampleCountMSAA,
+			.type = SDL_GPU_TEXTURETYPE_2D,
+			.format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT_S8_UINT, 
+			.usage = SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET,
+			.width = static_cast<uint32_t>(config.windowWidth),
+			.height = static_cast<uint32_t>(config.windowHeight),
+			.layer_count_or_depth = 1,
+			.num_levels = 1,
+			.sample_count = config.sampleCountMSAA,
 		};
-		this->depthTexture = SDL_CreateGPUTexture(renderContext.device, &depthTextureCreateInfo);
+		depthStencilTexture = SDL_CreateGPUTexture(renderContext.device, &depthTextureCreateInfo);
 
-		if (!depthTexture) {
+		if (!depthStencilTexture) {
 			SDL_Log("Failed to create depth texture: %s", SDL_GetError());
 			return false;
 		}
@@ -296,7 +305,7 @@ struct Renderer {
 		// Color render target with MSAA
 		SDL_GPUTextureCreateInfo colorTextureInfo = {
 			.type = SDL_GPU_TEXTURETYPE_2D,
-			.format = SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM, 
+			.format = SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM,
 			.usage = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET,
 			.width = static_cast<uint32_t>(config.windowWidth),
 			.height = static_cast<uint32_t>(config.windowHeight),
@@ -328,6 +337,45 @@ struct Renderer {
 			return false;
 		}
 
+
+
+		// Entity ID target
+		SDL_GPUTextureCreateInfo entIDTextureInfo = {
+			.type = SDL_GPU_TEXTURETYPE_2D,
+			.format = SDL_GPU_TEXTUREFORMAT_R32_UINT,
+			.usage = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET | SDL_GPU_TEXTUREUSAGE_SAMPLER,
+			.width = static_cast<uint32_t>(config.windowWidth),
+			.height = static_cast<uint32_t>(config.windowHeight),
+			.layer_count_or_depth = 1,
+			.num_levels = 1,
+			.sample_count = SDL_GPU_SAMPLECOUNT_1
+		};
+
+		entIdColorTarget = SDL_CreateGPUTexture(renderContext.device, &entIDTextureInfo);
+		if (!entIdColorTarget) {
+			SDL_Log("Failed to create entIdColorTarget : %s", SDL_GetError());
+			return false;
+		}
+
+
+		SDL_GPUTextureCreateInfo depthTextureEntIdCreateInfo = {
+		 .type = SDL_GPU_TEXTURETYPE_2D,
+		 .format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT,
+		 .usage = SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET,
+		 .width = static_cast<uint32_t>(config.windowWidth),
+		 .height = static_cast<uint32_t>(config.windowHeight),
+		 .layer_count_or_depth = 1,
+		 .num_levels = 1,
+		.sample_count = SDL_GPU_SAMPLECOUNT_1,
+		};
+		this->entIDDepthTexture = SDL_CreateGPUTexture(renderContext.device, &depthTextureEntIdCreateInfo);
+
+		if (!entIDDepthTexture) {
+			SDL_Log("Failed to create depth texture: %s", SDL_GetError());
+			return false;
+		}
+
+
 		return true;
 	}
 
@@ -337,7 +385,7 @@ struct Renderer {
 
 		// Queries that use cascade(), group_by() or order_by() are cached
 		renderQuery = ecs.query_builder<Transform, ModelInstance>()
-			.with<RenderPipeline>(flecs::Wildcard)  
+			.with<RenderPipeline>(flecs::Wildcard)
 			.group_by<RenderPipeline>()
 			.build();
 	}
@@ -347,24 +395,29 @@ struct Renderer {
 		createPhysicsBatchesSystem();
 		renderPhysicsSystem();
 		drawEditorVisualsSystem();
+		
 	}
 
 	void drawAll() {
 
-		const FrameContext& frameContext = ecs.get<FrameContext>();
+		const RenderContext& renderContext = ecs.get<RenderContext>();
+		FrameContext& frameContext = ecs.get_mut<FrameContext>();
 		const RendererConfig& config = ecs.get<RendererConfig>();
 
-		beginRenderPass();
+		beginRenderPass(renderContext, frameContext);
 
-		drawModels();
+		drawModels(frameContext);
 
 #if defined(JPH_DEBUG_RENDERER)
 		drawPhysicsBodiesSys.run();
 #endif
 
 		drawEditorVisualsSys.run();
+		drawHighlightedEntSys.run();
 
 		endRenderPass();
+
+		writeEntIDtoBufferPass(renderContext, frameContext);
 
 		ui.drawUI();
 
@@ -372,13 +425,10 @@ struct Renderer {
 	}
 
 
-	void beginRenderPass() {
+	void beginRenderPass(const RenderContext& renderContext,FrameContext& frameContext) {
 
-		const RenderContext& renderContext = ecs.get<RenderContext>();
-		FrameContext& frameContext = ecs.get_mut<FrameContext>();
 
 		frameContext.commandBuffer = check_error_ptr(SDL_AcquireGPUCommandBuffer(renderContext.device));
-
 
 		check_error_bool(SDL_WaitAndAcquireGPUSwapchainTexture(frameContext.commandBuffer, renderContext.window, &frameContext.swapchainTexture, &swapchainWidth, &swapchainHeight));
 
@@ -393,25 +443,29 @@ struct Renderer {
 		.load_op = SDL_GPU_LOADOP_CLEAR,
 		.store_op = SDL_GPU_STOREOP_RESOLVE,
 		.resolve_texture = resolveTarget
-
-
 		};
 
-		SDL_GPUDepthStencilTargetInfo depthTargetInfo = { 0 };
-		depthTargetInfo.texture = depthTexture;
-		depthTargetInfo.clear_depth = 1.0f;
-		depthTargetInfo.load_op = SDL_GPU_LOADOP_CLEAR;
-		depthTargetInfo.store_op = SDL_GPU_STOREOP_DONT_CARE;
+
+
+		SDL_GPUDepthStencilTargetInfo depthStencilTargetInfo = {};
+		depthStencilTargetInfo.texture = depthStencilTexture;
+		depthStencilTargetInfo.clear_depth = 1.0f;
+		depthStencilTargetInfo.clear_stencil = 0;                       // Clear to 0
+		depthStencilTargetInfo.load_op = SDL_GPU_LOADOP_CLEAR;
+		depthStencilTargetInfo.store_op = SDL_GPU_STOREOP_STORE;
+		depthStencilTargetInfo.stencil_load_op = SDL_GPU_LOADOP_CLEAR; // Must CLEAR
+		depthStencilTargetInfo.stencil_store_op = SDL_GPU_STOREOP_STORE;
+		depthStencilTargetInfo.cycle = false;
 
 
 		// Begin render pass
 		mainRenderPass = SDL_BeginGPURenderPass(
 			frameContext.commandBuffer,
 			&colorTargetInfo, 1,
-			&depthTargetInfo
+			&depthStencilTargetInfo
 		);
 
-		
+
 		defaultSamplerBinding = { .texture = defaultTexture, .sampler = defaultSampler };
 
 		//SDL_BindGPUFragmentSamplers(mainRenderPass, 0, &defaultSamplerBinding, 1);
@@ -425,14 +479,13 @@ struct Renderer {
 			uniforms.viewProjection = cam.generateviewProj();
 
 		});
-		
+
 		SDL_PushGPUVertexUniformData(frameContext.commandBuffer, 0, &uniforms, sizeof(uniforms));
 	}
 
-	void drawModel(ModelInstance & model, Transform& transform, SDL_GPUCommandBuffer * cmdBuffer) {
+	void drawModel(const ModelInstance& model, const Transform& transform,SDL_GPUCommandBuffer* cmdBuffer) {
 
-		//const FrameContext& frameContext = ecs.get<FrameContext>();
-
+		
 		glm::mat4 modelTranslation = glm::translate(glm::mat4(1.0f), transform.position);
 		glm::mat4 modelRotation = glm::toMat4(transform.rotation);
 		glm::mat4 modelScale = glm::scale(glm::mat4(1.0f), transform.scale);
@@ -440,7 +493,7 @@ struct Renderer {
 
 		for (int j = 0; j < model.meshes.size(); j++) {
 
-			MeshInstance& mesh = model.meshes[j];
+			const MeshInstance& mesh = model.meshes[j];
 
 			//If mesh has a texture then 
 			if (mesh.diffuseTexture != nullptr) {
@@ -474,7 +527,6 @@ struct Renderer {
 			meshMat = modelMat * meshMat;
 
 			glm::mat4 mvp = uniforms.viewProjection * meshMat;
-
 			//transpose because slang expect col major matrices
 			PerModelUniforms modelUnifroms;
 			modelUnifroms.mvp = glm::transpose(mvp);
@@ -486,9 +538,8 @@ struct Renderer {
 		}
 	}
 
-	void drawModels() {
+	void drawModels(const FrameContext& frameContext) {
 
-		const FrameContext& frameContext = ecs.get<FrameContext>();
 
 		renderQuery.run([&](flecs::iter& it) {
 			while (it.next()) {
@@ -498,11 +549,11 @@ struct Renderer {
 				flecs::entity pipeline_entity = flecs::entity(it.world(), it.group_id());
 
 				const Pipeline* pipelineSecond = &pipeline_entity.get<Pipeline>();
-				SDL_BindGPUGraphicsPipeline(mainRenderPass, pipelineSecond->pipeline); 
+				SDL_BindGPUGraphicsPipeline(mainRenderPass, pipelineSecond->pipeline);
 
 				// Process all entities in this group
 				for (auto i : it) {
-					
+
 					drawModel(models[i], transforms[i], frameContext.commandBuffer);
 
 				}
@@ -514,7 +565,7 @@ struct Renderer {
 
 	void initPhysicsRenderer() {
 #ifdef JPH_DEBUG_RENDERER
-		
+
 		ecs.emplace<fisiksDebugRenderer>(ecs);
 
 		const RendererConfig& config = ecs.get<RendererConfig>();
@@ -523,7 +574,7 @@ struct Renderer {
 			ecs.entity<fisiksDebugRenderer>().disable<fisiksDebugRenderer>();
 
 		}
-		
+
 #endif
 	}
 
@@ -550,7 +601,7 @@ struct Renderer {
 			physicsSystem.DrawConstraints(&fisiksRenderer);
 
 
-			});
+		});
 
 #endif
 	}
@@ -563,7 +614,7 @@ struct Renderer {
 			.kind(0)
 			.each([&](fisiksDebugRenderer& fisiksRenderer) {
 
-				ecs.query<Camera, ActiveCamera>()
+			ecs.query<Camera, ActiveCamera>()
 				.each([&](Camera& cam, ActiveCamera) {
 
 				RVec3Arg camPos(cam.position.x, cam.position.y, cam.position.z);
@@ -584,12 +635,73 @@ struct Renderer {
 	}
 
 
+	void drawHighlightedEntSystem() {
+
+		const FrameContext& frameContext = ecs.get<FrameContext>();
+
+		drawHighlightedEntSys = ecs.system<HighlightedEntRef>("DrawHighlightedEntSys")
+			.term_at(0).src<HighlightedEntRef>()
+			.kind(0)
+			.each([&](HighlightedEntRef entRef) {
+			const EditorState* editorState = ecs.try_get<EditorState>();
+			if (!editorState) {
+				return;
+			}
+			if (*editorState != EditorState::Enabled) {
+				return;
+			}
+			flecs::entity e = entRef.ent;
+			if (!e.is_valid()) {
+				return;
+			}
+
+			const ModelInstance& model = e.get<ModelInstance>();
+			const Transform& transform = e.get<Transform>();
+
+			glm::vec4 highlightColor = glm::vec4(1.0f, 1.0f, 0.0f, 1.0f);
+			SDL_PushGPUFragmentUniformData(frameContext.commandBuffer, 0, &highlightColor, sizeof(highlightColor));
+
+			// Write highlighted object to stencil buffer 
+			flecs::entity smPipelineEnt = ecs.lookup("StencilMaskPipeline");
+			const Pipeline& smPipeline = smPipelineEnt.get<Pipeline>();
+
+			SDL_SetGPUStencilReference(mainRenderPass, 1);
+			SDL_BindGPUGraphicsPipeline(mainRenderPass, smPipeline.pipeline);
+
+			// Draw at NORMAL size/transform - this marks where object is
+			drawModel(model, transform, frameContext.commandBuffer);
+
+
+			// Draw scaled-up version for outline (only where stencil != 1)
+			flecs::entity soPipelineEnt = ecs.lookup("StencilOutlinePipeline");
+			const Pipeline& soPipeline = soPipelineEnt.get<Pipeline>();
+
+			SDL_SetGPUStencilReference(mainRenderPass, 1);  
+			SDL_BindGPUGraphicsPipeline(mainRenderPass, soPipeline.pipeline);
+
+			// Create scaled transform for outline
+			Transform scaledTransform = transform;
+			//TODO this can be a parameter
+			scaledTransform.scale *= 1.04f; 
+
+			drawModel(model, scaledTransform, frameContext.commandBuffer);
+		});
+	}
+
 	void drawEditorVisualsSystem() {
 
 		drawEditorVisualsSys = ecs.system<EditorVisuals>("EditorVisualsRenderSys")
 			.kind(0)
-			.each([&](flecs::entity e,EditorVisuals visualElement) {
-			
+			.each([&](flecs::entity e, EditorVisuals visualElement) {
+
+			const EditorState* editorState = ecs.try_get<EditorState>();
+			if (!editorState) {
+				return;
+			}
+			if (*editorState != EditorState::Enabled) {
+				return;
+			}
+
 			flecs::entity pipelineEnt = e.target<RenderPipeline>();
 			const Pipeline pipeline = pipelineEnt.get<Pipeline>();
 
@@ -604,7 +716,193 @@ struct Renderer {
 		});
 	}
 
-	
+	//TODO try doing in the same render pass
+	//The reason we do this in a seprate pass is because the mainRenderPass uses msaa, which means we would have to write this data to a multisample buffer
+	void writeEntIDtoBufferPass(const RenderContext& renderContext, FrameContext& frameContext) {
+
+		const EditorState* editorState = ecs.try_get<EditorState>();
+		if (!editorState) {
+			return;
+		}
+		if (*editorState != EditorState::Enabled) {
+			return;
+		}
+
+		SDL_GPUColorTargetInfo colorTargetInfo = {
+		.texture = entIdColorTarget,
+		.clear_color = { 0.0f, 0.0f, 1.0f, 1.0f },
+		.load_op = SDL_GPU_LOADOP_CLEAR,
+		.store_op = SDL_GPU_STOREOP_STORE,
+		.resolve_texture = resolveTarget
+		};
+
+
+		SDL_GPUDepthStencilTargetInfo depthTargetInfo = { 0 };
+		depthTargetInfo.texture = entIDDepthTexture;
+		depthTargetInfo.clear_depth = 1.0f;
+		depthTargetInfo.load_op = SDL_GPU_LOADOP_CLEAR;
+		depthTargetInfo.store_op = SDL_GPU_STOREOP_STORE;
+
+
+		SDL_GPURenderPass* renderPass = SDL_BeginGPURenderPass(
+			frameContext.commandBuffer,
+			&colorTargetInfo, 1,
+			&depthTargetInfo
+		);
+
+
+		SDL_GPUGraphicsPipeline* pipelineEntID = ecs.lookup("pipelineEntID").get<Pipeline>().pipeline;
+		SDL_BindGPUGraphicsPipeline(renderPass, pipelineEntID);
+
+		renderQuery.run([&](flecs::iter& it) {
+			while (it.next()) {
+				auto transforms = it.field<Transform>(0);
+				auto models = it.field<ModelInstance>(1);
+
+				for (auto i : it) {
+
+					//Push entity id to fragment shader
+					uint32_t pickId = (uint32_t)it.entity(i).id();
+					SDL_PushGPUFragmentUniformData(frameContext.commandBuffer, 0, &pickId, sizeof(pickId));
+
+					ModelInstance& model = models[i];
+
+					glm::mat4 modelTranslation = glm::translate(glm::mat4(1.0f), transforms[i].position);
+					glm::mat4 modelRotation = glm::toMat4(transforms[i].rotation);
+					glm::mat4 modelScale = glm::scale(glm::mat4(1.0f), transforms[i].scale);
+					glm::mat4 modelMat = modelTranslation * modelRotation * modelScale;
+
+
+
+					for (int j = 0; j < model.meshes.size(); j++) {
+
+						MeshInstance& mesh = model.meshes[j];
+
+						SDL_GPUBufferBinding vertexBufferBinding = {};
+						vertexBufferBinding.buffer = mesh.vertexBuffer;
+						vertexBufferBinding.offset = 0;
+
+						SDL_GPUBufferBinding indexBufferBinding = {};
+						indexBufferBinding.buffer = mesh.indexBuffer;
+						indexBufferBinding.offset = 0;
+
+						SDL_BindGPUVertexBuffers(mainRenderPass, 0, &vertexBufferBinding, 1);
+						SDL_BindGPUIndexBuffer(mainRenderPass, &indexBufferBinding, SDL_GPU_INDEXELEMENTSIZE_32BIT);
+
+
+						glm::mat4 meshTrans = glm::translate(glm::mat4(1.0f), mesh.transform.position);
+						glm::mat4 meshRot = glm::toMat4(mesh.transform.rotation);
+						glm::mat4 meshScale = glm::scale(glm::mat4(1.0f), mesh.transform.scale);
+						glm::mat4 meshMat = meshTrans * meshRot * meshScale;
+
+						meshMat = modelMat * meshMat;
+
+						glm::mat4 mvp = uniforms.viewProjection * meshMat;
+
+						//transpose because slang expect col major matrices
+						PerModelUniforms modelUniforms;
+						modelUniforms.mvp = glm::transpose(mvp);
+						modelUniforms.model = glm::transpose(meshMat);
+
+						SDL_PushGPUVertexUniformData(frameContext.commandBuffer, 1, &modelUniforms, sizeof(modelUniforms));
+
+						SDL_DrawGPUIndexedPrimitives(renderPass, mesh.size, 1, 0, 0, 0);
+					}
+				}
+			}
+		});
+
+		SDL_EndGPURenderPass(renderPass);
+	}
+
+	//TODO maybe do this more efficiently
+	uint32_t readFromTexture(int mouseX, int mouseY) const {
+
+		const RenderContext& renderContext = ecs.get<RenderContext>();
+		const RendererConfig& config = ecs.get<RendererConfig>();
+
+		SDL_GPUTransferBuffer* entityIDTransferBuffer;
+
+		SDL_GPUTransferBufferCreateInfo transferInfo = {
+			.usage = SDL_GPU_TRANSFERBUFFERUSAGE_DOWNLOAD,  
+			.size = sizeof(uint32_t)  // Just one pixel
+		};
+
+		entityIDTransferBuffer = SDL_CreateGPUTransferBuffer(
+			renderContext.device,
+			&transferInfo
+		);
+
+
+		// Bounds check
+		if (mouseX < 0 || mouseY < 0 ||
+			mouseX >= config.windowWidth || mouseY >= config.windowHeight) {
+			return 0;  // Invalid background
+		}
+
+		SDL_GPUCommandBuffer* copyCommandBuffer = SDL_AcquireGPUCommandBuffer(renderContext.device);
+
+		SDL_GPUCopyPass* copyPass = SDL_BeginGPUCopyPass(copyCommandBuffer);
+
+		// Define the texture region to read (single pixel)
+		SDL_GPUTextureRegion textureRegion = {
+			.texture = entIdColorTarget,
+			.mip_level = 0,
+			.layer = 0,
+			.x = static_cast<uint32_t>(mouseX),
+			.y = static_cast<uint32_t>(mouseY),
+			.w = 1,
+			.h = 1,
+			.d = 1
+		};
+
+
+		SDL_GPUTextureTransferInfo textureTransferInfo = {
+			.transfer_buffer = entityIDTransferBuffer,
+			.offset = 0,
+			.pixels_per_row = 0, 
+			.rows_per_layer = 0  
+		};
+
+		// Queue the download
+		SDL_DownloadFromGPUTexture(
+			copyPass,
+			&textureRegion,
+			&textureTransferInfo
+		);
+
+
+		SDL_EndGPUCopyPass(copyPass);
+
+		SDL_GPUFence* fence =  SDL_SubmitGPUCommandBufferAndAcquireFence(copyCommandBuffer);
+
+		// TODO Maybe do this in a background thread
+		SDL_WaitForGPUFences(
+			renderContext.device,
+			true, 
+			&fence,
+			1
+		);
+
+
+		uint32_t* data = (uint32_t*)SDL_MapGPUTransferBuffer(
+			renderContext.device,
+			entityIDTransferBuffer,
+			false  // false = read-only
+		);
+
+		// Read the entity ID
+		uint32_t entityID = data[0];
+
+		// Unmap the buffer
+		SDL_UnmapGPUTransferBuffer(renderContext.device, entityIDTransferBuffer);
+
+		return entityID;
+
+	}
+
+
+
 	void endRenderPass() {
 
 		SDL_EndGPURenderPass(mainRenderPass);
@@ -634,6 +932,6 @@ struct Renderer {
 
 	}
 
-	
+
 
 };

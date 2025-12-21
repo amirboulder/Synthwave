@@ -45,14 +45,18 @@ public:
 			"shaders/compiled/lineShader.vert.spv", "shaders/compiled/lineShader.frag.spv",
 			glm::ivec4(0, 1, 0, 0), glm::ivec4(0, 0, 0, 0), renderContext, PipelineType::LineVertex);
 
+		createPipelineEnt("pipelineEntID", "shaders/slang/EntIDShader.slang",
+			"shaders/compiled/entIDShader.vert.spv", "shaders/compiled/entIDShader.frag.spv",
+			glm::ivec4(0, 2, 0, 0), glm::ivec4(0, 1, 0, 0), renderContext, PipelineType::entID);
+
 		////StencilMask
-		//createPipelineEnt("pipelineLine", "shaders/slang/lineShader.slang",
-		//	"shaders/compiled/lineShader.vert.spv", "shaders/compiled/lineShader.frag.spv",
-		//	glm::ivec4(0, 1, 0, 0), glm::ivec4(0, 0, 0, 0), renderContext, PipelineType::stencilMask);
-		////StencilOutline
-		//createPipelineEnt("pipelineLine", "shaders/slang/lineShader.slang",
-		//	"shaders/compiled/lineShader.vert.spv", "shaders/compiled/lineShader.frag.spv",
-		//	glm::ivec4(0, 1, 0, 0), glm::ivec4(0, 0, 0, 0), renderContext, PipelineType::stencilOutline);
+		createPipelineEnt("StencilMaskPipeline", "shaders/slang/solidColor.slang",
+			"shaders/compiled/solidColor.vert.spv", "shaders/compiled/solidColor.frag.spv",
+			glm::ivec4(0, 2, 0, 0), glm::ivec4(0, 1, 0, 0), renderContext, PipelineType::stencilMask);
+		//StencilOutline
+		createPipelineEnt("StencilOutlinePipeline", "shaders/slang/solidColor.slang",
+			"shaders/compiled/solidColor.vert.spv", "shaders/compiled/solidColor.frag.spv",
+			glm::ivec4(0, 2, 0, 0), glm::ivec4(0, 1, 0, 0), renderContext, PipelineType::stencilOutline);
 
 		//TODO move this
 		ecs.entity("RenderState")
@@ -117,6 +121,11 @@ public:
 		case PipelineType::stencilOutline:
 
 			if (!pipelneRef.createStencilOutlinePipeline(ecs, shaderName.c_str())) return false;
+
+			break;
+		case PipelineType::entID:
+
+			if (!pipelneRef.createEntIDPipeline(ecs, shaderName.c_str())) return false;
 
 			break;
 

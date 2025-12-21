@@ -16,6 +16,11 @@ struct LineVertex {
 	glm::vec4 color;
 };
 
+struct EntIdVertex {
+	glm::vec3 position;
+	glm::uint32 entID;
+};
+
 //TODO stop using as a component use it only for entity creation
 struct Transform {
 	glm::vec3 position = glm::vec3(1);
@@ -34,6 +39,7 @@ enum class PipelineType {
 	LineVertex,
 	stencilMask,
 	stencilOutline,
+	entID,
 };
 
 struct VertexBuffer {
@@ -184,6 +190,10 @@ struct CameraMVMTState {
 
 struct ObjectType {
 	std::string name; 
+};
+
+struct HighlightedEntRef {
+	flecs::entity ent;
 };
 
 enum class EntityType {
