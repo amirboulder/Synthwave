@@ -4,6 +4,6 @@
 
 void sensor1Behavior(flecs::world & ecs,flecs::entity self, flecs::entity other) {
 
-	SDL_Log("Sensor %s touched %s", self.name().c_str(), other.name().c_str());
+	SDL_Log("Entity %s touched %s", self.name().c_str(), other.name().c_str());
 
 }

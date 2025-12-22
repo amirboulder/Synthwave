@@ -26,6 +26,10 @@ public:
         case EntityType::Scene: return "Scene";
         case EntityType::Player: return "Player";
         case EntityType::Actor: return "Actor";
+        case EntityType::Humanoid: return "Humanoid";
+        case EntityType::Ragdoll: return "Ragdoll";
+        case EntityType::RobotArm: return "RobotArm";
+        case EntityType::Snake: return "Snake";
         case EntityType::Capsule: return "Capsule";
         case EntityType::Grid: return "Grid";
         case EntityType::StaticMesh: return "StaticMesh";
@@ -201,7 +205,7 @@ public:
 
             ImGui::SetNextItemWidth(500.0f);
 
-            // Dropdown for entity type
+            // Dropdown for entity Type
             if (ImGui::BeginCombo("##entitytype", GetEntityTypeName(s_state.selectedType))) {
                 for (int i = 0; i < static_cast<int>(EntityType::COUNT); i++) {
                     EntityType type = static_cast<EntityType>(i);
@@ -270,6 +274,20 @@ public:
 
                             createActorChild(ecs);
                             break;
+                        case EntityType::Humanoid:
+
+                            createHumanoidChild(ecs);
+                            break;
+                        case EntityType::Ragdoll:
+
+                            createRagdollChild(ecs);
+                            break;
+                        case EntityType::RobotArm:
+                            createRobotArmChild(ecs);
+                            break;
+                        case EntityType::Snake:
+                            createSnakeChild(ecs);
+                            break;
                         case EntityType::Capsule:
 
                             createCapsuleChild(ecs);
@@ -286,7 +304,7 @@ public:
                             SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Adding Sphere not yet implemented");
                             break;
                         case EntityType::Cube:
-                            SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Adding Cube not yet implemented");
+                            createCubeChild(ecs);
                             break;
                         case EntityType::Light:
                             SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, " Adding Camera not yet implemented");
@@ -356,6 +374,16 @@ public:
 
     }
 
+    static void createCubeChild(flecs::world& ecs) {
+
+        Transform transform;
+        transform.position = glm::vec3(1.0f, 5.0f, 0.0f);
+        transform.rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
+        transform.scale = glm::vec3(1.0f);
+        EntityFactory::createCubeEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, "CubeModel", transform, "pipelineUnlit");
+
+    }
+
     static void createActorChild(flecs::world& ecs) {
 
         Transform actorTransform;
@@ -389,6 +417,42 @@ public:
         mtnTransform.position = glm::vec3(0.0f, -40.0f, 0.0f);
         mtnTransform.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
         EntityFactory::createStaticMeshEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, "Mountains", mtnTransform, "pipelineMtn");
+
+    }
+
+    static void createHumanoidChild(flecs::world& ecs) {
+
+        Transform transform;
+        transform.position = glm::vec3(1.0f, 12.0f, 1.0f);
+        transform.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+        EntityFactory::createHumanoidEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, "CapsuleModel", transform, humanoidUpdate,"pipelineUnlit");
+
+    }
+
+    static void createRagdollChild(flecs::world& ecs) {
+
+        Transform transform;
+        transform.position = glm::vec3(0.0f, 0.0f, 0.0f);
+        transform.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+        EntityFactory::createRagdollEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, "CapsuleModel", transform, ragdollUpdate, "pipelineUnlit");
+
+    }
+
+    static void createRobotArmChild(flecs::world& ecs) {
+
+        Transform transform;
+        transform.position = glm::vec3(0.0f, 0.0f, 0.0f);
+        transform.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+        EntityFactory::createRobotArmEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, "CapsuleModel", transform, armUpdate, "pipelineUnlit");
+
+    }
+
+    static void createSnakeChild(flecs::world& ecs) {
+
+        Transform transform;
+        transform.position = glm::vec3(1.0f, 7.0f, 1.0f);
+        transform.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+        EntityFactory::createSnakeEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, "CapsuleModel", transform, SnakeUpdate, "pipelineUnlit");
 
     }
 

@@ -3,6 +3,7 @@
 #include "core/src/pch.h"
 
 #include "../pipeline.hpp"
+#include "../computePipeline.hpp"
 
 // Container class for pipelines
 //TODO HOT reloading for shaders!!!
@@ -58,6 +59,10 @@ public:
 			"shaders/compiled/solidColor.vert.spv", "shaders/compiled/solidColor.frag.spv",
 			glm::ivec4(0, 2, 0, 0), glm::ivec4(0, 1, 0, 0), renderContext, PipelineType::stencilOutline);
 
+		createComputePipeline("StencilOutlinePipeline", "shaders/slang/OutlineShader.slang",
+			"shaders/compiled/OutlineShader.comp.spv",
+			glm::ivec4(0, 1, 0, 0), renderContext);
+
 		//TODO move this
 		ecs.entity("RenderState")
 			.set<RenderState>({ ecs.lookup("pipelineUnlit") });
@@ -68,15 +73,20 @@ public:
 		return fs::exists(filePathVS) && fs::exists(filePathFS);
 	}
 
-	bool createPipelineEnt(const std::string shaderName, const std::string filePathShaderSrc,
+	static bool validateShaderExistence(const std::string& filePath) {
+		namespace fs = std::filesystem;
+		return fs::exists(filePath);
+	}
+
+	bool createPipelineEnt(const std::string entityName, const std::string filePathShaderSrc,
 		const std::string& filePathVS, const std::string& filePathFS, glm::ivec4 paramsVS,
 		glm::ivec4 paramsFS, const RenderContext& renderContext, PipelineType type) {
 
-		flecs::entity pipelineEnt = ecs.entity(shaderName.c_str()).set<Pipeline>({});
+		flecs::entity pipelineEnt = ecs.entity(entityName.c_str()).set<Pipeline>({});
 
 		if (!pipelineEnt) {
 
-			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, ERROR "Failed to create entity: %s" RESET, shaderName);
+			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, ERROR "Failed to create entity: %s" RESET, entityName);
 			return false;
 		}
 
@@ -92,40 +102,40 @@ public:
 
 		if (!RenderUtil::loadShaderSPRIV(renderContext.device, pipelneRef.vertexShader,
 			filePathVS, SDL_GPU_SHADERSTAGE_VERTEX, paramsVS.x, paramsVS.y, paramsVS.z, paramsVS.w)) return false;
-		if(!RenderUtil::loadShaderSPRIV(renderContext.device, pipelneRef.fragmentShader,
+		if (!RenderUtil::loadShaderSPRIV(renderContext.device, pipelneRef.fragmentShader,
 			filePathFS, SDL_GPU_SHADERSTAGE_FRAGMENT, paramsFS.x, paramsFS.y, paramsFS.z, paramsFS.w)) return false;
 
 		switch (type)
 		{
 		case PipelineType::Vertex:
-			if (!pipelneRef.createPipeline(ecs, shaderName.c_str(), false)) return false;
+			if (!pipelneRef.createPipeline(ecs, entityName.c_str(), false)) return false;
 
 			break;
 
 		case PipelineType::LineVertex:
 
-			if (!pipelneRef.createLineVertPipeline(ecs, shaderName.c_str())) return false;
+			if (!pipelneRef.createLineVertPipeline(ecs, entityName.c_str())) return false;
 
 			break;
 
 		case PipelineType::PhysicsDebug:
 
-			if (!pipelneRef.createPhysicsDebugPipeline(ecs, shaderName.c_str())) return false;
+			if (!pipelneRef.createPhysicsDebugPipeline(ecs, entityName.c_str())) return false;
 
 			break;
 		case PipelineType::stencilMask:
 
-			if (!pipelneRef.createStencilMaskPipeline(ecs, shaderName.c_str())) return false;
+			if (!pipelneRef.createStencilMaskPipeline(ecs, entityName.c_str())) return false;
 
 			break;
 		case PipelineType::stencilOutline:
 
-			if (!pipelneRef.createStencilOutlinePipeline(ecs, shaderName.c_str())) return false;
+			if (!pipelneRef.createStencilOutlinePipeline(ecs, entityName.c_str())) return false;
 
 			break;
 		case PipelineType::entID:
 
-			if (!pipelneRef.createEntIDPipeline(ecs, shaderName.c_str())) return false;
+			if (!pipelneRef.createEntIDPipeline(ecs, entityName.c_str())) return false;
 
 			break;
 
@@ -136,6 +146,36 @@ public:
 		pipelneRef.type = type;
 
 		return true;
+	}
+
+	bool createComputePipeline(const std::string entityName, const std::string filePathShaderSrc,
+		const std::string& filePathCS,
+		glm::ivec4 paramsCS, const RenderContext& renderContext) {
+
+		flecs::entity pipelineEnt = ecs.entity(entityName.c_str()).set<ComputePipeline>({});
+
+		if (!pipelineEnt) {
+
+			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, ERROR "Failed to create entity: %s" RESET, entityName);
+			return false;
+		}
+
+		ComputePipeline& pipelineRef = pipelineEnt.get_mut<ComputePipeline>();
+
+		if (!validateShaderExistence(filePathCS)) {
+			int returnVal = shader::generateSpirvComputeShaders(filePathShaderSrc.c_str(), filePathCS.c_str());
+
+			if (returnVal != 0) {
+				return false;
+			}
+		}
+
+		//TODO fix magic numbers
+		if (!pipelineRef.createPipeline(ecs, entityName.c_str(), filePathCS.c_str(),1,1,0,1,0,1,8,8,1)) return false;
+
+		
+		return true;
+
 	}
 
 };

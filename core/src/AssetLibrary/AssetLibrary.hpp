@@ -44,6 +44,7 @@ public:
 
         add("robot", std::make_unique<ModelSource>(ecs, "assets/robot4Wheels.glb"));
         add("CapsuleModel", std::make_unique<ModelSource>(ecs, "assets/capsule4.glb"));
+        add("CubeModel", std::make_unique<ModelSource>(ecs, "assets/Cube.glb"));
         add("Grid256", std::make_unique<ModelSource>(ecs, 256, 256));
         add("Mountains", std::make_unique<ModelSource>(ecs, "assets/mtn2.obj", true));
         add("ActorModel", std::make_unique<ModelSource>(ecs, "assets/enemy1.glb"));

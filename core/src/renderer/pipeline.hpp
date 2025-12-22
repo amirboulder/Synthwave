@@ -103,6 +103,7 @@ public:
 
 		pipeInfo.vertex_input_state = vertexInputState;
 
+		//The same for almost all pipelines
 		pipeInfo.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_FILL;
 		pipeInfo.rasterizer_state.cull_mode = SDL_GPU_CULLMODE_BACK;
 		pipeInfo.rasterizer_state.front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE;

@@ -450,10 +450,10 @@ struct Renderer {
 		SDL_GPUDepthStencilTargetInfo depthStencilTargetInfo = {};
 		depthStencilTargetInfo.texture = depthStencilTexture;
 		depthStencilTargetInfo.clear_depth = 1.0f;
-		depthStencilTargetInfo.clear_stencil = 0;                       // Clear to 0
+		depthStencilTargetInfo.clear_stencil = 0;                       
 		depthStencilTargetInfo.load_op = SDL_GPU_LOADOP_CLEAR;
 		depthStencilTargetInfo.store_op = SDL_GPU_STOREOP_STORE;
-		depthStencilTargetInfo.stencil_load_op = SDL_GPU_LOADOP_CLEAR; // Must CLEAR
+		depthStencilTargetInfo.stencil_load_op = SDL_GPU_LOADOP_CLEAR; 
 		depthStencilTargetInfo.stencil_store_op = SDL_GPU_STOREOP_STORE;
 		depthStencilTargetInfo.cycle = false;
 
@@ -483,6 +483,7 @@ struct Renderer {
 		SDL_PushGPUVertexUniformData(frameContext.commandBuffer, 0, &uniforms, sizeof(uniforms));
 	}
 
+	//Draws model Using whatever pipeline is bound. Uses models diffure texture if it has any otherwise it will use default checkerboard
 	void drawModel(const ModelInstance& model, const Transform& transform,SDL_GPUCommandBuffer* cmdBuffer) {
 
 		
@@ -676,13 +677,13 @@ struct Renderer {
 			flecs::entity soPipelineEnt = ecs.lookup("StencilOutlinePipeline");
 			const Pipeline& soPipeline = soPipelineEnt.get<Pipeline>();
 
-			SDL_SetGPUStencilReference(mainRenderPass, 1);  
+			SDL_SetGPUStencilReference(mainRenderPass, 1);
 			SDL_BindGPUGraphicsPipeline(mainRenderPass, soPipeline.pipeline);
 
 			// Create scaled transform for outline
 			Transform scaledTransform = transform;
 			//TODO this can be a parameter
-			scaledTransform.scale *= 1.04f; 
+			scaledTransform.scale *= 1.04f;
 
 			drawModel(model, scaledTransform, frameContext.commandBuffer);
 		});
