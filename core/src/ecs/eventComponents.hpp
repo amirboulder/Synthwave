@@ -15,6 +15,10 @@ struct ExitEvent {
 	bool occurred = false;
 };
 
+struct WindowLostFocusEvent {
+	bool occurred = false;
+};
+
 struct GamePauseEvent {
 	bool occurred = false;
 };

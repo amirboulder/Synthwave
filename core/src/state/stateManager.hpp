@@ -115,6 +115,7 @@ public:
 
 		mouseClickEventHook();
 		exitEventHook();
+		windowLostFocusEvent();
 		gamePauseEventHook();
 		editorToggleHook();
 		cameraSwitchEventHook();
@@ -590,6 +591,19 @@ public:
 			if (event.occurred == true) {
 				//we could just set running to false here but calling exitCallback for consistency.
 				exitCallback();
+			}
+		});
+	}
+
+	void windowLostFocusEvent() {
+
+		ecs.component<WindowLostFocusEvent>()
+			.on_set([&](WindowLostFocusEvent& event) {
+
+			if (event.occurred == true) {
+
+				//TODO We probably don't want this when editor is enabled
+				gamePauseHandler();
 			}
 		});
 	}

@@ -41,6 +41,9 @@ public:
 		ecs.component<ExitEvent>().add(flecs::Singleton);
 		ecs.set<ExitEvent>({});
 
+		ecs.component<WindowLostFocusEvent>().add(flecs::Singleton);
+		ecs.set<WindowLostFocusEvent>({});
+
 		ecs.component<GamePauseEvent>().add(flecs::Singleton);
 		ecs.set<GamePauseEvent>({});
 
@@ -194,7 +197,8 @@ public:
 		}
 
 		if (event.type == SDL_EVENT_WINDOW_FOCUS_LOST) {
-			std::cout << "Window lost focus!" << std::endl;
+
+			ecs.set<WindowLostFocusEvent>({ true });
 		}
 		if (event.type == SDL_EVENT_WINDOW_FOCUS_GAINED) {
 			std::cout << "Window gained focus!" << std::endl;
