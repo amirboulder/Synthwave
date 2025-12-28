@@ -28,7 +28,7 @@ public:
         ecs.component<AssetLibRef>();
         ecs.set<AssetLibRef>({ this });
 
-        SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "AssetLibrary Initialized");
+        SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, GOOD "AssetLibrary Initialized" RESET);
     }
 
     ModelSource* get(const std::string& id) {

@@ -91,7 +91,6 @@ struct Renderer {
 
 		overlay.init();
 
-
 		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, GOOD "Renderer SubSystems Initialized" RESET);
 
 	}

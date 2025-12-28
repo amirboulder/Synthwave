@@ -21,7 +21,7 @@ public:
 	{
 		registerEntities();
 
-		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "MenuSystem Initialized");
+		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, GOOD "MenuSystem Initialized" RESET);
 	}
 
 	void registerEntities() {

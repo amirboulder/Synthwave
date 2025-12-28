@@ -30,7 +30,7 @@ public:
 		registerPhases();
 		registerSystems();
 
-		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Scene Initialized");
+		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, GOOD "Scene Initialized" RESET);
 	}
 
 	void registerSystems() {

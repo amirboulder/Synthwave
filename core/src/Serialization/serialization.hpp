@@ -16,6 +16,8 @@ public:
         : ecs(ecs)
     {
         registerQuery();
+
+		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, GOOD "Serializer Initialized" RESET);
     }
 
     void registerQuery() {

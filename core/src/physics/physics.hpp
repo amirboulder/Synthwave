@@ -369,7 +369,7 @@ public:
 		registerPhase();
 		registerSystems();
 
-		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "FISIKS Initialized");
+		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, GOOD "FISIKS Initialized" RESET);
 	}
 
 

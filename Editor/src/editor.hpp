@@ -48,7 +48,7 @@ public:
 
 		editorToggle.disable();
 
-		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Editor Initialized");
+		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, GOOD "Editor Initialized" RESET);
 	}
 
 	// All editor Items are created using the prefab editorComponent this allows us to disable all of them by disabling editorComponent

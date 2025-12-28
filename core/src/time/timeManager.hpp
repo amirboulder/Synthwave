@@ -20,7 +20,7 @@ public:
 	{
 		appStartTime = SDL_GetTicks();
 
-		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "TimeManager Initialized");
+		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, GOOD "TimeManager Initialized" RESET);
 	}
 
 	void startGameTime()
