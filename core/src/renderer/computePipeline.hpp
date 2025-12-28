@@ -7,10 +7,7 @@ class ComputePipeline {
 public:
 
 	SDL_GPUComputePipeline* pipeline = NULL;
-
 	SDL_GPUShader* computeShader = NULL;
-
-
 
 	ComputePipeline() {};
 
@@ -28,7 +25,7 @@ public:
 		uint32_t threadcount_z ) {
 
 		const RenderContext& renderContext = ecs.get<RenderContext>();
-		const RendererConfig& renderConfig = ecs.get<RendererConfig>();
+		const RenderConfig& renderConfig = ecs.get<RenderConfig>();
 
 		std::vector<Uint8> spirvCode = RenderUtil ::loadBinaryFile(shaderFilePath);
 		if (spirvCode.empty()) {
@@ -53,7 +50,7 @@ public:
 		.threadcount_z = threadcount_z,
 		};
 		
-		SDL_GPUComputePipeline* pipeline = SDL_CreateGPUComputePipeline(renderContext.device, &createInfo);
+		pipeline = SDL_CreateGPUComputePipeline(renderContext.device, &createInfo);
 		if (pipeline == NULL)
 		{
 			SDL_Log("Failed to create compute pipeline!");

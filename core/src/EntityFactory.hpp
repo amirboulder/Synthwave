@@ -716,7 +716,7 @@ public:
 	//TODO use transform
 	static bool createPlayerEntity(flecs::world& ecs, const flecs::entity parent, Transform transform, const std::string pipelineName,  const std::string ModelSrcName = " ") {
 
-		const RendererConfig& config = ecs.get<RendererConfig>();
+		const RenderConfig& config = ecs.get<RenderConfig>();
 
 		string playerName = "player";
 		string playerCamName = "PlayerCam";

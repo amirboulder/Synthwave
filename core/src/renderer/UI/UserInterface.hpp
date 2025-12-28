@@ -25,7 +25,7 @@ public:
     void init() {
 
         const RenderContext& renderContext = ecs.get<RenderContext>();
-        const RendererConfig& config = ecs.get<RendererConfig>();
+        const RenderConfig& config = ecs.get<RenderConfig>();
 
         float main_scale = SDL_GetDisplayContentScale(SDL_GetPrimaryDisplay());
        

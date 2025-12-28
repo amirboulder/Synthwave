@@ -32,7 +32,7 @@ public:
     float mouseSensitivity;
 
 
-    Camera(const RendererConfig& config)
+    Camera(const RenderConfig& config)
         : position(config.FreeCamPos),
         yaw(config.FreeCamYaw),
         pitch(config.FreeCamPitch),

@@ -2,15 +2,15 @@
 #include "core/src/pch.h"
 
 //TODO take out freeCam pos/front and put it in the save file
-class RendererConfig {
+class RenderConfig {
 public:
 
-	SDL_GPUSampleCount sampleCountMSAA = SDL_GPU_SAMPLECOUNT_8;
+	SDL_GPUSampleCount sampleCount = SDL_GPU_SAMPLECOUNT_8;
 	SDL_GPUSwapchainComposition colorspace = SDL_GPU_SWAPCHAINCOMPOSITION_SDR;
 	SDL_GPUPresentMode presentMode = SDL_GPU_PRESENTMODE_VSYNC;
 
-	int windowWidth = 1920;
-	int windowHeight = 1080;
+	uint32_t windowWidth = 1920;
+	uint32_t windowHeight = 1080;
 
 	bool RenderPhysics = true;
 	bool DrawBoundingBoxPhysics = false;
@@ -27,7 +27,7 @@ public:
 	float freeCamFarPlane = 1000.0f;
 	float FreeCamMouseSensitivity = 0.1;
 
-	RendererConfig() {
+	RenderConfig() {
 
 	}
 
@@ -39,7 +39,7 @@ public:
 			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to create INI file: %s", filepath.c_str());
 		}
 
-		const RendererConfig& cfg = ecs.get<RendererConfig>();
+		const RenderConfig& cfg = ecs.get<RenderConfig>();
 
 		iniFile << "[window]\n";
 		iniFile << "width=" << cfg.windowWidth << "\n";
@@ -47,7 +47,7 @@ public:
 
 
 		iniFile << "[renderer]\n";
-		iniFile << "sampleCountMSAA=" << static_cast<int>(cfg.sampleCountMSAA) << "\n";
+		iniFile << "sampleCountMSAA=" << static_cast<int>(cfg.sampleCount) << "\n";
 		iniFile << "RendererPhysics=" << (cfg.RenderPhysics ? "true" : "false") << "\n";
 		iniFile << "DrawBoundingBoxPhysics=" << (cfg.DrawBoundingBoxPhysics ? "true" : "false") << "\n";
 		iniFile << "DrawShapeWireframePhysics=" << (cfg.DrawShapeWireframePhysics ? "true" : "false") << "\n\n";
@@ -88,15 +88,15 @@ public:
 			return;
 		}
 
-		const RendererConfig defaultCfg;
+		const RenderConfig defaultCfg;
 
-		RendererConfig& cfg = ecs.get_mut<RendererConfig>();
+		RenderConfig& cfg = ecs.get_mut<RenderConfig>();
 
 		cfg.windowWidth = reader.GetInteger("window", "width", defaultCfg.windowWidth);
 		cfg.windowHeight = reader.GetInteger("window", "height", defaultCfg.windowHeight);
 
-		cfg.sampleCountMSAA = static_cast<SDL_GPUSampleCount>(
-			reader.GetInteger("renderer", "sampleCountMSAA", defaultCfg.sampleCountMSAA)
+		cfg.sampleCount = static_cast<SDL_GPUSampleCount>(
+			reader.GetInteger("renderer", "sampleCountMSAA", defaultCfg.sampleCount)
 			);
 
 		cfg.RenderPhysics = reader.GetBoolean("renderer", "RendererPhysics", defaultCfg.RenderPhysics);
@@ -104,12 +104,12 @@ public:
 		cfg.DrawShapeWireframePhysics = reader.GetBoolean("renderer", "DrawShapeWireframePhysics", defaultCfg.DrawShapeWireframePhysics);
 
 
-		cfg.FreeCamPos = RendererConfig::parseVec3(
+		cfg.FreeCamPos = RenderConfig::parseVec3(
 			reader.Get("camera", "FreeCamPos", "-2,-2,0"),
 			defaultCfg.FreeCamPos
 		);
 
-		cfg.FreeCamFront = RendererConfig::parseVec3(
+		cfg.FreeCamFront = RenderConfig::parseVec3(
 			reader.Get("camera", "FreeCamFront", "-2,-2,0"),
 			defaultCfg.FreeCamFront
 		);

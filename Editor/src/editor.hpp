@@ -26,7 +26,7 @@ public:
 	{
 		registerReflectionData(ecs);
 
-		const RendererConfig& config = ecs.get<RendererConfig>();
+		const RenderConfig& config = ecs.get<RenderConfig>();
 		freeCam = ecs.entity("FreeCam")
 			.emplace<Camera>(config)
 			.set<CameraMVMTState>({false});
@@ -170,9 +170,21 @@ public:
 
 	}
 
+	//Set selected entity based on mouse click position if editor is enabled
 	void entitySelected(flecs::entity ent) {
 
+		const EditorState* editorState = ecs.try_get<EditorState>();
+		if (!editorState) {
+			return;
+		}
+		if (*editorState != EditorState::Enabled) {
+			return;
+		}
+
 		ecs.set<HighlightedEntRef>({ ent });
+
+		//cout << ent.id() << std::endl;
+
 	}
 
 };

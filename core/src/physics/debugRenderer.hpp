@@ -68,13 +68,13 @@ public:
 	{
 		//requires RenderContext RendererConfig to be initialized by Renderer
 		const RenderContext& renderContext = ecs.get<RenderContext>();
-		const RendererConfig& config = ecs.get<RendererConfig>();
+		const RenderConfig& config = ecs.get<RenderConfig>();
 		
 		drawSettings.mDrawBoundingBox = config.DrawBoundingBoxPhysics;
 		drawSettings.mDrawShapeWireframe = config.DrawShapeWireframePhysics;
 
 		pipelineMain = ecs.lookup("pipelinePhysics").get<Pipeline>().pipeline;
-		pipelineLine = ecs.lookup("pipelineLine").get<Pipeline>().pipeline;
+		pipelineLine = ecs.lookup("pipelineLineMultiSample").get<Pipeline>().pipeline;
 
 		Initialize();
 

@@ -184,7 +184,6 @@ FetchContent_Declare(
         JoltPhysics
         GIT_REPOSITORY "https://github.com/jrouwe/JoltPhysics"
         GIT_TAG "v5.4.0"
-        UPDATE_DISCONNECTED TRUE
         GIT_SHALLOW TRUE
         SOURCE_SUBDIR "Jolt"
 )

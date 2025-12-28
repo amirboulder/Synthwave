@@ -737,7 +737,7 @@ public:
 
 	void handleSavingRenderConfig() {
 
-		RendererConfig& config = ecs.get_mut<RendererConfig>();
+		RenderConfig& config = ecs.get_mut<RenderConfig>();
 
 		const Camera& camera = ecs.lookup("FreeCam").get<Camera>();
 
@@ -748,7 +748,7 @@ public:
 		config.FreeCamPitch = camera.pitch;
 
 		//TODO modify function so the path is not hardcoded
-		RendererConfig::saveRendererConfigINIFile(ecs,"config/renderConfig.ini");
+		RenderConfig::saveRendererConfigINIFile(ecs,"config/renderConfig.ini");
 	}
 
 	void saveGameSRCData() {

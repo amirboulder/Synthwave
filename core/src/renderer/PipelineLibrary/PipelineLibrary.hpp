@@ -24,42 +24,44 @@ public:
 
 		///////////////creating shaders
 		const RenderContext& renderContext = ecs.get<RenderContext>();
+		const RenderConfig renderConfig = ecs.get<RenderConfig>();
 
 		createPipelineEnt("pipelineUnlit", "shaders/slang/shaders.slang",
-			"shaders/compiled/VertexShader.spv", "shaders/compiled/FragmentShader.spv",
-			glm::ivec4(0, 2, 0, 0), glm::ivec4(1, 0, 0, 0), renderContext, PipelineType::Vertex);
+			"shaders/compiled/unlit.vert.spv", "shaders/compiled/unlit.frag.spv",
+			glm::ivec4(0, 2, 0, 0), glm::ivec4(1, 1, 0, 0), renderContext, PipelineType::Vertex,
+			renderConfig.sampleCount);
 
 		createPipelineEnt("pipelineGrid", "shaders/slang/gridshader.slang",
 			"shaders/compiled/grid.vert.spv", "shaders/compiled/grid.frag.spv",
-			glm::ivec4(0, 2, 0, 0), glm::ivec4(0, 0, 0, 0), renderContext, PipelineType::Vertex);
+			glm::ivec4(0, 2, 0, 0), glm::ivec4(0, 1, 0, 0), renderContext, PipelineType::Vertex,
+			renderConfig.sampleCount);
 
 		createPipelineEnt("pipelineMtn", "shaders/slang/wireframe.slang",
 			"shaders/compiled/wireframe.vert.spv", "shaders/compiled/wireframe.frag.spv",
-			glm::ivec4(0, 2, 0, 0), glm::ivec4(0, 0, 0, 0), renderContext, PipelineType::Vertex);
-
+			glm::ivec4(0, 2, 0, 0), glm::ivec4(0, 1, 0, 0), renderContext, PipelineType::Vertex,
+			renderConfig.sampleCount);
 
 		createPipelineEnt("pipelinePhysics", "shaders/slang/physicsRender.slang",
 			"shaders/compiled/physicsRender.vert.spv", "shaders/compiled/physicsRender.frag.spv",
-			glm::ivec4(0, 2, 0, 0), glm::ivec4(0, 0, 0, 0), renderContext, PipelineType::PhysicsDebug);
+			glm::ivec4(0, 2, 0, 0), glm::ivec4(0, 0, 0, 0), renderContext, PipelineType::PhysicsDebug,
+			renderConfig.sampleCount);
+
+		createPipelineEnt("pipelineLineMultiSample", "shaders/slang/lineShader.slang",
+			"shaders/compiled/lineShader.vert.spv", "shaders/compiled/lineShader.frag.spv",
+			glm::ivec4(0, 1, 0, 0), glm::ivec4(0, 0, 0, 0), renderContext, PipelineType::LineVertex,
+			renderConfig.sampleCount);
 
 		createPipelineEnt("pipelineLine", "shaders/slang/lineShader.slang",
 			"shaders/compiled/lineShader.vert.spv", "shaders/compiled/lineShader.frag.spv",
-			glm::ivec4(0, 1, 0, 0), glm::ivec4(0, 0, 0, 0), renderContext, PipelineType::LineVertex);
+			glm::ivec4(0, 1, 0, 0), glm::ivec4(0, 0, 0, 0), renderContext, PipelineType::LineVertex,
+			SDL_GPU_SAMPLECOUNT_1);
 
-		createPipelineEnt("pipelineEntID", "shaders/slang/EntIDShader.slang",
+		createPipelineEnt("entIdPipeline", "shaders/slang/EntIDShader.slang",
 			"shaders/compiled/entIDShader.vert.spv", "shaders/compiled/entIDShader.frag.spv",
-			glm::ivec4(0, 2, 0, 0), glm::ivec4(0, 1, 0, 0), renderContext, PipelineType::entID);
-
-		////StencilMask
-		createPipelineEnt("StencilMaskPipeline", "shaders/slang/solidColor.slang",
-			"shaders/compiled/solidColor.vert.spv", "shaders/compiled/solidColor.frag.spv",
-			glm::ivec4(0, 2, 0, 0), glm::ivec4(0, 1, 0, 0), renderContext, PipelineType::stencilMask);
-		//StencilOutline
-		createPipelineEnt("StencilOutlinePipeline", "shaders/slang/solidColor.slang",
-			"shaders/compiled/solidColor.vert.spv", "shaders/compiled/solidColor.frag.spv",
-			glm::ivec4(0, 2, 0, 0), glm::ivec4(0, 1, 0, 0), renderContext, PipelineType::stencilOutline);
-
-		createComputePipeline("StencilOutlinePipeline", "shaders/slang/OutlineShader.slang",
+			glm::ivec4(0, 2, 0, 0), glm::ivec4(0, 1, 0, 0), renderContext, PipelineType::EntityId,
+			SDL_GPU_SAMPLECOUNT_1);
+		
+		createComputePipeline("OutlineComputePipeline", "shaders/slang/OutlineShader.slang",
 			"shaders/compiled/OutlineShader.comp.spv",
 			glm::ivec4(0, 1, 0, 0), renderContext);
 
@@ -80,7 +82,7 @@ public:
 
 	bool createPipelineEnt(const std::string entityName, const std::string filePathShaderSrc,
 		const std::string& filePathVS, const std::string& filePathFS, glm::ivec4 paramsVS,
-		glm::ivec4 paramsFS, const RenderContext& renderContext, PipelineType type) {
+		glm::ivec4 paramsFS, const RenderContext& renderContext, PipelineType type, SDL_GPUSampleCount sampleCount) {
 
 		flecs::entity pipelineEnt = ecs.entity(entityName.c_str()).set<Pipeline>({});
 
@@ -108,34 +110,24 @@ public:
 		switch (type)
 		{
 		case PipelineType::Vertex:
-			if (!pipelneRef.createPipeline(ecs, entityName.c_str(), false)) return false;
+			if (!pipelneRef.createPipeline(ecs, entityName.c_str(), sampleCount, false)) return false;
 
 			break;
 
 		case PipelineType::LineVertex:
 
-			if (!pipelneRef.createLineVertPipeline(ecs, entityName.c_str())) return false;
+			if (!pipelneRef.createLineVertPipeline(ecs, entityName.c_str(), sampleCount)) return false;
 
 			break;
 
 		case PipelineType::PhysicsDebug:
 
-			if (!pipelneRef.createPhysicsDebugPipeline(ecs, entityName.c_str())) return false;
+			if (!pipelneRef.createPhysicsDebugPipeline(ecs, entityName.c_str(), sampleCount)) return false;
 
 			break;
-		case PipelineType::stencilMask:
+		case PipelineType::EntityId:
 
-			if (!pipelneRef.createStencilMaskPipeline(ecs, entityName.c_str())) return false;
-
-			break;
-		case PipelineType::stencilOutline:
-
-			if (!pipelneRef.createStencilOutlinePipeline(ecs, entityName.c_str())) return false;
-
-			break;
-		case PipelineType::entID:
-
-			if (!pipelneRef.createEntIDPipeline(ecs, entityName.c_str())) return false;
+			if (!pipelneRef.createEntIdPipeline(ecs, entityName.c_str(), sampleCount)) return false;
 
 			break;
 
@@ -156,7 +148,7 @@ public:
 
 		if (!pipelineEnt) {
 
-			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, ERROR "Failed to create entity: %s" RESET, entityName);
+			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, ERROR "Failed to create entity: %s" RESET, entityName.c_str());
 			return false;
 		}
 
@@ -170,8 +162,28 @@ public:
 			}
 		}
 
-		//TODO fix magic numbers
-		if (!pipelineRef.createPipeline(ecs, entityName.c_str(), filePathCS.c_str(),1,1,0,1,0,1,8,8,1)) return false;
+		//TODO fix hardcoded numbers. get them from shader reflection data
+		uint32_t samplers = 1;
+		uint32_t readonlyStorageTextures = 0;
+		uint32_t readonlyStorageBuffers = 0;
+		uint32_t readwriteStorageTextures = 1;
+		uint32_t readwriteStorageBuffers = 0;
+		uint32_t uniformBuffers = 1;
+		uint32_t threadcountX = 8;
+		uint32_t threadcountY = 8;
+		uint32_t threadcountZ = 1;
+
+		if (!pipelineRef.createPipeline(ecs, entityName.c_str(), filePathCS.c_str(),
+			samplers,
+			readonlyStorageTextures,
+			readonlyStorageBuffers,
+			readwriteStorageTextures,
+			readwriteStorageBuffers,
+			uniformBuffers,
+			threadcountX,
+			threadcountY,
+			threadcountZ
+		)) return false;
 
 		
 		return true;

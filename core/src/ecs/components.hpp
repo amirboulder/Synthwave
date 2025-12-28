@@ -37,9 +37,7 @@ enum class PipelineType {
 	Vertex,
 	PhysicsDebug,
 	LineVertex,
-	stencilMask,
-	stencilOutline,
-	entID,
+	EntityId,
 };
 
 struct VertexBuffer {
