@@ -602,7 +602,14 @@ public:
 
 			if (event.occurred == true) {
 
-				//TODO We probably don't want this when editor is enabled
+				//If ediotor is enabled don't do anything
+				const EditorState* editorState = ecs.try_get<EditorState>();
+				if (editorState) {
+					if (*editorState == EditorState::Enabled) {
+						return;
+					}
+				}
+				
 				gamePauseHandler();
 			}
 		});
