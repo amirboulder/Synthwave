@@ -9,6 +9,10 @@
 #include <fstream>
 #include <filesystem>
 
+using std::vector;
+using std::cout;
+using std::string;
+
 ///////////////////Third-party
 
 //SDL

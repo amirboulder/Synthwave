@@ -6,7 +6,6 @@
 #include "actorBehaviors.hpp"
 #include "hud.hpp"
 
-using std::vector;
 
 class Scene {
 

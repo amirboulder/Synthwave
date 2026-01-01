@@ -21,7 +21,6 @@
 #include "Shader.hpp"
 #include "pipeline.hpp"
 
-using std::vector;
 
 struct Renderer {
 

@@ -148,10 +148,8 @@ public:
 
 		cout << "mAnimation GetAnimatedJoints : " << mAnimation->GetAnimatedJoints().size() << std::endl;
 
-
 		// Initialize pose
 		mPose->SetSkeleton(mRagdollSettings->GetSkeleton());
-
 
 		// Place the root joint on the first body so that we draw the pose in the right place
 		//RVec3 root_offset = RVec3(10.0f, 10.0f, 10.0f);
@@ -328,6 +326,7 @@ public:
 
 		JPH::Ragdoll* ragdoll = mRagdollSettings->CreateRagdoll(0, entity.id(), &physicsSystem);
 		ragdoll->AddToPhysicsSystem(JPH::EActivation::Activate);
+
 
 
 		cout << "Ragdoll body count : " << ragdoll->GetBodyCount() << std::endl;

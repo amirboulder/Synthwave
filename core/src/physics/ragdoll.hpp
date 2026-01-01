@@ -1013,14 +1013,16 @@ public:
 
 struct BodyPart {
 
-public:
 	string name;
 	uint skeletonJointIndex;
 	Ref<Shape> shape;
+	Body* bodyPtr;
+	JPH::BodyID id;
 	Vec3 position;
 	Quat rotation;
 	BodyPart* parent;
-	Ref<TwoBodyConstraintSettings> constraint;
+	std::vector<BodyPart*> children;
+	Ref<TwoBodyConstraintSettings> constraintSettings;
 	EConstraintSubType constraintType;
 };
 
@@ -1051,17 +1053,17 @@ static RagdollSettings* createHumanoid2(vector< BodyPart> bodyParts, float scale
 			//Change to 
 			if (bodyParts[i].constraintType == EConstraintSubType::SwingTwist) {
 
-				Ref<JPH::SwingTwistConstraintSettings> constraint = JPH::DynamicCast<JPH::SwingTwistConstraintSettings>(bodyParts[i].constraint);
+				Ref<JPH::SwingTwistConstraintSettings> constraint = JPH::DynamicCast<JPH::SwingTwistConstraintSettings>(bodyParts[i].constraintSettings);
 				part.mToParent = constraint;
 			}
 			if (bodyParts[i].constraintType == EConstraintSubType::Hinge) {
 
-				Ref<JPH::HingeConstraintSettings> constraint = JPH::DynamicCast<JPH::HingeConstraintSettings>(bodyParts[i].constraint);
+				Ref<JPH::HingeConstraintSettings> constraint = JPH::DynamicCast<JPH::HingeConstraintSettings>(bodyParts[i].constraintSettings);
 				part.mToParent = constraint;
 			}
 			if (bodyParts[i].constraintType == EConstraintSubType::Fixed) {
 
-				Ref<JPH::FixedConstraintSettings> constraint = JPH::DynamicCast<JPH::FixedConstraintSettings>(bodyParts[i].constraint);
+				Ref<JPH::FixedConstraintSettings> constraint = JPH::DynamicCast<JPH::FixedConstraintSettings>(bodyParts[i].constraintSettings);
 				part.mToParent = constraint;
 			}
 			

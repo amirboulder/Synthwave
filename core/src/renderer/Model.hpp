@@ -6,8 +6,6 @@
 #include "Material.hpp"
 #include "renderUtil.hpp"
 
-using std::vector;
-
 
 struct LoadedTexture {
 	SDL_Surface* surface;
