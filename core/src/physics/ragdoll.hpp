@@ -14,6 +14,16 @@ namespace JPH {
 }
 
 
+enum class Attachment
+{
+	Top,        // +Y
+	Bottom,     // -Y
+	Left,       // -X
+	Right,      // +X
+	Front,      // +Z 
+	Back        // -Z
+};
+
 #ifdef JPH_OBJECT_STREAM
 
 enum class EConstraintOverride
@@ -1018,9 +1028,8 @@ struct BodyPart {
 	Ref<Shape> shape;
 	Body* bodyPtr;
 	JPH::BodyID id;
-	Vec3 position;
-	Quat rotation;
 	BodyPart* parent;
+	Attachment attachment;
 	std::vector<BodyPart*> children;
 	Ref<TwoBodyConstraintSettings> constraintSettings;
 	EConstraintSubType constraintType;
@@ -1040,8 +1049,8 @@ static RagdollSettings* createHumanoid2(vector< BodyPart> bodyParts, float scale
 
 		RagdollSettings::Part& part = settings->mParts[i];
 		part.SetShape(bodyParts[i].shape);
-		part.mPosition = bodyParts[i].position;
-		part.mRotation = bodyParts[i].rotation;
+		//part.mPosition = bodyParts[i].position;
+		//part.mRotation = bodyParts[i].rotation;
 		part.mMotionType = EMotionType::Dynamic;
 		part.mObjectLayer = Layers::MOVING;
 

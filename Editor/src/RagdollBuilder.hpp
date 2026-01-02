@@ -2,6 +2,7 @@
 
 #include "core/src/pch.h"
 #include "core/src/physics/ragdoll.hpp"
+#include "core/src/util/util.hpp"
 
 enum class ShapeType
 {
@@ -25,16 +26,8 @@ constexpr EnumEntry ShapeTypeMeta[] = {
     { ShapeType::Box,     "Box",     "Primitive" },
 };
 
-enum class Attachment
-{
-    Top,        // +Y
-    Bottom,     // -Y
-    Left,       // -X
-    Right,      // +X
-    Front,      // +Z 
-    Back        // -Z
-};
 
+//Used for Attachment dropdown text
 static const std::map<Attachment, std::string> AttachmentNames = {
     {Attachment::Top, "Top"},
     {Attachment::Bottom, "Bottom"},
@@ -42,6 +35,14 @@ static const std::map<Attachment, std::string> AttachmentNames = {
     {Attachment::Right, "Right"},
     {Attachment::Front, "Front"},
     {Attachment::Back, "Back"}
+};
+
+//Used for Constraint dropdown text
+static const std::map<JPH::EConstraintSubType, std::string> constraintNames = {
+    {JPH::EConstraintSubType::Fixed, "Fixed"},
+    {JPH::EConstraintSubType::Point, "Point"},
+    {JPH::EConstraintSubType::Hinge, "Hinge"},
+    {JPH::EConstraintSubType::SwingTwist, "SwingTwist"},
 };
 
 
@@ -53,9 +54,6 @@ public:
 
         bool s_showingWindow = true;
 
-        //Camera
-        glm::vec3 camPos = glm::vec3(10.0f, 10.0f, 10.0f);
-        bool camPosSet = false;
 
         ShapeType selectedShape = ShapeType::Capsule;
         bool creating = false;
@@ -71,17 +69,17 @@ public:
 
         BodyPart * selectedPart = nullptr;
 
-        //SelectedPart
-        glm::vec3 selectedPos = glm::vec3(1, 3, 1);
-        glm::quat selectedRot = glm::quat(1, 0, 0, 0);
-
         //Attachment
         Attachment selectedAttachment = Attachment::Right;
+
+        //Constraint
+        Ref<TwoBodyConstraintSettings> constraintSettings;
+        JPH::EConstraintSubType constraintType = JPH::EConstraintSubType::Fixed;
 
         //Capsule
         float capsuleHeight = 0.3f;
         float capsuleRadius = 0.3f;
-        glm::vec3 capsulePos = glm::vec3(1,3,1);
+        glm::vec3 capsulePos = glm::vec3(1,3,-3);
         glm::quat capsuleRot = glm::quat(1,0,0,0);
 
         //Sphere
@@ -234,7 +232,6 @@ public:
             ImGui::EndCombo();
         }
 
-
         switch (s_state.selectedShape) {
         case ShapeType::Capsule:
 
@@ -296,30 +293,45 @@ public:
 
     static void drawModifyObject(flecs::world& ecs,BodyPart* selectedPart) {
 
-        if (ImGui::Button("Rotate X +90°")) {
+        glm::vec3 rotationEulerRadians = glm::eulerAngles(JPHQuatToGLM(selectedPart->bodyPtr->GetRotation()));
+        glm::vec3 rotationEulerDegrees = glm::degrees(rotationEulerRadians);
+
+        // Create button labels with current angles
+        char buttonLabelX[64];
+        char buttonLabelY[64];
+        char buttonLabelZ[64];
+        snprintf(buttonLabelX, sizeof(buttonLabelX), "Rotate X +90° (%.1f°)", rotationEulerDegrees.x);
+        snprintf(buttonLabelY, sizeof(buttonLabelY), "Rotate Y +90° (%.1f°)", rotationEulerDegrees.y);
+        snprintf(buttonLabelZ, sizeof(buttonLabelZ), "Rotate Z +90° (%.1f°)", rotationEulerDegrees.z);
+
+        if (ImGui::Button(buttonLabelX)) {
             glm::quat delta = glm::angleAxis(glm::radians(90.0f), glm::vec3(1, 0, 0));
-            s_state.selectedRot = delta * s_state.selectedRot;
-            rotateSelected(ecs, s_state.selectedPart);
+
+            glm::quat newRot = JPHQuatToGLM(selectedPart->bodyPtr->GetRotation());
+            newRot = delta * newRot;
+            rotateSelected(ecs, s_state.selectedPart, newRot);
         }
-        if (ImGui::Button("Rotate Y +90°")) {
+        if (ImGui::Button(buttonLabelY)) {
             glm::quat delta = glm::angleAxis(glm::radians(90.0f), glm::vec3(0, 1, 0));
-            s_state.selectedRot = delta * s_state.selectedRot;
-            rotateSelected(ecs, s_state.selectedPart);
+            glm::quat newRot = JPHQuatToGLM(selectedPart->bodyPtr->GetRotation());
+            newRot = delta * newRot;
+            rotateSelected(ecs, s_state.selectedPart, newRot);
         }
-        if (ImGui::Button("Rotate Z +90°")) {
+        if (ImGui::Button(buttonLabelZ)) {
             glm::quat delta = glm::angleAxis(glm::radians(90.0f), glm::vec3(0, 0, 1));
-            s_state.selectedRot = delta * s_state.selectedRot;
-            rotateSelected(ecs, s_state.selectedPart);
+            glm::quat newRot = JPHQuatToGLM(selectedPart->bodyPtr->GetRotation());
+            newRot = delta * newRot;
+            rotateSelected(ecs, s_state.selectedPart, newRot);
         }
 
     }
 
-    static void rotateSelected(flecs::world& ecs,BodyPart* selectedPart) {
+    static void rotateSelected(flecs::world& ecs,BodyPart* selectedPart,const glm::quat newRot) {
 
         JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
         JPH::BodyInterface& bodyInterface = ecs.get<PhysicsSystemRef>().physicsSystem.GetBodyInterface();
 
-        JPH::Quat joltRotation(s_state.selectedRot.x, s_state.selectedRot.y, s_state.selectedRot.z, s_state.selectedRot.w);
+        JPH::Quat joltRotation = GLMQuatToJPH(newRot);
         bodyInterface.SetRotation(selectedPart->id, joltRotation, JPH::EActivation::DontActivate);
     }
 
@@ -329,18 +341,9 @@ public:
         ImGui::InputFloat("CapsuleHeight", &s_state.capsuleHeight, 0.1f, 1.0f, "%.3f");
         ImGui::InputFloat("CapsuleRadius", &s_state.capsuleRadius, 0.1f, 1.0f, "%.3f");
 
-        if (ImGui::Button("Rotate X +90°")) {
-            glm::quat delta = glm::angleAxis(glm::radians(90.0f), glm::vec3(1, 0, 0));
-            s_state.capsuleRot = delta * s_state.capsuleRot;
-        }
-        if (ImGui::Button("Rotate Y +90°")) {
-            glm::quat delta = glm::angleAxis(glm::radians(90.0f), glm::vec3(0, 1, 0));
-            s_state.capsuleRot = delta * s_state.capsuleRot;
-        }
-        if (ImGui::Button("Rotate Z +90°")) {
-            glm::quat delta = glm::angleAxis(glm::radians(90.0f), glm::vec3(0, 0, 1));
-            s_state.capsuleRot = delta * s_state.capsuleRot;
-        }
+        ImGui::InputFloat3("Position", &(s_state.capsulePos.x));
+
+        drawRotationOptions(s_state.capsuleRot);
 
         float buttonWidth = 140.0f;
         if (ImGui::Button("Add Shape", ImVec2(buttonWidth, 0))) {
@@ -380,8 +383,6 @@ public:
             s_state.root->name = name.append(std::to_string(s_state.skeletonJointIndex));
             s_state.root->id = s_state.root->bodyPtr->GetID();
             s_state.root->skeletonJointIndex = s_state.skeletonJointIndex;
-            s_state.root->position = joltPosition;
-            s_state.root->rotation = joltRotation;
             s_state.root->parent = nullptr;
             s_state.root->shape = capsuleShape;
             s_state.selectedPart = s_state.root;
@@ -400,31 +401,11 @@ public:
         ImGui::InputFloat("CapsuleHeight", &s_state.capsuleHeight, 0.1f, 1.0f, "%.3f");
         ImGui::InputFloat("CapsuleRadius", &s_state.capsuleRadius, 0.1f, 1.0f, "%.3f");
 
-        if (ImGui::Button("Rotate X +90°")) {
-            glm::quat delta = glm::angleAxis(glm::radians(90.0f), glm::vec3(1, 0, 0));
-            s_state.capsuleRot = delta * s_state.capsuleRot;
-        }
-        if (ImGui::Button("Rotate Y +90°")) {
-            glm::quat delta = glm::angleAxis(glm::radians(90.0f), glm::vec3(0, 1, 0));
-            s_state.capsuleRot = delta * s_state.capsuleRot;
-        }
-        if (ImGui::Button("Rotate Z +90°")) {
-            glm::quat delta = glm::angleAxis(glm::radians(90.0f), glm::vec3(0, 0, 1));
-            s_state.capsuleRot = delta * s_state.capsuleRot;
-        }
+        drawRotationOptions(s_state.capsuleRot);
 
-        if (ImGui::BeginCombo("Attachment", AttachmentNames.at(s_state.selectedAttachment).c_str())) {
-            for (const auto& [attachment, name] : AttachmentNames) {
-                bool isSelected = (s_state.selectedAttachment == attachment);
-                if (ImGui::Selectable(name.c_str(), isSelected)) {
-                    s_state.selectedAttachment = attachment;
-                }
-                if (isSelected) {
-                    ImGui::SetItemDefaultFocus();
-                }
-            }
-            ImGui::EndCombo();
-        }
+        drawAttachmentDropdown();
+
+        drawConstraintDropdown();
 
         float buttonWidth = 140.0f;
         if (ImGui::Button("Add Child", ImVec2(buttonWidth, 0))) {
@@ -446,7 +427,8 @@ public:
 
             Ref<Shape> capsuleShape = new JPH::CapsuleShape(s_state.capsuleHeight / 2.0f, s_state.capsuleRadius);
 
-            JPH::Vec3 joltPosition = GetAttachmentPosition(ecs, parent, capsuleShape,s_state.selectedAttachment);
+            JPH::Vec3 joltPosition = GetAttachmentPos(ecs, parent, capsuleShape,
+                s_state.capsuleRot, s_state.selectedAttachment);
 
 
             JPH::BodyCreationSettings creationSettings(
@@ -471,25 +453,20 @@ public:
            part->constraintType = EConstraintSubType::Fixed;
 
            TwoBodyConstraint* constraint = constraintSettings->Create(*parent->bodyPtr, *part->bodyPtr);
-
            physicsSystem.AddConstraint(constraint);
+
 
 
             part->id = part->bodyPtr->GetID();
             s_state.skeletonJointIndex += 1;
             part->skeletonJointIndex = s_state.skeletonJointIndex;
             part->name = name.append(std::to_string(s_state.skeletonJointIndex));
-            part->position = joltPosition;
-            part->rotation = joltRotation;
             part->shape = capsuleShape;
             part->parent = parent;
 
             s_state.selectedPart = part;
 
             parent->children.push_back(part);
-
-
-
 
         }
     }
@@ -622,14 +599,86 @@ public:
         }
     }
 
-    static JPH::Vec3 GetAttachmentPosition(flecs::world& ecs, BodyPart* parent, JPH::Shape* childShape, Attachment side) {
+    static void drawRotationOptions(glm::quat & rotationQuat) {
+
+        // Calculate current rotation angles
+        glm::vec3 rotationEulerRadians = glm::eulerAngles(rotationQuat);
+        glm::vec3 rotationEulerDegrees = glm::degrees(rotationEulerRadians);
+
+        // Create button labels with current angles
+        char buttonLabelX[64];
+        char buttonLabelY[64];
+        char buttonLabelZ[64];
+        snprintf(buttonLabelX, sizeof(buttonLabelX), "Rotate X +90° (%.1f°)", rotationEulerDegrees.x);
+        snprintf(buttonLabelY, sizeof(buttonLabelY), "Rotate Y +90° (%.1f°)", rotationEulerDegrees.y);
+        snprintf(buttonLabelZ, sizeof(buttonLabelZ), "Rotate Z +90° (%.1f°)", rotationEulerDegrees.z);
+
+        // Use the dynamic labels in buttons
+        if (ImGui::Button(buttonLabelX)) {
+            glm::quat delta = glm::angleAxis(glm::radians(90.0f), glm::vec3(1, 0, 0));
+            rotationQuat = delta * rotationQuat;
+        }
+        ImGui::SameLine();
+        if (ImGui::Button(buttonLabelY)) {
+            glm::quat delta = glm::angleAxis(glm::radians(90.0f), glm::vec3(0, 1, 0));
+            rotationQuat = delta * rotationQuat;
+        }
+        ImGui::SameLine();
+        if (ImGui::Button(buttonLabelZ)) {
+            glm::quat delta = glm::angleAxis(glm::radians(90.0f), glm::vec3(0, 0, 1));
+            rotationQuat = delta * rotationQuat;
+        }
+    }
+
+    static void drawAttachmentDropdown() {
+
+        if (ImGui::BeginCombo("Attachment", AttachmentNames.at(s_state.selectedAttachment).c_str())) {
+            for (const auto& [attachment, name] : AttachmentNames) {
+                bool isSelected = (s_state.selectedAttachment == attachment);
+                if (ImGui::Selectable(name.c_str(), isSelected)) {
+                    s_state.selectedAttachment = attachment;
+                }
+                if (isSelected) {
+                    ImGui::SetItemDefaultFocus();
+                }
+            }
+            ImGui::EndCombo();
+        }
+    }
+
+    static void drawConstraintDropdown() {
+
+        // Get the current constraint name safely
+        auto it = constraintNames.find(s_state.constraintType);
+        const char* currentName = (it != constraintNames.end()) ? it->second.c_str() : "Unknown";
+
+        if (ImGui::BeginCombo("Constraint", currentName)) {
+            for (const auto& [constraint, name] : constraintNames) {
+                bool isSelected = (s_state.constraintType == constraint);
+                if (ImGui::Selectable(name.c_str(), isSelected)) {
+                    s_state.constraintType = constraint;
+                }
+                if (isSelected) {
+                    ImGui::SetItemDefaultFocus();
+                }
+            }
+            ImGui::EndCombo();
+        }
+
+    }
+
+    static JPH::Vec3 GetAttachmentPos(flecs::world& ecs, const BodyPart* parent, const JPH::Shape* childShape,
+        const glm::quat rotation, const Attachment side) {
+
+        JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
+        JPH::BodyInterface& bodyInterface = ecs.get<PhysicsSystemRef>().physicsSystem.GetBodyInterface();
 
         JPH::AABox parentAABB = parent->bodyPtr->GetWorldSpaceBounds();
 
-        JPH::Vec3 pos = parent->position;
-
+        JPH::Vec3 pos = parent->bodyPtr->GetPosition();
+    
         // Get child half-extents for the relevant axis
-        JPH::Vec3 childExtents = GetShapeHalfExtents(childShape);
+        JPH::Vec3 childExtents = GetShapeHalfExtents(childShape, rotation);
 
         switch (side) {
         case Attachment::Right:
@@ -655,9 +704,35 @@ public:
         return pos;
     }
 
-    static JPH::Vec3 GetShapeHalfExtents(JPH::Shape* shape) {
-        JPH::AABox localAABB = shape->GetLocalBounds();
-        return localAABB.GetExtent();  // Half of the size
+    static JPH::Vec3 GetShapeHalfExtents(const JPH::Shape* childShape, const glm::quat rotation) {
+        JPH::AABox localAABB = childShape->GetLocalBounds();
+
+        // Convert glm::quat to JPH::Quat
+        JPH::Quat jphRotation = GLMQuatToJPH(rotation);
+
+        // Get the 8 corners of the local AABB
+        JPH::Vec3 corners[8];
+        corners[0] = JPH::Vec3(localAABB.mMin.GetX(), localAABB.mMin.GetY(), localAABB.mMin.GetZ());
+        corners[1] = JPH::Vec3(localAABB.mMax.GetX(), localAABB.mMin.GetY(), localAABB.mMin.GetZ());
+        corners[2] = JPH::Vec3(localAABB.mMin.GetX(), localAABB.mMax.GetY(), localAABB.mMin.GetZ());
+        corners[3] = JPH::Vec3(localAABB.mMax.GetX(), localAABB.mMax.GetY(), localAABB.mMin.GetZ());
+        corners[4] = JPH::Vec3(localAABB.mMin.GetX(), localAABB.mMin.GetY(), localAABB.mMax.GetZ());
+        corners[5] = JPH::Vec3(localAABB.mMax.GetX(), localAABB.mMin.GetY(), localAABB.mMax.GetZ());
+        corners[6] = JPH::Vec3(localAABB.mMin.GetX(), localAABB.mMax.GetY(), localAABB.mMax.GetZ());
+        corners[7] = JPH::Vec3(localAABB.mMax.GetX(), localAABB.mMax.GetY(), localAABB.mMax.GetZ());
+
+        // Rotate all corners and find the new AABB
+        JPH::Vec3 rotatedMin = jphRotation * corners[0];
+        JPH::Vec3 rotatedMax = rotatedMin;
+
+        for (int i = 1; i < 8; i++) {
+            JPH::Vec3 rotatedCorner = jphRotation * corners[i];
+            rotatedMin = JPH::Vec3::sMin(rotatedMin, rotatedCorner);
+            rotatedMax = JPH::Vec3::sMax(rotatedMax, rotatedCorner);
+        }
+
+        // Return half extents of the rotated AABB
+        return (rotatedMax - rotatedMin) * 0.5f;
     }
 
 };
