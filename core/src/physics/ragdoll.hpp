@@ -52,7 +52,6 @@ public:
 		if (!ObjectStreamIn::sReadObject(stream.Get(), ragdoll))
 			cout << "ERROR!!!!\n";
 			
-
 		for (RagdollSettings::Part& p : ragdoll->mParts)
 		{
             
@@ -1026,13 +1025,13 @@ struct BodyPart {
 	string name;
 	uint skeletonJointIndex;
 	Ref<Shape> shape;
-	Body* bodyPtr;
-	JPH::BodyID id;
-	BodyPart* parent;
+	Body* bodyPtr = nullptr;
+	BodyPart* parent = nullptr;
 	Attachment attachment;
 	std::vector<BodyPart*> children;
 	Ref<TwoBodyConstraintSettings> constraintSettings;
 	EConstraintSubType constraintType;
+	Ref<TwoBodyConstraint> constraint;
 };
 
 
