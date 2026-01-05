@@ -12,20 +12,13 @@ enum class ShapeType
 	COUNT,
 };
 
-struct EnumEntry
-{
-	ShapeType value;
-	const char* name;
-	const char* category;
-};
 
-//TODO change to a map like below
-constexpr EnumEntry ShapeTypeMeta[] = {
-	{ ShapeType::Capsule, "Capsule", "Primitive" },
-	{ ShapeType::Sphere,  "Sphere",  "Primitive" },
-	{ ShapeType::Box,     "Box",     "Primitive" },
+//Used for shapeType dropdown text
+static const std::map<ShapeType, std::string> ShapeTypeNames = {
+	{ShapeType::Capsule, "Capsule"},
+	{ShapeType::Sphere, "Sphere"},
+	{ShapeType::Box, "Box"},
 };
-
 
 //Used for Attachment dropdown text
 static const std::map<Attachment, std::string> AttachmentNames = {
@@ -64,6 +57,10 @@ public:
 
 		BodyPart* partToDelete = nullptr;
 
+		float minSize = 0.1f;
+		float maxSize = 10.0f;
+		float sliderStep = 0.1f;
+
 		//Attachment
 		Attachment selectedAttachment = Attachment::Right;
 
@@ -81,17 +78,22 @@ public:
 		int hingeNormalAxis = 0;
 		float hingeMinAngleRad = 0.0f;
 		float hingeMaxAngleRad = 0.0f;
+		
+		//Root Position
+		glm::vec3 rootPos = glm::vec3(1.0f, 3.0f, -3.0f);
+
+		//Rotatation
+		glm::quat rotInput = glm::quat(1, 0, 0, 0);
 
 		//Capsule
 		float capsuleHeight = 0.3f;
 		float capsuleRadius = 0.3f;
-		glm::vec3 capsulePos = glm::vec3(1, 3, -3);
-		glm::quat capsuleRot = glm::quat(1, 0, 0, 0);
 
 		//Sphere
-		float sphereRadius = 0.0f;
-		glm::vec3 spherePos = glm::vec3();
-		glm::quat sphereRot = glm::quat();
+		float sphereRadius = 0.1f;
+
+		//Box
+		glm::vec3 boxExtents = glm::vec3(0.1f, 0.1f, 0.1f);
 
 	};
 	static State s_state;
@@ -171,7 +173,6 @@ public:
 			s_state.creating = true;
 
 		}
-
 	}
 
 	static void drawModifyOrAddChild() {
@@ -187,7 +188,7 @@ public:
 		if (s_state.modifying) {
 			ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive));
 			ImGui::Button("Modify", ImVec2(buttonWidth, 0));
-			ImGui::PopStyleColor();  // Pop immediately after
+			ImGui::PopStyleColor();  
 		}
 		else {
 			ImGui::Button("Modify", ImVec2(buttonWidth, 0));
@@ -204,7 +205,7 @@ public:
 		if (s_state.addingChild) {
 			ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive));
 			ImGui::Button("AddChild", ImVec2(buttonWidth, 0));
-			ImGui::PopStyleColor();  // Pop immediately after
+			ImGui::PopStyleColor();  
 		}
 		else {
 			ImGui::Button("AddChild", ImVec2(buttonWidth, 0));
@@ -219,28 +220,9 @@ public:
 
 	static void drawAddRoot(flecs::world& ecs) {
 
-		float windowWidth = ImGui::GetWindowSize().x;
-		const char* entTypeTxt = "Shape Type Type:";
-		float textWidth = ImGui::CalcTextSize(entTypeTxt).x;
-		ImGui::SetCursorPosX((windowWidth - textWidth) * 0.5f);
-
-		ImGui::SetCursorPosX((windowWidth - textWidth) * 0.5f);
 		ImGui::SetNextItemWidth(250.0f);
-		int typeIndex = static_cast<int>(s_state.selectedShape);
-		if (ImGui::BeginCombo("Shape Type", ShapeTypeMeta[typeIndex].name)) {
-			for (int i = 0; i < static_cast<int>(ShapeType::COUNT); i++) {
-				ShapeType type = static_cast<ShapeType>(i);
-				bool is_selected = (s_state.selectedShape == type);
-
-				if (ImGui::Selectable(ShapeTypeMeta[i].name, is_selected))
-					s_state.selectedShape = type;
-
-				if (is_selected) {
-					ImGui::SetItemDefaultFocus();
-				}
-			}
-			ImGui::EndCombo();
-		}
+		
+		drawShapeTypeDropdown();
 
 		switch (s_state.selectedShape) {
 		case ShapeType::Capsule:
@@ -249,11 +231,11 @@ public:
 			break;
 		case ShapeType::Sphere:
 
-			drawSphereOptions(ecs);
+			drawSphereRootOptions(ecs);
 			break;
 		case ShapeType::Box:
 
-			drawBoxOptions(ecs);
+			drawBoxRootOptions(ecs);
 			break;
 		}
 
@@ -261,28 +243,9 @@ public:
 
 	static void drawAddChildPart(flecs::world& ecs, BodyPart* selectedPart) {
 
-		float windowWidth = ImGui::GetWindowSize().x;
-		const char* entTypeTxt = " Child Shape Type Type:";
-		float textWidth = ImGui::CalcTextSize(entTypeTxt).x;
-		ImGui::SetCursorPosX((windowWidth - textWidth) * 0.5f);
-
-		ImGui::SetCursorPosX((windowWidth - textWidth) * 0.5f);
 		ImGui::SetNextItemWidth(250.0f);
-		int typeIndex = static_cast<int>(s_state.selectedShape);
-		if (ImGui::BeginCombo("Shape Type", ShapeTypeMeta[typeIndex].name)) {
-			for (int i = 0; i < static_cast<int>(ShapeType::COUNT); i++) {
-				ShapeType type = static_cast<ShapeType>(i);
-				bool is_selected = (s_state.selectedShape == type);
-
-				if (ImGui::Selectable(ShapeTypeMeta[i].name, is_selected))
-					s_state.selectedShape = type;
-
-				if (is_selected) {
-					ImGui::SetItemDefaultFocus();
-				}
-			}
-			ImGui::EndCombo();
-		}
+		
+		drawShapeTypeDropdown();
 
 		switch (s_state.selectedShape) {
 		case ShapeType::Capsule:
@@ -290,12 +253,12 @@ public:
 			drawCapsuleChildOptions(ecs, s_state.selectedPart);
 			break;
 		case ShapeType::Sphere:
-
-			//drawSphereOptions(ecs);
+			
+			drawSphereChildOptions(ecs, s_state.selectedPart);
 			break;
 		case ShapeType::Box:
 
-			// drawBoxOptions(ecs);
+			drawBoxChildOptions(ecs, s_state.selectedPart);
 			break;
 		}
 
@@ -324,55 +287,159 @@ public:
 			glm::quat newRot = JPHQuatToGLM(selectedPart->bodyPtr->GetRotation());
 			newRot = delta * newRot;
 			rotateSelected(ecs, s_state.selectedPart, newRot);
+			adjustChildren(ecs, s_state.selectedPart);
 		}
 		if (ImGui::Button(buttonLabelY)) {
 			glm::quat delta = glm::angleAxis(glm::radians(90.0f), glm::vec3(0, 1, 0));
 			glm::quat newRot = JPHQuatToGLM(selectedPart->bodyPtr->GetRotation());
 			newRot = delta * newRot;
 			rotateSelected(ecs, s_state.selectedPart, newRot);
+			adjustChildren(ecs, s_state.selectedPart);
 		}
 		if (ImGui::Button(buttonLabelZ)) {
 			glm::quat delta = glm::angleAxis(glm::radians(90.0f), glm::vec3(0, 0, 1));
 			glm::quat newRot = JPHQuatToGLM(selectedPart->bodyPtr->GetRotation());
 			newRot = delta * newRot;
 			rotateSelected(ecs, s_state.selectedPart, newRot);
+			adjustChildren(ecs, s_state.selectedPart);
 		}
 
 	}
 
-	static void rotateSelected(flecs::world& ecs, BodyPart* selectedPart, const glm::quat newRot) {
+
+	static void rotateSelected(flecs::world& ecs, BodyPart* part, const glm::quat newRot) {
+
+		JPH::BodyInterface& bi = ecs.get<PhysicsSystemRef>().physicsSystem.GetBodyInterface();
+
+		JPH::Quat joltRotation = GLMQuatToJPH(newRot);
+		bi.SetRotation(part->bodyPtr->GetID(), joltRotation, JPH::EActivation::Activate);
+
+		// for child nodes
+		if (part->parent) {
+
+			JPH::Vec3  newPlacement = GetAttachmentPos(part->parent, part->shape,
+				JPHQuatToGLM(part->bodyPtr->GetRotation()), part->attachment);
+
+			bi.SetPosition(part->bodyPtr->GetID(), newPlacement, JPH::EActivation::Activate);
+
+		}
+	}
+
+	static void adjustChildren(flecs::world& ecs, BodyPart* part) {
 
 		JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
 		JPH::BodyInterface& bodyInterface = ecs.get<PhysicsSystemRef>().physicsSystem.GetBodyInterface();
 
-		JPH::Quat joltRotation = GLMQuatToJPH(newRot);
-		bodyInterface.SetRotation(selectedPart->bodyPtr->GetID(), joltRotation, JPH::EActivation::DontActivate);
+		//Positions only need to be adjusted for parts child nodes
+		for (int i = 0; i < part->children.size(); i++) {
+
+			adjustPositionRecursive(bodyInterface, part->children[i]);
+			
+		}
+		// constraint may need to part itself if it has a parent,as well as all of it children
+		adjustConstraintsRecursive(physicsSystem, part);
+	}
+
+	
+	static void adjustPositionRecursive(JPH::BodyInterface& bi, BodyPart* part) {
+		
+		if (!part->parent) {
+			cout << "adjustPositionRecursive function called on root node!\n";
+			return;
+		}
+
+
+		JPH::Vec3  newPlacement = GetAttachmentPos(part->parent, part->shape,
+			JPHQuatToGLM(part->bodyPtr->GetRotation()) , part->attachment);
+
+		bi.SetPosition(part->bodyPtr->GetID(), newPlacement, JPH::EActivation::Activate);
+
+		for (int i = 0; i < part->children.size(); i++) {
+
+			adjustPositionRecursive(bi, part->children[i]);
+		}
+
+	}
+
+	//Adjust the constraint for part and all of its children
+	static void adjustConstraintsRecursive(JPH::PhysicsSystem& physicsSystem, BodyPart* part) {
+
+		//If child node then adjust constraint to parent
+		if (part->parent) {
+			
+			physicsSystem.RemoveConstraint(part->constraint);
+			switch (part->constraintType)
+			{
+			case EConstraintSubType::Fixed:
+				addFixedConstraint(part->parent, part, physicsSystem, part->attachment);
+				break;
+
+			case EConstraintSubType::Hinge:
+			{
+				Ref<JPH::HingeConstraintSettings> constraintSettings = JPH::DynamicCast<JPH::HingeConstraintSettings>(part->constraintSettings);
+				addHingeConstraint(part->parent, part, physicsSystem, part->attachment,
+					constraintSettings->mHingeAxis1, constraintSettings->mNormalAxis1, constraintSettings->mLimitsMin,
+					constraintSettings->mLimitsMax);
+				break;
+			}
+
+			case EConstraintSubType::SwingTwist:
+			{
+				Ref<JPH::SwingTwistConstraintSettings> constraintSettings2 = JPH::DynamicCast<JPH::SwingTwistConstraintSettings>(part->constraintSettings);
+				addSwintTwistConstraint(part->parent, part, physicsSystem, part->attachment,
+					constraintSettings2->mTwistAxis1, constraintSettings2->mTwistMinAngle,
+					constraintSettings2->mNormalHalfConeAngle, constraintSettings2->mPlaneHalfConeAngle);
+				break;
+			}
+			}
+		}
+		
+
+		for (int i = 0; i < part->children.size(); i++) {
+			adjustConstraintsRecursive(physicsSystem, part->children[i]);
+		}
 	}
 
 
 	static void drawCapsuleRootOptions(flecs::world& ecs) {
 
-		ImGui::InputFloat("CapsuleHeight", &s_state.capsuleHeight, 0.1f, 1.0f, "%.3f");
-		ImGui::InputFloat("CapsuleRadius", &s_state.capsuleRadius, 0.1f, 1.0f, "%.3f");
+		ImGui::SetNextItemWidth(140.0f);
+		ImGui::DragFloat(
+			"CapsuleHeight",
+			&s_state.capsuleHeight,
+			s_state.sliderStep,
+			s_state.minSize,
+			s_state.maxSize,
+			"%.3f",
+			ImGuiSliderFlags_AlwaysClamp
+		);
+		ImGui::SameLine();
+		ImGui::SetNextItemWidth(140.0f);
+		ImGui::DragFloat(
+			"CapsuleRadius",
+			&s_state.capsuleRadius,
+			s_state.sliderStep,
+			s_state.minSize,
+			s_state.maxSize,
+			"%.3f",
+			ImGuiSliderFlags_AlwaysClamp
+		);
 
-		ImGui::InputFloat3("Position", &(s_state.capsulePos.x));
+		ImGui::InputFloat3("Position", &(s_state.rootPos.x));
 
-		drawRotationOptions(s_state.capsuleRot);
+		drawRotationOptions(s_state.rotInput);
 
 		float buttonWidth = 140.0f;
 		if (ImGui::Button("Add Shape", ImVec2(buttonWidth, 0))) {
 
-			//Add shape to Ragdoll here
-			int  selectedShapeInt = static_cast<int>(s_state.selectedShape);
-			cout << "Adding : " << ShapeTypeMeta[selectedShapeInt].name << std::endl;
+			cout << "Adding : " << ShapeTypeNames.at(s_state.selectedShape) << std::endl;
 
-			JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
 			JPH::BodyInterface& bodyInterface = ecs.get<PhysicsSystemRef>().physicsSystem.GetBodyInterface();
 
 			//TODO Add some checks for size 
 
-			JPH::Vec3 joltPosition(s_state.capsulePos.x, s_state.capsulePos.y, s_state.capsulePos.z);
-			JPH::Quat joltRotation(s_state.capsuleRot.x, s_state.capsuleRot.y, s_state.capsuleRot.z, s_state.capsuleRot.w);
+			JPH::Vec3 joltPosition(s_state.rootPos.x, s_state.rootPos.y, s_state.rootPos.z);
+			JPH::Quat joltRotation(s_state.rotInput.x, s_state.rotInput.y, s_state.rotInput.z, s_state.rotInput.w);
 			if (!joltRotation.IsNormalized()) {
 				joltRotation = joltRotation.Normalized();
 			}
@@ -400,6 +467,128 @@ public:
 			s_state.root->shape = capsuleShape;
 			s_state.selectedPart = s_state.root;
 
+			//reset rotationInput
+			s_state.rotInput = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+
+		}
+	}
+
+	static void drawSphereRootOptions(flecs::world& ecs) {
+
+		ImGui::SetNextItemWidth(140.0f);
+		ImGui::DragFloat(
+			"SphereRadius",
+			&s_state.sphereRadius,
+			s_state.sliderStep,
+			s_state.minSize,
+			s_state.maxSize,
+			"%.3f",
+			ImGuiSliderFlags_AlwaysClamp
+		);
+
+		ImGui::InputFloat3("Position", &(s_state.rootPos.x));
+
+		drawRotationOptions(s_state.rotInput);
+
+		float buttonWidth = 140.0f;
+		if (ImGui::Button("Add Shape", ImVec2(buttonWidth, 0))) {
+
+			cout << "Adding : " << ShapeTypeNames.at(s_state.selectedShape) << std::endl;
+
+			JPH::BodyInterface& bodyInterface = ecs.get<PhysicsSystemRef>().physicsSystem.GetBodyInterface();
+
+			//TODO Add some checks for size 
+
+			JPH::Vec3 joltPosition(s_state.rootPos.x, s_state.rootPos.y, s_state.rootPos.z);
+			JPH::Quat joltRotation(s_state.rotInput.x, s_state.rotInput.y, s_state.rotInput.z, s_state.rotInput.w);
+			if (!joltRotation.IsNormalized()) {
+				joltRotation = joltRotation.Normalized();
+			}
+
+			Ref<Shape> SphereShape = new JPH::SphereShape(s_state.sphereRadius);
+			JPH::BodyCreationSettings creationSettings(
+				SphereShape,
+				joltPosition,
+				joltRotation,
+				JPH::EMotionType::Dynamic,
+				Layers::MOVING
+			);
+
+			string name = "Sphere";
+
+			s_state.root = new BodyPart;
+
+			s_state.root->bodyPtr = bodyInterface.CreateBody(creationSettings);
+			bodyInterface.AddBody(s_state.root->bodyPtr->GetID(), JPH::EActivation::Activate);
+
+			s_state.root->name = name.append(std::to_string(s_state.skeletonJointIndex));
+			s_state.root->skeletonJointIndex = s_state.skeletonJointIndex;
+			s_state.root->parent = nullptr;
+			s_state.root->shape = SphereShape;
+			s_state.selectedPart = s_state.root;
+
+			//reset rotationInput
+			s_state.rotInput = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+		}
+	}
+
+	static void drawBoxRootOptions(flecs::world& ecs) {
+
+		ImGui::SetNextItemWidth(340.0f);
+		ImGui::DragFloat3(
+			"BoxExtents",
+			&s_state.boxExtents.x,
+			s_state.sliderStep,
+			s_state.minSize,
+			s_state.maxSize,
+			"%.3f",
+			ImGuiSliderFlags_AlwaysClamp
+		);
+
+		ImGui::InputFloat3("Position", &(s_state.rootPos.x));
+
+		drawRotationOptions(s_state.rotInput);
+
+		float buttonWidth = 140.0f;
+		if (ImGui::Button("Add Shape", ImVec2(buttonWidth, 0))) {
+
+			cout << "Adding : " << ShapeTypeNames.at(s_state.selectedShape) << std::endl;
+
+			JPH::BodyInterface& bodyInterface = ecs.get<PhysicsSystemRef>().physicsSystem.GetBodyInterface();
+
+			//Add some checks for size 
+			JPH::Vec3 joltPosition(s_state.rootPos.x, s_state.rootPos.y, s_state.rootPos.z);
+			JPH::Quat joltRotation(s_state.rotInput.x, s_state.rotInput.y, s_state.rotInput.z, s_state.rotInput.w);
+			if (!joltRotation.IsNormalized()) {
+				joltRotation = joltRotation.Normalized();
+			}
+
+			Ref<Shape> shape = new JPH::BoxShape(GLMVec3ToJPH(s_state.boxExtents) / 2.0f);
+
+			JPH::BodyCreationSettings creationSettings(
+				shape,
+				joltPosition,
+				joltRotation,
+				JPH::EMotionType::Dynamic,
+				Layers::MOVING
+			);
+
+			string name = "Box";
+
+			s_state.root = new BodyPart;
+
+			s_state.root->bodyPtr = bodyInterface.CreateBody(creationSettings);
+			bodyInterface.AddBody(s_state.root->bodyPtr->GetID(), JPH::EActivation::Activate);
+
+			s_state.root->name = name.append(std::to_string(s_state.skeletonJointIndex));
+			s_state.root->skeletonJointIndex = s_state.skeletonJointIndex;
+			s_state.root->parent = nullptr;
+			s_state.root->shape = shape;
+
+			s_state.selectedPart = s_state.root;
+
+			//reset rotationInput
+			s_state.rotInput = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
 		}
 	}
 
@@ -416,144 +605,269 @@ public:
 			return;
 		}
 
-		ImGui::InputFloat("CapsuleHeight", &s_state.capsuleHeight, 0.1f, 1.0f, "%.3f");
-		ImGui::InputFloat("CapsuleRadius", &s_state.capsuleRadius, 0.1f, 1.0f, "%.3f");
+		ImGui::SetNextItemWidth(140.0f);
+		ImGui::DragFloat("CapsuleHeight", &s_state.capsuleHeight,
+			s_state.sliderStep,
+			s_state.minSize,
+			s_state.maxSize,
+			"%.3f",
+			ImGuiSliderFlags_AlwaysClamp
+		);
+		ImGui::SameLine();
+		ImGui::SetNextItemWidth(140.0f);
+		ImGui::DragFloat("CapsuleRadius", &s_state.capsuleRadius,
+			s_state.sliderStep,
+			s_state.minSize,
+			s_state.maxSize,
+			"%.3f",
+			ImGuiSliderFlags_AlwaysClamp
+		);
 
-		drawRotationOptions(s_state.capsuleRot);
+		drawRotationOptions(s_state.rotInput);
 
 		drawAttachmentDropdown();
-
 		drawConstraintDropdown();
 		drawConstraintOptions();
 
 		float buttonWidth = 140.0f;
 		if (ImGui::Button("Add Child", ImVec2(buttonWidth, 0))) {
 
-			//Add shape to Ragdoll here
-			int  selectedShapeInt = static_cast<int>(s_state.selectedShape);
-			cout << "Adding : " << ShapeTypeMeta[selectedShapeInt].name << std::endl;
+			cout << "Adding : " << ShapeTypeNames.at(s_state.selectedShape) << std::endl;
 
 			JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
 			JPH::BodyInterface& bodyInterface = ecs.get<PhysicsSystemRef>().physicsSystem.GetBodyInterface();
 
-			//Add some checks for size 
-
-		   // JPH::Vec3 joltPosition(s_state.capsulePos.x, s_state.capsulePos.y, s_state.capsulePos.z);
-			JPH::Quat childRotation(s_state.capsuleRot.x, s_state.capsuleRot.y, s_state.capsuleRot.z, s_state.capsuleRot.w);
-			if (!childRotation.IsNormalized()) {
-				childRotation = childRotation.Normalized();
-			}
+			//Add some input validation
 
 			Ref<Shape> capsuleShape = new JPH::CapsuleShape(s_state.capsuleHeight / 2.0f, s_state.capsuleRadius);
 
-			JPH::Vec3  childPlacement = GetAttachmentPos(parent, capsuleShape,
-				s_state.capsuleRot, s_state.selectedAttachment);
+			JPH::Vec3  position = GetAttachmentPos(parent, capsuleShape,
+				s_state.rotInput, s_state.selectedAttachment);
+
+			JPH::Quat rotation(s_state.rotInput.x, s_state.rotInput.y, s_state.rotInput.z, s_state.rotInput.w);
+			if (!rotation.IsNormalized()) {
+				rotation = rotation.Normalized();
+			}
 
 			JPH::BodyCreationSettings bodySettings(
 				capsuleShape,
-				childPlacement,
-				childRotation,
+				position,
+				rotation,
 				JPH::EMotionType::Dynamic,
 				Layers::MOVING
 			);
 
+			string name = "Capsule";
+
 			BodyPart* part = new BodyPart;
 
-			string name = "Capsule";
 			part->bodyPtr = bodyInterface.CreateBody(bodySettings);
 			bodyInterface.AddBody(part->bodyPtr->GetID(), JPH::EActivation::Activate);
 
-			addConstraint(parent, part, physicsSystem);
+			switch (s_state.constraintType)
+			{
+			case EConstraintSubType::Fixed:
+				addFixedConstraint(parent, part, physicsSystem, s_state.selectedAttachment);
+				break;
+			case EConstraintSubType::Hinge:
+				addHingeConstraint(parent, part, physicsSystem, s_state.selectedAttachment,
+					getAxisFromRadioButton(s_state.hingeAxis), getAxisFromRadioButton(s_state.hingeNormalAxis),
+					s_state.hingeMinAngleRad, s_state.hingeMaxAngleRad);
+				break;
+			case EConstraintSubType::SwingTwist:
+				addSwintTwistConstraint(parent, part, physicsSystem, s_state.selectedAttachment,
+					getAxisFromRadioButton(s_state.twistAxis), s_state.twistAngleRad, s_state.normalAngleRad, s_state.planeAngleRad);
+				break;
+			}
 
 			s_state.skeletonJointIndex += 1;
 			part->skeletonJointIndex = s_state.skeletonJointIndex;
 			part->name = name.append(std::to_string(s_state.skeletonJointIndex));
 			part->shape = capsuleShape;
 			part->parent = parent;
+			part->attachment = s_state.selectedAttachment;
 
 			s_state.selectedPart = part;
 
 			parent->children.push_back(part);
 
+			//reset rotationInput
+			s_state.rotInput = glm::quat(1.0f,0.0f,0.0f,0.0f);
 		}
 	}
 
-	static void drawSphereOptions(flecs::world& ecs) {
+	static void drawSphereChildOptions(flecs::world& ecs, BodyPart* parent) {
 
-		ImGui::InputFloat("Radius", &s_state.sphereRadius, 0.0f, 0.0f, "%.3f");
+		ImGui::SetNextItemWidth(140.0f);
+		ImGui::DragFloat(
+			"SphereRadius",
+			&s_state.sphereRadius,
+			s_state.sliderStep,
+			s_state.minSize,
+			s_state.maxSize,
+			"%.3f",
+			ImGuiSliderFlags_AlwaysClamp
+		);
 
-		ImGui::InputFloat3("local Position", &(s_state.spherePos.x));
-		ImGui::InputFloat4("local rotation", &(s_state.sphereRot.x));
+		drawRotationOptions(s_state.rotInput);
 
+		drawAttachmentDropdown();
+		drawConstraintDropdown();
+		drawConstraintOptions();
 
 		float buttonWidth = 140.0f;
 		if (ImGui::Button("Add Shape", ImVec2(buttonWidth, 0))) {
 
-
-			int  selectedShapeInt = static_cast<int>(s_state.selectedShape);
-			cout << "Adding : " << ShapeTypeMeta[selectedShapeInt].name << std::endl;
+			cout << "Adding : " << ShapeTypeNames.at(s_state.selectedShape) << std::endl;
 
 			JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
-
 			JPH::BodyInterface& bodyInterface = ecs.get<PhysicsSystemRef>().physicsSystem.GetBodyInterface();
 
-			//Add some checks for size 
-			JPH::Vec3 joltPosition(s_state.spherePos.x, s_state.spherePos.y, s_state.spherePos.z);
-			JPH::Quat joltRotation(s_state.sphereRot.x, s_state.sphereRot.y, s_state.sphereRot.z, s_state.sphereRot.w);
+			//TODO Add some checks for size 
+
+			Ref<Shape> sphereShape = new JPH::SphereShape(s_state.sphereRadius);
+
+			JPH::Vec3 position = GetAttachmentPos(parent, sphereShape,
+				s_state.rotInput, s_state.selectedAttachment);
+
+			JPH::Quat joltRotation(s_state.rotInput.x, s_state.rotInput.y, s_state.rotInput.z, s_state.rotInput.w);
 			if (!joltRotation.IsNormalized()) {
 				joltRotation = joltRotation.Normalized();
 			}
 
-			Ref<Shape> shape = new JPH::SphereShape(s_state.sphereRadius);
-
-			JPH::BodyCreationSettings settings(
-				shape,
-				joltPosition,
+			JPH::BodyCreationSettings bodySettings(
+				sphereShape,
+				position,
 				joltRotation,
 				JPH::EMotionType::Dynamic,
 				Layers::MOVING
 			);
 
+			string name = "Sphere";
+
+			BodyPart* part = new BodyPart;
+
+			part->bodyPtr = bodyInterface.CreateBody(bodySettings);
+			bodyInterface.AddBody(part->bodyPtr->GetID(), JPH::EActivation::Activate);
+
+
+			switch (s_state.constraintType)
+			{
+			case EConstraintSubType::Fixed:
+				addFixedConstraint(parent, part, physicsSystem, s_state.selectedAttachment);
+				break;
+			case EConstraintSubType::Hinge:
+				addHingeConstraint(parent, part, physicsSystem, s_state.selectedAttachment,
+					getAxisFromRadioButton(s_state.hingeAxis), getAxisFromRadioButton(s_state.hingeNormalAxis),
+					s_state.hingeMinAngleRad, s_state.hingeMaxAngleRad);
+				break;
+			case EConstraintSubType::SwingTwist:
+				addSwintTwistConstraint(parent, part, physicsSystem, s_state.selectedAttachment,
+					getAxisFromRadioButton(s_state.twistAxis), s_state.twistAngleRad, s_state.normalAngleRad, s_state.planeAngleRad);
+				break;
+			}
+
+			s_state.skeletonJointIndex += 1;
+			part->skeletonJointIndex = s_state.skeletonJointIndex;
+			part->name = name.append(std::to_string(s_state.skeletonJointIndex));
+			part->shape = sphereShape;
+			part->parent = parent;
+			part->attachment = s_state.selectedAttachment;
+
+			s_state.selectedPart = part;
+
+			parent->children.push_back(part);
+
+			//reset rotationInput
+			s_state.rotInput = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
 		}
 	}
 
-	static void drawBoxOptions(flecs::world& ecs) {
+	static void drawBoxChildOptions(flecs::world& ecs, BodyPart* parent) {
 
-		ImGui::InputFloat("Radius", &s_state.sphereRadius, 0.0f, 0.0f, "%.3f");
+		ImGui::SetNextItemWidth(340.0f);
+		ImGui::DragFloat3(
+			"BoxExtents",
+			&s_state.boxExtents.x,
+			s_state.sliderStep,
+			s_state.minSize,
+			s_state.maxSize,
+			"%.3f",
+			ImGuiSliderFlags_AlwaysClamp
+		);
 
-		ImGui::InputFloat3("local Position", &(s_state.spherePos.x));
-		ImGui::InputFloat4("local rotation", &(s_state.sphereRot.x));
+		drawRotationOptions(s_state.rotInput);
 
+		drawAttachmentDropdown();
+		drawConstraintDropdown();
+		drawConstraintOptions();
 
 		float buttonWidth = 140.0f;
 		if (ImGui::Button("Add Shape", ImVec2(buttonWidth, 0))) {
 
-
-			int  selectedShapeInt = static_cast<int>(s_state.selectedShape);
-			cout << "Adding : " << ShapeTypeMeta[selectedShapeInt].name << std::endl;
+			cout << "Adding : " << ShapeTypeNames.at(s_state.selectedShape) << std::endl;
 
 			JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
-
 			JPH::BodyInterface& bodyInterface = ecs.get<PhysicsSystemRef>().physicsSystem.GetBodyInterface();
 
 			//Add some checks for size 
-			JPH::Vec3 joltPosition(s_state.spherePos.x, s_state.spherePos.y, s_state.spherePos.z);
-			JPH::Quat joltRotation(s_state.sphereRot.x, s_state.sphereRot.y, s_state.sphereRot.z, s_state.sphereRot.w);
-			if (!joltRotation.IsNormalized()) {
-				joltRotation = joltRotation.Normalized();
+
+			Ref<Shape> boxShape = new JPH::BoxShape(GLMVec3ToJPH(s_state.boxExtents));
+
+			JPH::Vec3 position =  GetAttachmentPos(parent, boxShape,
+				s_state.rotInput, s_state.selectedAttachment);
+
+			JPH::Quat rotation(s_state.rotInput.x, s_state.rotInput.y, s_state.rotInput.z, s_state.rotInput.w);
+			if (!rotation.IsNormalized()) {
+				rotation = rotation.Normalized();
 			}
 
-			Ref<Shape> shape = new JPH::SphereShape(s_state.sphereRadius);
-
-			JPH::BodyCreationSettings settings(
-				shape,
-				joltPosition,
-				joltRotation,
+			JPH::BodyCreationSettings bodySettings(
+				boxShape,
+				position,
+				rotation,
 				JPH::EMotionType::Dynamic,
 				Layers::MOVING
 			);
 
+			string name = "Box";
+
+			BodyPart* part = new BodyPart;
+
+			part->bodyPtr = bodyInterface.CreateBody(bodySettings);
+			bodyInterface.AddBody(part->bodyPtr->GetID(), JPH::EActivation::Activate);
+
+			switch (s_state.constraintType)
+			{
+			case EConstraintSubType::Fixed:
+				addFixedConstraint(parent, part, physicsSystem, s_state.selectedAttachment);
+				break;
+			case EConstraintSubType::Hinge:
+				addHingeConstraint(parent, part, physicsSystem, s_state.selectedAttachment,
+					getAxisFromRadioButton(s_state.hingeAxis), getAxisFromRadioButton(s_state.hingeNormalAxis),
+					s_state.hingeMinAngleRad, s_state.hingeMaxAngleRad);
+				break;
+			case EConstraintSubType::SwingTwist:
+				addSwintTwistConstraint(parent, part, physicsSystem, s_state.selectedAttachment,
+					getAxisFromRadioButton(s_state.twistAxis), s_state.twistAngleRad, s_state.normalAngleRad, s_state.planeAngleRad);
+				break;
+			}
+
+			s_state.skeletonJointIndex += 1;
+			part->skeletonJointIndex = s_state.skeletonJointIndex;
+			part->name = name.append(std::to_string(s_state.skeletonJointIndex));
+			part->shape = boxShape;
+			part->parent = parent;
+			part->attachment = s_state.selectedAttachment;
+
+			s_state.selectedPart = part;
+
+			parent->children.push_back(part);
+
+			//reset rotationInput
+			s_state.rotInput = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
 		}
+
 	}
 
 	static void drawTree(flecs::world& ecs, BodyPart* part) {
@@ -568,7 +882,7 @@ public:
 
 		bool hasChildren = part->children.size() > 0;
 		if (!hasChildren) {
-			flags |= ImGuiTreeNodeFlags_Leaf;  // Use |= instead of +=
+			flags |= ImGuiTreeNodeFlags_Leaf;  
 		}
 
 		// CHECK SELECTION BEFORE RENDERING
@@ -631,6 +945,22 @@ public:
 		if (ImGui::Button(buttonLabelZ)) {
 			glm::quat delta = glm::angleAxis(glm::radians(90.0f), glm::vec3(0, 0, 1));
 			rotationQuat = delta * rotationQuat;
+		}
+	}
+
+	static void drawShapeTypeDropdown() {
+		
+		if (ImGui::BeginCombo("Shape", ShapeTypeNames.at(s_state.selectedShape).c_str())) {
+			for (const auto& [attachment, name] : ShapeTypeNames) {
+				bool isSelected = (s_state.selectedShape == attachment);
+				if (ImGui::Selectable(name.c_str(), isSelected)) {
+					s_state.selectedShape = attachment;
+				}
+				if (isSelected) {
+					ImGui::SetItemDefaultFocus();
+				}
+			}
+			ImGui::EndCombo();
 		}
 	}
 
@@ -718,13 +1048,12 @@ public:
 
 	}
 
-	static void addConstraint(BodyPart* parent, BodyPart* part, JPH::PhysicsSystem& physicsSystem) {
-
-		if (s_state.constraintType == EConstraintSubType::Fixed) {
+	static void addFixedConstraint(BodyPart* parent, BodyPart* part,
+		JPH::PhysicsSystem& physicsSystem,const Attachment attachment) {
 
 			FixedConstraintSettings* constraintSettings = new FixedConstraintSettings;
 
-			constraintSettings->mPoint1 = constraintSettings->mPoint2 = getConstraintPos(parent, s_state.selectedAttachment);
+			constraintSettings->mPoint1 = constraintSettings->mPoint2 = getConstraintPos(parent, attachment);
 
 			part->constraintSettings = constraintSettings;
 			part->constraintType = EConstraintSubType::Fixed;
@@ -732,43 +1061,48 @@ public:
 			part->constraint = constraintSettings->Create(*parent->bodyPtr, *part->bodyPtr);
 			physicsSystem.AddConstraint(part->constraint);
 
-		}
-		if (s_state.constraintType == EConstraintSubType::Hinge) {
+	}
 
-			HingeConstraintSettings* constraintSettings = new HingeConstraintSettings;
+	static void addHingeConstraint(BodyPart* parent, BodyPart* part,
+		JPH::PhysicsSystem& physicsSystem, const Attachment attachment, JPH::Vec3Arg hingeAxis,
+		JPH::Vec3Arg hingeNormalAxis, float hingeMinAngleRad, float hingeMaxAngleRad) {
 
-			constraintSettings->mPoint1 = constraintSettings->mPoint2 = getConstraintPos(parent, s_state.selectedAttachment);
-			constraintSettings->mHingeAxis1 = constraintSettings->mHingeAxis2 = getAxisFromRadioButton(s_state.hingeAxis);
-			constraintSettings->mNormalAxis1 = constraintSettings->mNormalAxis2 = getAxisFromRadioButton(s_state.hingeNormalAxis);
-			constraintSettings->mLimitsMin = DegreesToRadians(s_state.hingeMinAngleRad);
-			constraintSettings->mLimitsMax = DegreesToRadians(s_state.hingeMaxAngleRad);
+		HingeConstraintSettings* constraintSettings = new HingeConstraintSettings;
 
-			part->constraintSettings = constraintSettings;
-			part->constraintType = EConstraintSubType::Hinge;
+		constraintSettings->mPoint1 = constraintSettings->mPoint2 = getConstraintPos(parent, attachment);
+		constraintSettings->mHingeAxis1 = constraintSettings->mHingeAxis2 = hingeAxis;
+		constraintSettings->mNormalAxis1 = constraintSettings->mNormalAxis2 = hingeNormalAxis;
+		constraintSettings->mLimitsMin = DegreesToRadians(hingeMinAngleRad);
+		constraintSettings->mLimitsMax = DegreesToRadians(hingeMaxAngleRad);
 
-			part->constraint = constraintSettings->Create(*parent->bodyPtr, *part->bodyPtr);
-			physicsSystem.AddConstraint(part->constraint);
+		part->constraintSettings = constraintSettings;
+		part->constraintType = EConstraintSubType::Hinge;
 
-		}
+		part->constraint = constraintSettings->Create(*parent->bodyPtr, *part->bodyPtr);
+		physicsSystem.AddConstraint(part->constraint);
 
-		if (s_state.constraintType == EConstraintSubType::SwingTwist) {
+	}
 
-			SwingTwistConstraintSettings* constraintSettings = new SwingTwistConstraintSettings;
+	//TwistAngle is symmetrical
+	static void addSwintTwistConstraint(BodyPart* parent, BodyPart* part,
+		JPH::PhysicsSystem& physicsSystem, const Attachment attachment, JPH::Vec3Arg twistAxis,
+		float twistAngleRad, float normalAngleRad, float planeAngleRad) {
 
-			constraintSettings->mPosition1 = constraintSettings->mPosition2 = getConstraintPos(parent, s_state.selectedAttachment);
-			constraintSettings->mTwistAxis1 = constraintSettings->mTwistAxis2 = getAxisFromRadioButton(s_state.twistAxis);
-			constraintSettings->mPlaneAxis1 = constraintSettings->mPlaneAxis2 = Vec3::sAxisZ();
-			constraintSettings->mTwistMinAngle = min(-s_state.twistAngleRad, s_state.twistAngleRad);
-			constraintSettings->mTwistMaxAngle = max(-s_state.twistAngleRad, s_state.twistAngleRad);
-			constraintSettings->mNormalHalfConeAngle = s_state.normalAngleRad;
-			constraintSettings->mPlaneHalfConeAngle = s_state.planeAngleRad;
+		SwingTwistConstraintSettings* constraintSettings = new SwingTwistConstraintSettings;
 
-			part->constraintSettings = constraintSettings;
-			part->constraintType = EConstraintSubType::SwingTwist;
+		constraintSettings->mPosition1 = constraintSettings->mPosition2 = getConstraintPos(parent, attachment);
+		constraintSettings->mTwistAxis1 = constraintSettings->mTwistAxis2 = twistAxis;
+		constraintSettings->mPlaneAxis1 = constraintSettings->mPlaneAxis2 = Vec3::sAxisZ();
+		constraintSettings->mTwistMinAngle = min(-twistAngleRad,twistAngleRad);
+		constraintSettings->mTwistMaxAngle = max(-twistAngleRad,twistAngleRad);
+		constraintSettings->mNormalHalfConeAngle = normalAngleRad;
+		constraintSettings->mPlaneHalfConeAngle = planeAngleRad;
 
-			part->constraint = constraintSettings->Create(*parent->bodyPtr, *part->bodyPtr);
-			physicsSystem.AddConstraint(part->constraint);
-		}
+		part->constraintSettings = constraintSettings;
+		part->constraintType = EConstraintSubType::SwingTwist;
+
+		part->constraint = constraintSettings->Create(*parent->bodyPtr, *part->bodyPtr);
+		physicsSystem.AddConstraint(part->constraint);
 
 	}
 
@@ -786,6 +1120,11 @@ public:
 
 	static JPH::Vec3 GetAttachmentPos(const BodyPart* parent, const JPH::Shape* childShape,
 		const glm::quat rotation, const Attachment side) {
+
+		if (!parent) {
+			cout << " Error GetAttachmentPos called on root node!\n";
+			return Vec3::sZero();
+		}
 
 		JPH::AABox parentAABB = parent->bodyPtr->GetWorldSpaceBounds();
 
