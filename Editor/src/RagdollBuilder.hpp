@@ -48,7 +48,6 @@ public:
 		bool creating = false;
 		bool modifying = false;
 		bool addingChild = false;
-		float windowWidth = 0;
 
 		uint32_t skeletonJointIndex = 0;
 		BodyPart* root = nullptr;
@@ -82,7 +81,7 @@ public:
 		//Root Position
 		glm::vec3 rootPos = glm::vec3(1.0f, 3.0f, -3.0f);
 
-		//Rotatation
+		//Rotation
 		glm::quat rotInput = glm::quat(1, 0, 0, 0);
 
 		//Capsule
@@ -104,9 +103,8 @@ public:
 	{
 		ImGui::Begin("Ragdoll Builder", nullptr, ImGuiWindowFlags_NoCollapse);
 
-		s_state.windowWidth = ImGui::GetWindowSize().x;
-
-		beginCreation(ecs);
+		drawBeginCreation(ecs);
+		drawReset(ecs);
 
 		if (ImGui::BeginTable("RagdollLayout", 2,
 			ImGuiTableFlags_Resizable |
@@ -149,15 +147,16 @@ public:
 			ImGui::EndTable();
 
 			if (s_state.partToDelete) {
-				performDeletion(ecs, s_state.partToDelete);
+				performDeletion(ecs);
 			}
+
 		}
 
 		ImGui::End();
 	}
 
 
-	static void beginCreation(flecs::world& ecs) {
+	static void drawBeginCreation(flecs::world& ecs) {
 
 		if (s_state.creating) {
 			return;
@@ -171,7 +170,20 @@ public:
 		if (ImGui::Button("Begin", ImVec2(buttonWidth, 0))) {
 
 			s_state.creating = true;
+		}
+	}
 
+	static void drawReset(flecs::world& ecs) {
+
+		ImGui::SameLine();
+		float buttonWidth = 140.0f;
+		float spacing = ImGui::GetStyle().ItemSpacing.x;
+		float totalWidth = buttonWidth * 2 + spacing;
+		float availWidth = ImGui::GetContentRegionAvail().x;
+		ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (availWidth - totalWidth) * 0.5f);
+		if (ImGui::Button("Reset", ImVec2(buttonWidth, 0))) {
+
+			s_state.partToDelete = s_state.root;
 		}
 	}
 
@@ -1218,7 +1230,8 @@ public:
 		return pos;
 	}
 
-	static void performDeletion(flecs::world& ecs, BodyPart* root) {
+	static void performDeletion(flecs::world& ecs) {
+
 		if (!s_state.partToDelete) {
 			return;
 		}
