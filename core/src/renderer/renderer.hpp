@@ -156,10 +156,31 @@ struct Renderer {
 
 	bool createAndClaimGPU() {
 
+		bool debugMode = false;
+
+		SDL_GPUVulkanOptions vulkanProps = { 0 };
+		vulkanProps.vulkan_api_version = 4206592; // Vulkan 1.3.0
+
+		SDL_PropertiesID props =  SDL_CreateProperties();
+
+		SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_SHADERS_SPIRV_BOOLEAN, true);
+		SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_DEBUGMODE_BOOLEAN, debugMode);
+
+		// Get verbose debug output 
+		if (debugMode) {
+			SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_VERBOSE_BOOLEAN, true);
+		}
+
+		//anisotropic filtering
+		SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_FEATURE_ANISOTROPY_BOOLEAN, true);
+		//Require hardware acceleration
+		SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_VULKAN_REQUIRE_HARDWARE_ACCELERATION_BOOLEAN, true);
+
+		SDL_SetPointerProperty(props, SDL_PROP_GPU_DEVICE_CREATE_VULKAN_OPTIONS_POINTER, &vulkanProps);
+
 		RenderContext& renderContext = ecs.get_mut<RenderContext>();
 
-		bool debugMode = true;
-		renderContext.device = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV, debugMode, NULL);
+		renderContext.device = SDL_CreateGPUDeviceWithProperties(props);
 		if (!renderContext.device)
 		{
 			SDL_Log("GPUCreateDevice failed: %s", SDL_GetError());
@@ -172,10 +193,13 @@ struct Renderer {
 			return false;
 		}
 
+		//cleanup
+		SDL_DestroyProperties(props);
+
 		// SDL_GPU_PRESENTMODE_IMMEDIATE for uncapped fps
 		// SDL_GPU_PRESENTMODE_VSYNC for VSYNC
 		SDL_SetGPUSwapchainParameters(renderContext.device, renderContext.window,
-			SDL_GPU_SWAPCHAINCOMPOSITION_SDR, SDL_GPU_PRESENTMODE_VSYNC);
+			SDL_GPU_SWAPCHAINCOMPOSITION_SDR, SDL_GPU_PRESENTMODE_IMMEDIATE);
 
 		return true;
 	}
