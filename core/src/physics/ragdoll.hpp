@@ -51,6 +51,10 @@ public:
 		AssetStream stream(inFileName, std::ios::in);
 		if (!ObjectStreamIn::sReadObject(stream.Get(), ragdoll))
 			cout << "ERROR!!!!\n";
+
+		Vec3 referencePoint = ragdoll->mParts[0].mPosition; 
+
+		Vec3 scaleFactor(3, 3, 3);
 			
 		for (RagdollSettings::Part& p : ragdoll->mParts)
 		{
@@ -60,6 +64,30 @@ public:
 			// Override layer
 			p.mObjectLayer = Layers::MOVING;
 
+			// Scale the shape
+			ShapeSettings::ShapeResult shape = p.GetShape()->ScaleShape(scaleFactor);
+
+			// Scale the position relative to the reference point
+			Vec3 offsetFromReference = p.mPosition - referencePoint;
+			Vec3 scaledOffset = offsetFromReference * scaleFactor;
+			Vec3 newPosition = referencePoint + scaledOffset;
+
+			// Create body with scaled position
+			JPH::BodyCreationSettings creationSettings(
+				shape.Get(),
+				newPosition,  // Use the scaled position
+				p.mRotation,
+				JPH::EMotionType::Dynamic,
+				Layers::MOVING
+			);
+
+			creationSettings.mOverrideMassProperties = JPH::EOverrideMassProperties::CalculateInertia;
+			creationSettings.mMassPropertiesOverride.mMass = 50.0f;
+
+			// Update the part with new settings
+			p.mPosition = newPosition;  // Don't forget to update the part's position!
+			p.SetShapeSettings(creationSettings.GetShapeSettings());
+			p.SetShape(shape.Get());
 
 			// Create new constraint
 			Ref<JPH::SwingTwistConstraintSettings> original = JPH::DynamicCast<JPH::SwingTwistConstraintSettings>(p.mToParent);
@@ -70,6 +98,7 @@ public:
 				{
 					JPH::FixedConstraintSettings* settings = new JPH::FixedConstraintSettings();
 					settings->mPoint1 = settings->mPoint2 = original->mPosition1;
+					//settings->mSpace = EConstraintSpace::LocalToBodyCOM;
 					p.mToParent = settings;
 					break;
 				}
@@ -78,6 +107,7 @@ public:
 				{
 					JPH::PointConstraintSettings* settings = new JPH::PointConstraintSettings();
 					settings->mPoint1 = settings->mPoint2 = original->mPosition1;
+					//settings->mSpace = EConstraintSpace::LocalToBodyCOM;
 					p.mToParent = settings;
 					break;
 				}
@@ -95,6 +125,7 @@ public:
 					settings->mLimitsMax = original->mNormalHalfConeAngle;
 					settings->mMaxFrictionTorque = original->mMaxFrictionTorque;
 					settings->mMotorSettings = original->mSwingMotorSettings;
+					//settings->mSpace = EConstraintSpace::LocalToBodyCOM;
 					p.mToParent = settings;
 					break;
 				}
@@ -109,6 +140,7 @@ public:
 					settings->mLimitsMax = 1.0f;
 					settings->mMaxFrictionForce = original->mMaxFrictionTorque;
 					settings->mMotorSettings = original->mSwingMotorSettings;
+					//settings->mSpace = EConstraintSpace::LocalToBodyCOM;
 					p.mToParent = settings;
 					break;
 				}
@@ -121,6 +153,7 @@ public:
 					settings->mPoint2 = original->mPosition2;
 					settings->mTwistAxis2 = original->mTwistAxis2;
 					settings->mHalfConeAngle = original->mNormalHalfConeAngle;
+					//settings->mSpace = EConstraintSpace::LocalToBodyCOM;
 					p.mToParent = settings;
 					break;
 				}
@@ -1035,66 +1068,82 @@ struct BodyPart {
 };
 
 
-static RagdollSettings* createHumanoid2(vector< BodyPart> bodyParts, float scale = 1.0f) {
+namespace ragdoll {
+
+static uint32_t getRagdollSize(BodyPart* root) {
+	if (root == nullptr) {
+		return 0;  // Empty subtree has size 0
+	}
+
+	uint32_t size = 1;  // Count current node
+
+	for (int i = 0; i < root->children.size(); i++) {
+		size += getRagdollSize(root->children[i]);
+	}
+
+	return size;
+}
+
+static void addPart(BodyPart* part, RagdollSettings* settings, Ref<Skeleton> skeleton) {
+
+	if (part->parent) {
+		skeleton->AddJoint(part->name.c_str(), part->parent->skeletonJointIndex);
+
+	}
+	else {
+		skeleton->AddJoint(part->name.c_str());
+
+	}
+
+
+	RagdollSettings::Part& settingsPart = settings->mParts[part->skeletonJointIndex];
+	settingsPart.SetShape(part->bodyPtr->GetShape());
+	settingsPart.mPosition = part->bodyPtr->GetPosition();
+	settingsPart.mRotation = part->bodyPtr->GetRotation();
+	settingsPart.mMotionType = EMotionType::Dynamic;
+	settingsPart.mObjectLayer = Layers::MOVING;
+
+
+	if (part->constraintType == EConstraintSubType::SwingTwist) {
+
+		Ref<JPH::SwingTwistConstraintSettings> constraint = JPH::DynamicCast<JPH::SwingTwistConstraintSettings>(part->constraintSettings);
+		settingsPart.mToParent = constraint;
+	}
+	if (part->constraintType == EConstraintSubType::Hinge) {
+
+		Ref<JPH::HingeConstraintSettings> constraint = JPH::DynamicCast<JPH::HingeConstraintSettings>(part->constraintSettings);
+		settingsPart.mToParent = constraint;
+	}
+	if (part->constraintType == EConstraintSubType::Fixed) {
+
+		Ref<JPH::FixedConstraintSettings> constraint = JPH::DynamicCast<JPH::FixedConstraintSettings>(part->constraintSettings);
+		settingsPart.mToParent = constraint;
+	}
+
+	for (int i = 0; i < part->children.size(); i++) {
+
+		addPart(part->children[i], settings, skeleton);
+	}
+
+}
+
+static RagdollSettings* createHumanoid2(BodyPart* part) {
+
 
 	Ref<Skeleton> skeleton = new Skeleton;
 
 	// Create ragdoll settings
 	RagdollSettings* settings = new RagdollSettings;
 	settings->mSkeleton = skeleton;
-	settings->mParts.resize(skeleton->GetJointCount());
-	for (int i = 0; i < bodyParts.size(); i++)
-	{
+	settings->mParts.resize(ragdoll::getRagdollSize(part));
 
-		RagdollSettings::Part& part = settings->mParts[i];
-		part.SetShape(bodyParts[i].shape);
-		//part.mPosition = bodyParts[i].position;
-		//part.mRotation = bodyParts[i].rotation;
-		part.mMotionType = EMotionType::Dynamic;
-		part.mObjectLayer = Layers::MOVING;
+	
+	ragdoll::addPart(part, settings, skeleton);
 
-		// First part is the root, doesn't have a parent and doesn't have a constraint
-		if (i > 0)
-		{
+	
 
-			//constraint->mDrawConstraintSize = ;  // Scale constraint visualization
-			//Change to 
-			if (bodyParts[i].constraintType == EConstraintSubType::SwingTwist) {
-
-				Ref<JPH::SwingTwistConstraintSettings> constraint = JPH::DynamicCast<JPH::SwingTwistConstraintSettings>(bodyParts[i].constraintSettings);
-				part.mToParent = constraint;
-			}
-			if (bodyParts[i].constraintType == EConstraintSubType::Hinge) {
-
-				Ref<JPH::HingeConstraintSettings> constraint = JPH::DynamicCast<JPH::HingeConstraintSettings>(bodyParts[i].constraintSettings);
-				part.mToParent = constraint;
-			}
-			if (bodyParts[i].constraintType == EConstraintSubType::Fixed) {
-
-				Ref<JPH::FixedConstraintSettings> constraint = JPH::DynamicCast<JPH::FixedConstraintSettings>(bodyParts[i].constraintSettings);
-				part.mToParent = constraint;
-			}
-			
-
-
-		}
-	}
-
-
-	// Optional: Stabilize the inertia of the limbs
-	settings->Stabilize();
-
-	// Optional: Calculate constraint priorities to give more priority to the root
-	// TODO update jolt to the latest version so we have this feature
-	//settings->CalculateConstraintPriorities();
-
-	// Disable parent child collisions so that we don't get collisions between constrained bodies
-	settings->DisableParentChildCollisions();
-
-	// Calculate the map needed for GetBodyIndexToConstraintIndex()
-	settings->CalculateBodyIndexToConstraintIndex();
 
 	return settings;
 }
 
-
+}

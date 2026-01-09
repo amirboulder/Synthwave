@@ -56,8 +56,8 @@ public:
 
 		BodyPart* partToDelete = nullptr;
 
-		float minSize = 0.1f;
-		float maxSize = 10.0f;
+		float minBodySize = 0.1f;
+		float maxBodySize = 10.0f;
 		float sliderStep = 0.1f;
 
 		//Attachment
@@ -105,6 +105,7 @@ public:
 
 		drawBeginCreation(ecs);
 		drawReset(ecs);
+		drawFinish(ecs);
 
 		if (ImGui::BeginTable("RagdollLayout", 2,
 			ImGuiTableFlags_Resizable |
@@ -184,6 +185,47 @@ public:
 		if (ImGui::Button("Reset", ImVec2(buttonWidth, 0))) {
 
 			s_state.partToDelete = s_state.root;
+		}
+	}
+
+	static void drawFinish(flecs::world& ecs) {
+
+		ImGui::SameLine();
+		float buttonWidth = 140.0f;
+		float spacing = ImGui::GetStyle().ItemSpacing.x;
+		float totalWidth = buttonWidth * 2 + spacing;
+		float availWidth = ImGui::GetContentRegionAvail().x;
+		ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (availWidth - totalWidth) * 0.5f);
+		if (ImGui::Button("Finish", ImVec2(buttonWidth, 0))) {
+
+			JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
+
+			uint32_t size = ragdoll::getRagdollSize(s_state.root);
+			cout << "Size of ragdoll " << size << std::endl;
+			cout << "Max index number " << s_state.skeletonJointIndex << std::endl;
+			RagdollSettings* ragdollSettings = ragdoll::createHumanoid2(s_state.root);
+
+			cout << "Size of RagdollSettings " << ragdollSettings->mParts.size() << std::endl;
+			JPH::Ragdoll* ragdoll = ragdollSettings->CreateRagdoll(0, 0, &physicsSystem);
+
+			std::stringstream data;
+			if (!ObjectStreamOut::sWriteObject(data, ObjectStream::EStreamType::Text, *ragdollSettings)) {
+				// Handle error
+				std::cerr << "Failed to write object to stream" << std::endl;
+				return;
+			}
+
+			// Save stringstream to file
+			std::ofstream outFile("ragdoll_settings.txt");
+			if (outFile.is_open()) {
+				outFile << data.str();
+				outFile.close();
+				std::cout << "Successfully saved to file" << std::endl;
+			}
+			else {
+				std::cerr << "Failed to open file for writing" << std::endl;
+			}
+
 		}
 	}
 
@@ -420,8 +462,8 @@ public:
 			"CapsuleHeight",
 			&s_state.capsuleHeight,
 			s_state.sliderStep,
-			s_state.minSize,
-			s_state.maxSize,
+			s_state.minBodySize,
+			s_state.maxBodySize,
 			"%.3f",
 			ImGuiSliderFlags_AlwaysClamp
 		);
@@ -431,8 +473,8 @@ public:
 			"CapsuleRadius",
 			&s_state.capsuleRadius,
 			s_state.sliderStep,
-			s_state.minSize,
-			s_state.maxSize,
+			s_state.minBodySize,
+			s_state.maxBodySize,
 			"%.3f",
 			ImGuiSliderFlags_AlwaysClamp
 		);
@@ -492,8 +534,8 @@ public:
 			"SphereRadius",
 			&s_state.sphereRadius,
 			s_state.sliderStep,
-			s_state.minSize,
-			s_state.maxSize,
+			s_state.minBodySize,
+			s_state.maxBodySize,
 			"%.3f",
 			ImGuiSliderFlags_AlwaysClamp
 		);
@@ -551,8 +593,8 @@ public:
 			"BoxExtents",
 			&s_state.boxExtents.x,
 			s_state.sliderStep,
-			s_state.minSize,
-			s_state.maxSize,
+			s_state.minBodySize,
+			s_state.maxBodySize,
 			"%.3f",
 			ImGuiSliderFlags_AlwaysClamp
 		);
@@ -620,8 +662,8 @@ public:
 		ImGui::SetNextItemWidth(140.0f);
 		ImGui::DragFloat("CapsuleHeight", &s_state.capsuleHeight,
 			s_state.sliderStep,
-			s_state.minSize,
-			s_state.maxSize,
+			s_state.minBodySize,
+			s_state.maxBodySize,
 			"%.3f",
 			ImGuiSliderFlags_AlwaysClamp
 		);
@@ -629,8 +671,8 @@ public:
 		ImGui::SetNextItemWidth(140.0f);
 		ImGui::DragFloat("CapsuleRadius", &s_state.capsuleRadius,
 			s_state.sliderStep,
-			s_state.minSize,
-			s_state.maxSize,
+			s_state.minBodySize,
+			s_state.maxBodySize,
 			"%.3f",
 			ImGuiSliderFlags_AlwaysClamp
 		);
@@ -715,8 +757,8 @@ public:
 			"SphereRadius",
 			&s_state.sphereRadius,
 			s_state.sliderStep,
-			s_state.minSize,
-			s_state.maxSize,
+			s_state.minBodySize,
+			s_state.maxBodySize,
 			"%.3f",
 			ImGuiSliderFlags_AlwaysClamp
 		);
@@ -802,8 +844,8 @@ public:
 			"BoxExtents",
 			&s_state.boxExtents.x,
 			s_state.sliderStep,
-			s_state.minSize,
-			s_state.maxSize,
+			s_state.minBodySize,
+			s_state.maxBodySize,
 			"%.3f",
 			ImGuiSliderFlags_AlwaysClamp
 		);
