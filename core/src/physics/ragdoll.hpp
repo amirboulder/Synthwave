@@ -52,9 +52,8 @@ public:
 		if (!ObjectStreamIn::sReadObject(stream.Get(), ragdoll))
 			cout << "ERROR!!!!\n";
 
-		Vec3 referencePoint = ragdoll->mParts[0].mPosition; 
-
-		Vec3 scaleFactor(3, 3, 3);
+		//Vec3 referencePoint = ragdoll->mParts[0].mPosition; 
+		//Vec3 scaleFactor(3, 3, 3);
 			
 		for (RagdollSettings::Part& p : ragdoll->mParts)
 		{
@@ -64,30 +63,34 @@ public:
 			// Override layer
 			p.mObjectLayer = Layers::MOVING;
 
+
+
+			p.GetMassProperties().mMass;
+
 			// Scale the shape
-			ShapeSettings::ShapeResult shape = p.GetShape()->ScaleShape(scaleFactor);
+			//ShapeSettings::ShapeResult shape = p.GetShape()->ScaleShape(scaleFactor);
 
 			// Scale the position relative to the reference point
-			Vec3 offsetFromReference = p.mPosition - referencePoint;
-			Vec3 scaledOffset = offsetFromReference * scaleFactor;
-			Vec3 newPosition = referencePoint + scaledOffset;
+			//Vec3 offsetFromReference = p.mPosition - referencePoint;
+			//Vec3 scaledOffset = offsetFromReference * scaleFactor;
+			// newPosition = referencePoint + scaledOffset;
 
 			// Create body with scaled position
-			JPH::BodyCreationSettings creationSettings(
-				shape.Get(),
-				newPosition,  // Use the scaled position
-				p.mRotation,
-				JPH::EMotionType::Dynamic,
-				Layers::MOVING
-			);
+			//JPH::BodyCreationSettings creationSettings(
+			//	shape.Get(),
+			//	newPosition,  // Use the scaled position
+			//	p.mRotation,
+			//	JPH::EMotionType::Dynamic,
+			//	Layers::MOVING
+			//);
 
-			creationSettings.mOverrideMassProperties = JPH::EOverrideMassProperties::CalculateInertia;
-			creationSettings.mMassPropertiesOverride.mMass = 50.0f;
+			//creationSettings.mOverrideMassProperties = JPH::EOverrideMassProperties::CalculateInertia;
+			//creationSettings.mMassPropertiesOverride.mMass = 50.0f;
 
 			// Update the part with new settings
-			p.mPosition = newPosition;  // Don't forget to update the part's position!
-			p.SetShapeSettings(creationSettings.GetShapeSettings());
-			p.SetShape(shape.Get());
+			//p.mPosition = newPosition;  // Don't forget to update the part's position!
+			//p.SetShapeSettings(creationSettings.GetShapeSettings());
+			//p.SetShape(shape.Get());
 
 			// Create new constraint
 			Ref<JPH::SwingTwistConstraintSettings> original = JPH::DynamicCast<JPH::SwingTwistConstraintSettings>(p.mToParent);
@@ -99,8 +102,8 @@ public:
 					JPH::FixedConstraintSettings* settings = new JPH::FixedConstraintSettings();
 					settings->mPoint1 = settings->mPoint2 = original->mPosition1;
 					//settings->mSpace = EConstraintSpace::LocalToBodyCOM;
-					p.mToParent = settings;
-					break;
+p.mToParent = settings;
+break;
 				}
 
 				case EConstraintOverride::TypePoint:
@@ -178,6 +181,41 @@ public:
 		ragdoll->CalculateConstraintIndexToBodyIdxPair();
 
 		return ragdoll;
+	}
+
+	static JPH::RagdollSettings* load(const char* inFileName, JPH::EMotionType inMotionType)
+	{
+		// Read the ragdoll
+		JPH::RagdollSettings* ragdoll = nullptr;
+		AssetStream stream(inFileName, std::ios::in);
+		if (!ObjectStreamIn::sReadObject(stream.Get(), ragdoll))
+			cout << "failed reading in ragdoll " << inFileName << "  data\n";
+
+		for (RagdollSettings::Part& p : ragdoll->mParts)
+		{
+
+			// Update motion PipelineType
+			p.mMotionType = inMotionType;
+			// Override layer
+			p.mObjectLayer = Layers::MOVING;
+
+		}
+
+		// Initialize the skeleton
+		ragdoll->GetSkeleton()->CalculateParentJointIndices();
+
+		// Stabilize the constraints of the ragdoll
+		ragdoll->Stabilize();
+
+		// Optional: Calculate constraint priorities to give more priority to the root requires jolt 5.5.0 which we have not upgraded to yet.
+		//ragdoll->CalculateConstraintPriorities();
+
+		// Calculate body <-> constraint map
+		ragdoll->CalculateBodyIndexToConstraintIndex();
+		ragdoll->CalculateConstraintIndexToBodyIdxPair();
+
+		return ragdoll;
+		
 	}
 
 #endif // JPH_OBJECT_STREAM
@@ -1102,8 +1140,9 @@ static void addPart(BodyPart* part, RagdollSettings* settings, Ref<Skeleton> ske
 	settingsPart.mRotation = part->bodyPtr->GetRotation();
 	settingsPart.mMotionType = EMotionType::Dynamic;
 	settingsPart.mObjectLayer = Layers::MOVING;
+	settingsPart.mOverrideMassProperties = EOverrideMassProperties::CalculateMassAndInertia;
 
-
+	//settings->mSpace = EConstraintSpace::LocalToBodyCOM;
 	if (part->constraintType == EConstraintSubType::SwingTwist) {
 
 		Ref<JPH::SwingTwistConstraintSettings> constraint = JPH::DynamicCast<JPH::SwingTwistConstraintSettings>(part->constraintSettings);

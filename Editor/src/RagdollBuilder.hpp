@@ -197,33 +197,56 @@ public:
 		float availWidth = ImGui::GetContentRegionAvail().x;
 		ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (availWidth - totalWidth) * 0.5f);
 		if (ImGui::Button("Finish", ImVec2(buttonWidth, 0))) {
-
-			JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
-
-			uint32_t size = ragdoll::getRagdollSize(s_state.root);
-			cout << "Size of ragdoll " << size << std::endl;
-			cout << "Max index number " << s_state.skeletonJointIndex << std::endl;
-			RagdollSettings* ragdollSettings = ragdoll::createHumanoid2(s_state.root);
-
-			cout << "Size of RagdollSettings " << ragdollSettings->mParts.size() << std::endl;
-			JPH::Ragdoll* ragdoll = ragdollSettings->CreateRagdoll(0, 0, &physicsSystem);
-
-			std::stringstream data;
-			if (!ObjectStreamOut::sWriteObject(data, ObjectStream::EStreamType::Text, *ragdollSettings)) {
-				// Handle error
-				std::cerr << "Failed to write object to stream" << std::endl;
+			
+			//TODO let the user know there is nothing to save or disable the button
+			if (!s_state.root) {
 				return;
 			}
 
+			JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
+
+			RagdollSettings* ragdollSettings = ragdoll::createHumanoid2(s_state.root);
+
+			//Save to file
+			std::stringstream dataOut;
+			JPH::StreamOutWrapper stream_out(dataOut);
+
+			ragdollSettings->SaveBinaryState(stream_out, true, false);
+
+			string fileName = "ragdoll.bof";
+
 			// Save stringstream to file
-			std::ofstream outFile("ragdoll_settings.txt");
+			std::ofstream outFile(fileName, std::ios::binary);
 			if (outFile.is_open()) {
-				outFile << data.str();
+				outFile << dataOut.str();
 				outFile.close();
 				std::cout << "Successfully saved to file" << std::endl;
 			}
 			else {
 				std::cerr << "Failed to open file for writing" << std::endl;
+			}
+
+
+			//Load from file
+			std::stringstream dataIn;
+			std::ifstream inFile(fileName, std::ios::binary);
+			if (inFile.is_open()) {
+				dataIn << inFile.rdbuf();  // Read entire file into stringstream
+				inFile.close();
+				std::cout << "Successfully loaded from file" << std::endl;
+			}
+			else {
+				std::cerr << "Failed to open file for reading" << std::endl;
+			}
+
+			StreamInWrapper stream_in(dataIn);
+			RagdollSettings::RagdollResult result = RagdollSettings::sRestoreFromBinaryState(stream_in);
+			if (result.HasError()) {
+				std::cerr << "Failed to load binary file: " << result.GetError() << std::endl;
+			}
+			else {
+				JPH::Ragdoll* mRagdoll = result.Get()->CreateRagdoll(0, 0, &physicsSystem);
+				mRagdoll->AddToPhysicsSystem(EActivation::Activate);
 			}
 
 		}

@@ -61,6 +61,7 @@ using std::string;
 #include <Jolt/Physics/Constraints/SixDOFConstraint.h>
 #include <Jolt/ObjectStream/ObjectStreamIn.h>
 #include <Jolt/ObjectStream/ObjectStreamOut.h>
+#include <Jolt/core/StreamWrapper.h>
 
 #include <Jolt/Physics/Character/Character.h>
 #include <Jolt/Physics/Character/CharacterVirtual.h>
