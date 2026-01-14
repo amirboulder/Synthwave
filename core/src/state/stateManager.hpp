@@ -774,7 +774,6 @@ public:
 
 	void saveGameSRCData() {
 
-		namespace fs = std::filesystem;
 
 		fs::path path = fs::path(__FILE__).lexically_normal();
 		fs::path repoRoot = path.parent_path().parent_path().parent_path().parent_path();

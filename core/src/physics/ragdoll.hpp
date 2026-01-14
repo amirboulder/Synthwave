@@ -47,7 +47,7 @@ public:
 	static JPH::RagdollSettings* load(const char* inFileName, JPH::EMotionType inMotionType, EConstraintOverride inConstraintOverride)
 	{
 		// Read the ragdoll
-		RagdollSettings* ragdoll = nullptr;
+		JPH::RagdollSettings* ragdoll = nullptr;
 		AssetStream stream(inFileName, std::ios::in);
 		if (!ObjectStreamIn::sReadObject(stream.Get(), ragdoll))
 			cout << "ERROR!!!!\n";
@@ -191,6 +191,8 @@ break;
 		if (!ObjectStreamIn::sReadObject(stream.Get(), ragdoll))
 			cout << "failed reading in ragdoll " << inFileName << "  data\n";
 
+
+
 		for (RagdollSettings::Part& p : ragdoll->mParts)
 		{
 
@@ -198,7 +200,6 @@ break;
 			p.mMotionType = inMotionType;
 			// Override layer
 			p.mObjectLayer = Layers::MOVING;
-
 		}
 
 		// Initialize the skeleton
@@ -435,7 +436,6 @@ break;
 
 		return settings;
 	}
-
 
 	static RagdollSettings* createArm(RVec3 position,float scale = 1.0f) {
 
@@ -1157,6 +1157,7 @@ static void addPart(BodyPart* part, RagdollSettings* settings, Ref<Skeleton> ske
 
 		Ref<JPH::FixedConstraintSettings> constraint = JPH::DynamicCast<JPH::FixedConstraintSettings>(part->constraintSettings);
 		settingsPart.mToParent = constraint;
+
 	}
 
 	for (int i = 0; i < part->children.size(); i++) {

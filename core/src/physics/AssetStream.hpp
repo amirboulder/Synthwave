@@ -21,27 +21,6 @@ public:
             cout << "ERROR: Failed to open file " << inFileName << "\n";
     }
 
-    /// Get the path to the assets folder
-    static JPH::String sGetAssetsBasePath() {
-        // Simple implementation: look for Assets folder relative to executable
-        std::filesystem::path current = std::filesystem::current_path();
-
-        // Try current directory first
-        if (std::filesystem::exists(current / "assets"))
-            return JPH::String((current / "assets" / "").string());
-
-        // Try parent directories
-        std::filesystem::path search = current;
-        for (int i = 0; i < 5; ++i) {
-            search = search.parent_path();
-            if (std::filesystem::exists(search / "assets"))
-                return JPH::String((search / "assets" / "").string());
-        }
-
-        // Default to current directory + Assets/
-        return "assets/";
-    }
-
     /// Get the stream
     std::istream& Get() { return mStream; }
 

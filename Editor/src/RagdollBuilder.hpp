@@ -77,7 +77,7 @@ public:
 		int hingeNormalAxis = 0;
 		float hingeMinAngleRad = 0.0f;
 		float hingeMaxAngleRad = 0.0f;
-		
+
 		//Root Position
 		glm::vec3 rootPos = glm::vec3(1.0f, 3.0f, -3.0f);
 
@@ -196,61 +196,53 @@ public:
 		float totalWidth = buttonWidth * 2 + spacing;
 		float availWidth = ImGui::GetContentRegionAvail().x;
 		ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (availWidth - totalWidth) * 0.5f);
+
 		if (ImGui::Button("Finish", ImVec2(buttonWidth, 0))) {
-			
-			//TODO let the user know there is nothing to save or disable the button
 			if (!s_state.root) {
 				return;
 			}
 
 			JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
+			RenderContext& renderContext = ecs.get_mut<RenderContext>();
+			Ref<RagdollSettings> ragdollSettings = ragdoll::createHumanoid2(s_state.root);
 
-			RagdollSettings* ragdollSettings = ragdoll::createHumanoid2(s_state.root);
-
-			//Save to file
+			// Save to stringstream
 			std::stringstream dataOut;
 			JPH::StreamOutWrapper stream_out(dataOut);
-
 			ragdollSettings->SaveBinaryState(stream_out, true, false);
 
-			string fileName = "ragdoll.bof";
+			// Allocatign string on heap so it persists until callback and the callback will free the memory
+			std::string* data = new std::string(dataOut.str());
 
-			// Save stringstream to file
-			std::ofstream outFile(fileName, std::ios::binary);
-			if (outFile.is_open()) {
-				outFile << dataOut.str();
-				outFile.close();
-				std::cout << "Successfully saved to file" << std::endl;
-			}
-			else {
-				std::cerr << "Failed to open file for writing" << std::endl;
-			}
-
-
-			//Load from file
-			std::stringstream dataIn;
-			std::ifstream inFile(fileName, std::ios::binary);
-			if (inFile.is_open()) {
-				dataIn << inFile.rdbuf();  // Read entire file into stringstream
-				inFile.close();
-				std::cout << "Successfully loaded from file" << std::endl;
-			}
-			else {
-				std::cerr << "Failed to open file for reading" << std::endl;
-			}
-
-			StreamInWrapper stream_in(dataIn);
-			RagdollSettings::RagdollResult result = RagdollSettings::sRestoreFromBinaryState(stream_in);
-			if (result.HasError()) {
-				std::cerr << "Failed to load binary file: " << result.GetError() << std::endl;
-			}
-			else {
-				JPH::Ragdoll* mRagdoll = result.Get()->CreateRagdoll(0, 0, &physicsSystem);
-				mRagdoll->AddToPhysicsSystem(EActivation::Activate);
-			}
-
+			// Show save dialog with data as userdata
+			SDL_ShowSaveFileDialog(saveCallback, data, renderContext.window, NULL, 0, NULL);
 		}
 	}
+
+	static void saveCallback(void* userdata, const char* const* filelist, int filter) {
+
+		if (filelist && filelist[0]) {
+			const char* filepath = filelist[0];
+
+			// Get the stringstream data from userdata
+			std::string* data = static_cast<std::string*>(userdata);
+
+			// Write to file
+			std::ofstream file(filepath, std::ios::binary);
+			if (file) {
+				file.write(data->c_str(), data->size());
+				file.close();
+				printf("Ragdoll saved to: %s\n", filepath);
+			}
+			else {
+				printf("Failed to save file\n");
+			}
+
+			// Clean up the heap-allocated string
+			delete data;
+		}
+	}
+
 
 	static void drawModifyOrAddChild() {
 		float buttonWidth = 140.0f;
