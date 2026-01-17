@@ -49,7 +49,7 @@ public:
 		bool modifying = false;
 		bool addingChild = false;
 
-		uint32_t skeletonJointIndex = 0;
+
 		BodyPart* root = nullptr;
 
 		BodyPart* selectedPart = nullptr;
@@ -87,12 +87,15 @@ public:
 		//Capsule
 		float capsuleHeight = 0.3f;
 		float capsuleRadius = 0.3f;
+		uint32_t capsuleCounter = 0;
 
 		//Sphere
 		float sphereRadius = 0.1f;
+		uint32_t sphereCounter = 0;
 
 		//Box
 		glm::vec3 boxExtents = glm::vec3(0.1f, 0.1f, 0.1f);
+		uint32_t boxCounter = 0;
 
 	};
 	static State s_state;
@@ -204,7 +207,7 @@ public:
 
 			JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
 			RenderContext& renderContext = ecs.get_mut<RenderContext>();
-			Ref<RagdollSettings> ragdollSettings = ragdoll::createHumanoid2(s_state.root);
+			Ref<RagdollSettings> ragdollSettings = ragdoll::CreateHumanoidBFS(s_state.root);
 
 			// Save to stringstream
 			std::stringstream dataOut;
@@ -530,8 +533,7 @@ public:
 			s_state.root->bodyPtr = bodyInterface.CreateBody(creationSettings);
 			bodyInterface.AddBody(s_state.root->bodyPtr->GetID(), JPH::EActivation::Activate);
 
-			s_state.root->name = name.append(std::to_string(s_state.skeletonJointIndex));
-			s_state.root->skeletonJointIndex = s_state.skeletonJointIndex;
+			s_state.root->name = name.append(std::to_string(s_state.capsuleCounter));
 			s_state.root->parent = nullptr;
 			s_state.root->shape = capsuleShape;
 			s_state.selectedPart = s_state.root;
@@ -590,8 +592,7 @@ public:
 			s_state.root->bodyPtr = bodyInterface.CreateBody(creationSettings);
 			bodyInterface.AddBody(s_state.root->bodyPtr->GetID(), JPH::EActivation::Activate);
 
-			s_state.root->name = name.append(std::to_string(s_state.skeletonJointIndex));
-			s_state.root->skeletonJointIndex = s_state.skeletonJointIndex;
+			s_state.root->name = name.append(std::to_string(s_state.sphereCounter));
 			s_state.root->parent = nullptr;
 			s_state.root->shape = SphereShape;
 			s_state.selectedPart = s_state.root;
@@ -649,8 +650,7 @@ public:
 			s_state.root->bodyPtr = bodyInterface.CreateBody(creationSettings);
 			bodyInterface.AddBody(s_state.root->bodyPtr->GetID(), JPH::EActivation::Activate);
 
-			s_state.root->name = name.append(std::to_string(s_state.skeletonJointIndex));
-			s_state.root->skeletonJointIndex = s_state.skeletonJointIndex;
+			s_state.root->name = name.append(std::to_string(s_state.boxCounter));
 			s_state.root->parent = nullptr;
 			s_state.root->shape = shape;
 
@@ -749,9 +749,8 @@ public:
 				break;
 			}
 
-			s_state.skeletonJointIndex += 1;
-			part->skeletonJointIndex = s_state.skeletonJointIndex;
-			part->name = name.append(std::to_string(s_state.skeletonJointIndex));
+			s_state.capsuleCounter += 1;
+			part->name = name.append(std::to_string(s_state.capsuleCounter));
 			part->shape = capsuleShape;
 			part->parent = parent;
 			part->attachment = s_state.selectedAttachment;
@@ -836,9 +835,8 @@ public:
 				break;
 			}
 
-			s_state.skeletonJointIndex += 1;
-			part->skeletonJointIndex = s_state.skeletonJointIndex;
-			part->name = name.append(std::to_string(s_state.skeletonJointIndex));
+			s_state.sphereCounter += 1;
+			part->name = name.append(std::to_string(s_state.sphereCounter));
 			part->shape = sphereShape;
 			part->parent = parent;
 			part->attachment = s_state.selectedAttachment;
@@ -922,9 +920,8 @@ public:
 				break;
 			}
 
-			s_state.skeletonJointIndex += 1;
-			part->skeletonJointIndex = s_state.skeletonJointIndex;
-			part->name = name.append(std::to_string(s_state.skeletonJointIndex));
+			s_state.boxCounter += 1;
+			part->name = name.append(std::to_string(s_state.boxCounter));
 			part->shape = boxShape;
 			part->parent = parent;
 			part->attachment = s_state.selectedAttachment;
@@ -1313,6 +1310,11 @@ public:
 		if (s_state.partToDelete == s_state.root) {
 			s_state.root = nullptr;
 			s_state.creating = false;
+
+			//set all counter to zero
+			s_state.capsuleCounter = 0;
+			s_state.sphereCounter = 0;
+			s_state.boxCounter = 0;
 		}
 
 		s_state.partToDelete = nullptr;
@@ -1345,6 +1347,18 @@ public:
 		if (bi.IsAdded(part->bodyPtr->GetID())) {
 			bi.RemoveBody(part->bodyPtr->GetID());
 		}
+
+		//IF base shape then they will be set to zero later anyways!
+		if (part->shape->GetSubType() == EShapeSubType::Capsule) {
+			s_state.capsuleCounter --;
+		}
+		if (part->shape->GetSubType() == EShapeSubType::Sphere) {
+			s_state.sphereCounter--;
+		}
+		if (part->shape->GetSubType() == EShapeSubType::Box) {
+			s_state.boxCounter--;
+		}
+
 
 		// Smart pointers (Ref<>) clean themselves up automatically
 		delete part;

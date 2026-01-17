@@ -54,10 +54,10 @@ public:
 
 		//Vec3 referencePoint = ragdoll->mParts[0].mPosition; 
 		//Vec3 scaleFactor(3, 3, 3);
-			
+
 		for (RagdollSettings::Part& p : ragdoll->mParts)
 		{
-            
+
 			// Update motion PipelineType
 			p.mMotionType = inMotionType;
 			// Override layer
@@ -102,8 +102,8 @@ public:
 					JPH::FixedConstraintSettings* settings = new JPH::FixedConstraintSettings();
 					settings->mPoint1 = settings->mPoint2 = original->mPosition1;
 					//settings->mSpace = EConstraintSpace::LocalToBodyCOM;
-p.mToParent = settings;
-break;
+					p.mToParent = settings;
+					break;
 				}
 
 				case EConstraintOverride::TypePoint:
@@ -216,19 +216,19 @@ break;
 		ragdoll->CalculateConstraintIndexToBodyIdxPair();
 
 		return ragdoll;
-		
+
 	}
 
 #endif // JPH_OBJECT_STREAM
 
-    static Quat CalculateRotationToVector(Vec3 inVector)
-    {
-        if (inVector.LengthSq() == 0) return Quat::sIdentity();
-        inVector = inVector.Normalized();
+	static Quat CalculateRotationToVector(Vec3 inVector)
+	{
+		if (inVector.LengthSq() == 0) return Quat::sIdentity();
+		inVector = inVector.Normalized();
 
-        // Capsules are Y-aligned by default in Jolt
-        return Quat::sFromTo(Vec3::sAxisY(), inVector);
-    }
+		// Capsules are Y-aligned by default in Jolt
+		return Quat::sFromTo(Vec3::sAxisY(), inVector);
+	}
 
 	static RagdollSettings* create(float scale = 1.0f)
 	{
@@ -437,7 +437,7 @@ break;
 		return settings;
 	}
 
-	static RagdollSettings* createArm(RVec3 position,float scale = 1.0f) {
+	static RagdollSettings* createArm(RVec3 position, float scale = 1.0f) {
 
 		// Create skeleton
 		//Jolts skeleton is a vector of joints, each joint know its name, parentName and ParentIndex
@@ -446,16 +446,16 @@ break;
 		uint base = skeleton->AddJoint("Base");
 		uint upperArm = skeleton->AddJoint("UpperArm", base);
 		uint lowerArm = skeleton->AddJoint("LowerArm", upperArm);
-	
+
 
 		// Create shapes
 		Ref<Shape> baseShape = new BoxShape(Vec3(1.5f, 1.5f, 1.5f) * scale);
 		Ref<Shape> upperArmShape = new CapsuleShape(1.0f * scale, 0.25f * scale);
 		Ref<Shape> lowerArmShape = new CapsuleShape(1.0f * scale, 0.25f * scale);
-		
+
 
 		Ref<Shape> shapes[] = { baseShape, upperArmShape,lowerArmShape };
-		
+
 		// Calculate positions automatically
 		Vec3 basePos = position;
 		Vec3 upperArmPos = ShapePlacementHelper::PlaceOnTop(baseShape, basePos, Quat::sIdentity(),
@@ -463,17 +463,17 @@ break;
 		Vec3 lowerArmPos = ShapePlacementHelper::PlaceOnTop(upperArmShape, upperArmPos, Quat::sIdentity(),
 			lowerArmShape, Quat::sIdentity());
 
-	
+
 
 		RVec3 positions[] = { basePos, upperArmPos,lowerArmPos };
-		Quat rotations[] = { Quat::sIdentity(), Quat::sIdentity(),Quat::sIdentity()};
+		Quat rotations[] = { Quat::sIdentity(), Quat::sIdentity(),Quat::sIdentity() };
 
 
 		// Calculate constraint positions automatically
 		RVec3 constraint_positions[] = {
 			RVec3::sZero(),  // Base has no parent
 			ShapePlacementHelper::GetConstraintPosition(baseShape, basePos, rotations[0],
-														 upperArmShape, upperArmPos, rotations[1]),			
+														 upperArmShape, upperArmPos, rotations[1]),
 			ShapePlacementHelper::GetConstraintPosition(upperArmShape, upperArmPos, rotations[1],
 													 lowerArmShape, lowerArmPos, rotations[2]),
 		};
@@ -535,7 +535,7 @@ break;
 					part.mToParent = constraint;
 				}
 
-				
+
 			}
 		}
 
@@ -555,7 +555,7 @@ break;
 		return settings;
 
 	}
-	
+
 	static RagdollSettings* createSnake(RVec3 position, float scale = 1.0f) {
 
 		Ref<Skeleton> skeleton = new Skeleton;
@@ -565,7 +565,7 @@ break;
 		uint middlePiece2 = skeleton->AddJoint("MiddlePiece2", middlePiece1);
 		uint middlePiece3 = skeleton->AddJoint("MiddlePiece3", middlePiece2);
 		uint tail = skeleton->AddJoint("Tail", middlePiece3);
-		
+
 		// Create shapes
 		//Ref<Shape> rootShape = new SphereShape(1.0f);
 
@@ -574,7 +574,7 @@ break;
 		Ref<Shape> middlePiece2Shape = new CapsuleShape(1.0f * scale, 0.25f * scale);
 		Ref<Shape> middlePiece3Shape = new CapsuleShape(1.0f * scale, 0.25f * scale);
 		Ref<Shape> tailPieceShape = new CapsuleShape(1.0f * scale, 0.25f * scale);
-	
+
 		Ref<Shape> shapes[] = { headShape, middlePiece1Shape, middlePiece2Shape, middlePiece3Shape, tailPieceShape };
 
 		// Calculate positions automatically
@@ -598,7 +598,7 @@ break;
 		RVec3 positions[] = { headPos, middlePiece1Pos, middlePiece2Pos, middlePiece3Pos, tailPiecePos };
 		Quat rotations[] = { Quat::sIdentity(), Quat::sIdentity(), Quat::sIdentity(), Quat::sIdentity(),Quat::sIdentity() };
 
-	
+
 		RVec3 constraint_positions[] = {
 	RVec3::sZero(),  //
 
@@ -721,7 +721,7 @@ break;
 		Ref<Shape> leftHipJointShape = new SphereShape(0.2f * scale);
 		Ref<Shape> leftUpperLegShape = new CapsuleShape(1.0f * scale, 0.25f * scale);
 		Ref<Shape> leftLowerLegShape = new CapsuleShape(1.0f * scale, 0.25f * scale);
-		Ref<Shape> leftFootShape = new BoxShape(Vec3(0.1f,0.1f,0.1f) * scale);
+		Ref<Shape> leftFootShape = new BoxShape(Vec3(0.1f, 0.1f, 0.1f) * scale);
 
 		Ref<Shape> rightHipJointShape = new SphereShape(0.2f * scale);
 		Ref<Shape> rightUpperLegShape = new CapsuleShape(1.0f * scale, 0.25f * scale);
@@ -775,7 +775,7 @@ break;
 			rightHipJointPos, rightUpperLegPos, rightLowerLegPos, rightFootPos };
 
 		RVec3 constraint_positions[] = {
-			RVec3::sZero(), 
+			RVec3::sZero(),
 
 			ShapePlacementHelper::placeConstraintLeft(hipShape, hipPos, rotations[0],
 														 leftHipJointShape, leftHipJointPos, rotations[1]),
@@ -788,7 +788,7 @@ break;
 
 			ShapePlacementHelper::placeConstraintBottom(leftLowerLegShape, leftLowerLegPos, rotations[3],
 														 leftFootShape, leftFootPos, rotations[4]),
-			
+
 
 			ShapePlacementHelper::placeConstraintRight(hipShape, hipPos, rotations[0],
 														 rightHipJointShape, rightHipJointPos, rotations[5]),
@@ -800,7 +800,7 @@ break;
 														rightLowerLegShape, rightLowerLegPos, rotations[7]),
 
 			ShapePlacementHelper::placeConstraintBottom(rightLowerLegShape, rightLowerLegPos, rotations[7],
-														rightFootShape, rightFootPos, rotations[8]), 
+														rightFootShape, rightFootPos, rotations[8]),
 
 		};
 
@@ -859,14 +859,14 @@ break;
 		settings->mParts.resize(skeleton->GetJointCount());
 		for (int p = 0; p < skeleton->GetJointCount(); ++p)
 		{
-			
+
 			RagdollSettings::Part& part = settings->mParts[p];
 			part.SetShape(shapes[p]);
 			part.mPosition = positions[p];
 			part.mRotation = rotations[p];
 			part.mMotionType = EMotionType::Dynamic;
 			part.mObjectLayer = Layers::MOVING;
-	
+
 			// First part is the root, doesn't have a parent and doesn't have a constraint
 			if (p > 0)
 			{
@@ -1009,7 +1009,7 @@ break;
 
 		}
 
-	
+
 		static Vec3 PlaceOnBottomRight(const Shape* parentShape, Vec3 parentPos, Quat parentRot,
 			const Shape* childShape, Quat childRotation = Quat::sIdentity(),
 			float gap = 0.01f) {
@@ -1108,82 +1108,90 @@ struct BodyPart {
 
 namespace ragdoll {
 
-static uint32_t getRagdollSize(BodyPart* root) {
-	if (root == nullptr) {
-		return 0;  // Empty subtree has size 0
+	static uint32_t getRagdollSize(BodyPart* root) {
+		if (root == nullptr) {
+			return 0;  // Empty subtree has size 0
+		}
+
+		uint32_t size = 1;  // Count current node
+
+		for (int i = 0; i < root->children.size(); i++) {
+			size += getRagdollSize(root->children[i]);
+		}
+
+		return size;
 	}
 
-	uint32_t size = 1;  // Count current node
+	static void addPart(BodyPart* part, RagdollSettings* settings, Ref<Skeleton> skeleton, uint32_t skeletonJointIndex) {
 
-	for (int i = 0; i < root->children.size(); i++) {
-		size += getRagdollSize(root->children[i]);
+		part->skeletonJointIndex = skeletonJointIndex;
+
+		if (part->parent) {
+			skeleton->AddJoint(part->name.c_str(), part->parent->skeletonJointIndex);
+
+		}
+		else {
+			skeleton->AddJoint(part->name.c_str());
+		}
+
+		RagdollSettings::Part& settingsPart = settings->mParts[part->skeletonJointIndex];
+		settingsPart.SetShape(part->bodyPtr->GetShape());
+		settingsPart.mPosition = part->bodyPtr->GetPosition();
+		settingsPart.mRotation = part->bodyPtr->GetRotation();
+		settingsPart.mMotionType = EMotionType::Dynamic;
+		settingsPart.mObjectLayer = Layers::MOVING;
+		settingsPart.mOverrideMassProperties = EOverrideMassProperties::CalculateMassAndInertia;
+
+		//settings->mSpace = EConstraintSpace::LocalToBodyCOM;
+		if (part->constraintType == EConstraintSubType::SwingTwist) {
+
+			Ref<JPH::SwingTwistConstraintSettings> constraint = JPH::DynamicCast<JPH::SwingTwistConstraintSettings>(part->constraintSettings);
+			settingsPart.mToParent = constraint;
+		}
+		if (part->constraintType == EConstraintSubType::Hinge) {
+
+			Ref<JPH::HingeConstraintSettings> constraint = JPH::DynamicCast<JPH::HingeConstraintSettings>(part->constraintSettings);
+			settingsPart.mToParent = constraint;
+		}
+		if (part->constraintType == EConstraintSubType::Fixed) {
+
+			Ref<JPH::FixedConstraintSettings> constraint = JPH::DynamicCast<JPH::FixedConstraintSettings>(part->constraintSettings);
+			settingsPart.mToParent = constraint;
+
+		}
 	}
 
-	return size;
-}
+	// Traverse skeleton in breadth-first order, assigning sequential indices
+	// Guarantees all joints at depth D have lower indices than joints at depth D+1
+	// which is important when because ragdollBuilder may create some joints at depth D+1 before all the joint at depth D
+	static JPH::RagdollSettings* CreateHumanoidBFS(BodyPart* root) {
 
-static void addPart(BodyPart* part, RagdollSettings* settings, Ref<Skeleton> skeleton) {
+		std::queue<BodyPart*> needToVisit;
 
-	if (part->parent) {
-		skeleton->AddJoint(part->name.c_str(), part->parent->skeletonJointIndex);
+		Ref<Skeleton> skeleton = new Skeleton;
+		JPH::RagdollSettings* settings = new RagdollSettings;
+		settings->mSkeleton = skeleton;
+		settings->mParts.resize(ragdoll::getRagdollSize(root));
 
-	}
-	else {
-		skeleton->AddJoint(part->name.c_str());
+		uint32_t skeletonJointIndex = 0;
 
-	}
+		//Base case
+		needToVisit.push(root);
+		addPart(root, settings, skeleton, skeletonJointIndex);
 
+		while (!needToVisit.empty()) {
+			BodyPart* current = needToVisit.front();  
+			needToVisit.pop(); 
 
-	RagdollSettings::Part& settingsPart = settings->mParts[part->skeletonJointIndex];
-	settingsPart.SetShape(part->bodyPtr->GetShape());
-	settingsPart.mPosition = part->bodyPtr->GetPosition();
-	settingsPart.mRotation = part->bodyPtr->GetRotation();
-	settingsPart.mMotionType = EMotionType::Dynamic;
-	settingsPart.mObjectLayer = Layers::MOVING;
-	settingsPart.mOverrideMassProperties = EOverrideMassProperties::CalculateMassAndInertia;
+			for (int i = 0; i < current->children.size(); i++) {
 
-	//settings->mSpace = EConstraintSpace::LocalToBodyCOM;
-	if (part->constraintType == EConstraintSubType::SwingTwist) {
-
-		Ref<JPH::SwingTwistConstraintSettings> constraint = JPH::DynamicCast<JPH::SwingTwistConstraintSettings>(part->constraintSettings);
-		settingsPart.mToParent = constraint;
-	}
-	if (part->constraintType == EConstraintSubType::Hinge) {
-
-		Ref<JPH::HingeConstraintSettings> constraint = JPH::DynamicCast<JPH::HingeConstraintSettings>(part->constraintSettings);
-		settingsPart.mToParent = constraint;
-	}
-	if (part->constraintType == EConstraintSubType::Fixed) {
-
-		Ref<JPH::FixedConstraintSettings> constraint = JPH::DynamicCast<JPH::FixedConstraintSettings>(part->constraintSettings);
-		settingsPart.mToParent = constraint;
+				skeletonJointIndex++;
+				addPart(current->children[i], settings, skeleton, skeletonJointIndex);
+				needToVisit.push(current->children[i]);
+			}
+		}
+		return settings;
 
 	}
-
-	for (int i = 0; i < part->children.size(); i++) {
-
-		addPart(part->children[i], settings, skeleton);
-	}
-
-}
-
-static RagdollSettings* createHumanoid2(BodyPart* part) {
-
-
-	Ref<Skeleton> skeleton = new Skeleton;
-
-	// Create ragdoll settings
-	RagdollSettings* settings = new RagdollSettings;
-	settings->mSkeleton = skeleton;
-	settings->mParts.resize(ragdoll::getRagdollSize(part));
-
-	
-	ragdoll::addPart(part, settings, skeleton);
-
-	
-
-
-	return settings;
-}
 
 }
