@@ -95,7 +95,7 @@ public:
 	}
 
 
-	static bool createRagdollEntity(flecs::world& ecs, const flecs::entity parent, const std::string name,
+	static bool createHumanRagdollEntity(flecs::world& ecs, const flecs::entity parent, const std::string name,
 		const std::string ModelSrcName, const Transform transform, entUpdateFn updateFunction, const std::string pipelineName) {
 
 		if (!validateName(ecs, parent, name)) return false;
@@ -174,6 +174,75 @@ public:
 
 		return true;
 
+	}
+
+	static bool createRagdollEntity(flecs::world& ecs, const flecs::entity parent, const std::string name,
+		const std::string ModelSrcName, const Transform transform, const std::string fileName, entUpdateFn updateFunction, const std::string pipelineName) {
+
+		if (!validateName(ecs, parent, name)) return false;
+		if (!validateTransform(transform, name.c_str())) return false;
+		if (!validatePipelineExistence(ecs, pipelineName)) return false;
+
+		JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
+
+		//Get the modelSource and Ragdoll filepath from Asset Library
+		AssetLibRef assetLibRef = ecs.get<AssetLibRef>();
+		std::map<std::string, std::string>& ragdollList = assetLibRef.assetLib->ragdolls;
+		ModelSource* modelSource = assetLibRef.assetLib->get(ModelSrcName);
+		if (!validateModelSrcExistence(modelSource, ModelSrcName)) return false;
+		if (!validateRagdollExistence(fileName, ragdollList)) return false;
+
+		const char * ragdollFilePath =  ragdollList.at(fileName).c_str();
+
+		//Load from file
+		std::stringstream dataIn;
+		std::ifstream inFile(ragdollFilePath, std::ios::binary);
+		if (inFile.is_open()) {
+			dataIn << inFile.rdbuf();  // Read entire file into stringstream
+			inFile.close();
+
+		}
+		else {
+			SDL_LogError(SDL_LOG_CATEGORY_ERROR, ERROR "Failed to open file for reading : %s" RESET, ragdollFilePath);
+		}
+
+
+		StreamInWrapper stream_in(dataIn);
+		RagdollSettings::RagdollResult result = RagdollSettings::sRestoreFromBinaryState(stream_in);
+		if (result.HasError()) {
+			SDL_LogError(SDL_LOG_CATEGORY_ERROR, ERROR "Failed to load binary file: %s" RESET, result.GetError().c_str());
+			return false;
+		}
+
+
+		JPH::Ragdoll* ragdoll = result.Get()->CreateRagdoll(0, 0, &physicsSystem);
+		ragdoll->AddToPhysicsSystem(EActivation::Activate);
+
+		const flecs::entity entity = ecs.entity(name.c_str())
+			.set<EntityType>({ EntityType::Humanoid })
+			.add<DynamicEnt>()
+			.set<Transform>(transform)
+			//.set<ModelInstance>(modelSource->createInstance())
+			.set<ModelSourceRef>({ ModelSrcName })
+			.set<AnimationTime>({})
+			.add<RenderPipeline>(ecs.lookup(pipelineName.c_str()))
+			//emplace<ActorBehavior>(updateFunction)
+			.child_of(parent);
+
+		if (!validateEntityCreation(entity, name)) return false;
+
+		//valide all physics bodies
+		for (JPH::BodyID id : ragdoll->GetBodyIDs()) {
+
+			if (!validatePhysicsBodyCreation(id, name)) return false;
+
+		}
+
+		entity.set<JoltRagdoll>({ ragdoll });
+	
+		//entity.set<JPH::BodyID>({ ragdoll->GetBodyID(0) });
+
+		return true;
 	}
 
 	static bool createHumanoidEntity(flecs::world& ecs, const flecs::entity parent, const std::string name,
@@ -917,6 +986,17 @@ public:
 			SDL_LogError(SDL_LOG_CATEGORY_ERROR, "EntityFactory Error ModelSource does not exist! : %s", modelName.c_str());
 			return false;
 		}
+		return true;
+
+	}
+
+	static bool validateRagdollExistence(const std::string key, const std::map<std::string, std::string>& ragdolls) {
+
+		if (!ragdolls.contains(key)) {
+			SDL_LogError(SDL_LOG_CATEGORY_ERROR, ERROR "Ragdoll list does not have the following key : %s" RESET, key.c_str());
+			return false;
+		}
+
 		return true;
 
 	}

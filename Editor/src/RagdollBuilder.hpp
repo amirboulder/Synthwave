@@ -1017,10 +1017,10 @@ public:
 	static void drawShapeTypeDropdown() {
 		
 		if (ImGui::BeginCombo("Shape", ShapeTypeNames.at(s_state.selectedShape).c_str())) {
-			for (const auto& [attachment, name] : ShapeTypeNames) {
-				bool isSelected = (s_state.selectedShape == attachment);
+			for (const auto& [shapeType, name] : ShapeTypeNames) {
+				bool isSelected = (s_state.selectedShape == shapeType);
 				if (ImGui::Selectable(name.c_str(), isSelected)) {
-					s_state.selectedShape = attachment;
+					s_state.selectedShape = shapeType;
 				}
 				if (isSelected) {
 					ImGui::SetItemDefaultFocus();
@@ -1311,7 +1311,7 @@ public:
 			s_state.root = nullptr;
 			s_state.creating = false;
 
-			//set all counter to zero
+			//set all counters to zero
 			s_state.capsuleCounter = 0;
 			s_state.sphereCounter = 0;
 			s_state.boxCounter = 0;

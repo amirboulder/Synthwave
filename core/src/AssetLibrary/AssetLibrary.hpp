@@ -8,25 +8,31 @@ struct AssetLibRef {
     AssetLibrary * assetLib;
 };
 
+//TODO FIX HARDCODED PATHS
 class AssetLibrary {
 
 public:
 
-
-    std::string assetFolder;
+    std::string assetsFolder;
 
     std::unordered_map<std::string, std::unique_ptr<ModelSource>> models;
+
+    //maps ragdoll names to their paths
+    std::map<std::string, std::string> ragdolls;
 
     flecs::world& ecs;
 
     AssetLibrary(flecs::world& ecs, std::string assetFolder = "assets")
-        :ecs(ecs), assetFolder(assetFolder)
+        :ecs(ecs), assetsFolder(assetFolder)
     {
         defaultAssets();
 
         // Register the ref component
         ecs.component<AssetLibRef>();
         ecs.set<AssetLibRef>({ this });
+
+
+        scanForFiles("assets/ragdolls", ".bof");
 
         SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, GOOD "AssetLibrary Initialized" RESET);
     }
@@ -52,6 +58,36 @@ public:
         //sponza
         //ModelSource sponzaSource("assets/Sponza/sponza.obj", renderer.context.device);
 	}
+
+
+    void scanForFiles(const std::string& folderPath, const std::string& extension) {
+
+        std::error_code ec;
+
+        if (!fs::exists(folderPath, ec) || ec) {
+            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, ERROR "Directory %s doesn't exist or can't be accessed" RESET, folderPath.c_str());
+        }
+
+        for (const auto& entry : fs::directory_iterator(folderPath, ec)) {
+            if (ec) {
+                SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, ERROR "iterating directory: %s" RESET, ec.message().c_str());
+                break;
+            }
+
+            if (entry.is_regular_file(ec) && !ec && entry.path().extension() == extension) {
+                std::string nameOnly = entry.path().stem().string();
+
+                // using generic_string() for consistent forward slashes
+                std::string fullPath = entry.path().generic_string();
+
+                ragdolls[nameOnly] = fullPath;
+            }
+        }
+
+        if (ec) {
+            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, ERROR "during directory iteration: %s" RESET, ec.message().c_str());
+        }
+    }
 
 
     //TODO fix

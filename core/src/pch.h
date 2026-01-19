@@ -8,6 +8,7 @@
 #include <thread>
 #include <fstream>
 #include <filesystem>
+#include <queue>
 
 using std::vector;
 using std::cout;
