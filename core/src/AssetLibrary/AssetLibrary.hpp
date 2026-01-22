@@ -31,8 +31,7 @@ public:
         ecs.component<AssetLibRef>();
         ecs.set<AssetLibRef>({ this });
 
-
-        scanForFiles("assets/ragdolls", ".bof");
+        scanForRagdolls();
 
         SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, GOOD "AssetLibrary Initialized" RESET);
     }
@@ -55,12 +54,11 @@ public:
         add("Mountains", std::make_unique<ModelSource>(ecs, "assets/mtn2.obj", true));
         add("ActorModel", std::make_unique<ModelSource>(ecs, "assets/enemy1.glb"));
 
-        //sponza
         //ModelSource sponzaSource("assets/Sponza/sponza.obj", renderer.context.device);
 	}
 
 
-    void scanForFiles(const std::string& folderPath, const std::string& extension) {
+    void scanForFiles(const std::string& folderPath, const std::string& extension, std::map<std::string, std::string> & map) {
 
         std::error_code ec;
 
@@ -80,13 +78,18 @@ public:
                 // using generic_string() for consistent forward slashes
                 std::string fullPath = entry.path().generic_string();
 
-                ragdolls[nameOnly] = fullPath;
+                map[nameOnly] = fullPath;
             }
         }
 
         if (ec) {
             SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, ERROR "during directory iteration: %s" RESET, ec.message().c_str());
         }
+    }
+
+    void scanForRagdolls() {
+
+        scanForFiles(util::getBuildRagdollsFolder().string(), ".bof", ragdolls);
     }
 
 

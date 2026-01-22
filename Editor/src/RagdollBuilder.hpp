@@ -97,6 +97,8 @@ public:
 		glm::vec3 boxExtents = glm::vec3(0.1f, 0.1f, 0.1f);
 		uint32_t boxCounter = 0;
 
+		char ragdollNameBuffer[128] = "";
+
 	};
 	static State s_state;
 
@@ -107,7 +109,14 @@ public:
 		ImGui::Begin("Ragdoll Builder", nullptr, ImGuiWindowFlags_NoCollapse);
 
 		drawBeginCreation(ecs);
+
+		ImGui::SameLine();
 		drawReset(ecs);
+
+		ImGui::SameLine();
+		drawRagdollNameField();
+
+		ImGui::SameLine();
 		drawFinish(ecs);
 
 		if (ImGui::BeginTable("RagdollLayout", 2,
@@ -167,10 +176,7 @@ public:
 		}
 
 		float buttonWidth = 140.0f;
-		float spacing = ImGui::GetStyle().ItemSpacing.x;
-		float totalWidth = buttonWidth * 2 + spacing;
-		float availWidth = ImGui::GetContentRegionAvail().x;
-		ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (availWidth - totalWidth) * 0.5f);
+	
 		if (ImGui::Button("Begin", ImVec2(buttonWidth, 0))) {
 
 			s_state.creating = true;
@@ -179,12 +185,8 @@ public:
 
 	static void drawReset(flecs::world& ecs) {
 
-		ImGui::SameLine();
 		float buttonWidth = 140.0f;
-		float spacing = ImGui::GetStyle().ItemSpacing.x;
-		float totalWidth = buttonWidth * 2 + spacing;
-		float availWidth = ImGui::GetContentRegionAvail().x;
-		ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (availWidth - totalWidth) * 0.5f);
+
 		if (ImGui::Button("Reset", ImVec2(buttonWidth, 0))) {
 
 			s_state.partToDelete = s_state.root;
@@ -193,13 +195,15 @@ public:
 
 	static void drawFinish(flecs::world& ecs) {
 
-		ImGui::SameLine();
 		float buttonWidth = 140.0f;
-		float spacing = ImGui::GetStyle().ItemSpacing.x;
-		float totalWidth = buttonWidth * 2 + spacing;
-		float availWidth = ImGui::GetContentRegionAvail().x;
-		ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (availWidth - totalWidth) * 0.5f);
 
+		bool disableCreateButton = false;
+
+		if (strlen(s_state.ragdollNameBuffer) == 0) {
+			disableCreateButton = true;
+		}
+
+		ImGui::BeginDisabled(disableCreateButton);
 		if (ImGui::Button("Finish", ImVec2(buttonWidth, 0))) {
 			if (!s_state.root) {
 				return;
@@ -209,42 +213,53 @@ public:
 			RenderContext& renderContext = ecs.get_mut<RenderContext>();
 			Ref<RagdollSettings> ragdollSettings = ragdoll::CreateHumanoidBFS(s_state.root);
 
-			// Save to stringstream
 			std::stringstream dataOut;
 			JPH::StreamOutWrapper stream_out(dataOut);
+
 			ragdollSettings->SaveBinaryState(stream_out, true, false);
 
-			// Allocatign string on heap so it persists until callback and the callback will free the memory
-			std::string* data = new std::string(dataOut.str());
+			std::string filename = s_state.ragdollNameBuffer;
+			filename.append(".bof");
 
-			// Show save dialog with data as userdata
-			SDL_ShowSaveFileDialog(saveCallback, data, renderContext.window, NULL, 0, NULL);
-		}
-	}
+			fs::path repoSavePath = util::getRepoRagdollsFolder();
+			repoSavePath /= filename;
 
-	static void saveCallback(void* userdata, const char* const* filelist, int filter) {
+			fs::path buildSavePath = util::getBuildRagdollsFolder();
+			buildSavePath /= filename;
 
-		if (filelist && filelist[0]) {
-			const char* filepath = filelist[0];
+			bool success = true;
 
-			// Get the stringstream data from userdata
-			std::string* data = static_cast<std::string*>(userdata);
+			//Save in repo and in build folder, trigger an event so rescan the ragdolls folder so the file is available for usage.
+			if (!util::saveDataToFile(dataOut, repoSavePath.string())) {
 
-			// Write to file
-			std::ofstream file(filepath, std::ios::binary);
-			if (file) {
-				file.write(data->c_str(), data->size());
-				file.close();
-				printf("Ragdoll saved to: %s\n", filepath);
+				success = false;
 			}
-			else {
-				printf("Failed to save file\n");
+			if (!util::saveDataToFile(dataOut, buildSavePath.string())) {
+
+				success = false;
 			}
 
-			// Clean up the heap-allocated string
-			delete data;
+			if (success) {
+				ecs.set<RagdollSavedEvent>({ true });
+			}
+
+			//reset
+			s_state.partToDelete = s_state.root;
 		}
+		ImGui::EndDisabled();
 	}
+
+	static void drawRagdollNameField() {
+
+		ImGui::SetNextItemWidth(300.0f);
+		ImGui::InputText("Ragdoll Name", s_state.ragdollNameBuffer,
+			IM_ARRAYSIZE(s_state.ragdollNameBuffer),
+			ImGuiInputTextFlags_EnterReturnsTrue);
+	}
+
+
+
+
 
 
 	static void drawModifyOrAddChild() {

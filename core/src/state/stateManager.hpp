@@ -113,6 +113,7 @@ public:
 		InputStateOnSetHook();
 		EditorStateOnSetHook();
 
+		//Event hooks
 		mouseClickEventHook();
 		exitEventHook();
 		windowLostFocusEvent();
@@ -121,6 +122,7 @@ public:
 		cameraSwitchEventHook();
 		physicsRenderToggleEventHook();
 		saveGameSrcEventHook();
+		ragdollSavedEventHook();
 
 	}
 
@@ -675,6 +677,20 @@ public:
 			}
 		});
 	}
+
+	void ragdollSavedEventHook() {
+
+		ecs.component<RagdollSavedEvent>()
+			.on_set([&](RagdollSavedEvent& event) {
+
+			if (event.occurred == true) {
+
+				AssetLibRef ref = ecs.get<AssetLibRef>();
+
+				ref.assetLib->scanForRagdolls();
+			}
+		});
+	}
 	
 	//TODO Maybe fix the redundant calls at some point
 	void MenuObserver() {
@@ -835,9 +851,8 @@ public:
 			serde.unload();
 		}
 
-		namespace fs = std::filesystem;
-		fs::path path = fs::path(__FILE__).lexically_normal();
-		fs::path repoRoot = path.parent_path().parent_path().parent_path().parent_path();
+
+		fs::path repoRoot = util::getRepoRoot();
 		fs::path jsonPath = repoRoot / "games" / "CrashTheSim" / "src" / "GameData.json";
 
 		//Load from game src

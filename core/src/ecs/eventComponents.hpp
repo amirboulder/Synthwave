@@ -35,7 +35,10 @@ struct PhysicsRenderToggleEvent {
 	bool occurred = false;
 };
 
-
 struct SaveGameSrcEvent {
+	bool occurred = false;
+};
+
+struct RagdollSavedEvent {
 	bool occurred = false;
 };
