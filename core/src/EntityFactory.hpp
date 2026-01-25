@@ -7,18 +7,20 @@ using entUpdateFn = std::function<void(flecs::world&, flecs::entity)>;
 
 
 
-// TODO maybe add flecs::world& ecs to this class and make the functions not static to reduce one parameter 
+/// <summary>
+/// All member functions are static so other systems don't need to instantiate the class in order to use them.
+/// Used for creating various entity types that the engine supports,
+/// does a lot of error handling since we getting input from the user and users can't be trusted!
+/// </summary>
 class EntityFactory {
 
+private:
+
+	// Private constructor to prevent instantiation
+	EntityFactory() = delete;
+	~EntityFactory() = delete;
+
 public:
-
-	flecs::world& ecs;
-
-	EntityFactory(flecs::world& ecs)
-		: ecs(ecs)
-	{
-
-	}
 
 	static bool createCubeEntity(flecs::world& ecs, const flecs::entity parent, const std::string name,
 		const std::string ModelSrcName, const Transform transform, const std::string pipelineName) {
@@ -94,7 +96,7 @@ public:
 
 	}
 
-
+	//creates jolts Human.tof 
 	static bool createHumanRagdollEntity(flecs::world& ecs, const flecs::entity parent, const std::string name,
 		const std::string ModelSrcName, const Transform transform, entUpdateFn updateFunction, const std::string pipelineName) {
 
@@ -109,22 +111,24 @@ public:
 
 		JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
 
-		//Vec3 pos = RVec3(1.0f, 19.0f, 0.0f);
+		Ref<RagdollSettings> ragdollSettings = RagdollLoader::load("assets/Human.tof", EMotionType::Dynamic);
 
-		EConstraintOverride sConstraintType = EConstraintOverride::TypeRagdoll;
-		//Ref<RagdollSettings> mRagdollSettings = RagdollLoader::create(4.0f);
-		Ref<RagdollSettings> mRagdollSettings = RagdollLoader::load("assets/Human.tof", EMotionType::Dynamic, sConstraintType);
+		if (!ragdollSettings) {
+			
+			SDL_LogError(SDL_LOG_CATEGORY_ERROR, ERROR "ragdollSettings is null" RESET);
+			return false;
+		}
 
 
 		const flecs::entity entity = ecs.entity(name.c_str())
-			.set<EntityType>({ EntityType::Humanoid })
+			.set<EntityType>({ EntityType::Ragdoll })
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
 			//.set<ModelInstance>(modelSource->createInstance())
 			.set<ModelSourceRef>({ ModelSrcName })
 			.set<AnimationTime>({})
 			.add<RenderPipeline>(ecs.lookup(pipelineName.c_str()))
-			.emplace<ActorBehavior>(updateFunction)
+			//.emplace<ActorBehavior>(updateFunction)
 			.child_of(parent);
 
 		if (!validateEntityCreation(entity, name)) return false;
@@ -132,13 +136,13 @@ public:
 		JPH::SkeletalAnimation *  mAnimation;
 		JPH::SkeletonPose *		  mPose =  new JPH::SkeletonPose;
 
-		JPH::Ragdoll* ragdoll = mRagdollSettings->CreateRagdoll(0, entity.id(), &physicsSystem);
+		JPH::Ragdoll* ragdoll = ragdollSettings->CreateRagdoll(0, entity.id(), &physicsSystem);
 		ragdoll->AddToPhysicsSystem(JPH::EActivation::Activate);
 
 
 		cout << "Ragdoll body count : " << ragdoll->GetBodyCount() << std::endl;
 		cout << "Ragdoll GetConstraintCount : " << ragdoll->GetConstraintCount() << std::endl;
-		cout << "GetSkeleton GetJointCount : " << mRagdollSettings->GetSkeleton()->GetJointCount() << std::endl;
+		cout << "GetSkeleton GetJointCount : " << ragdollSettings->GetSkeleton()->GetJointCount() << std::endl;
 
 		// Load animation
 
@@ -149,7 +153,7 @@ public:
 		cout << "mAnimation GetAnimatedJoints : " << mAnimation->GetAnimatedJoints().size() << std::endl;
 
 		// Initialize pose
-		mPose->SetSkeleton(mRagdollSettings->GetSkeleton());
+		mPose->SetSkeleton(ragdollSettings->GetSkeleton());
 
 		// Place the root joint on the first body so that we draw the pose in the right place
 		//RVec3 root_offset = RVec3(10.0f, 10.0f, 10.0f);
@@ -158,8 +162,6 @@ public:
 		//joint.mTranslation = Vec3::sZero(); // All the translation goes into the root offset
 		//ragdoll->GetRootTransform(root_offset, joint.mRotation);
 		
-		
-
 		for (JPH::BodyID id : ragdoll->GetBodyIDs()) {
 
 			if (!validatePhysicsBodyCreation(id, name)) return false;
@@ -170,14 +172,13 @@ public:
 		entity.set<JoltPose>({ mPose });
 		entity.set<JoltAnimation>({ mAnimation });
 
-		//entity.set<JPH::BodyID>({ ragdoll->GetBodyID(0) });
-
 		return true;
 
 	}
 
+
 	static bool createRagdollEntity(flecs::world& ecs, const flecs::entity parent, const std::string name,
-		const std::string ModelSrcName, const Transform transform, const std::string fileName, entUpdateFn updateFunction, const std::string pipelineName) {
+		const std::string ModelSrcName, const Transform transform, const std::string ragdollFilename, entUpdateFn updateFunction, const std::string pipelineName) {
 
 		if (!validateName(ecs, parent, name)) return false;
 		if (!validateTransform(transform, name.c_str())) return false;
@@ -190,9 +191,9 @@ public:
 		std::map<std::string, std::string>& ragdollList = assetLibRef.assetLib->ragdolls;
 		ModelSource* modelSource = assetLibRef.assetLib->get(ModelSrcName);
 		if (!validateModelSrcExistence(modelSource, ModelSrcName)) return false;
-		if (!validateRagdollExistence(fileName, ragdollList)) return false;
+		if (!validateRagdollExistence(ragdollFilename, ragdollList)) return false;
 
-		const char * ragdollFilePath =  ragdollList.at(fileName).c_str();
+		const char * ragdollFilePath =  ragdollList.at(ragdollFilename).c_str();
 
 		//Load from file
 		std::stringstream dataIn;
@@ -231,7 +232,7 @@ public:
 
 		if (!validateEntityCreation(entity, name)) return false;
 
-		//valide all physics bodies
+		//validate all physics bodies
 		for (JPH::BodyID id : ragdoll->GetBodyIDs()) {
 
 			if (!validatePhysicsBodyCreation(id, name)) return false;
@@ -240,63 +241,7 @@ public:
 
 		entity.set<JoltRagdoll>({ ragdoll });
 	
-		//entity.set<JPH::BodyID>({ ragdoll->GetBodyID(0) });
-
 		return true;
-	}
-
-	static bool createHumanoidEntity(flecs::world& ecs, const flecs::entity parent, const std::string name,
-		const std::string ModelSrcName, const Transform transform, entUpdateFn updateFunction, const std::string pipelineName){
-
-		if (!validateName(ecs, parent, name)) return false;
-		if (!validateTransform(transform, name.c_str())) return false;
-		if (!validatePipelineExistence(ecs, pipelineName)) return false;
-
-		//Get the modelSource from Asset Library
-		AssetLibRef ref = ecs.get<AssetLibRef>();
-		ModelSource* modelSource = ref.assetLib->get(ModelSrcName);
-		if (!validateModelSrcExistence(modelSource, ModelSrcName)) return false;
-
-		JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
-
-		RVec3 pos = RVec3(transform.position.x, transform.position.y, transform.position.z);
-
-		Ref<RagdollSettings> mRagdollSettings = RagdollLoader::createHumanoid(pos, 1.0f);
-
-		const flecs::entity entity = ecs.entity(name.c_str())
-			.set<EntityType>({ EntityType::Humanoid })
-			.add<DynamicEnt>()
-			.set<Transform>(transform)
-			//.set<ModelInstance>(modelSource->createInstance())
-			.set<ModelSourceRef>({ ModelSrcName })
-			//.set<AnimationTime>({})
-			.add<RenderPipeline>(ecs.lookup(pipelineName.c_str()))
-			.emplace<ActorBehavior>(updateFunction)
-			.child_of(parent);
-
-		if (!validateEntityCreation(entity, name)) return false;
-
-		JPH::Ragdoll* ragdoll = mRagdollSettings->CreateRagdoll(0, entity.id(), &physicsSystem);
-		ragdoll->AddToPhysicsSystem(JPH::EActivation::Activate);
-
-
-		cout << "Humanoid Ragdoll body count : " << ragdoll->GetBodyCount() << std::endl;
-		cout << "Humanoid Ragdoll GetConstraintCount : " << ragdoll->GetConstraintCount() << std::endl;
-		cout << "Humanoid Skeleton GetJointCount : " << mRagdollSettings->GetSkeleton()->GetJointCount() << std::endl;
-
-
-		for (JPH::BodyID id : ragdoll->GetBodyIDs()) {
-
-			if (!validatePhysicsBodyCreation(id, name)) return false;
-
-		}
-
-		entity.set<JoltRagdoll>({ ragdoll });
-		//entity.set<JoltPose>({ mPose });
-		//entity.set<JoltAnimation>({ mAnimation });
-
-		return true;
-
 	}
 
 	static bool createRobotArmEntity(flecs::world& ecs, const flecs::entity parent, const std::string name,

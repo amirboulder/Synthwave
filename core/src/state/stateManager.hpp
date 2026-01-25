@@ -16,6 +16,7 @@
 #include "../common.hpp"
 #include "../ecs/eventComponents.hpp"
 
+//TODO seperete all event based systems into their own class
 
 class StateManager {
 
@@ -285,7 +286,7 @@ public:
 	}
 
 
-	//Switch between play and pause
+	//Switch between play and pause by triggering PlayState onSet hooks.
 	void gamePauseHandler() {
 
 		PlayState state = ecs.get<PlayState>();
@@ -302,11 +303,10 @@ public:
 
 			ecs.set<PlayState>(PlayState::PLAY);
 		}
-
 	}
 
 
-	// Switch between player and freeCam
+	// Switch between player and freeCam by triggering CameraState hooks
 	void cameraSwitchHandler() {
 
 		CameraState state = ecs.get<CameraState>();
@@ -421,6 +421,7 @@ public:
 		});
 	}
 
+	//Note: When game is paused we DO NOT pause time but rather disable game systems.
 	void playStateOnSetHook() {
 
 		const RenderContext& renderContext = ecs.get<RenderContext>();

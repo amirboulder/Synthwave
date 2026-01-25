@@ -26,16 +26,6 @@ enum class Attachment
 
 #ifdef JPH_OBJECT_STREAM
 
-enum class EConstraintOverride
-{
-	TypeFixed,
-	TypePoint,
-	TypeHinge,
-	TypeSlider,
-	TypeCone,
-	TypeRagdoll,
-};
-
 #endif // JPH_OBJECT_STREAM
 
 #ifdef JPH_OBJECT_STREAM
@@ -44,154 +34,15 @@ class RagdollLoader {
 
 public:
 
-	static JPH::RagdollSettings* load(const char* inFileName, JPH::EMotionType inMotionType, EConstraintOverride inConstraintOverride)
-	{
-		// Read the ragdoll
-		JPH::RagdollSettings* ragdoll = nullptr;
-		AssetStream stream(inFileName, std::ios::in);
-		if (!ObjectStreamIn::sReadObject(stream.Get(), ragdoll))
-			cout << "ERROR!!!!\n";
-
-		//Vec3 referencePoint = ragdoll->mParts[0].mPosition; 
-		//Vec3 scaleFactor(3, 3, 3);
-
-		for (RagdollSettings::Part& p : ragdoll->mParts)
-		{
-
-			// Update motion PipelineType
-			p.mMotionType = inMotionType;
-			// Override layer
-			p.mObjectLayer = Layers::MOVING;
-
-
-
-			p.GetMassProperties().mMass;
-
-			// Scale the shape
-			//ShapeSettings::ShapeResult shape = p.GetShape()->ScaleShape(scaleFactor);
-
-			// Scale the position relative to the reference point
-			//Vec3 offsetFromReference = p.mPosition - referencePoint;
-			//Vec3 scaledOffset = offsetFromReference * scaleFactor;
-			// newPosition = referencePoint + scaledOffset;
-
-			// Create body with scaled position
-			//JPH::BodyCreationSettings creationSettings(
-			//	shape.Get(),
-			//	newPosition,  // Use the scaled position
-			//	p.mRotation,
-			//	JPH::EMotionType::Dynamic,
-			//	Layers::MOVING
-			//);
-
-			//creationSettings.mOverrideMassProperties = JPH::EOverrideMassProperties::CalculateInertia;
-			//creationSettings.mMassPropertiesOverride.mMass = 50.0f;
-
-			// Update the part with new settings
-			//p.mPosition = newPosition;  // Don't forget to update the part's position!
-			//p.SetShapeSettings(creationSettings.GetShapeSettings());
-			//p.SetShape(shape.Get());
-
-			// Create new constraint
-			Ref<JPH::SwingTwistConstraintSettings> original = JPH::DynamicCast<JPH::SwingTwistConstraintSettings>(p.mToParent);
-			if (original != nullptr)
-				switch (inConstraintOverride)
-				{
-				case EConstraintOverride::TypeFixed:
-				{
-					JPH::FixedConstraintSettings* settings = new JPH::FixedConstraintSettings();
-					settings->mPoint1 = settings->mPoint2 = original->mPosition1;
-					//settings->mSpace = EConstraintSpace::LocalToBodyCOM;
-					p.mToParent = settings;
-					break;
-				}
-
-				case EConstraintOverride::TypePoint:
-				{
-					JPH::PointConstraintSettings* settings = new JPH::PointConstraintSettings();
-					settings->mPoint1 = settings->mPoint2 = original->mPosition1;
-					//settings->mSpace = EConstraintSpace::LocalToBodyCOM;
-					p.mToParent = settings;
-					break;
-				}
-
-				case EConstraintOverride::TypeHinge:
-				{
-					JPH::HingeConstraintSettings* settings = new JPH::HingeConstraintSettings();
-					settings->mPoint1 = original->mPosition1;
-					settings->mHingeAxis1 = original->mPlaneAxis1;
-					settings->mNormalAxis1 = original->mTwistAxis1;
-					settings->mPoint2 = original->mPosition2;
-					settings->mHingeAxis2 = original->mPlaneAxis2;
-					settings->mNormalAxis2 = original->mTwistAxis2;
-					settings->mLimitsMin = -original->mNormalHalfConeAngle;
-					settings->mLimitsMax = original->mNormalHalfConeAngle;
-					settings->mMaxFrictionTorque = original->mMaxFrictionTorque;
-					settings->mMotorSettings = original->mSwingMotorSettings;
-					//settings->mSpace = EConstraintSpace::LocalToBodyCOM;
-					p.mToParent = settings;
-					break;
-				}
-
-				case EConstraintOverride::TypeSlider:
-				{
-					JPH::SliderConstraintSettings* settings = new JPH::SliderConstraintSettings();
-					settings->mPoint1 = settings->mPoint2 = original->mPosition1;
-					settings->mSliderAxis1 = settings->mSliderAxis2 = original->mTwistAxis1;
-					settings->mNormalAxis1 = settings->mNormalAxis2 = original->mTwistAxis1.GetNormalizedPerpendicular();
-					settings->mLimitsMin = -1.0f;
-					settings->mLimitsMax = 1.0f;
-					settings->mMaxFrictionForce = original->mMaxFrictionTorque;
-					settings->mMotorSettings = original->mSwingMotorSettings;
-					//settings->mSpace = EConstraintSpace::LocalToBodyCOM;
-					p.mToParent = settings;
-					break;
-				}
-
-				case EConstraintOverride::TypeCone:
-				{
-					JPH::ConeConstraintSettings* settings = new JPH::ConeConstraintSettings();
-					settings->mPoint1 = original->mPosition1;
-					settings->mTwistAxis1 = original->mTwistAxis1;
-					settings->mPoint2 = original->mPosition2;
-					settings->mTwistAxis2 = original->mTwistAxis2;
-					settings->mHalfConeAngle = original->mNormalHalfConeAngle;
-					//settings->mSpace = EConstraintSpace::LocalToBodyCOM;
-					p.mToParent = settings;
-					break;
-				}
-
-				case EConstraintOverride::TypeRagdoll:
-					break;
-				}
-
-		}
-
-		// Initialize the skeleton
-		ragdoll->GetSkeleton()->CalculateParentJointIndices();
-
-		// Stabilize the constraints of the ragdoll
-		ragdoll->Stabilize();
-
-		// Optional: Calculate constraint priorities to give more priority to the root
-		//ragdoll->CalculateConstraintPriorities();
-
-		// Calculate body <-> constraint map
-		ragdoll->CalculateBodyIndexToConstraintIndex();
-		ragdoll->CalculateConstraintIndexToBodyIdxPair();
-
-		return ragdoll;
-	}
-
 	static JPH::RagdollSettings* load(const char* inFileName, JPH::EMotionType inMotionType)
 	{
 		// Read the ragdoll
 		JPH::RagdollSettings* ragdoll = nullptr;
 		AssetStream stream(inFileName, std::ios::in);
-		if (!ObjectStreamIn::sReadObject(stream.Get(), ragdoll))
+		if (!ObjectStreamIn::sReadObject(stream.Get(), ragdoll)) {
 			cout << "failed reading in ragdoll " << inFileName << "  data\n";
-
-
+			return ragdoll;
+		}
 
 		for (RagdollSettings::Part& p : ragdoll->mParts)
 		{
@@ -208,8 +59,7 @@ public:
 		// Stabilize the constraints of the ragdoll
 		ragdoll->Stabilize();
 
-		// Optional: Calculate constraint priorities to give more priority to the root requires jolt 5.5.0 which we have not upgraded to yet.
-		//ragdoll->CalculateConstraintPriorities();
+		ragdoll->CalculateConstraintPriorities();
 
 		// Calculate body <-> constraint map
 		ragdoll->CalculateBodyIndexToConstraintIndex();
@@ -426,7 +276,7 @@ public:
 		settings->Stabilize();
 
 		// Optional: Calculate constraint priorities to give more priority to the root
-		//settings->CalculateConstraintPriorities();
+		settings->CalculateConstraintPriorities();
 
 		// Disable parent child collisions so that we don't get collisions between constrained bodies
 		settings->DisableParentChildCollisions();
@@ -543,8 +393,7 @@ public:
 		settings->Stabilize();
 
 		// Optional: Calculate constraint priorities to give more priority to the root
-		// TODO update jolt to the latest version so we have this feature
-		//settings->CalculateConstraintPriorities();
+		settings->CalculateConstraintPriorities();
 
 		// Disable parent child collisions so that we don't get collisions between constrained bodies
 		settings->DisableParentChildCollisions();
@@ -686,8 +535,7 @@ public:
 		settings->Stabilize();
 
 		// Optional: Calculate constraint priorities to give more priority to the root
-		// TODO update jolt to the latest version so we have this feature
-		//settings->CalculateConstraintPriorities();
+		settings->CalculateConstraintPriorities();
 
 		// Disable parent child collisions so that we don't get collisions between constrained bodies
 		settings->DisableParentChildCollisions();
@@ -892,8 +740,7 @@ public:
 		settings->Stabilize();
 
 		// Optional: Calculate constraint priorities to give more priority to the root
-		// TODO update jolt to the latest version so we have this feature
-		//settings->CalculateConstraintPriorities();
+		settings->CalculateConstraintPriorities();
 
 		// Disable parent child collisions so that we don't get collisions between constrained bodies
 		settings->DisableParentChildCollisions();
@@ -1161,9 +1008,9 @@ namespace ragdoll {
 		}
 	}
 
-	// Traverse skeleton in breadth-first order, assigning sequential indices
+	// Traverse ragdoll in breadth-first order, assigning sequential skeleton indices
 	// Guarantees all joints at depth D have lower indices than joints at depth D+1
-	// which is important when because ragdollBuilder may create some joints at depth D+1 before all the joint at depth D
+	// which is important when because the  user may create some joints at depth D+1 before all the joint at depth D
 	static JPH::RagdollSettings* CreateHumanoidBFS(BodyPart* root) {
 
 		std::queue<BodyPart*> needToVisit;

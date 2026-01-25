@@ -444,7 +444,7 @@ public:
 		Transform transform;
 		transform.position = glm::vec3(1.0f, 12.0f, 1.0f);
 		transform.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
-		EntityFactory::createHumanoidEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, "CapsuleModel", transform, humanoidUpdate, "pipelineUnlit");
+		EntityFactory::createHumanRagdollEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, "CapsuleModel", transform, scripts::empty, "pipelineUnlit");
 
 	}
 

@@ -8,7 +8,11 @@
 #include "../common.hpp"
 
 //TODO decouple from everything and rename to inputSystem
-//Proceses input and emits events
+//TODO input mapping
+
+/// <summary>
+/// Processes input and emits events when appropriate.
+/// </summary>
 class InputManager {
 
 	flecs::world& ecs;
@@ -144,8 +148,6 @@ public:
 
 	void handleEvents(SDL_Event& event) {
 
-
-
 		if (event.type == SDL_EVENT_QUIT) {
 			//stateManager.exitCallback();
 			
@@ -160,14 +162,12 @@ public:
 
 		}
 
-		
 		if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN && event.button.button == SDL_BUTTON_LEFT) {
 
 			ecs.set<MouseClickEvent>({ event.button.x,event.button.y });
 		}
 
 		handleEditorEvents(event);
-
 	}
 
 	void handleAlwaysEvents(SDL_Event& event) {

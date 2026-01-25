@@ -191,45 +191,11 @@ void armUpdate(flecs::world& ecs, flecs::entity self) {
 
 }
 
-void humanoidUpdate(flecs::world& ecs, flecs::entity self) {
+namespace scripts {
 
-	
-	JPH::Ragdoll* ragdoll = self.get<JoltRagdoll>().ragdollPtr;
-	JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
-	BodyInterface& bi = physicsSystem.GetBodyInterface();
+	//placeholder
+	void empty(flecs::world& ecs, flecs::entity self) {
 
-	// Get snake head (first body)
-	BodyID hip = ragdoll->GetBodyID(0);
-	Vec3 headPos = bi.GetPosition(hip);
-	Quat headRot = bi.GetRotation(hip);
-
-
-	Vec3 playerPos = ecs.get<PlayerRef>().value.get_mut<Player>().position;
-
-	Vec3 targetPos = Vec3(1.0f, 10.0f, 1.0f);
-
-	Vec3 toTarget = targetPos - headPos;
-	float distance = toTarget.Length();
-	Vec3 dirTorTaget = toTarget / distance;
-
-	//Apply force to head
-	float chaseForce = 50000.0f;  // Tune this value
-	bi.AddForce(hip, dirTorTaget * chaseForce);
-
-	// Fix hip
-	//physicsSystem.GetBodyInterface().SetPosition(ragdoll->GetBodyID(0),Vec3(1,10,1), EActivation::Activate);
-
-	//Vec3 playerPos = ecs.get<PlayerRef>().value.get_mut<Player>().position;
-
-
-	/*Vec3 toPlayer = playerPos - headPos;
-	float distance = toPlayer.Length();
-	Vec3 dirToPlayer = toPlayer / distance;*/
-
-	//Apply force to head
-	//float chaseForce = 50000.0f;  // Tune this value
-	//bi.AddForce(headID, dirToPlayer * chaseForce);
-
-
+	}
 
 }

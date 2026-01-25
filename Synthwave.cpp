@@ -46,6 +46,7 @@ int main(int argc, char* argv[])
 
 			inputManager.handleInput();
 
+			//All systems except rendering are called by this
 			ecs.progress();
 
 			time.accumulator -= time.timeStep;

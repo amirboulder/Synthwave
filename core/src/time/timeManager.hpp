@@ -1,5 +1,10 @@
 #pragma once
 
+/// <summary>
+/// Keeps track of how much times is consumed in every frame.
+/// If enough time accumulated (>= timeStep) then game loop will progress
+/// Note: When game is paused we DO NOT pause time but rather disable game systems.
+/// </summary>
 class TimeManager {
 
 public:
@@ -10,7 +15,6 @@ public:
 	uint64_t lastTime = 0;
 
 	float deltaTime = 0.0f;
-	//float maxAccumulator = timeStep * 60.0f;
 
 	uint64_t appStartTime = 0;
 
@@ -36,17 +40,6 @@ public:
 		lastTime = SDL_GetTicks();
 		accumulator += deltaTime;
 
-		// Clamp to prevent spiral of death
-		/*if (accumulator > maxAccumulator) {
-			accumulator = maxAccumulator;
-			SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Game is running too slow - spiral of death!");
-		}*/
 	}
-
-
-	void flushAccumulatedTime() {
-		lastTime = SDL_GetTicks();
-	}
-
 
 };

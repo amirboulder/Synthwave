@@ -199,7 +199,7 @@ struct Renderer {
 		// SDL_GPU_PRESENTMODE_IMMEDIATE for uncapped fps
 		// SDL_GPU_PRESENTMODE_VSYNC for VSYNC
 		SDL_SetGPUSwapchainParameters(renderContext.device, renderContext.window,
-			SDL_GPU_SWAPCHAINCOMPOSITION_SDR, SDL_GPU_PRESENTMODE_IMMEDIATE);
+			SDL_GPU_SWAPCHAINCOMPOSITION_SDR, SDL_GPU_PRESENTMODE_VSYNC);
 
 		return true;
 	}
