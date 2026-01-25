@@ -2,6 +2,24 @@
 
 #include "core/src/pch.h"
 
+//Used for Scene dropdown list
+static const std::map<EntityType, std::string> sceneEntityNames = {
+	{EntityType::Player, "Player"},
+	{EntityType::Actor, "Actor"},
+	{EntityType::Humanoid, "Humanoid"},
+	{EntityType::Ragdoll, "Ragdoll"},
+	{EntityType::RobotArm, "RobotArm"},
+	{EntityType::Snake, "Snake"},
+	{EntityType::Capsule, "Capsule"},
+	{EntityType::Grid, "Grid"},
+	{EntityType::StaticMesh, "StaticMesh"},
+	{EntityType::Sphere, "Sphere"},
+	{EntityType::Cube, "Cube"},
+	//{EntityType::Light, "Light"},
+	//{EntityType::Camera, "Camera"},
+};
+
+
 class SceneTree {
 
 public:
@@ -21,27 +39,6 @@ public:
 	};
 
 	static State s_state;
-
-	static const char* GetEntityTypeName(EntityType type) {
-		switch (type) {
-		case EntityType::Empty: return "Empty";
-		case EntityType::Scene: return "Scene";
-		case EntityType::Player: return "Player";
-		case EntityType::Actor: return "Actor";
-		case EntityType::Humanoid: return "Humanoid";
-		case EntityType::Ragdoll: return "Ragdoll";
-		case EntityType::RobotArm: return "RobotArm";
-		case EntityType::Snake: return "Snake";
-		case EntityType::Capsule: return "Capsule";
-		case EntityType::Grid: return "Grid";
-		case EntityType::StaticMesh: return "StaticMesh";
-		case EntityType::Sphere: return "Sphere";
-		case EntityType::Cube: return "Cube";
-		case EntityType::Light: return "Light";
-		case EntityType::Camera: return "Camera";
-		default: return "Unknown";
-		}
-	}
 
 	// Helper functions
 	//TODO fix these by adding the imgui icons and or / Glyphs/Emojis
@@ -210,22 +207,29 @@ public:
 
 			ImGui::SetNextItemWidth(500.0f);
 
+			// Get the Ent type name safely
+			auto it = sceneEntityNames.find(s_state.selectedType);
+			const char* currentName = (it != sceneEntityNames.end()) ? it->second.c_str() : " ";
+
 			// Dropdown for entity Type
-			if (ImGui::BeginCombo("##entitytype", GetEntityTypeName(s_state.selectedType))) {
-				for (int i = 0; i < static_cast<int>(EntityType::COUNT); i++) {
-					EntityType type = static_cast<EntityType>(i);
-					bool isSelected = (s_state.selectedType == type);
-
-					if (ImGui::Selectable(GetEntityTypeName(type), isSelected)) {
-						s_state.selectedType = type;
+			if (ImGui::BeginCombo("##entitytype", currentName)) {
+				for (const auto& [entType, name] : sceneEntityNames) {
+					bool isSelected = (s_state.selectedType == entType);
+					if (ImGui::Selectable(name.c_str(), isSelected)) {
+						s_state.selectedType = entType;
 					}
-
 					if (isSelected) {
 						ImGui::SetItemDefaultFocus();
 					}
 				}
 				ImGui::EndCombo();
 			}
+
+			// if no entity type is selected disable the create button
+			if (!sceneEntityNames.contains(s_state.selectedType)) {
+				disableCreateButton = true;
+			}
+
 
 			//Put common options like pos, rot, scale here
 			ImGui::Spacing();
@@ -259,6 +263,8 @@ public:
 				IM_ARRAYSIZE(s_state.childNameBuffer),
 				ImGuiInputTextFlags_EnterReturnsTrue);
 
+	
+
 			ImGui::Spacing();
 			ImGui::Separator();
 			ImGui::Spacing();
@@ -279,7 +285,7 @@ public:
 				else {
 					s_state.isNameValid = true;
 
-					std::cout << "Creating " << GetEntityTypeName(s_state.selectedType)
+					std::cout << "Creating " << sceneEntityNames.at(s_state.selectedType)
 						<< " entity '" << s_state.childNameBuffer
 						<< "' under " << s_state.contextEntity.name().c_str() << std::endl;
 
