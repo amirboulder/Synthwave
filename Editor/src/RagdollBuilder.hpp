@@ -27,7 +27,8 @@ static const std::map<Attachment, std::string> AttachmentNames = {
 	{Attachment::Left, "Left"},
 	{Attachment::Right, "Right"},
 	{Attachment::Front, "Front"},
-	{Attachment::Back, "Back"}
+	{Attachment::Back, "Back"},
+	{Attachment::None, "None"},
 };
 
 //Used for Constraint dropdown text
@@ -61,7 +62,9 @@ public:
 		float sliderStep = 0.1f;
 
 		//Attachment
-		Attachment selectedAttachment = Attachment::Right;
+		Attachment attachmentPrimaryAxis = Attachment::Right;
+		Attachment attachmentSecondaryAxis = Attachment::None;
+		Attachment attachmentTertiaryAxis = Attachment::None;
 
 		//Constraint
 		JPH::EConstraintSubType constraintType = JPH::EConstraintSubType::Fixed;
@@ -404,8 +407,8 @@ public:
 		// for child nodes
 		if (part->parent) {
 
-			JPH::Vec3  newPlacement = GetAttachmentPos(part->parent, part->shape,
-				JPHQuatToGLM(part->bodyPtr->GetRotation()), part->attachment);
+			JPH::Vec3  newPlacement = getAttachmentPos(part->parent, part->shape,
+				JPHQuatToGLM(part->bodyPtr->GetRotation()), part->attachmentPrimaryAxis, part->attachmentSecondaryAxis, part->attachmentTertiaryAxis);
 
 			bi.SetPosition(part->bodyPtr->GetID(), newPlacement, JPH::EActivation::Activate);
 
@@ -436,8 +439,8 @@ public:
 		}
 
 
-		JPH::Vec3  newPlacement = GetAttachmentPos(part->parent, part->shape,
-			JPHQuatToGLM(part->bodyPtr->GetRotation()) , part->attachment);
+		JPH::Vec3  newPlacement = getAttachmentPos(part->parent, part->shape,
+			JPHQuatToGLM(part->bodyPtr->GetRotation()) , part->attachmentPrimaryAxis, part->attachmentSecondaryAxis, part->attachmentTertiaryAxis);
 
 		bi.SetPosition(part->bodyPtr->GetID(), newPlacement, JPH::EActivation::Activate);
 
@@ -458,13 +461,13 @@ public:
 			switch (part->constraintType)
 			{
 			case EConstraintSubType::Fixed:
-				addFixedConstraint(part->parent, part, physicsSystem, part->attachment);
+				addFixedConstraint(part->parent, part, physicsSystem);
 				break;
 
 			case EConstraintSubType::Hinge:
 			{
 				Ref<JPH::HingeConstraintSettings> constraintSettings = JPH::DynamicCast<JPH::HingeConstraintSettings>(part->constraintSettings);
-				addHingeConstraint(part->parent, part, physicsSystem, part->attachment,
+				addHingeConstraint(part->parent, part, physicsSystem,
 					constraintSettings->mHingeAxis1, constraintSettings->mNormalAxis1, constraintSettings->mLimitsMin,
 					constraintSettings->mLimitsMax);
 				break;
@@ -473,7 +476,7 @@ public:
 			case EConstraintSubType::SwingTwist:
 			{
 				Ref<JPH::SwingTwistConstraintSettings> constraintSettings2 = JPH::DynamicCast<JPH::SwingTwistConstraintSettings>(part->constraintSettings);
-				addSwintTwistConstraint(part->parent, part, physicsSystem, part->attachment,
+				addSwintTwistConstraint(part->parent, part, physicsSystem,
 					constraintSettings2->mTwistAxis1, constraintSettings2->mTwistMinAngle,
 					constraintSettings2->mNormalHalfConeAngle, constraintSettings2->mPlaneHalfConeAngle);
 				break;
@@ -725,8 +728,10 @@ public:
 
 			Ref<Shape> capsuleShape = new JPH::CapsuleShape(s_state.capsuleHeight / 2.0f, s_state.capsuleRadius);
 
-			JPH::Vec3  position = GetAttachmentPos(parent, capsuleShape,
-				s_state.rotInput, s_state.selectedAttachment);
+
+
+			JPH::Vec3  position = getAttachmentPos(parent, capsuleShape,
+				s_state.rotInput, s_state.attachmentPrimaryAxis, s_state.attachmentSecondaryAxis, s_state.attachmentTertiaryAxis);
 
 			JPH::Quat rotation(s_state.rotInput.x, s_state.rotInput.y, s_state.rotInput.z, s_state.rotInput.w);
 			if (!rotation.IsNormalized()) {
@@ -748,18 +753,22 @@ public:
 			part->bodyPtr = bodyInterface.CreateBody(bodySettings);
 			bodyInterface.AddBody(part->bodyPtr->GetID(), JPH::EActivation::Activate);
 
+			part->attachmentPrimaryAxis = s_state.attachmentPrimaryAxis;
+			part->attachmentSecondaryAxis = s_state.attachmentSecondaryAxis;
+			part->attachmentTertiaryAxis = s_state.attachmentTertiaryAxis;
+
 			switch (s_state.constraintType)
 			{
 			case EConstraintSubType::Fixed:
-				addFixedConstraint(parent, part, physicsSystem, s_state.selectedAttachment);
+				addFixedConstraint(parent, part, physicsSystem);
 				break;
 			case EConstraintSubType::Hinge:
-				addHingeConstraint(parent, part, physicsSystem, s_state.selectedAttachment,
+				addHingeConstraint(parent, part, physicsSystem,
 					getAxisFromRadioButton(s_state.hingeAxis), getAxisFromRadioButton(s_state.hingeNormalAxis),
 					s_state.hingeMinAngleRad, s_state.hingeMaxAngleRad);
 				break;
 			case EConstraintSubType::SwingTwist:
-				addSwintTwistConstraint(parent, part, physicsSystem, s_state.selectedAttachment,
+				addSwintTwistConstraint(parent, part, physicsSystem,
 					getAxisFromRadioButton(s_state.twistAxis), s_state.twistAngleRad, s_state.normalAngleRad, s_state.planeAngleRad);
 				break;
 			}
@@ -768,7 +777,6 @@ public:
 			part->name = name.append(std::to_string(s_state.capsuleCounter));
 			part->shape = capsuleShape;
 			part->parent = parent;
-			part->attachment = s_state.selectedAttachment;
 
 			s_state.selectedPart = part;
 
@@ -810,8 +818,10 @@ public:
 
 			Ref<Shape> sphereShape = new JPH::SphereShape(s_state.sphereRadius);
 
-			JPH::Vec3 position = GetAttachmentPos(parent, sphereShape,
-				s_state.rotInput, s_state.selectedAttachment);
+
+
+			JPH::Vec3  position = getAttachmentPos(parent, sphereShape,
+				s_state.rotInput, s_state.attachmentPrimaryAxis, s_state.attachmentSecondaryAxis, s_state.attachmentTertiaryAxis);
 
 			JPH::Quat joltRotation(s_state.rotInput.x, s_state.rotInput.y, s_state.rotInput.z, s_state.rotInput.w);
 			if (!joltRotation.IsNormalized()) {
@@ -837,15 +847,15 @@ public:
 			switch (s_state.constraintType)
 			{
 			case EConstraintSubType::Fixed:
-				addFixedConstraint(parent, part, physicsSystem, s_state.selectedAttachment);
+				addFixedConstraint(parent, part, physicsSystem);
 				break;
 			case EConstraintSubType::Hinge:
-				addHingeConstraint(parent, part, physicsSystem, s_state.selectedAttachment,
+				addHingeConstraint(parent, part, physicsSystem,
 					getAxisFromRadioButton(s_state.hingeAxis), getAxisFromRadioButton(s_state.hingeNormalAxis),
 					s_state.hingeMinAngleRad, s_state.hingeMaxAngleRad);
 				break;
 			case EConstraintSubType::SwingTwist:
-				addSwintTwistConstraint(parent, part, physicsSystem, s_state.selectedAttachment,
+				addSwintTwistConstraint(parent, part, physicsSystem,
 					getAxisFromRadioButton(s_state.twistAxis), s_state.twistAngleRad, s_state.normalAngleRad, s_state.planeAngleRad);
 				break;
 			}
@@ -854,7 +864,9 @@ public:
 			part->name = name.append(std::to_string(s_state.sphereCounter));
 			part->shape = sphereShape;
 			part->parent = parent;
-			part->attachment = s_state.selectedAttachment;
+			part->attachmentPrimaryAxis = s_state.attachmentPrimaryAxis;
+			part->attachmentSecondaryAxis = s_state.attachmentSecondaryAxis;
+			part->attachmentTertiaryAxis = s_state.attachmentTertiaryAxis;
 
 			s_state.selectedPart = part;
 
@@ -894,10 +906,11 @@ public:
 
 			//Add some checks for size 
 
-			Ref<Shape> boxShape = new JPH::BoxShape(GLMVec3ToJPH(s_state.boxExtents));
+			Ref<Shape> boxShape = new JPH::BoxShape(GLMVec3ToJPH(s_state.boxExtents / 2.0f));
 
-			JPH::Vec3 position =  GetAttachmentPos(parent, boxShape,
-				s_state.rotInput, s_state.selectedAttachment);
+
+			JPH::Vec3  position = getAttachmentPos(parent, boxShape,
+				s_state.rotInput, s_state.attachmentPrimaryAxis, s_state.attachmentSecondaryAxis, s_state.attachmentTertiaryAxis);
 
 			JPH::Quat rotation(s_state.rotInput.x, s_state.rotInput.y, s_state.rotInput.z, s_state.rotInput.w);
 			if (!rotation.IsNormalized()) {
@@ -922,15 +935,15 @@ public:
 			switch (s_state.constraintType)
 			{
 			case EConstraintSubType::Fixed:
-				addFixedConstraint(parent, part, physicsSystem, s_state.selectedAttachment);
+				addFixedConstraint(parent, part, physicsSystem);
 				break;
 			case EConstraintSubType::Hinge:
-				addHingeConstraint(parent, part, physicsSystem, s_state.selectedAttachment,
+				addHingeConstraint(parent, part, physicsSystem,
 					getAxisFromRadioButton(s_state.hingeAxis), getAxisFromRadioButton(s_state.hingeNormalAxis),
 					s_state.hingeMinAngleRad, s_state.hingeMaxAngleRad);
 				break;
 			case EConstraintSubType::SwingTwist:
-				addSwintTwistConstraint(parent, part, physicsSystem, s_state.selectedAttachment,
+				addSwintTwistConstraint(parent, part, physicsSystem,
 					getAxisFromRadioButton(s_state.twistAxis), s_state.twistAngleRad, s_state.normalAngleRad, s_state.planeAngleRad);
 				break;
 			}
@@ -939,7 +952,9 @@ public:
 			part->name = name.append(std::to_string(s_state.boxCounter));
 			part->shape = boxShape;
 			part->parent = parent;
-			part->attachment = s_state.selectedAttachment;
+			part->attachmentPrimaryAxis = s_state.attachmentPrimaryAxis;
+			part->attachmentSecondaryAxis = s_state.attachmentSecondaryAxis;
+			part->attachmentTertiaryAxis = s_state.attachmentTertiaryAxis;
 
 			s_state.selectedPart = part;
 
@@ -948,7 +963,6 @@ public:
 			//reset rotationInput
 			s_state.rotInput = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
 		}
-
 	}
 
 	static void drawTree(flecs::world& ecs, BodyPart* part) {
@@ -1045,13 +1059,92 @@ public:
 		}
 	}
 
+	static void filterOptions(const Attachment attachment, std::map<Attachment, std::string> & filteredAttachments) {
+
+		switch (attachment) {
+		case Attachment::Right:
+			filteredAttachments.erase(Attachment::Right);
+			filteredAttachments.erase(Attachment::Left);
+			break;
+		case Attachment::Left:
+			filteredAttachments.erase(Attachment::Left);
+			filteredAttachments.erase(Attachment::Right);
+			break;
+		case Attachment::Top:
+			filteredAttachments.erase(Attachment::Top);
+			filteredAttachments.erase(Attachment::Bottom);
+			break;
+		case Attachment::Bottom:
+			filteredAttachments.erase(Attachment::Bottom);
+			filteredAttachments.erase(Attachment::Top);
+			break;
+		case Attachment::Front:
+			filteredAttachments.erase(Attachment::Front);
+			filteredAttachments.erase(Attachment::Back);
+			break;
+		case Attachment::Back:
+			filteredAttachments.erase(Attachment::Back);
+			filteredAttachments.erase(Attachment::Front);
+			break;
+		}
+
+	}
+
+	//TODO if nothing is selected then select none
 	static void drawAttachmentDropdown() {
 
-		if (ImGui::BeginCombo("Attachment", AttachmentNames.at(s_state.selectedAttachment).c_str())) {
-			for (const auto& [attachment, name] : AttachmentNames) {
-				bool isSelected = (s_state.selectedAttachment == attachment);
+		std::map<Attachment, std::string> filteredAttachments = AttachmentNames;
+
+		float itemWidth = 250.f;
+
+
+		auto it = filteredAttachments.find(s_state.attachmentPrimaryAxis);
+		const char* currentName1 = (it != filteredAttachments.end()) ? it->second.c_str() : filteredAttachments.at(Attachment::None).c_str();
+
+		ImGui::SetNextItemWidth(itemWidth);
+		if (ImGui::BeginCombo("Attachment Primary Axis", currentName1)) {
+			for (const auto& [attachment, name] : filteredAttachments) {
+				bool isSelected = (s_state.attachmentPrimaryAxis == attachment);
 				if (ImGui::Selectable(name.c_str(), isSelected)) {
-					s_state.selectedAttachment = attachment;
+					s_state.attachmentPrimaryAxis = attachment;
+				}
+				if (isSelected) {
+					ImGui::SetItemDefaultFocus();
+				}
+			}
+			ImGui::EndCombo();
+		}
+
+		filterOptions(s_state.attachmentPrimaryAxis, filteredAttachments);
+
+		it = filteredAttachments.find(s_state.attachmentSecondaryAxis);
+		const char* currentName2 = (it != filteredAttachments.end()) ? it->second.c_str() : filteredAttachments.at(Attachment::None).c_str();
+
+		ImGui::SetNextItemWidth(itemWidth);
+		if (ImGui::BeginCombo("Attachment Secondary Axis", currentName2)) {
+			for (const auto& [attachment, name] : filteredAttachments) {
+				bool isSelected = (s_state.attachmentSecondaryAxis == attachment);
+				if (ImGui::Selectable(name.c_str(), isSelected)) {
+					s_state.attachmentSecondaryAxis = attachment;
+				}
+				if (isSelected) {
+					ImGui::SetItemDefaultFocus();
+				}
+			}
+			ImGui::EndCombo();
+		}
+
+		filterOptions(s_state.attachmentSecondaryAxis, filteredAttachments);
+
+		it = filteredAttachments.find(s_state.attachmentTertiaryAxis);
+		const char* currentName3 = (it != filteredAttachments.end()) ? it->second.c_str() : filteredAttachments.at(Attachment::None).c_str();
+
+		ImGui::SetNextItemWidth(itemWidth);
+		if (ImGui::BeginCombo("Attachment Tertiary Axis", currentName3)) {
+			for (const auto& [attachment, name] : filteredAttachments) {
+				bool isSelected = (s_state.attachmentTertiaryAxis == attachment);
+				if (ImGui::Selectable(name.c_str(), isSelected)) {
+					s_state.attachmentTertiaryAxis = attachment;
 				}
 				if (isSelected) {
 					ImGui::SetItemDefaultFocus();
@@ -1130,11 +1223,14 @@ public:
 	}
 
 	static void addFixedConstraint(BodyPart* parent, BodyPart* part,
-		JPH::PhysicsSystem& physicsSystem,const Attachment attachment) {
+		JPH::PhysicsSystem& physicsSystem) {
 
 			FixedConstraintSettings* constraintSettings = new FixedConstraintSettings;
 
-			constraintSettings->mPoint1 = constraintSettings->mPoint2 = getConstraintPos(parent, attachment);
+			constraintSettings->mPoint1 = constraintSettings->mPoint2 = getConstraintPos(
+				parent, part->attachmentPrimaryAxis,
+				part->attachmentSecondaryAxis,
+				part->attachmentTertiaryAxis);
 
 			part->constraintSettings = constraintSettings;
 			part->constraintType = EConstraintSubType::Fixed;
@@ -1145,12 +1241,16 @@ public:
 	}
 
 	static void addHingeConstraint(BodyPart* parent, BodyPart* part,
-		JPH::PhysicsSystem& physicsSystem, const Attachment attachment, JPH::Vec3Arg hingeAxis,
+		JPH::PhysicsSystem& physicsSystem, JPH::Vec3Arg hingeAxis,
 		JPH::Vec3Arg hingeNormalAxis, float hingeMinAngleRad, float hingeMaxAngleRad) {
 
 		HingeConstraintSettings* constraintSettings = new HingeConstraintSettings;
 
-		constraintSettings->mPoint1 = constraintSettings->mPoint2 = getConstraintPos(parent, attachment);
+		constraintSettings->mPoint1 = constraintSettings->mPoint2 = getConstraintPos(
+			parent, part->attachmentPrimaryAxis,
+			part->attachmentSecondaryAxis,
+			part->attachmentTertiaryAxis);
+
 		constraintSettings->mHingeAxis1 = constraintSettings->mHingeAxis2 = hingeAxis;
 		constraintSettings->mNormalAxis1 = constraintSettings->mNormalAxis2 = hingeNormalAxis;
 		constraintSettings->mLimitsMin = DegreesToRadians(hingeMinAngleRad);
@@ -1166,12 +1266,16 @@ public:
 
 	//TwistAngle is symmetrical
 	static void addSwintTwistConstraint(BodyPart* parent, BodyPart* part,
-		JPH::PhysicsSystem& physicsSystem, const Attachment attachment, JPH::Vec3Arg twistAxis,
+		JPH::PhysicsSystem& physicsSystem, JPH::Vec3Arg twistAxis,
 		float twistAngleRad, float normalAngleRad, float planeAngleRad) {
 
 		SwingTwistConstraintSettings* constraintSettings = new SwingTwistConstraintSettings;
 
-		constraintSettings->mPosition1 = constraintSettings->mPosition2 = getConstraintPos(parent, attachment);
+		constraintSettings->mPosition1 = constraintSettings->mPosition2 = getConstraintPos(
+			parent, part->attachmentPrimaryAxis,
+			part->attachmentSecondaryAxis,
+			part->attachmentTertiaryAxis);
+
 		constraintSettings->mTwistAxis1 = constraintSettings->mTwistAxis2 = twistAxis;
 		constraintSettings->mPlaneAxis1 = constraintSettings->mPlaneAxis2 = Vec3::sAxisZ();
 		constraintSettings->mTwistMinAngle = min(-twistAngleRad,twistAngleRad);
@@ -1199,8 +1303,8 @@ public:
 		if (axis == 2) { return Vec3::sAxisZ();}
 	}
 
-	static JPH::Vec3 GetAttachmentPos(const BodyPart* parent, const JPH::Shape* childShape,
-		const glm::quat rotation, const Attachment side) {
+	static JPH::Vec3 getAttachmentPos(const BodyPart* parent, const JPH::Shape* childShape,
+		const glm::quat rotation, const Attachment PrimaryAxis, const Attachment SecondaryAxis, const Attachment TertiaryAxis) {
 
 		if (!parent) {
 			cout << " Error GetAttachmentPos called on root node!\n";
@@ -1214,7 +1318,24 @@ public:
 		// Get child half-extents for the relevant axis
 		JPH::Vec3 childExtents = GetShapeHalfExtents(childShape, rotation);
 
-		switch (side) {
+
+		GetAttachmentPrimaryAxis(parentAABB, pos, childExtents, PrimaryAxis);
+		GetAttachmentSecondaryAxis(parentAABB, pos, childExtents, PrimaryAxis, SecondaryAxis);
+		GetAttachmentSecondaryAxis(parentAABB, pos, childExtents, SecondaryAxis,  TertiaryAxis);
+
+		return pos;
+
+	}
+
+	static void GetAttachmentPrimaryAxis(
+		const JPH::AABox parentAABB, JPH::Vec3 & pos, JPH::Vec3 childExtents, const Attachment primaryAxis) {
+
+		//Note for 1 axis attachments
+		//When using parent's Max: add child extent
+		//When using parent's Min: subtract child extent
+
+
+		switch (primaryAxis) {
 		case Attachment::Right:
 			pos.SetX(parentAABB.mMax.GetX() + childExtents.GetX());
 			break;
@@ -1233,10 +1354,44 @@ public:
 		case Attachment::Back:
 			pos.SetZ(parentAABB.mMin.GetZ() - childExtents.GetZ());
 			break;
+
+		}
+	}
+
+	static void GetAttachmentSecondaryAxis(const JPH::AABox parentAABB, JPH::Vec3 & pos, JPH::Vec3 childExtents, 
+		const Attachment primaryAxis, const Attachment secondaryAxis) {
+
+		if (primaryAxis == secondaryAxis) {
+			return;
 		}
 
-		return pos;
+		//for secondary axis attachments
+		//When using parent's min: add child extent
+		//When using parent's max: subtract child extent
+		switch (secondaryAxis) {
+		case Attachment::Right:
+			pos.SetX(parentAABB.mMax.GetX() - childExtents.GetX());
+			break;
+		case Attachment::Left:
+			pos.SetX(parentAABB.mMin.GetX() + childExtents.GetX());
+			break;
+		case Attachment::Top:
+			pos.SetY(parentAABB.mMax.GetY() - childExtents.GetY());
+			break;
+		case Attachment::Bottom:
+			pos.SetY(parentAABB.mMin.GetY() + childExtents.GetY());
+			break;
+		case Attachment::Front:
+			pos.SetZ(parentAABB.mMax.GetZ() - childExtents.GetZ());
+			break;
+		case Attachment::Back:
+			pos.SetZ(parentAABB.mMin.GetZ() + childExtents.GetZ());
+			break;
+
+		}
 	}
+
+
 
 	static JPH::Vec3 GetShapeHalfExtents(const JPH::Shape* childShape, const glm::quat rotation) {
 		JPH::AABox localAABB = childShape->GetLocalBounds();
@@ -1269,11 +1424,20 @@ public:
 		return (rotatedMax - rotatedMin) * 0.5f;
 	}
 
-	static JPH::Vec3 getConstraintPos(const BodyPart* parent, const Attachment side) {
+	static JPH::Vec3 getConstraintPos(const BodyPart* parent, const Attachment primary, Attachment secondary, Attachment tertiary) {
 
 		JPH::AABox parentAABB = parent->bodyPtr->GetWorldSpaceBounds();
 
 		JPH::Vec3 pos = parent->bodyPtr->GetPosition();
+
+		getConstraintPosAxis(parentAABB, pos, primary);
+		getConstraintPosAxis(parentAABB, pos, secondary);
+		getConstraintPosAxis(parentAABB, pos, tertiary);
+
+		return pos;
+	}
+
+	static void getConstraintPosAxis(JPH::AABox parentAABB, JPH::Vec3 & pos, const Attachment side) {
 
 		switch (side) {
 		case Attachment::Right:
@@ -1294,9 +1458,10 @@ public:
 		case Attachment::Back:
 			pos.SetZ(parentAABB.mMin.GetZ());
 			break;
+		case Attachment::None:
+			//Do nothing if constraint is NONE
+			break;
 		}
-
-		return pos;
 	}
 
 	static void performDeletion(flecs::world& ecs) {

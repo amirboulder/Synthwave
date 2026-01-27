@@ -21,7 +21,8 @@ enum class Attachment
 	Left,       // -X
 	Right,      // +X
 	Front,      // +Z 
-	Back        // -Z
+	Back,       // -Z
+	None
 };
 
 #ifdef JPH_OBJECT_STREAM
@@ -945,7 +946,9 @@ struct BodyPart {
 	Ref<Shape> shape;
 	Body* bodyPtr = nullptr;
 	BodyPart* parent = nullptr;
-	Attachment attachment;
+	Attachment attachmentPrimaryAxis;
+	Attachment attachmentSecondaryAxis;
+	Attachment attachmentTertiaryAxis;
 	std::vector<BodyPart*> children;
 	Ref<TwoBodyConstraintSettings> constraintSettings;
 	EConstraintSubType constraintType;
