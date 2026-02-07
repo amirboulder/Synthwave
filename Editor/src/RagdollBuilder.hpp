@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "core/src/pch.h"
 #include "core/src/physics/ragdoll.hpp"
@@ -367,9 +367,9 @@ public:
 		char buttonLabelX[64];
 		char buttonLabelY[64];
 		char buttonLabelZ[64];
-		snprintf(buttonLabelX, sizeof(buttonLabelX), "Rotate X +90� (%.1f�)", rotationEulerDegrees.x);
-		snprintf(buttonLabelY, sizeof(buttonLabelY), "Rotate Y +90� (%.1f�)", rotationEulerDegrees.y);
-		snprintf(buttonLabelZ, sizeof(buttonLabelZ), "Rotate Z +90� (%.1f�)", rotationEulerDegrees.z);
+		snprintf(buttonLabelX, sizeof(buttonLabelX), "Rotate X +90° (%.1f°)", rotationEulerDegrees.x);
+		snprintf(buttonLabelY, sizeof(buttonLabelY), "Rotate Y +90° (%.1f°)", rotationEulerDegrees.y);
+		snprintf(buttonLabelZ, sizeof(buttonLabelZ), "Rotate Z +90° (%.1f°)", rotationEulerDegrees.z);
 
 		if (ImGui::Button(buttonLabelX)) {
 			glm::quat delta = glm::angleAxis(glm::radians(90.0f), glm::vec3(1, 0, 0));
@@ -379,6 +379,7 @@ public:
 			rotateSelected(ecs, s_state.selectedPart, newRot);
 			adjustChildren(ecs, s_state.selectedPart);
 		}
+		ImGui::SameLine();
 		if (ImGui::Button(buttonLabelY)) {
 			glm::quat delta = glm::angleAxis(glm::radians(90.0f), glm::vec3(0, 1, 0));
 			glm::quat newRot = JPHQuatToGLM(selectedPart->bodyPtr->GetRotation());
@@ -386,6 +387,7 @@ public:
 			rotateSelected(ecs, s_state.selectedPart, newRot);
 			adjustChildren(ecs, s_state.selectedPart);
 		}
+		ImGui::SameLine();
 		if (ImGui::Button(buttonLabelZ)) {
 			glm::quat delta = glm::angleAxis(glm::radians(90.0f), glm::vec3(0, 0, 1));
 			glm::quat newRot = JPHQuatToGLM(selectedPart->bodyPtr->GetRotation());
@@ -1022,9 +1024,9 @@ public:
 		char buttonLabelX[64];
 		char buttonLabelY[64];
 		char buttonLabelZ[64];
-		snprintf(buttonLabelX, sizeof(buttonLabelX), "Rotate X +90� (%.1f�)", rotationEulerDegrees.x);
-		snprintf(buttonLabelY, sizeof(buttonLabelY), "Rotate Y +90� (%.1f�)", rotationEulerDegrees.y);
-		snprintf(buttonLabelZ, sizeof(buttonLabelZ), "Rotate Z +90� (%.1f�)", rotationEulerDegrees.z);
+		snprintf(buttonLabelX, sizeof(buttonLabelX), "Rotate X +90° (%.1f°)", rotationEulerDegrees.x);
+		snprintf(buttonLabelY, sizeof(buttonLabelY), "Rotate Y +90° (%.1f°)", rotationEulerDegrees.y);
+		snprintf(buttonLabelZ, sizeof(buttonLabelZ), "Rotate Z +90° (%.1f°)", rotationEulerDegrees.z);
 
 		// Use the dynamic labels in buttons
 		if (ImGui::Button(buttonLabelX)) {
@@ -1196,7 +1198,7 @@ public:
 			ImGui::RadioButton("Z-axis##2", &s_state.hingeNormalAxis, 2);
 
 
-			if (ImGui::SliderFloat2("Angle Limits", angles, -180, 180, "%.1f�")) {
+			if (ImGui::SliderFloat2("Angle Limits", angles, -180, 180, "%.1f°")) {
 				s_state.hingeMinAngleRad = angles[0];
 				s_state.hingeMaxAngleRad = angles[1];
 				// Ensure min <= max

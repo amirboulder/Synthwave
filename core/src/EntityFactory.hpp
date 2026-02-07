@@ -77,7 +77,7 @@ public:
 
 
 		const flecs::entity entity = ecs.entity(name.c_str())
-			.set<EntityType>({ EntityType::Capsule })
+			.set<EntityType>({ EntityType::Cube })
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
 			.set<ModelInstance>(modelSource->createInstance())
@@ -96,8 +96,57 @@ public:
 
 	}
 
-	//creates jolts Human.tof 
 	static bool createHumanRagdollEntity(flecs::world& ecs, const flecs::entity parent, const std::string name,
+		const std::string ModelSrcName, const Transform transform, entUpdateFn updateFunction, const std::string pipelineName) {
+
+		if (!validateName(ecs, parent, name)) return false;
+		if (!validateTransform(transform, name.c_str())) return false;
+		if (!validatePipelineExistence(ecs, pipelineName)) return false;
+
+		//Get the modelSource from Asset Library
+		AssetLibRef ref = ecs.get<AssetLibRef>();
+		ModelSource* modelSource = ref.assetLib->get(ModelSrcName);
+		if (!validateModelSrcExistence(modelSource, ModelSrcName)) return false;
+
+		JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
+
+		Ref<RagdollSettings> ragdollSettings = RagdollLoader::create(2.0f);
+
+		if (!ragdollSettings) {
+			SDL_LogError(SDL_LOG_CATEGORY_ERROR, ERROR "ragdollSettings is null" RESET);
+			return false;
+		}
+
+		const flecs::entity entity = ecs.entity(name.c_str())
+			.set<EntityType>({ EntityType::Ragdoll })
+			.add<DynamicEnt>()
+			.set<Transform>(transform)
+			//.set<ModelInstance>(modelSource->createInstance())
+			.set<ModelSourceRef>({ ModelSrcName })
+			.set<AnimationTime>({})
+			.add<RenderPipeline>(ecs.lookup(pipelineName.c_str()))
+			//.emplace<ActorBehavior>(updateFunction)
+			.child_of(parent);
+
+		if (!validateEntityCreation(entity, name)) return false;
+
+		JPH::SkeletalAnimation *  mAnimation;
+		JPH::SkeletonPose *		  mPose =  new JPH::SkeletonPose;
+
+		JPH::Ragdoll* ragdoll = ragdollSettings->CreateRagdoll(0, entity.id(), &physicsSystem);
+		ragdoll->AddToPhysicsSystem(JPH::EActivation::Activate);
+
+		for (JPH::BodyID id : ragdoll->GetBodyIDs()) {
+			if (!validatePhysicsBodyCreation(id, name)) return false;
+		}
+
+		entity.set<JoltRagdoll>({ ragdoll });
+
+		return true;
+	}
+
+	//creates jolts Human.tof 
+	static bool createHumanTOFRagdollEntity(flecs::world& ecs, const flecs::entity parent, const std::string name,
 		const std::string ModelSrcName, const Transform transform, entUpdateFn updateFunction, const std::string pipelineName) {
 
 		if (!validateName(ecs, parent, name)) return false;
@@ -114,7 +163,7 @@ public:
 		Ref<RagdollSettings> ragdollSettings = RagdollLoader::load("assets/Human.tof", EMotionType::Dynamic);
 
 		if (!ragdollSettings) {
-			
+
 			SDL_LogError(SDL_LOG_CATEGORY_ERROR, ERROR "ragdollSettings is null" RESET);
 			return false;
 		}
@@ -133,8 +182,8 @@ public:
 
 		if (!validateEntityCreation(entity, name)) return false;
 
-		JPH::SkeletalAnimation *  mAnimation;
-		JPH::SkeletonPose *		  mPose =  new JPH::SkeletonPose;
+		JPH::SkeletalAnimation* mAnimation;
+		JPH::SkeletonPose* mPose = new JPH::SkeletonPose;
 
 		JPH::Ragdoll* ragdoll = ragdollSettings->CreateRagdoll(0, entity.id(), &physicsSystem);
 		ragdoll->AddToPhysicsSystem(JPH::EActivation::Activate);
@@ -161,7 +210,7 @@ public:
 		//SkeletonPose::JointState& joint = mPose->GetJoint(0);
 		//joint.mTranslation = Vec3::sZero(); // All the translation goes into the root offset
 		//ragdoll->GetRootTransform(root_offset, joint.mRotation);
-		
+
 		for (JPH::BodyID id : ragdoll->GetBodyIDs()) {
 
 			if (!validatePhysicsBodyCreation(id, name)) return false;

@@ -88,6 +88,7 @@ namespace fs = std::filesystem;
 #include "imgui.h"
 #include "imgui_impl_sdl3.h"
 #include "imgui_impl_sdlgpu3.h"
+#include "imgui_freetype.h"
 
 
 //rapidjson

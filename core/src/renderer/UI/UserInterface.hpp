@@ -61,12 +61,34 @@ public:
 
         ImGui_ImplSDLGPU3_Init(&init_info);
 
+
+        //The main font Orbitron just has the alphabet so we merge two font with it to get emojis and symbols.
+        static ImFontConfig cfg;
+        float fontSize = 24.0f;
+
         ImFont* mainFont = io.Fonts->AddFontFromFileTTF(
             "assets/fonts/Orbitron-VariableFont_wght.ttf",
-            24.0f
+            fontSize, &cfg
         );
         IM_ASSERT(mainFont != nullptr);
 
+        cfg.MergeMode = true;
+
+        cfg.FontLoaderFlags |= ImGuiFreeTypeLoaderFlags_LoadColor;
+        ImFont* emojiFont =  io.Fonts->AddFontFromFileTTF(
+            "assets/fonts/NotoColorEmoji-Regular.ttf",
+            fontSize,
+            &cfg
+        );
+        IM_ASSERT(emojiFont != nullptr);
+
+
+        ImFont* symbolsFont =  io.Fonts->AddFontFromFileTTF(
+            "assets/fonts/NotoSansSymbols-VariableFont_wght.ttf",
+            fontSize,
+            &cfg
+        );
+        IM_ASSERT(emojiFont != nullptr);
 
         // Build font atlas
         io.Fonts->Build();

@@ -256,7 +256,7 @@ add_library(inih STATIC
 target_include_directories(Synthwave PRIVATE ${inih_SOURCE_DIR}/cpp)
 
 #=============================================
-#flecs Entity component system
+#flecs Entity Component System
 #=============================================
 
 FetchContent_Declare(
@@ -321,16 +321,31 @@ add_library(imgui_lib STATIC
     # SDL3 backend (for SDL_GPU which uses SDL3)
     ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp
     ${imgui_SOURCE_DIR}/backends/imgui_impl_sdlgpu3.cpp
+
+    # Add FreeType support
+    ${imgui_SOURCE_DIR}/misc/freetype/imgui_freetype.cpp
 )
 
 # ImGui include directories
 target_include_directories(imgui_lib PUBLIC
     ${imgui_SOURCE_DIR}
     ${imgui_SOURCE_DIR}/backends
+    ${imgui_SOURCE_DIR}/misc/freetype
 )
 
-# Link SDL3 so imgui_lib can find SDL3 headers
-target_link_libraries(imgui_lib PUBLIC SDL3::SDL3)
+# Enable FreeType in ImGui
+target_compile_definitions(imgui_lib PUBLIC 
+IMGUI_ENABLE_FREETYPE
+IMGUI_USE_WCHAR32  # Required for emojis above 0x10000
+IMGUI_ENABLE_FREETYPE_PLUTOSVG 
+)
+
+
+# linking SDL3 because we're using sdlgpu3 backend for rendring
+# ,SDL_TTF because it includes freeType which is needed for rendring emojis
+# plutosvg which is in SDL3_ttf for SVG based emojis
+target_link_libraries(imgui_lib PUBLIC SDL3::SDL3 SDL3_ttf::SDL3_ttf Freetype::Freetype plutosvg::plutosvg)
+
 
 #=============================================
 #=============================================

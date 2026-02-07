@@ -40,13 +40,25 @@ public:
 
 	static State s_state;
 
-	// Helper functions
-	//TODO fix these by adding the imgui icons and or / Glyphs/Emojis
+	// Adds emojis to each entity
 	static const char* GetEntityIcon(flecs::entity entity) {
-		if (entity.has<Game>()) return "▶ ";
-		if (entity.has<_Scene>()) return "◆ ";
-		if (entity.has<StaticEnt>()) return "■ ";
-		if (entity.has<DynamicEnt>()) return "● ";
+
+		if (!entity.has<EntityType>()) return " ";
+
+		EntityType type = entity.get<EntityType>();
+
+		if (type == EntityType::Game) return "🎮";
+		if (type == EntityType::Scene) return "🎬";
+		if (type == EntityType::Cube) return "📦";
+		if (type == EntityType::Capsule) return "💊";
+		if (type == EntityType::Humanoid) return "🧍";
+		if (type == EntityType::Player) return "👤";
+		if (type == EntityType::Camera) return "📷";
+		if (type == EntityType::Grid) return "🟪";
+		if (type == EntityType::StaticMesh) return "⛰️";
+		if (type == EntityType::Actor) return "🎭";
+		if (type == EntityType::Sensor) return "📡";
+
 		return "  ";
 	}
 
