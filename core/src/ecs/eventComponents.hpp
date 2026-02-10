@@ -4,7 +4,7 @@
 
 #include "../common.hpp"
 
-struct MouseClickEvent {
+struct MouseClickLeftEvent {
 
 	float x = 0;
 	float y = 0;

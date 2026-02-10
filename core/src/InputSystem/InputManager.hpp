@@ -39,7 +39,7 @@ public:
 		ecs.component<Direction>().add(flecs::Singleton);
 		ecs.set<Direction>({ Direction::forward });
 
-		ecs.component<MouseClickEvent>().add(flecs::Singleton);
+		ecs.component<MouseClickLeftEvent>().add(flecs::Singleton);
 		//ecs.set<MouseClickEvent>({});
 
 		ecs.component<ExitEvent>().add(flecs::Singleton);
@@ -164,7 +164,7 @@ public:
 
 		if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN && event.button.button == SDL_BUTTON_LEFT) {
 
-			ecs.set<MouseClickEvent>({ event.button.x,event.button.y });
+			ecs.set<MouseClickLeftEvent>({ event.button.x,event.button.y });
 		}
 
 		handleEditorEvents(event);

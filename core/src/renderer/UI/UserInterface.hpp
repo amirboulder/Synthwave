@@ -84,8 +84,8 @@ public:
 
 
         ImFont* symbolsFont =  io.Fonts->AddFontFromFileTTF(
-            "assets/fonts/NotoSansSymbols-VariableFont_wght.ttf",
-            fontSize,
+            "assets/fonts/NotoSansSymbols2-Regular.ttf",
+            48.0f,
             &cfg
         );
         IM_ASSERT(emojiFont != nullptr);

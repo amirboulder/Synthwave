@@ -47,13 +47,13 @@ public:
 
 		EntityType type = entity.get<EntityType>();
 
-		if (type == EntityType::Game) return "🎮";
+		if (type == EntityType::Game) return "🌎";
 		if (type == EntityType::Scene) return "🎬";
 		if (type == EntityType::Cube) return "📦";
 		if (type == EntityType::Capsule) return "💊";
 		if (type == EntityType::Humanoid) return "🧍";
 		if (type == EntityType::Player) return "👤";
-		if (type == EntityType::Camera) return "📷";
+		if (type == EntityType::Camera) return "🎥";
 		if (type == EntityType::Grid) return "🟪";
 		if (type == EntityType::StaticMesh) return "⛰️";
 		if (type == EntityType::Actor) return "🎭";
