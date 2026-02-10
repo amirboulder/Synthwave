@@ -8,6 +8,7 @@
 
 #include "SceneTree.hpp"
 #include "RagdollBuilder.hpp"
+#include "editorMode.hpp"
 
 class Editor {
 
@@ -33,6 +34,9 @@ public:
 
 		ecs.component<HighlightedEntRef>().add(flecs::Singleton);
 		ecs.set<HighlightedEntRef>({ flecs::entity::null() });
+
+		ecs.component<EditorMode>().add(flecs::Singleton);
+		ecs.set<EditorMode>({ EditorMode::None });
 	}
 
 	//This is called by StateManager
@@ -70,6 +74,7 @@ public:
 
 		EntityFactory::createEditorItemEntity(ecs, "SceneTree", editorToggle, SceneTree::SceneTreeDraw);
 		EntityFactory::createEditorItemEntity(ecs, "RagdollCreator", editorToggle, RagdollBuilder::draw);
+		EntityFactory::createEditorItemEntity(ecs, "EditorModeSelector", editorToggle, EditorModeSelector::draw);
 	}
 
 	void disable() {
@@ -182,8 +187,6 @@ public:
 		}
 
 		ecs.set<HighlightedEntRef>({ ent });
-
-		//cout << ent.id() << std::endl;
 
 	}
 

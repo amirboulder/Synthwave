@@ -147,6 +147,7 @@ BenchmarkDotNet.Artifacts/
 *.pidb
 *.svclog
 *.scc
+*.idb
 
 # Visual C++ cache files
 ipch/
