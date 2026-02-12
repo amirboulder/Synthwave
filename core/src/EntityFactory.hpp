@@ -1,5 +1,4 @@
 #pragma once
-#include "core/src/pch.h"
 
 #include "../../core/src/AssetLibrary/AssetLibrary.hpp"
 

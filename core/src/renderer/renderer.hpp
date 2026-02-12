@@ -1,6 +1,5 @@
 #pragma once
 
-#include "core/src/pch.h"
 
 #include "Model.hpp"
 #include "../physics/physics.hpp"
@@ -673,6 +672,9 @@ struct Renderer {
 			physicsSystem.DrawBodies(fisiksRenderer.drawSettings, &fisiksRenderer);
 
 			physicsSystem.DrawConstraints(&fisiksRenderer);
+
+			physicsSystem.DrawConstraintLimits(&fisiksRenderer);
+			//physicsSystem.DrawConstraintReferenceFrame(&fisiksRenderer);
 
 
 		});

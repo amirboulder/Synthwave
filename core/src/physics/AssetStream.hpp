@@ -1,6 +1,5 @@
 #pragma once
 
-#include "core/src/pch.h"
 
 /// An istream interface that reads data from a file in the Assets folder
 class AssetStream

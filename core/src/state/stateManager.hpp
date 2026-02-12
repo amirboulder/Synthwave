@@ -1,7 +1,5 @@
 ﻿#pragma once
 
-#include "core/src/pch.h"
-
 #include "../renderer/renderer.hpp"
 #include"../renderer/RendererConfig.hpp"
 
@@ -16,7 +14,7 @@
 #include "../common.hpp"
 #include "../ecs/eventComponents.hpp"
 
-//TODO seperete all event based systems into their own class
+//TODO separate all event based systems into their own class
 
 class StateManager {
 

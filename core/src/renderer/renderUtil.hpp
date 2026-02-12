@@ -1,7 +1,5 @@
 #pragma once
 
-#include "core/src/pch.h"
-
 struct Context {
 	SDL_GPUDevice* device;
 	SDL_Window* window;

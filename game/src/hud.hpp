@@ -1,7 +1,5 @@
 #pragma once
 
-#include "core/src/pch.h"
-
 //fps window
 void FPSDraw(flecs::world& ecs) {
 

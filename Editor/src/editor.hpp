@@ -1,6 +1,5 @@
 #pragma once
 
-#include "core/src/pch.h"
 
 #include "../../core/src/EntityFactory.hpp"
 #include "../../core/src/Serialization/serialization.hpp"

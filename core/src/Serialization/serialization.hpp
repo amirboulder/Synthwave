@@ -1,7 +1,5 @@
 ﻿#pragma once
 
-#include "core/src/pch.h"
-
 // Does both serialization and deserialization
 class Serializer {
 

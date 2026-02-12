@@ -1,6 +1,5 @@
 ﻿#pragma once
 
-#include "core/src/pch.h"
 
 //Used for Scene dropdown list
 static const std::map<EntityType, std::string> sceneEntityNames = {

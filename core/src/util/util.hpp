@@ -1,7 +1,5 @@
 #pragma once
 
-#include "core/src/pch.h"
-
 void check_error_bool(const bool res)
 {
     if (!res) {

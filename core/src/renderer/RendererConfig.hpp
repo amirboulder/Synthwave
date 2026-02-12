@@ -1,6 +1,4 @@
 #pragma once
-#include "core/src/pch.h"
-
 //TODO take out freeCam pos/front and put it in the save file
 class RenderConfig {
 public:
@@ -17,7 +15,7 @@ public:
 	bool DrawShapeWireframePhysics = true;
 
 
-	// TODO seprate into camera config struct for camera params
+	// TODO separate into camera config struct for camera params
 	glm::vec3 FreeCamPos = glm::vec3(-2.0f, -2.0f, 0.0f);
 	glm::vec3 FreeCamFront = glm::vec3(-2.0f, -2.0f, 0.0f);
 	float FreeCamYaw = 0.0f;
@@ -74,12 +72,10 @@ public:
 	//sets values to default if they are not found within the config file
 	static void loadRendererConfigINIFile(flecs::world& ecs,const std::string& filepath) {
 
-		//if (!std::filesystem::exists(filepath)) {
-		//	SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "renderConfig file does not exist. Creating a new one");
-
-		//	RendererConfig::saveRendererConfigINIFile(ecs,filepath);
-
-		//}
+		if (!std::filesystem::exists(filepath)) {
+			SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "renderConfig file does not exist. Creating a new one");
+			RenderConfig::saveRendererConfigINIFile(ecs,filepath);
+		}
 
 		INIReader reader(filepath);
 

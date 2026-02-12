@@ -1,13 +1,14 @@
-﻿cmake_minimum_required (VERSION 3.28)
+﻿cmake_minimum_required (VERSION 3.30)
 
-project ("Synthwave")
+
+project (Synthwave VERSION 0.1)
+
 
 # Set C++ standard
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 if(MSVC)
     add_compile_options(/MP)
@@ -16,7 +17,6 @@ endif()
 if(MSVC)
     add_compile_options(/utf-8)
 endif()
-
 
 include(FetchContent)
 set(FETCHCONTENT_QUIET FALSE)
@@ -35,12 +35,23 @@ endif()
 
 add_executable (Synthwave "Synthwave.cpp")
 
-# non library modules don't work with intelliSense just yet so I'm not using them YET!
-#target_sources(Synthwave
-#        PUBLIC  
-#       FILE_SET CXX_MODULES FILES
-#        core/src/renderer/Shader.ixx
-#)
+
+if(MSVC)
+    target_compile_options(Synthwave PRIVATE /bigobj)
+endif()
+
+
+# Standard Template Library Module (not currently used add to Target Link Libraries)
+
+file(GLOB_RECURSE MODULE_INTERFACE_UNITS "*.ixx")
+
+target_sources(Synthwave
+    PUBLIC
+    FILE_SET CXX_MODULES FILES
+             ${MODULE_INTERFACE_UNITS}
+)
+
+
 
 #=============================================
 #Slang

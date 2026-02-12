@@ -1,6 +1,5 @@
 #pragma once
 
-#include "core/src/pch.h"
 
 #define JPH_OBJECT_STREAM
 

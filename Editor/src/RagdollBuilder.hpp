@@ -1,6 +1,5 @@
 ﻿#pragma once
 
-#include "core/src/pch.h"
 #include "core/src/physics/ragdoll.hpp"
 #include "core/src/util/util.hpp"
 

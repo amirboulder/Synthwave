@@ -2,7 +2,6 @@
 
 #ifdef JPH_DEBUG_RENDERER
 
-#include "core/src/pch.h"
 
 #include "../renderer/renderUtil.hpp"
 #include "../renderer/rendererConfig.hpp"

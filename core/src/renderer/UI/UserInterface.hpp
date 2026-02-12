@@ -1,7 +1,5 @@
 #pragma once
 
-#include "core/src/pch.h"
-
 #include "../RendererConfig.hpp"
 
 class UserInterface {

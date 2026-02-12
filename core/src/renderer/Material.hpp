@@ -1,7 +1,5 @@
 #pragma once
 
-#include "core/src/pch.h"
-
 #include "renderUtil.hpp"
  
 struct MaterialSMPL {

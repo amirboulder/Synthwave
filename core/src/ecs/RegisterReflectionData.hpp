@@ -1,6 +1,5 @@
 #pragma once
 
-#include "core/src/pch.h"
 
 //TODO move to serialize class 
 void registerReflectionData(flecs::world & ecs){

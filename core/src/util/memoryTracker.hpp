@@ -1,4 +1,3 @@
-#include "core/src/pch.h"
 
 #ifndef NDEBUG  // Code inside will only compile in debug mode
 

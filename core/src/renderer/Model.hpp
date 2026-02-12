@@ -1,7 +1,5 @@
 #pragma once
 
-#include "core/src/pch.h"
-
 #include "Mesh.hpp"
 #include "Material.hpp"
 #include "renderUtil.hpp"

@@ -4,7 +4,7 @@ int main(int argc, char* argv[])
 {
 	bool running = true;
 
-	flecs::world ecs; 
+	flecs::world ecs;
 
 	Renderer renderer(ecs);
 
