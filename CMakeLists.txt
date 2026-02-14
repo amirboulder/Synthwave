@@ -1,22 +1,13 @@
 ﻿cmake_minimum_required (VERSION 3.30)
 
+#We need C here because we're building C libraries like SDL, Flecs
+project (Synthwave VERSION 0.1 LANGUAGES CXX C)
 
-project (Synthwave VERSION 0.1)
 
-
-# Set C++ standard
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
-
-if(MSVC)
-    add_compile_options(/MP)
-endif()
-
-if(MSVC)
-    add_compile_options(/utf-8)
-endif()
 
 include(FetchContent)
 set(FETCHCONTENT_QUIET FALSE)
@@ -32,17 +23,20 @@ endif()
 #Executable
 #=============================================
 
-
 add_executable (Synthwave "Synthwave.cpp")
 
-
+#Using /bigobj we hit the 65000 segment limit in translation unit,
+#most likely because of heavy usage of templated code in Flecs
 if(MSVC)
-    target_compile_options(Synthwave PRIVATE /bigobj)
+    target_compile_options(Synthwave PRIVATE /MP #Compile using multi cores if possbile
+    /utf-8 # use utf-8 encoding
+    /bigobj)
 endif()
 
 
-# Standard Template Library Module (not currently used add to Target Link Libraries)
-
+#Get all the .ixx files and add them as modules,
+#When a new modules is added we must save this file again so it runs, TODO maybe check when we run the application
+# This would have to be changed to "*.cppm" most likely we use compile with clang
 file(GLOB_RECURSE MODULE_INTERFACE_UNITS "*.ixx")
 
 target_sources(Synthwave
@@ -51,57 +45,98 @@ target_sources(Synthwave
              ${MODULE_INTERFACE_UNITS}
 )
 
-
-
 #=============================================
-#Slang
+# Slang-shader language and compiler - using Prebuilt Binary because building from scratch took a few minutes.
 #=============================================
+set(SLANG_VERSION "2026.2.1") #note v is removed from the tag becuase SLANG_ARCHIVE_NAME does not have the v.
 
-FetchContent_Declare(Slang
-    GIT_REPOSITORY https://github.com/shader-slang/slang.git
-    GIT_TAG "v2025.10.2"
-    GIT_SHALLOW ON
-    GIT_PROGRESS TRUE
-    OVERRIDE_FIND_PACKAGE
-    EXCLUDE_FROM_ALL
-    SYSTEM
+# Detect platform
+if(WIN32)
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "ARM64|arm64|aarch64")
+        set(SLANG_PLATFORM "windows-aarch64")
+    else()
+        set(SLANG_PLATFORM "windows-x86_64")
+    endif()
+elseif(APPLE)
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm64|aarch64")
+        set(SLANG_PLATFORM "macos-aarch64")
+    else()
+        set(SLANG_PLATFORM "macos-x86_64")
+    endif()
+elseif(UNIX)
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
+        set(SLANG_PLATFORM "linux-aarch64")
+    else()
+        set(SLANG_PLATFORM "linux-x86_64")
+    endif()
+else()
+    message(FATAL_ERROR "Unsupported platform for Slang prebuilt binary")
+endif()
 
+set(SLANG_ARCHIVE_NAME "slang-${SLANG_VERSION}-${SLANG_PLATFORM}")
+set(SLANG_DOWNLOAD_URL
+    "https://github.com/shader-slang/slang/releases/download/v${SLANG_VERSION}/${SLANG_ARCHIVE_NAME}.zip"
 )
 
-set(SLANG_EMBED_CORE_MODULE ON)
-set(SLANG_EMBED_CORE_MODULE_SOURCE ON)
-set(SLANG_ENABLE_DXIL OFF)
-set(SLANG_ENABLE_ASAN OFF)
-set(SLANG_ENABLE_FULL_IR_VALIDATION OFF)
-set(SLANG_ENABLE_IR_BREAK_ALLOC OFF)
-set(SLANG_ENABLE_GFX OFF) 
-set(SLANG_ENABLE_SLANGD OFF)
-set(SLANG_ENABLE_SLANGC OFF)
-set(SLANG_ENABLE_SLANGRT OFF)
-set(SLANG_ENABLE_SLANG_GLSLANG OFF)
-set(SLANG_ENABLE_TESTS OFF)
-set(SLANG_ENABLE_EXAMPLES OFF)
-set(SLANG_LIB_TYPE "SHARED")
-set(SLANG_ENABLE_RELEASE_DEBUG_INFO OFF)
-set(SLANG_ENABLE_SPLIT_DEBUG_INFO OFF)
-set(SLANG_SLANG_LLVM_FLAVOR "DISABLE")
+include(FetchContent)
+FetchContent_Declare(Slang
+    URL                        ${SLANG_DOWNLOAD_URL}
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+)
+FetchContent_MakeAvailable(Slang)
 
-set(SLANG_ENABLE_CUDA OFF)
-set(SLANG_ENABLE_OPTIX OFF)
-set(SLANG_ENABLE_NVAPI OFF)
-set(SLANG_ENABLE_AFTERMATH OFF)
-set(SLANG_ENABLE_XLIB OFF)
+set(SLANG_DIR "${slang_SOURCE_DIR}")
 
-set(SLANG_ENABLE_DX_ON_VK OFF)
-set(SLANG_ENABLE_SLANG_RHI OFF)
-set(SLANG_USE_SYSTEM_MINIZ OFF)
-set(SLANG_USE_SYSTEM_LZ4 OFF)
-set(SLANG_USE_SYSTEM_VULKAN_HEADERS ON)
-set(SLANG_USE_SYSTEM_SPIRV_HEADERS OFF)
-set(SLANG_USE_SYSTEM_UNORDERED_DENSE OFF)
+# Post v2025.21: real library is slang-compiler.dll
+# slang.dll still exists as a proxy redirect until end of 2026
+if(WIN32)
+    set(SLANG_DLL      "${SLANG_DIR}/bin/slang-compiler.dll")
+    set(SLANG_IMPLIB   "${SLANG_DIR}/lib/slang-compiler.lib")
+elseif(APPLE)
+    file(GLOB SLANG_DLL "${SLANG_DIR}/lib/libslang-compiler.*.dylib")
+    list(GET SLANG_DLL 0 SLANG_DLL)
+elseif(UNIX)
+    file(GLOB SLANG_DLL "${SLANG_DIR}/lib/libslang-compiler.so.*.*")
+    list(GET SLANG_DLL 0 SLANG_DLL)
+endif()
 
+find_path(SLANG_INCLUDE_DIR
+    NAMES slang.h
+    PATHS "${SLANG_DIR}/include"
+    NO_DEFAULT_PATH
+    REQUIRED
+)
 
-find_package(Slang REQUIRED)
+# Imported target
+add_library(Slang::slang SHARED IMPORTED GLOBAL)
+if(WIN32)
+    set_target_properties(Slang::slang PROPERTIES
+        IMPORTED_LOCATION             "${SLANG_DLL}"
+        IMPORTED_IMPLIB               "${SLANG_IMPLIB}"
+        INTERFACE_INCLUDE_DIRECTORIES "${SLANG_INCLUDE_DIR}"
+    )
+else()
+    set_target_properties(Slang::slang PROPERTIES
+        IMPORTED_LOCATION             "${SLANG_DLL}"
+        INTERFACE_INCLUDE_DIRECTORIES "${SLANG_INCLUDE_DIR}"
+    )
+endif()
+
+# Copy DLL next to your executable at build time (Windows only)
+if(WIN32)
+    add_custom_command(TARGET Synthwave POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${SLANG_DLL}"
+            $<TARGET_FILE_DIR:Synthwave>
+        # Also copy the proxy slang.dll if you have dependencies that still expect it
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${SLANG_DIR}/bin/slang.dll"
+            $<TARGET_FILE_DIR:Synthwave>
+    )
+endif()
+
+message(STATUS "Slang ${SLANG_VERSION} prebuilt from: ${SLANG_DIR}")
+message(STATUS "Slang DLL:  ${SLANG_DLL}")
 
 #=============================================
 #SDL
@@ -114,9 +149,6 @@ FetchContent_Declare(
         EXCLUDE_FROM_ALL
     )
 FetchContent_MakeAvailable(SDL3)
-set_property(DIRECTORY "${SDL3_SOURCE_DIR}" PROPERTY EXCLUDE_FROM_ALL TRUE)
-
-
 
 #=============================================
 #SDL_IMAGE
@@ -126,15 +158,15 @@ FetchContent_Declare(
     SDL_image
     GIT_REPOSITORY https://github.com/libsdl-org/SDL_image.git
     GIT_TAG release-3.2.4
+    EXCLUDE_FROM_ALL
 )
+# disable formats we don't use to make the build faster and smaller.
 set(SDL3_IMAGE_AVIF OFF CACHE BOOL "Disable AVIF support" FORCE)
-set(SDLIMAGE_AVIF OFF)	# disable formats we don't use to make the build faster and smaller.
+set(SDLIMAGE_AVIF OFF)	
 set(SDLIMAGE_BMP OFF)
 set(SDLIMAGE_JPEG OFF)
 set(SDLIMAGE_WEBP OFF)
 FetchContent_MakeAvailable(SDL_image)
-set_property(DIRECTORY "${SDL_image_SOURCE_DIR}" PROPERTY EXCLUDE_FROM_ALL TRUE)
-
 
 #=============================================
 #SDL TTF
@@ -244,7 +276,6 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(optick)
 
-
 #=============================================
 #inih for config files
 #=============================================
@@ -285,7 +316,6 @@ set(FLECS_DOC OFF CACHE BOOL "" FORCE)
 
 FetchContent_MakeAvailable(flecs)
 
-
 #=============================================
 #rapidjson JSON
 #=============================================
@@ -303,9 +333,7 @@ set(RAPIDJSON_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 
 FetchContent_MakeAvailable(rapidjson)
 
-
 target_include_directories(Synthwave PRIVATE ${rapidjson_SOURCE_DIR}/include)
-
 
 #=============================================
 # IMGUI for GUI
@@ -319,9 +347,7 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(imgui)
 
-# Create ImGui library
-#using imgui_lib instead of imgui of because slang already created an imgui target
-add_library(imgui_lib STATIC
+add_library(imgui STATIC
     # Core ImGui files (always needed)
     ${imgui_SOURCE_DIR}/imgui.cpp
     ${imgui_SOURCE_DIR}/imgui_demo.cpp
@@ -338,34 +364,32 @@ add_library(imgui_lib STATIC
 )
 
 # ImGui include directories
-target_include_directories(imgui_lib PUBLIC
+target_include_directories(imgui PUBLIC
     ${imgui_SOURCE_DIR}
     ${imgui_SOURCE_DIR}/backends
     ${imgui_SOURCE_DIR}/misc/freetype
 )
 
 # Enable FreeType in ImGui
-target_compile_definitions(imgui_lib PUBLIC 
+target_compile_definitions(imgui PUBLIC 
 IMGUI_ENABLE_FREETYPE
 IMGUI_USE_WCHAR32  # Required for emojis above 0x10000
 IMGUI_ENABLE_FREETYPE_PLUTOSVG 
 )
 
-
 # linking SDL3 because we're using sdlgpu3 backend for rendring
 # ,SDL_TTF because it includes freeType which is needed for rendring emojis
 # plutosvg which is in SDL3_ttf for SVG based emojis
-target_link_libraries(imgui_lib PUBLIC SDL3::SDL3 SDL3_ttf::SDL3_ttf Freetype::Freetype plutosvg::plutosvg)
-
+target_link_libraries(imgui PUBLIC SDL3::SDL3 SDL3_ttf::SDL3_ttf Freetype::Freetype plutosvg::plutosvg)
 
 #=============================================
 #=============================================
 #=============================================
 
 target_link_libraries(Synthwave PUBLIC
-imgui_lib
+imgui
 SDL3::SDL3
-slang
+Slang::slang
 SDL3_image::SDL3_image
 SDL3_ttf::SDL3_ttf
 assimp 
@@ -376,29 +400,22 @@ inih
 flecs::flecs
 )
 
+#Adding a PCH file, for some reason C++ modules have access to the PCH without having to include the file!!!
 target_precompile_headers(Synthwave PRIVATE 
     "${CMAKE_SOURCE_DIR}/core/src/pch.h"
 )
 
-
-# Collect all shader files
-file(GLOB_RECURSE SHADER_FILES
-    ${CMAKE_SOURCE_DIR}/core/src/renderer/shaders/slang/*)
-
-# Copy them at build time
+# Ensures shaders are always copied before Synthwave is built.
 add_custom_command(
-    OUTPUT ${CMAKE_BINARY_DIR}/shaders.stamp
-    COMMAND ${CMAKE_COMMAND} -E make_directory
-            ${CMAKE_BINARY_DIR}/shaders/slang
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
+    OUTPUT ${CMAKE_BINARY_DIR}/shaders.stamp #a proxy output so CMake can track whether the copy needs to rerun.
+    COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different #skips files that haven't changed.
             ${CMAKE_SOURCE_DIR}/core/src/renderer/shaders/slang
             ${CMAKE_BINARY_DIR}/shaders/slang
     COMMAND ${CMAKE_COMMAND} -E touch ${CMAKE_BINARY_DIR}/shaders.stamp
-    DEPENDS ${SHADER_FILES}
+    DEPENDS ${CMAKE_SOURCE_DIR}/core/src/renderer/shaders/slang
     COMMENT "Copying shader files..."
 )
 
-# Target that depends on the copy step
 add_custom_target(copy_shaders ALL
     DEPENDS ${CMAKE_BINARY_DIR}/shaders.stamp)
 
