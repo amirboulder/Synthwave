@@ -400,10 +400,17 @@ inih
 flecs::flecs
 )
 
-#Adding a PCH file, for some reason C++ modules have access to the PCH without having to include the file!!!
+
 target_precompile_headers(Synthwave PRIVATE 
     "${CMAKE_SOURCE_DIR}/core/src/pch.h"
 )
+
+#Without this modules have access to the PCH without having to include the file, which also cause intellisense issues.
+foreach(MODULE_FILE ${MODULE_INTERFACE_UNITS})
+    set_source_files_properties(${MODULE_FILE}
+        PROPERTIES SKIP_PRECOMPILE_HEADERS ON
+    )
+endforeach()
 
 # Ensures shaders are always copied before Synthwave is built.
 add_custom_command(
