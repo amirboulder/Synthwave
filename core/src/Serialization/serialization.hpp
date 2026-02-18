@@ -105,7 +105,7 @@ public:
 
         file << buffer.GetString();
 
-		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, Synth "💾 saved to  %s" RESET , path.c_str());
+		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, SYNTH "💾 saved to  %s" RESET , path.c_str());
 
 		return true;
     }
@@ -415,7 +415,7 @@ public:
 		transform = optTransform.value();
 
 		flecs::entity parentEnt = ecs.lookup(parentName.c_str(), ".");
-		if (!EntityFactory::createStaticMeshEntity(ecs, parentEnt, name, modelSrcName, transform, "pipelineMtn")) {
+		if (!EntityFactory::createStaticMeshEntity(ecs, parentEnt, name, modelSrcName, transform, "pipelineWireframe")) {
 			return false;
 		}
 

@@ -65,7 +65,7 @@
       "StaticEnt"
     ],
     "pairs": {
-      "RenderPipeline": "pipelineMtn"
+      "RenderPipeline": "pipelineWireframe"
     },
     "components": {
       "Transform": {

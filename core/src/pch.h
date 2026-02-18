@@ -26,7 +26,7 @@ namespace fs = std::filesystem;
 #include "SDL3/SDL_keyboard.h"
 #include "SDL3/SDL_mouse.h"
 
-//Slang
+//Slang TODO Remove fro PCH
 #include "slang-com-ptr.h"
 #include <slang.h>
 #include "slang-com-helper.h"
@@ -102,4 +102,4 @@ namespace fs = std::filesystem;
 #include "INIReader.h"
 
 //Optick 
-#include "optick.h"
+//#include "optick.h"

@@ -9,6 +9,11 @@ layout(set = 1, binding = 1) cbuffer PerModel {
     float4x4 mvp;
 };
 
+// Using Combined Image Sampler,
+layout(set = 2, binding = 0) SamplerState sampler;
+layout(set = 2, binding = 0) Texture2D<float4> diffuseTexture;
+
+
 
 struct VertexInput
 {
@@ -39,14 +44,12 @@ VertexOutput vertexMain(VertexInput input)
     return output;
 }
 
-layout(set = 3, binding = 0) cbuffer HighlightColor {
-    float4 color;
-};
 
 [shader("fragment")]
 float4 fragmentMain(VertexOutput fragInput)
 {
-    return color;
-;
+    float4 textureColor = diffuseTexture.Sample(sampler, fragInput.texCoords);
+
+    return textureColor;
 }
 

@@ -1,5 +1,8 @@
 ﻿#pragma once
 
+import Logger;
+import ShaderCompiler;
+
 #include "core/src/pch.h"
 
 #include "core/src/renderer/renderer.hpp"

@@ -32,12 +32,7 @@ struct Position {
 	glm::vec3 position = glm::vec3(1);
 };
 
-enum class PipelineType {
-	Vertex,
-	PhysicsDebug,
-	LineVertex,
-	EntityId,
-};
+
 
 struct VertexBuffer {
 	SDL_GPUBuffer* handle = nullptr;

@@ -452,7 +452,7 @@ public:
 		Transform mtnTransform;
 		mtnTransform.position = glm::vec3(0.0f, -40.0f, 0.0f);
 		mtnTransform.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
-		EntityFactory::createStaticMeshEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, "Mountains", mtnTransform, "pipelineMtn");
+		EntityFactory::createStaticMeshEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, "Mountains", mtnTransform, "pipelineWireframe");
 
 	}
 

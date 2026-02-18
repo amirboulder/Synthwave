@@ -72,8 +72,10 @@ public:
 		drawSettings.mDrawBoundingBox = config.DrawBoundingBoxPhysics;
 		drawSettings.mDrawShapeWireframe = config.DrawShapeWireframePhysics;
 
-		pipelineMain = ecs.lookup("pipelinePhysics").get<Pipeline>().pipeline;
-		pipelineLine = ecs.lookup("pipelineLineMultiSample").get<Pipeline>().pipeline;
+		//TODO FIX FIX FIX THIS, IT SHOULD GET THE PIPELINE BASED ON WHETHR MSSA IS ON OR OFF!!!
+
+		pipelineMain = ecs.lookup("pipelinePhysics").get<Pipeline>().pipelineMS;
+		pipelineLine = ecs.lookup("pipelineLine").get<Pipeline>().pipelineMS;
 
 		Initialize();
 

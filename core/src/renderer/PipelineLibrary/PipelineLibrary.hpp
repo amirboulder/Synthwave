@@ -3,140 +3,285 @@
 #include "../pipeline.hpp"
 #include "../computePipeline.hpp"
 
-// Container class for pipelines
-//TODO HOT reloading for shaders!!!
+//TODO Add HOT reloading for shaders!!!
+
 class PipelineLibrary {
 
 public:
 
 	flecs::world& ecs;
 
-	PipelineLibrary(flecs::world& ecs)
-		:ecs(ecs)
+	fs::path shaderSourceDir;
+	fs::path shaderCompiledDir;
+
+	std::vector<fs::path> shaderSrcPaths;
+	std::vector<fs::path> needsRecompilePaths;
+	std::vector<fs::path> shaderMetaDataPaths;
+
+
+	PipelineLibrary(flecs::world& ecs,
+		fs::path sourceDir = "shaders/slang/",
+		fs::path compiledDir = "shaders/compiled")
+		:ecs(ecs), shaderSourceDir(std::move(sourceDir)), shaderCompiledDir(std::move(compiledDir))
 	{
 
 	}
 
-	//TODO don't create a slang session for each shader. Create it once and compile all shaders
+	void syncShaders() {
+
+		if (!fs::exists(shaderSourceDir)) {
+			//We can Create directory but if there is no directory there are no shaders
+			return;
+		}
+
+		createSrcList();
+		createMetadataList();
+		buildNeedsCompileList();
+
+		for (const fs::path& path : needsRecompilePaths) {
+			cout << path << std::endl;
+		}
+
+		ShaderCompiler shaderCompiler;
+		shaderCompiler.compileAllShaders(needsRecompilePaths);
+
+		shaderMetaDataPaths.clear();
+		createMetadataList();
+
+		for (const fs::path& path : shaderMetaDataPaths) {
+
+			createPipelineEnt(path);
+		}
+	}
+
+	//Put all the shader source paths found in shaderSourceDir into a vector
+	void createSrcList() {
+
+		for (const auto& entry : fs::recursive_directory_iterator(shaderSourceDir)) {
+			if (!entry.is_regular_file()) continue;
+			if (entry.path().extension() != ".slang") continue;
+
+			shaderSrcPaths.push_back(entry);
+		}
+	}
+
+	void createMetadataList() {
+
+		for (const auto& entry : fs::recursive_directory_iterator(shaderCompiledDir)) {
+			if (!entry.is_regular_file()) continue;
+			if (entry.path().extension() != ".json") continue;
+
+			shaderMetaDataPaths.push_back(entry);
+		}
+
+	}
+
+	/// <summary>
+	/// For all the shader source files check if they have a matching metadata file in compiled folder.
+	/// Metadata is a json file with the same name as the source and compiled files.
+	/// Its created using information from slangs shader reflection api.
+	/// If the metadata file is outdated then add the source file to needsRecompilePaths list.
+	/// If there is no metadata then add the source to needsRecompilePaths.
+	/// </summary>
+	void buildNeedsCompileList() {
+
+		for (const fs::path& src : shaderSrcPaths) {
+
+			std::string srcFilename = src.stem().string();
+
+			bool foundMetadata = false;
+			bool alreadyAddedToList = false; //makes sure we only add file to list once
+			for (const fs::path& metadata : shaderMetaDataPaths) {
+
+				if (srcFilename == metadata.stem().string()) {
+
+					auto sourceFileLastWrite = fs::last_write_time(src);
+					auto compiledFileLastTime = fs::last_write_time(metadata);
+
+					if (sourceFileLastWrite < compiledFileLastTime) {
+						foundMetadata = true;
+						break;
+					}
+					if (sourceFileLastWrite > compiledFileLastTime) {
+
+						needsRecompilePaths.push_back(src);
+						alreadyAddedToList = true;
+						break;
+					}
+				}
+			}
+			if (!foundMetadata && !alreadyAddedToList) {
+				needsRecompilePaths.push_back(src);
+			}
+		}
+	}
+
+
 	void createPipelineEnts() {
+
+		//TODO Remove once done testing
+		SDL_SetLogPriority(LOG_RENDER, SDL_LOG_PRIORITY_TRACE);
+
+
+		syncShaders();
 
 		///////////////creating shaders
 		const RenderContext& renderContext = ecs.get<RenderContext>();
 		const RenderConfig renderConfig = ecs.get<RenderConfig>();
 
-		createPipelineEnt("pipelineUnlit", "shaders/slang/shaders.slang",
-			"shaders/compiled/unlit.vert.spv", "shaders/compiled/unlit.frag.spv",
-			glm::ivec4(0, 2, 0, 0), glm::ivec4(1, 1, 0, 0), renderContext, PipelineType::Vertex,
-			renderConfig.sampleCount);
-
-		createPipelineEnt("pipelineGrid", "shaders/slang/gridshader.slang",
-			"shaders/compiled/grid.vert.spv", "shaders/compiled/grid.frag.spv",
-			glm::ivec4(0, 2, 0, 0), glm::ivec4(0, 1, 0, 0), renderContext, PipelineType::Vertex,
-			renderConfig.sampleCount);
-
-		createPipelineEnt("pipelineMtn", "shaders/slang/wireframe.slang",
-			"shaders/compiled/wireframe.vert.spv", "shaders/compiled/wireframe.frag.spv",
-			glm::ivec4(0, 2, 0, 0), glm::ivec4(0, 1, 0, 0), renderContext, PipelineType::Vertex,
-			renderConfig.sampleCount);
-
-		createPipelineEnt("pipelinePhysics", "shaders/slang/physicsRender.slang",
-			"shaders/compiled/physicsRender.vert.spv", "shaders/compiled/physicsRender.frag.spv",
-			glm::ivec4(0, 2, 0, 0), glm::ivec4(0, 0, 0, 0), renderContext, PipelineType::PhysicsDebug,
-			renderConfig.sampleCount);
-
-		createPipelineEnt("pipelineLineMultiSample", "shaders/slang/lineShader.slang",
-			"shaders/compiled/lineShader.vert.spv", "shaders/compiled/lineShader.frag.spv",
-			glm::ivec4(0, 1, 0, 0), glm::ivec4(0, 0, 0, 0), renderContext, PipelineType::LineVertex,
-			renderConfig.sampleCount);
-
-		createPipelineEnt("pipelineLine", "shaders/slang/lineShader.slang",
-			"shaders/compiled/lineShader.vert.spv", "shaders/compiled/lineShader.frag.spv",
-			glm::ivec4(0, 1, 0, 0), glm::ivec4(0, 0, 0, 0), renderContext, PipelineType::LineVertex,
-			SDL_GPU_SAMPLECOUNT_1);
-
-		createPipelineEnt("entIdPipeline", "shaders/slang/EntIDShader.slang",
-			"shaders/compiled/entIDShader.vert.spv", "shaders/compiled/entIDShader.frag.spv",
-			glm::ivec4(0, 2, 0, 0), glm::ivec4(0, 1, 0, 0), renderContext, PipelineType::EntityId,
-			SDL_GPU_SAMPLECOUNT_1);
-		
-		createComputePipeline("OutlineComputePipeline", "shaders/slang/OutlineShader.slang",
-			"shaders/compiled/OutlineShader.comp.spv",
+		createComputePipeline("PipelineOutlineCompute", "shaders/slang/OutlineCompute.slang",
+			"shaders/compiled/OutlineCompute.comp.spv",
 			glm::ivec4(0, 1, 0, 0), renderContext);
 
-		//TODO move this
-		ecs.entity("RenderState")
-			.set<RenderState>({ ecs.lookup("pipelineUnlit") });
 	}
 
-	static bool validateShaderExistence(const std::string& filePathVS, const std::string& filePathFS) {
-		namespace fs = std::filesystem;
-		return fs::exists(filePathVS) && fs::exists(filePathFS);
-	}
+	bool createPipelineEnt(const fs::path& metaDataFilePath) {
 
-	static bool validateShaderExistence(const std::string& filePath) {
-		namespace fs = std::filesystem;
-		return fs::exists(filePath);
-	}
+		std::string filename = metaDataFilePath.stem().string();
 
-	bool createPipelineEnt(const std::string entityName, const std::string filePathShaderSrc,
-		const std::string& filePathVS, const std::string& filePathFS, glm::ivec4 paramsVS,
-		glm::ivec4 paramsFS, const RenderContext& renderContext, PipelineType type, SDL_GPUSampleCount sampleCount) {
+		string entityName = "pipeline";
+		entityName += filename;
 
 		flecs::entity pipelineEnt = ecs.entity(entityName.c_str()).set<Pipeline>({});
 
 		if (!pipelineEnt) {
 
-			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, ERROR "Failed to create entity: %s" RESET, entityName);
+			LogError(LOG_RENDER, "Failed to create entity: %s", entityName);
 			return false;
 		}
 
-		Pipeline& pipelneRef = pipelineEnt.get_mut<Pipeline>();
+		std::ifstream file(metaDataFilePath);
+		if (!file.is_open()) {
+			LogError(LOG_RENDER, "Failed to open file %s", metaDataFilePath.string().c_str());
+			return false;
+		}
 
-		if (!validateShaderExistence(filePathVS, filePathFS)) {
-			int returnVal = shader::generateSpirvShaders(filePathShaderSrc.c_str(), filePathVS.c_str(), filePathFS.c_str());
+		rapidjson::IStreamWrapper isw(file);
+		rapidjson::Document doc;
+		doc.ParseStream(isw);
 
-			if (returnVal != 0) {
-				return false;
+		if (doc.HasParseError()) {
+			LogError(LOG_RENDER, "JSON parse error: %s at offset %s in file %s",
+				doc.GetParseError(), doc.GetErrorOffset(), metaDataFilePath.string().c_str());
+			return false;
+		}
+
+		if (doc.IsObject()) {
+			LogTrace(LOG_RENDER, "Successfully loaded JSON object from file %s", metaDataFilePath.string().c_str());
+		}
+
+		if (doc.HasMember("shaderType")) {
+
+			std::string shaderType = doc["shaderType"].GetString();
+
+			if (shaderType != "graphics" && shaderType != "compute") {
+
+				LogError(LOG_RENDER, "shader type %s in file %s is not supported",
+					shaderType.c_str(),	metaDataFilePath.string().c_str());
 			}
+
+			//TODO maybe put the code in this if statemet into a seprate function
+			if (shaderType == "graphics") {
+
+				ShaderReflectionData reflectionVS;
+				ShaderReflectionData reflectionFS;
+
+				PipelineType pipelineType = PipelineType::NONE;
+
+
+				if (doc.HasMember("vertex")) {
+
+					if (doc["vertex"].HasMember("numSamplers") && doc["vertex"]["numSamplers"].IsInt()) {
+						reflectionVS.numSamplers = doc["vertex"]["numSamplers"].GetInt();
+					}
+					if (doc["vertex"].HasMember("numStorageBuffers") && doc["vertex"]["numStorageBuffers"].IsInt()) {
+						reflectionVS.numStorageBuffers = doc["vertex"]["numStorageBuffers"].GetInt();
+					}
+					if (doc["vertex"].HasMember("numStorageTextures") && doc["vertex"]["numStorageTextures"].IsInt()) {
+						reflectionVS.numStorageTextures = doc["vertex"]["numStorageTextures"].GetInt();
+					}
+					if (doc["vertex"].HasMember("numUniformBuffers") && doc["vertex"]["numUniformBuffers"].IsInt()) {
+						reflectionVS.numUniformBuffers = doc["vertex"]["numUniformBuffers"].GetInt();
+					}
+					if (doc["vertex"].HasMember("outputFile") && doc["vertex"]["outputFile"].IsString()) {
+						reflectionVS.outputFile = doc["vertex"]["outputFile"].GetString();
+					}
+
+
+				}
+
+				if (doc.HasMember("fragment")) {
+
+					if (doc["fragment"].HasMember("numSamplers") && doc["fragment"]["numSamplers"].IsInt()) {
+						reflectionFS.numSamplers = doc["fragment"]["numSamplers"].GetInt();
+					}
+					if (doc["fragment"].HasMember("numStorageBuffers") && doc["fragment"]["numStorageBuffers"].IsInt()) {
+						reflectionFS.numStorageBuffers = doc["fragment"]["numStorageBuffers"].GetInt();
+					}
+					if (doc["fragment"].HasMember("numStorageTextures") && doc["fragment"]["numStorageTextures"].IsInt()) {
+						reflectionFS.numStorageTextures = doc["fragment"]["numStorageTextures"].GetInt();
+					}
+					if (doc["fragment"].HasMember("numUniformBuffers") && doc["fragment"]["numUniformBuffers"].IsInt()) {
+						reflectionFS.numUniformBuffers = doc["fragment"]["numUniformBuffers"].GetInt();
+					}
+					if (doc["fragment"].HasMember("outputFile") && doc["fragment"]["outputFile"].IsString()) {
+						reflectionFS.outputFile = doc["fragment"]["outputFile"].GetString();
+					}
+
+				}
+
+				if (doc.HasMember("pipelineType") && doc["pipelineType"].IsInt()) {
+					int rawValue = doc["pipelineType"].GetInt();
+					pipelineType = static_cast<PipelineType>(rawValue);
+				}
+
+				Pipeline& pipelneRef = pipelineEnt.get_mut<Pipeline>();
+
+				if (!fs::exists(reflectionVS.outputFile)) {
+					LogError(LOG_RENDER, "output file %s mentioned in %s  is missing",
+						reflectionVS.outputFile.c_str(), metaDataFilePath.string().c_str());
+					return false;
+				}
+				if (!fs::exists(reflectionFS.outputFile)) {
+					LogError(LOG_RENDER, "output file %s mentioned in %s  is missing",
+						reflectionFS.outputFile.c_str(), metaDataFilePath.string().c_str());
+					return false;
+				}
+
+				pipelneRef.createPipeline(ecs, reflectionVS, reflectionFS, pipelineType);
+
+			}
+			else if (doc["shaderType"].GetString() == "compute") {
+
+				//TODO compute shader
+			}
+
+
 		}
+		else {
 
-		if (!RenderUtil::loadShaderSPRIV(renderContext.device, pipelneRef.vertexShader,
-			filePathVS, SDL_GPU_SHADERSTAGE_VERTEX, paramsVS.x, paramsVS.y, paramsVS.z, paramsVS.w)) return false;
-		if (!RenderUtil::loadShaderSPRIV(renderContext.device, pipelneRef.fragmentShader,
-			filePathFS, SDL_GPU_SHADERSTAGE_FRAGMENT, paramsFS.x, paramsFS.y, paramsFS.z, paramsFS.w)) return false;
+			LogError(LOG_RENDER, "shader metadata file %s is missing shaderType",
+				metaDataFilePath.string().c_str());
 
-		switch (type)
-		{
-		case PipelineType::Vertex:
-			if (!pipelneRef.createPipeline(ecs, entityName.c_str(), sampleCount, false)) return false;
-
-			break;
-
-		case PipelineType::LineVertex:
-
-			if (!pipelneRef.createLineVertPipeline(ecs, entityName.c_str(), sampleCount)) return false;
-
-			break;
-
-		case PipelineType::PhysicsDebug:
-
-			if (!pipelneRef.createPhysicsDebugPipeline(ecs, entityName.c_str(), sampleCount)) return false;
-
-			break;
-		case PipelineType::EntityId:
-
-			if (!pipelneRef.createEntIdPipeline(ecs, entityName.c_str(), sampleCount)) return false;
-
-			break;
-
-		default:
-			break;
 		}
-
-		pipelneRef.type = type;
 
 		return true;
+
 	}
+
+
+	//TODO REMOVE
+	static bool validateShaderExistence(const std::string& filePathVS, const std::string& filePathFS) {
+		namespace fs = std::filesystem;
+		return fs::exists(filePathVS) && fs::exists(filePathFS);
+	}
+
+	//TODO REMOVE
+	static bool validateShaderExistence(const std::string& filePath) {
+		namespace fs = std::filesystem;
+		return fs::exists(filePath);
+	}
+
 
 	bool createComputePipeline(const std::string entityName, const std::string filePathShaderSrc,
 		const std::string& filePathCS,
@@ -160,7 +305,7 @@ public:
 			}
 		}
 
-		//TODO fix hardcoded numbers. get them from shader reflection data
+		//TODO fix hardCoded numbers. get them from shader reflection data
 		uint32_t samplers = 1;
 		uint32_t readonlyStorageTextures = 0;
 		uint32_t readonlyStorageBuffers = 0;

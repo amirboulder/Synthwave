@@ -155,7 +155,7 @@ struct Renderer {
 
 	bool createAndClaimGPU() {
 
-		bool debugMode = false;
+		bool debugMode = true;
 
 		SDL_GPUVulkanOptions vulkanProps = { 0 };
 		vulkanProps.vulkan_api_version = 4206592; // Vulkan 1.3.0
@@ -621,8 +621,9 @@ struct Renderer {
 				auto models = it.field<ModelInstance>(1);
 				flecs::entity pipeline_entity = flecs::entity(it.world(), it.group_id());
 
+				//TODO FIX TO HANDLE NON-MULTI SAMPLED PIPELINES!!!
 				const Pipeline* pipelineSecond = &pipeline_entity.get<Pipeline>();
-				SDL_BindGPUGraphicsPipeline(mainRenderPass, pipelineSecond->pipeline);
+				SDL_BindGPUGraphicsPipeline(mainRenderPass, pipelineSecond->pipelineMS);
 
 				// Process all entities in this group
 				for (auto i : it) {
@@ -735,7 +736,7 @@ struct Renderer {
 		);
 
 
-		flecs::entity pipelineEnt = ecs.lookup("entIdPipeline");
+		flecs::entity pipelineEnt = ecs.lookup("pipelineEntID");
 		const Pipeline& pipeline = pipelineEnt.get<Pipeline>();
 
 		SDL_BindGPUGraphicsPipeline(mainRenderPass, pipeline.pipeline);
@@ -797,10 +798,10 @@ struct Renderer {
 		
 		// Write highlighted object to stencil buffer 
 		
-		flecs::entity pipelineEnt = ecs.lookup("entIdPipeline");
+		flecs::entity pipelineEnt = ecs.lookup("pipelineEntID");
 		const Pipeline& pipeline = pipelineEnt.get<Pipeline>();
 
-		SDL_BindGPUGraphicsPipeline(mainRenderPass, pipeline.pipeline);
+		SDL_BindGPUGraphicsPipeline(renderPass, pipeline.pipeline);
 
 		drawModel((uint32_t)selectedEnt.id(),model, transform, frameContext.commandBuffer);
 
@@ -839,7 +840,7 @@ struct Renderer {
 		);
 
 		// Bind compute pipeline
-		flecs::entity outlineComputePipelineEnt = ecs.lookup("OutlineComputePipeline");
+		flecs::entity outlineComputePipelineEnt = ecs.lookup("PipelineOutlineCompute");
 		const ComputePipeline& outlineComputePipeline = outlineComputePipelineEnt.get<ComputePipeline>();
 		SDL_BindGPUComputePipeline(computePass, outlineComputePipeline.pipeline);
 
