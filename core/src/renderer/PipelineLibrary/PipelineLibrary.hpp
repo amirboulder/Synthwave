@@ -31,6 +31,7 @@ public:
 
 		if (!fs::exists(shaderSourceDir)) {
 			//We can Create directory but if there is no directory there are no shaders
+			//TODO throw fatal error
 			return;
 		}
 
@@ -120,18 +121,9 @@ public:
 	void createPipelineEnts() {
 
 		//TODO Remove once done testing
-		SDL_SetLogPriority(LOG_RENDER, SDL_LOG_PRIORITY_TRACE);
-
+		//SDL_SetLogPriority(LOG_RENDER, SDL_LOG_PRIORITY_TRACE);
 
 		syncShaders();
-
-		///////////////creating shaders
-		const RenderContext& renderContext = ecs.get<RenderContext>();
-		const RenderConfig renderConfig = ecs.get<RenderConfig>();
-
-		createComputePipeline("PipelineOutlineCompute", "shaders/slang/OutlineCompute.slang",
-			"shaders/compiled/OutlineCompute.comp.spv",
-			glm::ivec4(0, 1, 0, 0), renderContext);
 
 	}
 
@@ -141,14 +133,6 @@ public:
 
 		string entityName = "pipeline";
 		entityName += filename;
-
-		flecs::entity pipelineEnt = ecs.entity(entityName.c_str()).set<Pipeline>({});
-
-		if (!pipelineEnt) {
-
-			LogError(LOG_RENDER, "Failed to create entity: %s", entityName);
-			return false;
-		}
 
 		std::ifstream file(metaDataFilePath);
 		if (!file.is_open()) {
@@ -180,8 +164,17 @@ public:
 					shaderType.c_str(),	metaDataFilePath.string().c_str());
 			}
 
-			//TODO maybe put the code in this if statemet into a seprate function
+			//TODO maybe put the code in this if statement into a separate function
 			if (shaderType == "graphics") {
+
+				flecs::entity pipelineEnt = ecs.entity(entityName.c_str()).set<Pipeline>({});
+
+				if (!pipelineEnt) {
+					LogError(LOG_RENDER, "Failed to create entity: %s", entityName);
+					return false;
+				}
+
+				Pipeline& pipelneRef = pipelineEnt.get_mut<Pipeline>();
 
 				ShaderReflectionData reflectionVS;
 				ShaderReflectionData reflectionFS;
@@ -189,71 +182,34 @@ public:
 				PipelineType pipelineType = PipelineType::NONE;
 
 
-				if (doc.HasMember("vertex")) {
+				processGraphicsShaderMetadata(doc, reflectionVS, reflectionFS, pipelineType);
 
-					if (doc["vertex"].HasMember("numSamplers") && doc["vertex"]["numSamplers"].IsInt()) {
-						reflectionVS.numSamplers = doc["vertex"]["numSamplers"].GetInt();
-					}
-					if (doc["vertex"].HasMember("numStorageBuffers") && doc["vertex"]["numStorageBuffers"].IsInt()) {
-						reflectionVS.numStorageBuffers = doc["vertex"]["numStorageBuffers"].GetInt();
-					}
-					if (doc["vertex"].HasMember("numStorageTextures") && doc["vertex"]["numStorageTextures"].IsInt()) {
-						reflectionVS.numStorageTextures = doc["vertex"]["numStorageTextures"].GetInt();
-					}
-					if (doc["vertex"].HasMember("numUniformBuffers") && doc["vertex"]["numUniformBuffers"].IsInt()) {
-						reflectionVS.numUniformBuffers = doc["vertex"]["numUniformBuffers"].GetInt();
-					}
-					if (doc["vertex"].HasMember("outputFile") && doc["vertex"]["outputFile"].IsString()) {
-						reflectionVS.outputFile = doc["vertex"]["outputFile"].GetString();
-					}
-
-
-				}
-
-				if (doc.HasMember("fragment")) {
-
-					if (doc["fragment"].HasMember("numSamplers") && doc["fragment"]["numSamplers"].IsInt()) {
-						reflectionFS.numSamplers = doc["fragment"]["numSamplers"].GetInt();
-					}
-					if (doc["fragment"].HasMember("numStorageBuffers") && doc["fragment"]["numStorageBuffers"].IsInt()) {
-						reflectionFS.numStorageBuffers = doc["fragment"]["numStorageBuffers"].GetInt();
-					}
-					if (doc["fragment"].HasMember("numStorageTextures") && doc["fragment"]["numStorageTextures"].IsInt()) {
-						reflectionFS.numStorageTextures = doc["fragment"]["numStorageTextures"].GetInt();
-					}
-					if (doc["fragment"].HasMember("numUniformBuffers") && doc["fragment"]["numUniformBuffers"].IsInt()) {
-						reflectionFS.numUniformBuffers = doc["fragment"]["numUniformBuffers"].GetInt();
-					}
-					if (doc["fragment"].HasMember("outputFile") && doc["fragment"]["outputFile"].IsString()) {
-						reflectionFS.outputFile = doc["fragment"]["outputFile"].GetString();
-					}
-
-				}
-
-				if (doc.HasMember("pipelineType") && doc["pipelineType"].IsInt()) {
-					int rawValue = doc["pipelineType"].GetInt();
-					pipelineType = static_cast<PipelineType>(rawValue);
-				}
-
-				Pipeline& pipelneRef = pipelineEnt.get_mut<Pipeline>();
-
-				if (!fs::exists(reflectionVS.outputFile)) {
-					LogError(LOG_RENDER, "output file %s mentioned in %s  is missing",
-						reflectionVS.outputFile.c_str(), metaDataFilePath.string().c_str());
-					return false;
-				}
-				if (!fs::exists(reflectionFS.outputFile)) {
-					LogError(LOG_RENDER, "output file %s mentioned in %s  is missing",
-						reflectionFS.outputFile.c_str(), metaDataFilePath.string().c_str());
-					return false;
-				}
-
-				pipelneRef.createPipeline(ecs, reflectionVS, reflectionFS, pipelineType);
+				pipelneRef.createPipeline(ecs, filename, reflectionVS, reflectionFS, pipelineType);
 
 			}
-			else if (doc["shaderType"].GetString() == "compute") {
+			else if (shaderType == "compute") {
 
-				//TODO compute shader
+				ComputeShaderReflectionData reflectionCS;
+
+				processComputeShaderMetadata(doc, reflectionCS);
+
+
+				flecs::entity pipelineEnt = ecs.entity(entityName.c_str()).set<ComputePipeline>({});
+				ComputePipeline& pipelineRef = pipelineEnt.get_mut<ComputePipeline>();
+
+
+				if (!pipelineRef.createPipeline(ecs, entityName.c_str(), reflectionCS.outputFile.c_str(),
+					reflectionCS.numSamplers,
+					reflectionCS.numReadOnlyStorageTextures,
+					reflectionCS.numReadOnlyStorageBuffers,
+					reflectionCS.numReadwriteStorageTextures,
+					reflectionCS.numReadwriteStorageBuffers,
+					reflectionCS.numUniformBuffers,
+					reflectionCS.threadCountX,
+					reflectionCS.threadCountY,
+					reflectionCS.threadCountZ
+				)) return false;
+
 			}
 
 
@@ -269,68 +225,119 @@ public:
 
 	}
 
+	bool processGraphicsShaderMetadata(const rapidjson::Document & doc,
+		ShaderReflectionData & reflectionVS,
+		ShaderReflectionData & reflectionFS,
+		PipelineType & pipelineType) {
 
-	//TODO REMOVE
-	static bool validateShaderExistence(const std::string& filePathVS, const std::string& filePathFS) {
-		namespace fs = std::filesystem;
-		return fs::exists(filePathVS) && fs::exists(filePathFS);
-	}
+		if (doc.HasMember("vertex")) {
 
-	//TODO REMOVE
-	static bool validateShaderExistence(const std::string& filePath) {
-		namespace fs = std::filesystem;
-		return fs::exists(filePath);
-	}
+			if (doc["vertex"].HasMember("numSamplers") && doc["vertex"]["numSamplers"].IsInt()) {
+				reflectionVS.numSamplers = doc["vertex"]["numSamplers"].GetInt();
+			}
+			if (doc["vertex"].HasMember("numStorageBuffers") && doc["vertex"]["numStorageBuffers"].IsInt()) {
+				reflectionVS.numStorageBuffers = doc["vertex"]["numStorageBuffers"].GetInt();
+			}
+			if (doc["vertex"].HasMember("numStorageTextures") && doc["vertex"]["numStorageTextures"].IsInt()) {
+				reflectionVS.numStorageTextures = doc["vertex"]["numStorageTextures"].GetInt();
+			}
+			if (doc["vertex"].HasMember("numUniformBuffers") && doc["vertex"]["numUniformBuffers"].IsInt()) {
+				reflectionVS.numUniformBuffers = doc["vertex"]["numUniformBuffers"].GetInt();
+			}
+			if (doc["vertex"].HasMember("outputFile") && doc["vertex"]["outputFile"].IsString()) {
+				reflectionVS.outputFile = doc["vertex"]["outputFile"].GetString();
+			}
 
 
-	bool createComputePipeline(const std::string entityName, const std::string filePathShaderSrc,
-		const std::string& filePathCS,
-		glm::ivec4 paramsCS, const RenderContext& renderContext) {
+		}
 
-		flecs::entity pipelineEnt = ecs.entity(entityName.c_str()).set<ComputePipeline>({});
+		if (doc.HasMember("fragment")) {
 
-		if (!pipelineEnt) {
+			if (doc["fragment"].HasMember("numSamplers") && doc["fragment"]["numSamplers"].IsInt()) {
+				reflectionFS.numSamplers = doc["fragment"]["numSamplers"].GetInt();
+			}
+			if (doc["fragment"].HasMember("numStorageBuffers") && doc["fragment"]["numStorageBuffers"].IsInt()) {
+				reflectionFS.numStorageBuffers = doc["fragment"]["numStorageBuffers"].GetInt();
+			}
+			if (doc["fragment"].HasMember("numStorageTextures") && doc["fragment"]["numStorageTextures"].IsInt()) {
+				reflectionFS.numStorageTextures = doc["fragment"]["numStorageTextures"].GetInt();
+			}
+			if (doc["fragment"].HasMember("numUniformBuffers") && doc["fragment"]["numUniformBuffers"].IsInt()) {
+				reflectionFS.numUniformBuffers = doc["fragment"]["numUniformBuffers"].GetInt();
+			}
+			if (doc["fragment"].HasMember("outputFile") && doc["fragment"]["outputFile"].IsString()) {
+				reflectionFS.outputFile = doc["fragment"]["outputFile"].GetString();
+			}
 
-			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, ERROR "Failed to create entity: %s" RESET, entityName.c_str());
+		}
+
+		if (doc.HasMember("pipelineType") && doc["pipelineType"].IsInt()) {
+			int rawValue = doc["pipelineType"].GetInt();
+			pipelineType = static_cast<PipelineType>(rawValue);
+		}
+
+		if (!fs::exists(reflectionVS.outputFile)) {
+			LogError(LOG_RENDER, "output file %s is missing",
+				reflectionVS.outputFile.c_str());
+			return false;
+		}
+		if (!fs::exists(reflectionFS.outputFile)) {
+			LogError(LOG_RENDER, "output file %s is missing",
+				reflectionFS.outputFile.c_str());
 			return false;
 		}
 
-		ComputePipeline& pipelineRef = pipelineEnt.get_mut<ComputePipeline>();
+		return true;
 
-		if (!validateShaderExistence(filePathCS)) {
-			int returnVal = shader::generateSpirvComputeShaders(filePathShaderSrc.c_str(), filePathCS.c_str());
+	}
 
-			if (returnVal != 0) {
+	bool processComputeShaderMetadata(const rapidjson::Document& doc, ComputeShaderReflectionData & reflectionCS) {
+
+		if (doc.HasMember("compute")) {
+
+			if (doc["compute"].HasMember("numSamplers") && doc["compute"]["numSamplers"].IsInt()) {
+				reflectionCS.numSamplers = doc["compute"]["numSamplers"].GetInt();
+			}
+			if (doc["compute"].HasMember("numUniformBuffers") && doc["compute"]["numUniformBuffers"].IsInt()) {
+				reflectionCS.numUniformBuffers = doc["compute"]["numUniformBuffers"].GetInt();
+			}
+			if (doc["compute"].HasMember("numReadOnlyStorageBuffers") && doc["compute"]["numReadOnlyStorageBuffers"].IsInt()) {
+				reflectionCS.numReadOnlyStorageBuffers = doc["compute"]["numReadOnlyStorageBuffers"].GetInt();
+			}
+			if (doc["compute"].HasMember("numReadOnlyStorageTextures") && doc["compute"]["numReadOnlyStorageTextures"].IsInt()) {
+				reflectionCS.numReadOnlyStorageTextures = doc["compute"]["numReadOnlyStorageTextures"].GetInt();
+			}
+			if (doc["compute"].HasMember("numReadwriteStorageTextures") && doc["compute"]["numReadwriteStorageTextures"].IsInt()) {
+				reflectionCS.numReadwriteStorageTextures = doc["compute"]["numReadwriteStorageTextures"].GetInt();
+			}
+			if (doc["compute"].HasMember("numReadwriteStorageBuffers") && doc["compute"]["numReadwriteStorageBuffers"].IsInt()) {
+				reflectionCS.numReadwriteStorageBuffers = doc["compute"]["numReadwriteStorageBuffers"].GetInt();
+			}
+			if (doc["compute"].HasMember("threadCountX") && doc["compute"]["threadCountX"].IsInt()) {
+				reflectionCS.threadCountX = doc["compute"]["threadCountX"].GetInt();
+			}
+			if (doc["compute"].HasMember("threadCountY") && doc["compute"]["threadCountY"].IsInt()) {
+				reflectionCS.threadCountY = doc["compute"]["threadCountY"].GetInt();
+			}
+			if (doc["compute"].HasMember("threadCountZ") && doc["compute"]["threadCountZ"].IsInt()) {
+				reflectionCS.threadCountZ = doc["compute"]["threadCountZ"].GetInt();
+			}
+
+			if (doc["compute"].HasMember("outputFile") && doc["compute"]["outputFile"].IsString()) {
+				reflectionCS.outputFile = doc["compute"]["outputFile"].GetString();
+			}
+
+			if (!fs::exists(reflectionCS.outputFile)) {
+				LogError(LOG_RENDER, "output file %s is missing",
+					reflectionCS.outputFile.c_str());
 				return false;
 			}
 		}
 
-		//TODO fix hardCoded numbers. get them from shader reflection data
-		uint32_t samplers = 1;
-		uint32_t readonlyStorageTextures = 0;
-		uint32_t readonlyStorageBuffers = 0;
-		uint32_t readwriteStorageTextures = 1;
-		uint32_t readwriteStorageBuffers = 0;
-		uint32_t uniformBuffers = 1;
-		uint32_t threadcountX = 8;
-		uint32_t threadcountY = 8;
-		uint32_t threadcountZ = 1;
-
-		if (!pipelineRef.createPipeline(ecs, entityName.c_str(), filePathCS.c_str(),
-			samplers,
-			readonlyStorageTextures,
-			readonlyStorageBuffers,
-			readwriteStorageTextures,
-			readwriteStorageBuffers,
-			uniformBuffers,
-			threadcountX,
-			threadcountY,
-			threadcountZ
-		)) return false;
-
-		
 		return true;
-
 	}
+
+
+	
 
 };

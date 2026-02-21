@@ -3,7 +3,6 @@
 #include "../../util/util.hpp"
 
 #include "../pipeline.hpp"
-#include "../Shader.hpp"
 #include "../renderUtil.hpp"
 
 //TODO move this somewhere else

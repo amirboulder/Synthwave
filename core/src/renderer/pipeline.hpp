@@ -21,7 +21,7 @@ public:
 	/// <summary>
 	/// 
 	/// </summary>
-	bool createPipeline(flecs::world& ecs, ShaderReflectionData & reflectionVS,
+	bool createPipeline(flecs::world& ecs,const std::string name, ShaderReflectionData & reflectionVS,
 		ShaderReflectionData & reflectionFS, PipelineType pipelineType) {
 
 		const RenderContext& renderContext = ecs.get<RenderContext>();
@@ -62,25 +62,25 @@ public:
 		{
 		case PipelineType::EntityId:
 
-			createEntIdPipeline(ecs, SDL_GPU_SAMPLECOUNT_1, pipeline);
+			createEntIdPipeline(ecs, name, SDL_GPU_SAMPLECOUNT_1, pipeline);
 
 			break;
 		case PipelineType::LineVertex:
 
-			createLineVertPipeline(ecs, SDL_GPU_SAMPLECOUNT_1, pipeline);
-			createLineVertPipeline(ecs, sampleCount, pipelineMS);
+			createLineVertPipeline(ecs, name, SDL_GPU_SAMPLECOUNT_1, pipeline);
+			createLineVertPipeline(ecs, name, sampleCount, pipelineMS);
 
 			break;
 		case PipelineType::PhysicsDebug:
 
-			createPhysicsDebugPipeline(ecs, SDL_GPU_SAMPLECOUNT_1, pipeline);
-			createPhysicsDebugPipeline(ecs, sampleCount, pipelineMS);
+			createPhysicsDebugPipeline(ecs, name, SDL_GPU_SAMPLECOUNT_1, pipeline);
+			createPhysicsDebugPipeline(ecs, name, sampleCount, pipelineMS);
 
 			break;
 		case PipelineType::Vertex:
 
-			createPipeline(ecs, SDL_GPU_SAMPLECOUNT_1, pipeline);
-			createPipeline(ecs, sampleCount, pipelineMS);
+			createPipeline(ecs, name, SDL_GPU_SAMPLECOUNT_1, pipeline);
+			createPipeline(ecs, name, sampleCount, pipelineMS);
 
 			break;
 		case PipelineType::NONE:
@@ -93,7 +93,7 @@ public:
 
 
 	// create pipeline for Struct Vertex
-	bool createPipeline(flecs::world& ecs, SDL_GPUSampleCount sampleCount, SDL_GPUGraphicsPipeline*& pipeline, bool line = false)
+	bool createPipeline(flecs::world& ecs, const std::string name, SDL_GPUSampleCount sampleCount, SDL_GPUGraphicsPipeline*& pipeline, bool line = false)
 	{
 	
 		//TODO Take  renderContext as a parameter
@@ -184,19 +184,19 @@ public:
 			pipeInfo.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_LINE;
 			pipeline = SDL_CreateGPUGraphicsPipeline(renderContext.device, &pipeInfo);
 			if (!pipeline) {
-				SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to create line pipeline: %s", SDL_GetError());
+				LogError(LOG_RENDER, "Failed to create %s pipeline: %s", SDL_GetError());
 				return false;
 			}
 
 		}
 
-		//SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,"Created pipeline %s", name);
+		LogDebug(LOG_RENDER, "Created pipeline %s ", name.c_str());
 
 		return true;
 
 	}
 
-	bool createLineVertPipeline(flecs::world& ecs, SDL_GPUSampleCount sampleCount, SDL_GPUGraphicsPipeline*& pipeline) {
+	bool createLineVertPipeline(flecs::world& ecs, const std::string name, SDL_GPUSampleCount sampleCount, SDL_GPUGraphicsPipeline*& pipeline) {
 		//Check vertex and fragment shader not being null
 		if (!vertexShader) {
 			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Vertex Shader is NULL unable to create pipeline");
@@ -280,16 +280,16 @@ public:
 		pipeline = SDL_CreateGPUGraphicsPipeline(renderContext.device, &pipeInfo);
 
 		if (!pipeline) {
-			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to create %s pipeline: %s", SDL_GetError());
+			LogError(LOG_RENDER, "Failed to create %s pipeline: %s", SDL_GetError());
 			return false;
 		}
 
-		//SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Created pipeline %s", name);
+		LogDebug(LOG_RENDER, "Created pipeline %s ", name.c_str());
 
 		return true;
 	}
 
-	bool createPhysicsDebugPipeline(flecs::world& ecs, SDL_GPUSampleCount sampleCount, SDL_GPUGraphicsPipeline*& pipeline) {
+	bool createPhysicsDebugPipeline(flecs::world& ecs, const std::string name, SDL_GPUSampleCount sampleCount, SDL_GPUGraphicsPipeline*& pipeline) {
 
 
 		const RenderContext& renderContext = ecs.get<RenderContext>();
@@ -352,16 +352,16 @@ public:
 
 		pipeline = SDL_CreateGPUGraphicsPipeline(renderContext.device, &pipeInfo);
 		if (!pipeline) {
-			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to create %s pipeline: %s", SDL_GetError());
+			LogError(LOG_RENDER, "Failed to create %s pipeline: %s", SDL_GetError());
 			return false;
 		}
 
-		//SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Created pipeline %s", name);
+		LogDebug(LOG_RENDER, "Created pipeline %s ", name.c_str());
 		return true;
 	}
 
 	
-	bool createEntIdPipeline(flecs::world& ecs, SDL_GPUSampleCount sampleCount, SDL_GPUGraphicsPipeline*& pipeline) {
+	bool createEntIdPipeline(flecs::world& ecs, const std::string name, SDL_GPUSampleCount sampleCount, SDL_GPUGraphicsPipeline*& pipeline) {
 		
 
 		const RenderContext& renderContext = ecs.get<RenderContext>();
@@ -445,11 +445,11 @@ public:
 		pipeline = SDL_CreateGPUGraphicsPipeline(renderContext.device, &pipeInfo);
 
 		if (!pipeline) {
-			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to create %s pipeline: %s", SDL_GetError());
+			LogError(LOG_RENDER, "Failed to create %s pipeline: %s", SDL_GetError());
 			return false;
 		}
 
-		//SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Created pipeline %s", name);
+		LogDebug(LOG_RENDER, "Created pipeline %s ", name.c_str());
 
 		return true;
 	}

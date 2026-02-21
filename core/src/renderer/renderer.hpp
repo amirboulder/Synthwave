@@ -17,7 +17,6 @@
 
 #include "renderUtil.hpp"
 
-#include "Shader.hpp"
 #include "pipeline.hpp"
 
 
@@ -840,17 +839,19 @@ struct Renderer {
 		);
 
 		// Bind compute pipeline
-		flecs::entity outlineComputePipelineEnt = ecs.lookup("PipelineOutlineCompute");
+		flecs::entity outlineComputePipelineEnt = ecs.lookup("pipelineOutlineCompute");
 		const ComputePipeline& outlineComputePipeline = outlineComputePipelineEnt.get<ComputePipeline>();
 		SDL_BindGPUComputePipeline(computePass, outlineComputePipeline.pipeline);
 
 		// Bind textures
 
-		SDL_GPUTextureSamplerBinding inputBinding = {
-			.texture = selectedEntColorTarget,
-			.sampler = nearestSampler
-		};
-		SDL_BindGPUComputeSamplers(computePass, 0, &inputBinding, 1);
+		//SDL_GPUTextureSamplerBinding inputBinding = {
+		//	.texture = selectedEntColorTarget,
+		//	.sampler = nearestSampler
+		//};
+		//SDL_BindGPUComputeSamplers(computePass, 0, &inputBinding, 1);
+
+		SDL_BindGPUComputeStorageTextures(computePass, 0, &selectedEntColorTarget, 1);
 
 		// Push outline color uniform
 		struct OutlineParams {

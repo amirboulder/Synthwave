@@ -1,9 +1,5 @@
-// Using Combined Image Sampler,
-layout(set = 0, binding = 0) SamplerState samplerState;
 layout(set = 0, binding = 0) Texture2D<uint> entIdTexture;
-
 layout(set = 1, binding = 0, rgba8) RWTexture2D<float4> outlineOutput;
-
 layout(set = 2, binding = 0) cbuffer OutlineParams {
     float4 outlineColor;
     float thickness;
@@ -11,7 +7,6 @@ layout(set = 2, binding = 0) cbuffer OutlineParams {
     uint screenWidth;  
     uint screenHeight; 
 };
-
 
 [numthreads(8, 8, 1)]
 [shader("compute")]
@@ -24,45 +19,36 @@ void computeMain(uint3 dispatchThreadID : SV_DispatchThreadID)
         return;
     }
 
-    // Calculate UV coordinates
-    float2 uv = (float2(pixelCoord) + 0.5) / float2(screenWidth, screenHeight);
-    float2 texelSize = 1.0 / float2(screenWidth, screenHeight);
-
-    // Sample center entity ID (stored as float but represents uint)
-    float centerID = entIdTexture.SampleLevel(samplerState, uv, 0).r;
-    uint centerEntityID = uint(centerID);
+    // Load center entity ID directly (no UV needed, integer coords)
+    uint centerEntityID = entIdTexture.Load(int3(pixelCoord, 0)).r;
 
     // Only process pixels belonging to the selected entity
     if (centerEntityID != entId) {
-        return; // Skip pixels not part of selected entity
+        return;
     }
 
     // Edge detection - check if any neighbor has different entity ID
     bool isEdge = false;
-
     int radius = int(thickness);
-    for (int x = -radius; x <= radius; x++) {
-        for (int y = -radius; y <= radius; y++) {
+
+    for (int x = -radius; x <= radius && !isEdge; x++) {
+        for (int y = -radius; y <= radius && !isEdge; y++) {
             if (x == 0 && y == 0) continue;
 
-            float2 offset = float2(x, y) * texelSize;
-            float neighborID = entIdTexture.SampleLevel(samplerState, uv + offset, 0).r;
+            int2 neighborCoord = int2(pixelCoord) + int2(x, y);
 
-            // Edge detected if neighbor has different entity ID
-            if (uint(neighborID) != entId) {
+            // Clamp to texture bounds
+            neighborCoord = clamp(neighborCoord, int2(0, 0), int2(screenWidth - 1, screenHeight - 1));
+
+            uint neighborEntityID = entIdTexture.Load(int3(neighborCoord, 0)).r;
+
+            if (neighborEntityID != entId) {
                 isEdge = true;
-                break;
             }
         }
-        if (isEdge) break;
     }
-
-    // Read existing color and blend outline
-    float4 existingColor = outlineOutput[pixelCoord];
 
     if (isEdge) {
-        // Write outline color at edges
         outlineOutput[pixelCoord] = outlineColor;
     }
-    // Otherwise leave existing color unchanged
 }

@@ -29,7 +29,7 @@ public:
 
 		std::vector<Uint8> spirvCode = RenderUtil ::loadBinaryFile(shaderFilePath);
 		if (spirvCode.empty()) {
-			std::cerr << "Failed to load compute shader: " << shaderFilePath << std::endl;
+			LogError(LOG_RENDER, "Failed to load compute shader: %s", shaderFilePath);
 			return false;
 		}
 
@@ -53,7 +53,7 @@ public:
 		pipeline = SDL_CreateGPUComputePipeline(renderContext.device, &createInfo);
 		if (pipeline == NULL)
 		{
-			SDL_Log("Failed to create compute pipeline!");
+			LogError(LOG_RENDER, "Failed to create compute pipeline! %s ", name);
 			return false;
 		}
 

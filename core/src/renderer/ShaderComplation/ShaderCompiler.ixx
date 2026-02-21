@@ -24,7 +24,7 @@ void diagnoseIfNeeded(slang::IBlob* diagnosticsBlob)
 {
 	if (diagnosticsBlob != nullptr)
 	{
-		LogError(LOG_APP, (const char*)diagnosticsBlob->getBufferPointer());
+		LogError(LOG_RENDER, (const char*)diagnosticsBlob->getBufferPointer());
 	}
 }
 
@@ -54,14 +54,35 @@ struct FragmentOutputInfo {
 };
 
 export struct ShaderReflectionData {
+
+	std::string outputFile;
+
 	uint32_t numSamplers = 0;
 	uint32_t numStorageBuffers = 0;
 	uint32_t numStorageTextures = 0;
 	uint32_t numUniformBuffers = 0;
-	uint32_t numSampledTextures = 0;
-	std::string outputFile;
-	
+	uint32_t numSampledTextures = 0; // remove
+
+
 };
+
+export struct ComputeShaderReflectionData {
+
+	std::string outputFile;
+
+	uint32_t numSamplers = 0;
+	uint32_t numUniformBuffers = 0;
+
+	uint32_t numReadOnlyStorageBuffers = 0;
+	uint32_t numReadOnlyStorageTextures = 0;
+	uint32_t numReadwriteStorageTextures = 0;
+	uint32_t numReadwriteStorageBuffers = 0;
+
+	SlangUInt threadCountX = 0;
+	SlangUInt threadCountY = 0;
+	SlangUInt threadCountZ = 0;
+};
+
 
 /// <summary>
 /// Generates SPRIV Graphics and compute shaders as well as a shader metadata.json file from Slang source files.
@@ -307,7 +328,7 @@ public:
 
 		FILE* fp = fopen(outputPathJSON.c_str(), "wb");
 		if (!fp) {
-			LogError(LOG_APP, "Failed to open reflection output file: %s", outputPathJSON.c_str());
+			LogError(LOG_RENDER, "Failed to open reflection output file: %s", outputPathJSON.c_str());
 			return -1;
 		}
 
@@ -331,30 +352,42 @@ public:
 
 		writer.Key("vertex");
 		writer.StartObject();
+
 		writer.Key("numSamplers");
 		writer.Uint(vsData.numSamplers);
+
 		writer.Key("numStorageBuffers");
 		writer.Uint(vsData.numStorageBuffers);
+
 		writer.Key("numStorageTextures");
 		writer.Uint(vsData.numStorageTextures);
+
 		writer.Key("numUniformBuffers");
 		writer.Uint(vsData.numUniformBuffers);
+
 		writer.Key("outputFile");
 		writer.String(outputPathVS.string().c_str());
+
 		writer.EndObject();
 
 		writer.Key("fragment");
 		writer.StartObject();
+
 		writer.Key("numSamplers");
 		writer.Uint(fsData.numSamplers);
+
 		writer.Key("numStorageBuffers");
 		writer.Uint(fsData.numStorageBuffers);
+
 		writer.Key("numStorageTextures");
 		writer.Uint(fsData.numStorageTextures);
+
 		writer.Key("numUniformBuffers");
 		writer.Uint(fsData.numUniformBuffers);
+
 		writer.Key("outputFile");
 		writer.String(outputPathFS.string().c_str());
+
 		writer.EndObject();
 
 		writer.EndObject();
@@ -444,54 +477,35 @@ public:
 			return -1;
 		}
 
-		uint32_t num_samplers = 0;
-		uint32_t num_storage_buffers = 0;
-		uint32_t num_storage_textures = 0;
-		uint32_t num_uniform_buffers = 0;
+		//writeReflectionBlobToFile(reflection);
 
-		unsigned int paramCount = reflection->getParameterCount();
-		for (unsigned int i = 0; i < paramCount; i++) {
+
+		ComputeShaderReflectionData reflectionDataCS;
+
+
+		for (unsigned int i = 0; i < reflection->getParameterCount(); i++) {
 			slang::VariableLayoutReflection* param = reflection->getParameterByIndex(i);
-			slang::TypeLayoutReflection* typeLayout = param->getTypeLayout();
-			slang::TypeReflection::Kind kind = typeLayout->getType()->getKind();
 
-			switch (kind) {
-			case slang::TypeReflection::Kind::SamplerState:
-				num_samplers++;
-				break;
-			case slang::TypeReflection::Kind::Resource: {
-				slang::TypeReflection* type = typeLayout->getType();
-				SlangResourceShape  shape = type->getResourceShape();
-				SlangResourceAccess access = type->getResourceAccess();
-
-				if (access == SLANG_RESOURCE_ACCESS_READ_WRITE) {
-					// Distinguish between storage textures and storage buffers
-					if (shape == SLANG_STRUCTURED_BUFFER || shape == SLANG_BYTE_ADDRESS_BUFFER) {
-						num_storage_buffers++;
-					}
-					else {
-						num_storage_textures++;
-					}
-				}
-				else if (access == SLANG_RESOURCE_ACCESS_READ) {
-					num_uniform_buffers++;
-				}
-				break;
-			}
-			default:
-				break;
-			}
+			collectComputeReflectionData(param, reflectionDataCS);
 		}
 
-		
+		slang::EntryPointReflection* reflectionEP0 = reflection->getEntryPointByIndex(0);
+
+		SlangUInt threadGroupSize[3] = { 0, 0, 0 };
+		reflectionEP0->getComputeThreadGroupSize(3, threadGroupSize);
+
+		reflectionDataCS.threadCountX = threadGroupSize[0];
+		reflectionDataCS.threadCountY = threadGroupSize[1];
+		reflectionDataCS.threadCountZ = threadGroupSize[2];
+
 		// Build the output path: same location as the .spv files, e.g. "shaderName.slang.json"
 		std::string outputPathJSON = shaderOutputFolder;
-		outputPathJSON += srcPath.filename().string();
+		outputPathJSON += srcPath.stem().string();
 		outputPathJSON += ".json";
 
 		FILE* fp = fopen(outputPathJSON.c_str(), "wb");
 		if (!fp) {
-			LogError(LOG_APP, "Failed to open reflection output file: %s", outputPathJSON.c_str());
+			LogError(LOG_RENDER, "Failed to open reflection output file: %s", outputPathJSON.c_str());
 			return -1;
 		}
 
@@ -507,33 +521,58 @@ public:
 		writer.Key("shaderType");
 		writer.String("compute");
 
-		writer.Key("reflection");
-		writer.StartObject();
-		writer.Key("num_samplers");
-		writer.Uint(num_samplers);
-		writer.Key("num_storage_buffers");
-		writer.Uint(num_storage_buffers);
-		writer.Key("num_storage_textures");
-		writer.Uint(num_storage_textures);
-		writer.Key("num_uniform_buffers");
-		writer.Uint(num_uniform_buffers);
-		writer.EndObject();
+		writer.Key("source");
+		writer.String(srcPath.string().c_str());
 
+		writer.Key("compute");
+		writer.StartObject();
+
+		writer.Key("numSamplers");
+		writer.Uint(reflectionDataCS.numSamplers);
+
+		writer.Key("numUniformBuffers");
+		writer.Uint(reflectionDataCS.numUniformBuffers);
+
+		writer.Key("numReadOnlyStorageBuffers");
+		writer.Uint(reflectionDataCS.numReadOnlyStorageBuffers);
+
+		writer.Key("numReadOnlyStorageTextures");
+		writer.Uint(reflectionDataCS.numReadOnlyStorageTextures);
+
+		writer.Key("numReadwriteStorageBuffers");
+		writer.Uint(reflectionDataCS.numReadwriteStorageBuffers);
+
+		writer.Key("numReadwriteStorageTextures");
+		writer.Uint(reflectionDataCS.numReadwriteStorageTextures);
+
+		writer.Key("threadCountX");
+		writer.Uint64(reflectionDataCS.threadCountX);
+
+		writer.Key("threadCountY");
+		writer.Uint64(reflectionDataCS.threadCountY);
+
+		writer.Key("threadCountZ");
+		writer.Uint64(reflectionDataCS.threadCountZ);
+
+		writer.Key("outputFile");
+		writer.String(outputPathCS.string().c_str());
+
+		writer.EndObject();
 		writer.EndObject();
 
 		fclose(fp);
 
-		LogVerbose(LOG_APP, "Successfully wrote reflection data to %s", outputPathJSON.c_str());
+		LogVerbose(LOG_RENDER, "Successfully wrote reflection data to %s", outputPathJSON.c_str());
 
 
 		return 0;
 	}
 
-	//TODO add compute shader reflection
 	void collectReflectionData(slang::VariableLayoutReflection* param, ShaderReflectionData& data) {
 
 		slang::TypeReflection::Kind kind = param->getType()->getKind();
 		SlangResourceShape          shape = param->getTypeLayout()->getType()->getResourceShape();
+		SlangResourceAccess access = param->getType()->getResourceAccess();
 
 		switch (kind) {
 		case slang::TypeReflection::Kind::SamplerState:  // kind 8
@@ -574,6 +613,60 @@ public:
 
 
 	}
+
+	void collectComputeReflectionData(slang::VariableLayoutReflection* param, ComputeShaderReflectionData& data) {
+		slang::TypeReflection::Kind kind = param->getType()->getKind();
+		SlangResourceShape          shape = param->getTypeLayout()->getType()->getResourceShape();
+		SlangResourceAccess access = param->getType()->getResourceAccess();
+
+		std::string name = param->getName();
+
+		switch (kind) {
+		case slang::TypeReflection::Kind::SamplerState:  // kind 8
+			data.numSamplers++;
+			break;
+		case slang::TypeReflection::Kind::ConstantBuffer: // kind 6
+			data.numUniformBuffers++;
+			break;
+		case slang::TypeReflection::Kind::Resource:       // kind 7
+			switch (shape) {
+			case SLANG_TEXTURE_1D:
+			case SLANG_TEXTURE_2D:
+			case SLANG_TEXTURE_3D:
+			case SLANG_TEXTURE_CUBE:
+				
+				if (access == SLANG_RESOURCE_ACCESS_READ_WRITE) {
+					data.numReadwriteStorageTextures++;
+				}
+				else if (access == SLANG_RESOURCE_ACCESS_READ) {
+					data.numReadOnlyStorageTextures++;
+				}
+				
+				break;
+			case SLANG_STRUCTURED_BUFFER:
+			case SLANG_BYTE_ADDRESS_BUFFER:
+				switch (access) { 
+				case SLANG_RESOURCE_ACCESS_READ:
+					data.numReadOnlyStorageBuffers++;
+					break;
+				case SLANG_RESOURCE_ACCESS_READ_WRITE:
+					data.numReadwriteStorageBuffers++;
+					break;
+				}
+				break;
+			default:
+				LogWarn(LOG_RENDER, "Unhandled resource shape %d for parameter %s",
+					shape, param->getName());
+				break;
+			}
+			break;
+		default:
+			LogWarn(LOG_RENDER, "Unhandled resource kind %d for parameter %s",
+				static_cast<int>(kind), param->getName());
+			break;
+		}
+	}
+
 
 	VertexInputInfo getVertexInputInfo(slang::ShaderReflection* reflection) {
 		VertexInputInfo info;
@@ -685,5 +778,31 @@ public:
 		
 
 		return PipelineType::NONE;
+	}
+
+	void printReflectionBlob(slang::ShaderReflection* reflection) {
+
+		// Create a blob pointer to receive the JSON data
+		ISlangBlob* jsonBlob = nullptr;
+
+		// Convert reflection to JSON
+		SlangResult result = reflection->toJson(&jsonBlob);
+
+		if (SLANG_SUCCEEDED(result) && jsonBlob)
+		{
+			// Get the JSON string from the blob
+			const char* jsonStr = (const char*)jsonBlob->getBufferPointer();
+			size_t jsonSize = jsonBlob->getBufferSize();
+
+			// Print to console
+			std::cout << std::string(jsonStr, jsonSize) << std::endl;
+
+			// Release the blob when done
+			jsonBlob->release();
+		}
+		else
+		{
+			std::cerr << "Failed to convert reflection to JSON" << std::endl;
+		}
 	}
 };

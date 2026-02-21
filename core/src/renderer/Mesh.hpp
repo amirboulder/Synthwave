@@ -1,7 +1,6 @@
 #pragma once
 
 #include "../ecs/components.hpp"
-#include "Shader.hpp"
 #include "Grid.hpp"
 
 
