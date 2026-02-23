@@ -90,6 +90,10 @@ export void LogTrace(LogCategory category, SDL_PRINTF_FORMAT_STRING const char* 
     SDL_LogTrace(category, "%s", msg.c_str());
 }
 
+/// <summary>
+/// LogSuccess is used for letting user know thing like the renderer initialed successfully,
+/// since that info is useful for debugging the priority of this is debug.
+/// </summary>
 export void LogSuccess(LogCategory category, SDL_PRINTF_FORMAT_STRING const char* fmt, ...) SDL_PRINTF_VARARG_FUNC(2) {
     va_list args;
     va_start(args, fmt);
@@ -98,6 +102,9 @@ export void LogSuccess(LogCategory category, SDL_PRINTF_FORMAT_STRING const char
     SDL_LogDebug(category, "%s", msg.c_str());
 }
 
+/// <summary>
+/// This exists just for FUN!
+/// </summary>
 export void LogSynth(LogCategory category, SDL_PRINTF_FORMAT_STRING const char* fmt, ...) SDL_PRINTF_VARARG_FUNC(2) {
     va_list args;
     va_start(args, fmt);

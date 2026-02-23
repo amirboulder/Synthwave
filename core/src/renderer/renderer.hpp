@@ -82,7 +82,7 @@ struct Renderer {
 
 	void initSubSystems() {
 
-		pipelineLib.createPipelineEnts();
+		pipelineLib.init();
 
 		initPhysicsRenderer();
 

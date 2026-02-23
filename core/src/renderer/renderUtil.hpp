@@ -46,7 +46,7 @@ public:
 
         buffer = SDL_CreateGPUBuffer(device, &bufferCreateInfo);
         if (!buffer) {
-            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to create buffer of type: %d  %s", SDL_GPUBufferUsageFlag, SDL_GetError());
+            LogError(LOG_RENDER, "Failed to create buffer of type: %d  %s", SDL_GPUBufferUsageFlag, SDL_GetError());
             return ;
         }
 
@@ -57,7 +57,10 @@ public:
 
         SDL_GPUTransferBuffer* transferBuffer = SDL_CreateGPUTransferBuffer(device, &transferInfo);
         if (!transferBuffer) {
-            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to create transfer buffer: %s", SDL_GetError());
+
+			LogError(LOG_RENDER, "Failed to create transfer buffer: %s", SDL_GetError());
+			SDL_ReleaseGPUTransferBuffer(device, transferBuffer);
+
             return;
         }
 
@@ -65,9 +68,9 @@ public:
         void* mappedData = SDL_MapGPUTransferBuffer(device, transferBuffer, false);
         if (!mappedData) {
 
-            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to map transfer buffer: %s", SDL_GetError());
-
+			LogError(LOG_RENDER, "Failed to map transfer buffer: %s", SDL_GetError());
             SDL_ReleaseGPUTransferBuffer(device, transferBuffer);
+
             return;
         }
 
@@ -93,7 +96,8 @@ public:
         std::ifstream file(filename, std::ios::binary | std::ios::ate);
 
         if (!file.is_open()) {
-            std::cerr << "Failed to open file: " << filename << std::endl;
+
+			LogError(LOG_RENDER, "Failed to open file: %s", filename.c_str());
             return {};
         }
 
@@ -102,7 +106,8 @@ public:
 
         std::vector<Uint8> buffer(size);
         if (!file.read(reinterpret_cast<char*>(buffer.data()), size)) {
-            std::cerr << "Failed to read file: " << filename << std::endl;
+
+			LogError(LOG_RENDER, "Failed to read file: %s", filename.c_str());
             return {};
         }
 
@@ -117,7 +122,7 @@ public:
 		result = SDL_LoadBMP(path);
 		if (result == NULL)
 		{
-			SDL_Log("Failed to load BMP: %s", SDL_GetError());
+			LogError(LOG_RENDER, "Failed to load BMP: %s", SDL_GetError());
 			return NULL;
 		}
 
@@ -155,7 +160,7 @@ public:
 
 		std::vector<Uint8> spirvCode = RenderUtil::loadBinaryFile(filename);
 		if (spirvCode.empty()) {
-			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to load shader ");
+			LogError(LOG_RENDER, "Failed to load shader %s", filename.c_str());
 			return false;
 		}
 
@@ -173,8 +178,17 @@ public:
 
 		shader = SDL_CreateGPUShader(device, &createInfo);
 
+		std::string stageName = " ";
+
+		if (stage == SDL_GPU_SHADERSTAGE_VERTEX) {
+			stageName = "vertex";
+		}
+		else if (stage == SDL_GPU_SHADERSTAGE_FRAGMENT) {
+			stageName = "fragment";
+		}
+
 		if (shader == NULL) {
-			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,"Failed to create fragment shader!");
+			LogError(LOG_RENDER, "Failed to create SDL_GPU %s shader form file ", stageName.c_str(), filename.c_str());
 			return false;
 		}
 	}

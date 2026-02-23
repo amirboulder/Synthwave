@@ -78,9 +78,9 @@ export struct ComputeShaderReflectionData {
 	uint32_t numReadwriteStorageTextures = 0;
 	uint32_t numReadwriteStorageBuffers = 0;
 
-	SlangUInt threadCountX = 0;
-	SlangUInt threadCountY = 0;
-	SlangUInt threadCountZ = 0;
+	uint32_t threadCountX = 0;
+	uint32_t threadCountY = 0;
+	uint32_t threadCountZ = 0;
 };
 
 
@@ -494,9 +494,9 @@ public:
 		SlangUInt threadGroupSize[3] = { 0, 0, 0 };
 		reflectionEP0->getComputeThreadGroupSize(3, threadGroupSize);
 
-		reflectionDataCS.threadCountX = threadGroupSize[0];
-		reflectionDataCS.threadCountY = threadGroupSize[1];
-		reflectionDataCS.threadCountZ = threadGroupSize[2];
+		reflectionDataCS.threadCountX = static_cast<uint32_t>(threadGroupSize[0]);
+		reflectionDataCS.threadCountY = static_cast<uint32_t>(threadGroupSize[1]);
+		reflectionDataCS.threadCountZ = static_cast<uint32_t>(threadGroupSize[2]);
 
 		// Build the output path: same location as the .spv files, e.g. "shaderName.slang.json"
 		std::string outputPathJSON = shaderOutputFolder;

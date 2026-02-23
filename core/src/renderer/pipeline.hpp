@@ -4,12 +4,20 @@
 
 //TODO reduce code duplication here.
 
+/// <summary>
+/// Pipeline class is a wrapper around SDL_GPUGraphicsPipeline and is responsible for creating graphics pipelines.
+/// Some PipelineTypes needs both singleSampled and multiSampled versions,
+/// This is because the main render pass may of may not use MSAA or a pipeline may be used outside of the main render pass as well.
+/// different pipeline use varying input data so PipelineType was created so match a pipeline to its relevant createPipeline.
+/// PipelineType is determined using vertex input and fragment output data present in shader reflection,
+/// see ShaderCompiler::identifyPipelineType() 
+/// </summary>
 class Pipeline {
 
 public:
 
-	SDL_GPUGraphicsPipeline* pipeline = NULL;
-	SDL_GPUGraphicsPipeline* pipelineMS = NULL; //MultiSampled
+	SDL_GPUGraphicsPipeline* pipeline = NULL; //singleSampled
+	SDL_GPUGraphicsPipeline* pipelineMS = NULL; //multiSampled
 
 	SDL_GPUShader* vertexShader = nullptr;
 	SDL_GPUShader* fragmentShader = nullptr;
@@ -18,9 +26,7 @@ public:
 
 	Pipeline() {};
 
-	/// <summary>
-	/// 
-	/// </summary>
+
 	bool createPipeline(flecs::world& ecs,const std::string name, ShaderReflectionData & reflectionVS,
 		ShaderReflectionData & reflectionFS, PipelineType pipelineType) {
 
@@ -45,16 +51,6 @@ public:
 			reflectionFS.numSamplers, reflectionFS.numUniformBuffers,
 			reflectionFS.numStorageBuffers, reflectionFS.numStorageTextures))
 		{
-			return false;
-		}
-
-		//Check vertex and fragment shader not being null
-		if (!vertexShader) {
-			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Vertex Shader is NULL unable to create pipeline");
-			return false;
-		}
-		if (!fragmentShader) {
-			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Fragment Shader is NULL unable to create pipeline");
 			return false;
 		}
 
@@ -176,7 +172,7 @@ public:
 
 		pipeline = SDL_CreateGPUGraphicsPipeline(renderContext.device, &pipeInfo);
 		if (!pipeline) {
-			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to create fill pipeline: %s", SDL_GetError());
+			LogError(LOG_RENDER, "Failed to create fill pipeline: %s", SDL_GetError());
 			return false;
 		}
 
@@ -197,15 +193,7 @@ public:
 	}
 
 	bool createLineVertPipeline(flecs::world& ecs, const std::string name, SDL_GPUSampleCount sampleCount, SDL_GPUGraphicsPipeline*& pipeline) {
-		//Check vertex and fragment shader not being null
-		if (!vertexShader) {
-			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Vertex Shader is NULL unable to create pipeline");
-			return false;
-		}
-		if (!fragmentShader) {
-			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Fragment Shader is NULL unable to create pipeline");
-			return false;
-		}
+		
 
 		const RenderContext& renderContext = ecs.get<RenderContext>();
 
