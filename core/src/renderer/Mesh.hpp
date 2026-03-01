@@ -6,16 +6,6 @@
 
 using std::vector, std::string;
 
-void PrintGLMMat4(const glm::mat4& mat, const char * name) {
-	std::cout << "GLM Matrix with index : " << name << ":\n";
-	for (int row = 0; row < 4; ++row) {
-		std::cout << "| ";
-		for (int col = 0; col < 4; ++col) {
-			std::cout << std::setw(10) << std::setprecision(4) << mat[col][row] << " ";
-		}
-		std::cout << "|\n";
-	}
-}
 
 class MeshSource {
 
@@ -24,10 +14,12 @@ public:
 	std::vector<Vertex> vertices;
 	std::vector <unsigned int> indices;
 
-	Transform  transform;
+	Transform transform;
 
 	SDL_GPUBuffer* vertexBuffer = NULL;
 	SDL_GPUBuffer* indexBuffer = NULL;
+
+	uint32_t size = 0;
 
 	SDL_GPUTexture* diffuseTexture;
 
@@ -110,17 +102,19 @@ public:
 
 		}
 
+		size = indices.size();
+
 		return true;
 
 	}
 
 	//MTN
-	bool processMeshsequential(aiMesh* importedMesh) {
+	bool processMeshSequential(aiMesh* importedMesh) {
 
 		vertices.reserve(importedMesh->mNumVertices);
 
 
-		//Using Color for barycentrcic coords
+		//Using Color for barycentric coords
 
 		for (unsigned int i = 0; i < importedMesh->mNumFaces; ++i) {
 			const aiFace& face = importedMesh->mFaces[i];
@@ -175,6 +169,8 @@ public:
 			indices.push_back(i);
 		}
 
+		size = indices.size();
+
 		return true;
 	}
 
@@ -188,7 +184,7 @@ public:
 
 struct MeshInstance {
 
-	Transform  transform;
+	Transform transform;
 
 	SDL_GPUBuffer* vertexBuffer = NULL;
 	SDL_GPUBuffer* indexBuffer = NULL;
@@ -198,5 +194,15 @@ struct MeshInstance {
 	Uint32 size = 0;
 };
 
+
+struct MeshInstance2 {
+
+	Transform transform;
+
+	SDL_GPUBuffer* vertexBuffer = NULL;
+	SDL_GPUBuffer* indexBuffer = NULL;
+
+	Uint32 size = 0;
+};
 
 

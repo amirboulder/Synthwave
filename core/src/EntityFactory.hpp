@@ -30,8 +30,10 @@ public:
 
 		//Get the modelSource from Asset Library
 		AssetLibRef ref = ecs.get<AssetLibRef>();
-		ModelSource* modelSource = ref.assetLib->get(ModelSrcName);
-		if (!validateModelSrcExistence(modelSource, ModelSrcName)) return false;
+
+		uint32_t modelIndex = ref.assetLib->requestIndex(ModelSrcName);
+		const ModelSource * modelSource  = ref.assetLib->models.at(modelIndex).source.get();
+		if (!validateModelID(modelIndex, ModelSrcName)) return false;
 
 		float meshX;
 		float meshY;
@@ -79,8 +81,7 @@ public:
 			.set<EntityType>({ EntityType::Cube })
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
-			.set<ModelInstance>(modelSource->createInstance())
-			.set<ModelSourceRef>({ ModelSrcName })
+			.set<ModelIndex>({ modelIndex })
 			.set<JPH::BodyID>(physicsID)
 			.add<RenderPipeline>(ecs.lookup(pipelineName.c_str()))
 			.child_of(parent)
@@ -102,10 +103,10 @@ public:
 		if (!validateTransform(transform, name.c_str())) return false;
 		if (!validatePipelineExistence(ecs, pipelineName)) return false;
 
-		//Get the modelSource from Asset Library
-		AssetLibRef ref = ecs.get<AssetLibRef>();
-		ModelSource* modelSource = ref.assetLib->get(ModelSrcName);
-		if (!validateModelSrcExistence(modelSource, ModelSrcName)) return false;
+		////Get the modelSource from Asset Library
+		//AssetLibRef ref = ecs.get<AssetLibRef>();
+		//ModelSource* modelSource = ref.assetLib->get(ModelSrcName);
+		//if (!validateModelSrcExistence(modelSource, ModelSrcName)) return false;
 
 		JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
 
@@ -121,7 +122,6 @@ public:
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
 			//.set<ModelInstance>(modelSource->createInstance())
-			.set<ModelSourceRef>({ ModelSrcName })
 			.set<AnimationTime>({})
 			.add<RenderPipeline>(ecs.lookup(pipelineName.c_str()))
 			//.emplace<ActorBehavior>(updateFunction)
@@ -153,9 +153,9 @@ public:
 		if (!validatePipelineExistence(ecs, pipelineName)) return false;
 
 		//Get the modelSource from Asset Library
-		AssetLibRef ref = ecs.get<AssetLibRef>();
+		/*AssetLibRef ref = ecs.get<AssetLibRef>();
 		ModelSource* modelSource = ref.assetLib->get(ModelSrcName);
-		if (!validateModelSrcExistence(modelSource, ModelSrcName)) return false;
+		if (!validateModelSrcExistence(modelSource, ModelSrcName)) return false;*/
 
 		JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
 
@@ -173,7 +173,6 @@ public:
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
 			//.set<ModelInstance>(modelSource->createInstance())
-			.set<ModelSourceRef>({ ModelSrcName })
 			.set<AnimationTime>({})
 			.add<RenderPipeline>(ecs.lookup(pipelineName.c_str()))
 			//.emplace<ActorBehavior>(updateFunction)
@@ -237,8 +236,10 @@ public:
 		//Get the modelSource and Ragdoll filepath from Asset Library
 		AssetLibRef assetLibRef = ecs.get<AssetLibRef>();
 		std::map<std::string, std::string>& ragdollList = assetLibRef.assetLib->ragdolls;
-		ModelSource* modelSource = assetLibRef.assetLib->get(ModelSrcName);
-		if (!validateModelSrcExistence(modelSource, ModelSrcName)) return false;
+
+	/*	ModelSource* modelSource = assetLibRef.assetLib->get(ModelSrcName);
+		if (!validateModelSrcExistence(modelSource, ModelSrcName)) return false;*/
+
 		if (!validateRagdollExistence(ragdollFilename, ragdollList)) return false;
 
 		const char * ragdollFilePath =  ragdollList.at(ragdollFilename).c_str();
@@ -272,7 +273,6 @@ public:
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
 			//.set<ModelInstance>(modelSource->createInstance())
-			.set<ModelSourceRef>({ ModelSrcName })
 			.set<AnimationTime>({})
 			.add<RenderPipeline>(ecs.lookup(pipelineName.c_str()))
 			//emplace<ActorBehavior>(updateFunction)
@@ -300,9 +300,9 @@ public:
 		if (!validatePipelineExistence(ecs, pipelineName)) return false;
 
 		//Get the modelSource from Asset Library
-		AssetLibRef ref = ecs.get<AssetLibRef>();
-		ModelSource* modelSource = ref.assetLib->get(ModelSrcName);
-		if (!validateModelSrcExistence(modelSource, ModelSrcName)) return false;
+		//AssetLibRef ref = ecs.get<AssetLibRef>();
+		//ModelSource* modelSource = ref.assetLib->get(ModelSrcName);
+		//if (!validateModelSrcExistence(modelSource, ModelSrcName)) return false;
 
 
 		JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
@@ -316,7 +316,6 @@ public:
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
 			//.set<ModelInstance>(modelSource->createInstance())
-			.set<ModelSourceRef>({ ModelSrcName })
 			//.set<AnimationTime>({})
 			.add<RenderPipeline>(ecs.lookup(pipelineName.c_str()))
 			.emplace<ActorBehavior>(updateFunction)
@@ -363,8 +362,8 @@ public:
 
 		//Get the modelSource from Asset Library
 		AssetLibRef ref = ecs.get<AssetLibRef>();
-		ModelSource* modelSource = ref.assetLib->get(ModelSrcName);
-		if (!validateModelSrcExistence(modelSource, ModelSrcName)) return false;
+		//ModelSource* modelSource = ref.assetLib->get(ModelSrcName);
+		//if (!validateModelSrcExistence(modelSource, ModelSrcName)) return false;
 
 
 		JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
@@ -378,7 +377,6 @@ public:
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
 			//.set<ModelInstance>(modelSource->createInstance())
-			.set<ModelSourceRef>({ ModelSrcName })
 			//.set<AnimationTime>({})
 			.add<RenderPipeline>(ecs.lookup(pipelineName.c_str()))
 			.emplace<ActorBehavior>(updateFunction)
@@ -476,10 +474,10 @@ public:
 
 		//Get the modelSource from Asset Library
 		AssetLibRef ref = ecs.get<AssetLibRef>();
-		ModelSource* modelSource = ref.assetLib->get(ModelSrcName);
+		uint32_t modelIndex = ref.assetLib->requestIndex(ModelSrcName);
+		const ModelSource* modelSource = ref.assetLib->models.at(modelIndex).source.get();
+		if (!validateModelID(modelIndex, ModelSrcName)) return false;
 
-		if (!validateModelSrcExistence(modelSource, ModelSrcName)) return false;
-		
 		float meshX;
 		float meshY;
 		float meshZ;
@@ -530,8 +528,7 @@ public:
 			.set<EntityType>({ EntityType::Capsule })
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
-			.set<ModelInstance>(modelSource->createInstance())
-			.set<ModelSourceRef>({ ModelSrcName })
+			.set<ModelIndex>({ modelIndex })
 			.set<JPH::BodyID>(physicsID)
 			.add<RenderPipeline>(ecs.lookup(pipelineName.c_str()))
 			.child_of(parent)
@@ -555,8 +552,9 @@ public:
 
 		//Get the modelSource from Asset Library
 		AssetLibRef ref = ecs.get<AssetLibRef>();
-		ModelSource* modelSource = ref.assetLib->get(ModelSrcName);
-		if (!validateModelSrcExistence(modelSource, ModelSrcName)) return false;
+		uint32_t modelIndex = ref.assetLib->requestIndex(ModelSrcName);
+		const ModelSource* modelSource = ref.assetLib->models.at(modelIndex).source.get();
+		if (!validateModelID(modelIndex, ModelSrcName)) return false;
 
 		// Convert GLM to Jolt types
 		JPH::Vec3 joltPosition(transform.position.x, transform.position.y, transform.position.z);
@@ -581,10 +579,9 @@ public:
 			.set<EntityType>({ EntityType::Actor})
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
-			.set<ModelInstance>(modelSource->createInstance())
+			.set<ModelIndex>({modelIndex})
 			.set<JoltCharacter>({ joltCharacter })
 			.set<JPH::BodyID>(joltCharacter->GetBodyID())
-			.set<ModelSourceRef>({ ModelSrcName })
 			.emplace<ActorBehavior>(actorUpdate)
 			.add<RenderPipeline>(ecs.lookup(pipelineName.c_str()))
 			.child_of(parent);
@@ -602,15 +599,19 @@ public:
 
 	// A Renderable is just a model and a transform no physics body
 	//TODO Update
-	static bool createRenderableEntity(flecs::world& ecs, flecs::entity parent, std::string name, ModelSource& modelSource, Transform transform, const char* pipelineName = NULL) {
+	static bool createRenderableEntity(flecs::world& ecs, flecs::entity parent, std::string name, const std::string ModelSrcName, Transform transform, const char* pipelineName = NULL) {
 
 		if (!EntityFactory::validateName(name)) return false;
 		if (!EntityFactory::validateTransform(transform, name.c_str())) return false;
 
+		AssetLibRef ref = ecs.get<AssetLibRef>();
+		uint32_t modelIndex = ref.assetLib->requestIndex(ModelSrcName);
+		const ModelSource* modelSource = ref.assetLib->models.at(modelIndex).source.get();
+		if (!validateModelID(modelIndex, ModelSrcName)) return false;
 
 		const flecs::entity entity = ecs.entity(name.c_str())
 			.set<Transform>(transform)
-			.set<ModelInstance>(modelSource.createInstance());
+			.set<ModelIndex>({modelIndex});
 		if (pipelineName) {
 			entity.add<RenderPipeline>(ecs.lookup(pipelineName));
 
@@ -632,8 +633,9 @@ public:
 
 		//Get the modelSource from Asset Library
 		AssetLibRef ref = ecs.get<AssetLibRef>();
-		ModelSource* modelSource = ref.assetLib->get(ModelSrcName);
-		if (!validateModelSrcExistence(modelSource, ModelSrcName)) return false;
+		uint32_t modelIndex = ref.assetLib->requestIndex(ModelSrcName);
+		const ModelSource* modelSource = ref.assetLib->models.at(modelIndex).source.get();
+		if (!validateModelID(modelIndex, ModelSrcName)) return false;
 
 		// Scale vertices
 		//ASSUMING the model only has one mesh
@@ -692,8 +694,7 @@ public:
 			.set<EntityType>({ EntityType::StaticMesh })
 			.add<StaticEnt>()
 			.set<Transform>(transform)
-			.set<ModelSourceRef>({ ModelSrcName })
-			.set<ModelInstance>(modelSource->createInstance())
+			.set<ModelIndex>({modelIndex})
 			.set<JPH::BodyID>(physicsID)
 			.add<RenderPipeline>( ecs.lookup(pipelineName.c_str()))
 			.child_of(parent);
@@ -708,7 +709,7 @@ public:
 	}
 
 	
-	static bool createGridEntity(flecs::world& ecs, const flecs::entity parent, const std::string name, const std::string ModelSrcName, Transform transform, const std::string pipelineName, int rows, int cols) {
+	static bool createGridEntity(flecs::world& ecs, const flecs::entity parent, const std::string name, Transform transform, const std::string pipelineName, uint32_t size) {
 
 		if (!validateName(ecs, parent, name)) return false;
 		if (!validateTransform(transform, name.c_str())) return false;
@@ -716,12 +717,18 @@ public:
 
 		//Get the modelSource from Asset Library
 		AssetLibRef ref = ecs.get<AssetLibRef>();
-		ModelSource* modelSource = ref.assetLib->get(ModelSrcName);
-		if (!validateModelSrcExistence(modelSource, ModelSrcName)) return false;
+
+		//Grid is generated so generate then ask for its index
+		std::string modelName = ref.assetLib->generateGridModel(size);
+		uint32_t modelIndex = ref.assetLib->requestIndex(modelName);
+		
+
+		const ModelSource* modelSource = ref.assetLib->models.at(modelIndex).source.get();
+		if (!validateModelID(modelIndex, modelName)) return false;
 
 		// any thickness less than 0.01 will break jolt!
 		float boxThickness = 1;
-		Vec3 boxHalfExtents(rows * 0.5, boxThickness * 0.5, cols * 0.5);
+		Vec3 boxHalfExtents(size * 0.5, boxThickness * 0.5, size * 0.5);
 
 		Ref<Shape> boxShape = new BoxShape(boxHalfExtents);
 
@@ -759,8 +766,7 @@ public:
 			.set<EntityType>({ EntityType::Grid })
 			.add<StaticEnt>()
 			.set<Transform>(transform)
-			.set<ModelSourceRef>({ ModelSrcName })
-			.set<ModelInstance>(modelSource->createInstance())
+			.set<ModelIndex>({ modelIndex })
 			.set<JPH::BodyID>(physicsID)
 			.add<RenderPipeline>(ecs.lookup(pipelineName.c_str()))
 			.child_of(parent);
@@ -977,6 +983,16 @@ public:
 
 		if (!model) {
 			SDL_LogError(SDL_LOG_CATEGORY_ERROR, "EntityFactory Error ModelSource does not exist! : %s", modelName.c_str());
+			return false;
+		}
+		return true;
+
+	}
+
+	static bool validateModelID(uint32_t modelID, const std::string modelName) {
+
+		if (modelID == UINT32_MAX) {
+			SDL_LogError(SDL_LOG_CATEGORY_ERROR, "EntityFactory ModelIndex is not valid! : %s", modelName.c_str());
 			return false;
 		}
 		return true;

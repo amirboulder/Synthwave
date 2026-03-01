@@ -443,7 +443,7 @@ public:
 		Transform gridTransform;
 		gridTransform.position = glm::vec3(12.0f, 0.0f, 0.0f);
 		gridTransform.rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
-		EntityFactory::createGridEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, "Grid256", gridTransform, "pipelineGrid", 256, 256);
+		EntityFactory::createGridEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, gridTransform, "pipelineGrid", 256);
 
 	}
 

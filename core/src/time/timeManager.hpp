@@ -24,7 +24,7 @@ public:
 	{
 		appStartTime = SDL_GetTicks();
 
-		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, GOOD "TimeManager Initialized" RESET);
+		LogSuccess(LOG_APP, "TimeManager Initialized");
 	}
 
 	void startGameTime()
@@ -34,7 +34,6 @@ public:
 	}
 
 	void tick() {
-
 
 		deltaTime = (SDL_GetTicks() - lastTime) / 1000.0f;
 		lastTime = SDL_GetTicks();

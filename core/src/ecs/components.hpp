@@ -160,8 +160,25 @@ struct EditorVisuals {};
 struct OverlayComponent {};
 struct Active{};
 
+/// <summary>
+/// A Tag attached to objects that should only be rendered in while editor is enabled.
+/// Used by renderer queries.
+/// </summary>
+struct GizmoMesh {};
+
+/// <summary>
+/// A Tag attached to objects that should be rendered in game.
+/// Used by renderer queries.
+/// </summary>
+struct Renderable{};
+
 struct IsActive {};
 
+
+/// <summary>
+/// Reference to the physics system which allows other system query it from the ECS
+/// instead of having to pass around references.
+/// </summary>
 struct PhysicsSystemRef {
 	JPH::PhysicsSystem & physicsSystem;
 };
@@ -176,6 +193,9 @@ struct ModelSourceRef {
 	std::string name;
 };
 
+/// <summary>
+/// Used for locking the camera
+/// </summary>
 struct CameraMVMTState {
 	bool locked = false;
 };
@@ -188,6 +208,9 @@ struct HighlightedEntRef {
 	flecs::entity ent;
 };
 
+/// <summary>
+/// Used for Serialization
+/// </summary>
 enum class EntityType {
 	Empty,
 	Game,

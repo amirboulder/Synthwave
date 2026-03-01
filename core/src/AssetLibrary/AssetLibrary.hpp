@@ -1,10 +1,17 @@
-#pragma once 
+﻿#pragma once 
 
 class AssetLibrary;
 
 struct AssetLibRef {
     AssetLibrary * assetLib;
 };
+
+struct ModelEntry {
+    std::unique_ptr<ModelSource> source;
+    int refCount = 0;
+};
+
+typedef std::pair<std::string, ModelEntry> ModelPair;
 
 //TODO FIX HARDCODED PATHS
 class AssetLibrary {
@@ -13,7 +20,9 @@ public:
 
     std::string assetsFolder;
 
-    std::unordered_map<std::string, std::unique_ptr<ModelSource>> models;
+    std::unordered_map<std::string, fs::path> modelPaths;
+    std::unordered_map<std::string, uint32_t> modelNameToIndex;
+    std::vector<ModelEntry> models;
 
     //maps ragdoll names to their paths
     std::map<std::string, std::string> ragdolls;
@@ -23,7 +32,8 @@ public:
     AssetLibrary(flecs::world& ecs, std::string assetFolder = "assets")
         :ecs(ecs), assetsFolder(assetFolder)
     {
-        defaultAssets();
+        scanForFilesRecursive(assetsFolder, ".glb", modelPaths);
+        scanForFilesRecursive(assetsFolder, ".obj", modelPaths);
 
         // Register the ref component
         ecs.component<AssetLibRef>();
@@ -31,31 +41,51 @@ public:
 
         scanForRagdolls();
 
-        SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, GOOD "AssetLibrary Initialized" RESET);
+        LogSuccess(LOG_APP, "AssetLibrary Initialized");
     }
 
-    ModelSource* get(const std::string& id) {
-        auto it = models.find(id);
-        return (it != models.end()) ? it->second.get() : nullptr;
+    /// <summary>
+    /// Loads the models if not loaded an returns the model id.
+    /// </summary>
+    uint32_t requestIndex(const std::string& modelName) {
+        // Already loaded
+        auto it = modelNameToIndex.find(modelName);
+        if (it != modelNameToIndex.end())
+            return it->second;
+
+        
+        auto pathIt = modelPaths.find(modelName);
+        if (pathIt == modelPaths.end()) {
+            LogError(LOG_APP, "Model %s not found", modelName.c_str());
+            return UINT32_MAX; // use max as invalid, not 0
+        }
+
+        // Load it
+        uint32_t index = models.size();
+        ModelEntry entry;
+        entry.source = std::make_unique<ModelSource>(ecs, pathIt->second.string().c_str());
+        entry.refCount = 1;
+        models.push_back(std::move(entry));
+        modelNameToIndex[modelName] = index;
+        return index;
     }
 
-    void add(const std::string& id, std::unique_ptr<ModelSource> model) {
-        models[id] = std::move(model);
+    std::string generateGridModel(uint32_t size) {
+
+        std::string modelName = "Grid";
+        modelName.append(std::to_string(size));
+
+        uint32_t index = models.size();
+        ModelEntry entry;
+        entry.source = std::make_unique<ModelSource>(ecs, size);
+        entry.refCount = 1;
+        models.push_back(std::move(entry));
+        modelNameToIndex[modelName] = index;
+
+        return modelName;
     }
 
-	void defaultAssets() {
-
-        add("robot", std::make_unique<ModelSource>(ecs, "assets/robot4Wheels.glb"));
-        add("CapsuleModel", std::make_unique<ModelSource>(ecs, "assets/capsule4.glb"));
-        add("CubeModel", std::make_unique<ModelSource>(ecs, "assets/Cube.glb"));
-        add("Grid256", std::make_unique<ModelSource>(ecs, 256, 256));
-        add("Mountains", std::make_unique<ModelSource>(ecs, "assets/mtn2.obj", true));
-        add("ActorModel", std::make_unique<ModelSource>(ecs, "assets/enemy1.glb"));
-
-        //ModelSource sponzaSource("assets/Sponza/sponza.obj", renderer.context.device);
-	}
-
-
+    //TODO update map to use fs::path
     void scanForFiles(const std::string& folderPath, const std::string& extension, std::map<std::string, std::string> & map) {
 
         std::error_code ec;
@@ -85,18 +115,42 @@ public:
         }
     }
 
+    void scanForFilesRecursive(const std::string& folderPath, const std::string& extension, std::unordered_map<std::string, fs::path>& map) {
+
+        std::error_code ec;
+
+        if (!fs::exists(folderPath, ec) || ec) {
+            LogError(LOG_APP, "Directory %s doesn't exist or can't be accessed", folderPath.c_str());
+            //TODO FAIL TO LOAD LEVEL 
+        }
+
+        for (const auto& entry : fs::recursive_directory_iterator(folderPath)) {
+            if (!entry.is_regular_file()) continue;
+            if (entry.path().extension() != extension) continue;
+
+            std::string nameOnly = entry.path().stem().string();
+
+            map[nameOnly] = entry;
+        }
+
+        if (ec) {
+            LogError(LOG_APP, "during directory iteration: %s", ec.message().c_str());
+        }
+    }
+
     void scanForRagdolls() {
 
         scanForFiles(util::getBuildRagdollsFolder().string(), ".bof", ragdolls);
     }
 
+    //TODO
+    void release(const std::string& id) {
+   
+    }
 
-    //TODO fix
-    ~AssetLibrary() {
-        for (auto& [id, model] : models) {
-            //delete model;
-        }
-        models.clear();
+    // TODO Call on level unload / scene transition
+    void cleanup() {
+       
     }
 };
 

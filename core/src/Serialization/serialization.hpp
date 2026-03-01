@@ -291,7 +291,7 @@ public:
 		parentName = item["parent"].GetString();
 		flecs::entity parentEnt = ecs.lookup(parentName.c_str(), ".");
 
-		if (!EntityFactory::createCapsuleEntity(ecs, parentEnt, name, "CapsuleModel", transform, "pipelineUnlit")) {
+		if (!EntityFactory::createCapsuleEntity(ecs, parentEnt, name, "capsule4", transform, "pipelineUnlit")) {
 			return false;
 		}
 
@@ -327,7 +327,7 @@ public:
 		settings.mLayer = Layers::MOVING;
 		settings.mGravityFactor = 1;
 
-		if (!EntityFactory::createActorEntity(ecs, parentEnt, name, "ActorModel", transform, settings, actor1Update,"pipelineUnlit")) {
+		if (!EntityFactory::createActorEntity(ecs, parentEnt, name, "enemy1", transform, settings, actor1Update,"pipelineUnlit")) {
 			return false;
 		}
 
@@ -384,7 +384,7 @@ public:
 		transform = optTransform.value();
 
 		flecs::entity parentEnt = ecs.lookup(parentName.c_str(), ".");
-		if (!EntityFactory::createGridEntity(ecs, parentEnt, name, modelSrcName, transform, "pipelineGrid", 256, 256)) {
+		if (!EntityFactory::createGridEntity(ecs, parentEnt, name, transform, "pipelineGrid", 256)) {
 			return false;
 		}
 

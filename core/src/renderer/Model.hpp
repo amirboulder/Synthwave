@@ -13,11 +13,11 @@ struct LoadedTexture {
 	int height;
 };
 
-// each model has one pipelineType
-struct ModelInstance {
-	vector <MeshInstance> meshes;
-};
 
+struct ModelIndex {
+	uint32_t index = UINT32_MAX;
+	bool isValid() const { return index != UINT32_MAX; }
+};
 
 class ModelSource {
 
@@ -107,7 +107,7 @@ public:
 
 	// for GRID
 	// for generated meshes
-	ModelSource(flecs::world& ecs,int rows, int cols) {
+	ModelSource(flecs::world& ecs,uint32_t size) {
 
 		const RenderContext& renderContext = ecs.get<RenderContext>();
 
@@ -115,13 +115,15 @@ public:
 
 		MeshSource& mesh = meshes.back();
 
-		GridGenerator::generateGrid(256, 256, mesh.vertices, mesh.indices);
+		GridGenerator::generateGrid(size, size, mesh.vertices, mesh.indices);
 
 		RenderUtil::uploadBufferData(renderContext.device, mesh.vertexBuffer, mesh.vertices.data(),
 			mesh.vertices.size() * sizeof(Vertex), SDL_GPU_BUFFERUSAGE_VERTEX);
 
 		RenderUtil::uploadBufferData(renderContext.device, mesh.indexBuffer, mesh.indices.data(),
 			mesh.indices.size() * sizeof(unsigned int), SDL_GPU_BUFFERUSAGE_INDEX);
+
+		mesh.size = mesh.indices.size();
 	}
 
 	//for Wireframe Mountains
@@ -174,7 +176,7 @@ public:
 			meshes.emplace_back();
 
 			MeshSource& currentMesh = meshes.back();
-			currentMesh.processMeshsequential(importedMesh);
+			currentMesh.processMeshSequential(importedMesh);
 
 			// set mesh transform
 			Transform temp;
@@ -249,27 +251,6 @@ public:
 	}
 
 	
-	ModelInstance createInstance() const {
-
-		ModelInstance instance;
-
-		instance.meshes.resize(meshes.size());
-
-		for (int i = 0; i < meshes.size(); i++) {
-
-			instance.meshes[i].transform = meshes[i].transform;
-
-			instance.meshes[i].vertexBuffer = meshes[i].vertexBuffer;
-			instance.meshes[i].indexBuffer = meshes[i].indexBuffer;
-
-			instance.meshes[i].size = meshes[i].indices.size();
-
-			instance.meshes[i].diffuseTexture = meshes[i].diffuseTexture;
-
-		}
-
-		return instance;
-	}
 
 };
 
