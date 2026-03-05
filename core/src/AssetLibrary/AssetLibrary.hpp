@@ -6,12 +6,21 @@ struct AssetLibRef {
     AssetLibrary * assetLib;
 };
 
-struct ModelEntry {
-    std::unique_ptr<ModelSource> source;
-    int refCount = 0;
+struct MeshAsset {
+
+    Transform transform; //local transform relative to entity's position
+    
+    SDL_GPUBuffer* transformsBuffer = nullptr;
+
+    SDL_GPUBuffer* vertexBuffer = nullptr;
+    SDL_GPUBuffer* indexBuffer = nullptr;
+    
+    SDL_GPUTexture* diffuseTexture = nullptr;
+
+    uint32_t numIndices = 0;
+
 };
 
-typedef std::pair<std::string, ModelEntry> ModelPair;
 
 //TODO FIX HARDCODED PATHS
 class AssetLibrary {
@@ -21,8 +30,8 @@ public:
     std::string assetsFolder;
 
     std::unordered_map<std::string, fs::path> modelPaths;
-    std::unordered_map<std::string, uint32_t> modelNameToIndex;
-    std::vector<ModelEntry> models;
+    std::unordered_map<std::string, std::unique_ptr<ModelSource>> loadedModels;
+    std::vector<MeshAsset> meshRegistry;
 
     //maps ragdoll names to their paths
     std::map<std::string, std::string> ragdolls;
@@ -45,58 +54,175 @@ public:
     }
 
     /// <summary>
-    /// Loads the models if not loaded an returns the model id.
+    /// Calls the Grid constructor in Model.hpp
+    /// called by entity factory before createMeshAssets when creating grid meshes.
     /// </summary>
-    uint32_t requestIndex(const std::string& modelName) {
-        // Already loaded
-        auto it = modelNameToIndex.find(modelName);
-        if (it != modelNameToIndex.end())
-            return it->second;
-
-        
-        auto pathIt = modelPaths.find(modelName);
-        if (pathIt == modelPaths.end()) {
-            LogError(LOG_APP, "Model %s not found", modelName.c_str());
-            return UINT32_MAX; // use max as invalid, not 0
-        }
-
-        // Load it
-        uint32_t index = models.size();
-        ModelEntry entry;
-        entry.source = std::make_unique<ModelSource>(ecs, pathIt->second.string().c_str());
-        entry.refCount = 1;
-        models.push_back(std::move(entry));
-        modelNameToIndex[modelName] = index;
-        return index;
-    }
-
     std::string generateGridModel(uint32_t size) {
 
         std::string modelName = "Grid";
         modelName.append(std::to_string(size));
 
-        uint32_t index = models.size();
-        ModelEntry entry;
-        entry.source = std::make_unique<ModelSource>(ecs, size);
-        entry.refCount = 1;
-        models.push_back(std::move(entry));
-        modelNameToIndex[modelName] = index;
+        loadedModels[modelName] = std::make_unique<ModelSource>(ecs, size);
+
+        auto itr = loadedModels.find(modelName);
+
+        ModelSource* modelSource = itr->second.get();
+
+        createMeshAssets(modelSource);
 
         return modelName;
     }
 
-    //TODO update map to use fs::path
+
+    /// <summary>
+    /// Once a model is loaded we call this function to create a mesh asset for every mesh in the model.
+    /// Also setting the meshRegistryIndex in each mesh which is used entities requestMeshComponent.
+    /// Note we could also just store a vector of MeshAssetIndices in the model and copy it when needed
+    /// </summary>
+    void createMeshAssets(ModelSource* modelSource) {
+
+        //For each mesh create a entry in mesh registry
+        for (MeshSource& mesh : modelSource->meshes) {
+
+            MeshAsset meshAsset;
+
+            meshAsset.transform = mesh.transform;
+
+            meshAsset.vertexBuffer = mesh.vertexBuffer;
+            meshAsset.indexBuffer = mesh.indexBuffer;
+            meshAsset.numIndices = mesh.size;
+
+            meshAsset.diffuseTexture = mesh.diffuseTexture;
+
+            meshRegistry.push_back(meshAsset);
+
+            uint32_t meshRegistryIndex = meshRegistry.size() - 1;
+
+            mesh.meshRegistryIndex = meshRegistryIndex;
+        }
+
+    }
+
+
+    /// <summary>
+    /// Used when an entity requests a mesh components.
+    /// We fill the vector with meshRegistryIndex from each mesh.
+    /// Note we could also just store a vector of MeshAssetIndices in the model and copy it when needed.
+    /// </summary>
+    void fillMeshComponent(ModelSource* modelSource, MeshComponent& meshComponent) {
+
+        meshComponent.MeshAssetIndices.reserve(modelSource->meshes.size());
+
+        for (MeshSource& mesh : modelSource->meshes) {
+
+            meshComponent.MeshAssetIndices.push_back(mesh.meshRegistryIndex);
+        }
+    }
+
+
+    /// <summary>
+    /// Returns a pointer to a Model source given its name.
+    /// It first checks if the model is already loaded if not it will attempt to load it.
+    /// If it cannot fine the source file it will return null
+    /// </summary>
+    ModelSource* getModel(const std::string& modelName) {
+
+        ModelSource* modelSourcePtr = nullptr;
+
+        auto itr = loadedModels.find(modelName);
+        if (itr != loadedModels.end()) {
+
+            modelSourcePtr = itr->second.get();
+            
+        }
+
+        if (VerifyModelPathExistence(modelName)) {
+
+            auto pathItr = modelPaths.find(modelName);
+            modelSourcePtr = loadModel(modelName, pathItr->second.string());
+        }
+
+        return modelSourcePtr;
+    }
+
+
+    ModelSource* loadModel(const std::string& modelName, const std::string filepath) {
+
+        auto pathIt = modelPaths.find(modelName);
+
+        loadedModels[modelName] = std::make_unique<ModelSource>(ecs, filepath.c_str());
+
+        auto itr = loadedModels.find(modelName);
+
+        ModelSource* modelSource = itr->second.get();
+
+        //creates an entry for in mesh registry for each mesh in this model
+        createMeshAssets(modelSource);
+
+        return modelSource;
+    }
+
+    /// <summary>
+    /// creates MeshComponent which will be attached to an entity.
+    /// Will try to load the model if not loaded.
+    /// will return a struct with an empty vector if model does not exist.
+    /// Used in Entity factory
+    /// </summary>
+    /// <param name="modelName"></param>
+    /// <returns></returns>
+    MeshComponent requestMeshComponent(const std::string& modelName) {
+
+        MeshComponent meshComponent;
+
+        // check if the model is Already loaded
+        auto itr = loadedModels.find(modelName);
+        if (itr != loadedModels.end()) {
+
+            ModelSource* modelSource = itr->second.get();
+
+            fillMeshComponent(modelSource, meshComponent);
+
+            return meshComponent;
+        }
+
+
+        //check if it in the assets folder at all
+        auto pathItr = modelPaths.find(modelName);
+        if (pathItr == modelPaths.end()) {
+            LogError(LOG_APP, "Model %s source file not found", modelName.c_str());
+            return meshComponent;
+        }
+
+        ModelSource* modelSource = loadModel(modelName, pathItr->second.string());
+
+        fillMeshComponent(modelSource, meshComponent);
+        return meshComponent;
+    }
+
+    
+    bool VerifyModelPathExistence(const std::string& modelName) {
+
+        auto pathItr = modelPaths.find(modelName);
+        if (pathItr == modelPaths.end()) {
+            LogError(LOG_APP, "Model %s source file not found", modelName.c_str());
+            return false;
+        }
+
+        return true;
+    }
+
+    //TODO update ragdolls map to use fs::path and deprecate this
     void scanForFiles(const std::string& folderPath, const std::string& extension, std::map<std::string, std::string> & map) {
 
         std::error_code ec;
 
         if (!fs::exists(folderPath, ec) || ec) {
-            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, ERROR "Directory %s doesn't exist or can't be accessed" RESET, folderPath.c_str());
+            LogError(LOG_APP, "Directory %s doesn't exist or can't be accessed", folderPath.c_str());
         }
 
         for (const auto& entry : fs::directory_iterator(folderPath, ec)) {
             if (ec) {
-                SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, ERROR "iterating directory: %s" RESET, ec.message().c_str());
+                LogError(LOG_APP, "iterating directory: %s", ec.message().c_str());
                 break;
             }
 
@@ -111,7 +237,7 @@ public:
         }
 
         if (ec) {
-            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, ERROR "during directory iteration: %s" RESET, ec.message().c_str());
+            LogError(LOG_APP, "during directory iteration: %s", ec.message().c_str());
         }
     }
 

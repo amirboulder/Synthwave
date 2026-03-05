@@ -14,10 +14,6 @@ struct LoadedTexture {
 };
 
 
-struct ModelIndex {
-	uint32_t index = UINT32_MAX;
-	bool isValid() const { return index != UINT32_MAX; }
-};
 
 class ModelSource {
 
@@ -115,7 +111,7 @@ public:
 
 		MeshSource& mesh = meshes.back();
 
-		GridGenerator::generateGrid(size, size, mesh.vertices, mesh.indices);
+		GridGenerator::generateGrid(size, mesh.vertices, mesh.indices);
 
 		RenderUtil::uploadBufferData(renderContext.device, mesh.vertexBuffer, mesh.vertices.data(),
 			mesh.vertices.size() * sizeof(Vertex), SDL_GPU_BUFFERUSAGE_VERTEX);

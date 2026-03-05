@@ -4,10 +4,7 @@ layout(set = 1, binding = 0) cbuffer FrameData {
     float4x4 viewProjection;
 };
 
-layout(set = 1, binding = 1) cbuffer PerModel {
-    float4x4 model;
-    float4x4 mvp;
-};
+layout(set = 0, binding = 0) StructuredBuffer<float4x4> transforms;
 
 struct VertexInput
 {
@@ -24,10 +21,11 @@ struct VertexOutput
     float3 cameraPos; 
 };
 
-
 [shader("vertex")]
-VertexOutput vertexMain(VertexInput input)
+VertexOutput vertexMain(VertexInput input, uint instanceIndex: SV_InstanceID)
 {
+    float4x4 mvp = transforms[instanceIndex];
+
     VertexOutput output;
 
     float3x3 rotmat = float3x3(view);

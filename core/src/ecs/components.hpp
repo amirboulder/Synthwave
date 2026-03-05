@@ -32,7 +32,9 @@ struct Position {
 	glm::vec3 position = glm::vec3(1);
 };
 
-
+struct MeshComponent {
+	std::vector<uint32_t> MeshAssetIndices;
+};
 
 struct VertexBuffer {
 	SDL_GPUBuffer* handle = nullptr;
@@ -164,7 +166,7 @@ struct Active{};
 /// A Tag attached to objects that should only be rendered in while editor is enabled.
 /// Used by renderer queries.
 /// </summary>
-struct GizmoMesh {};
+struct EditorMesh {};
 
 /// <summary>
 /// A Tag attached to objects that should be rendered in game.
@@ -189,7 +191,8 @@ struct _Scene {};
 struct PlayerRef { flecs::entity value = flecs::entity::null(); };
 struct PlayerCamRef { flecs::entity value = flecs::entity::null(); };
 
-struct ModelSourceRef {
+
+struct ModelSourceName {
 	std::string name;
 };
 

@@ -21,6 +21,9 @@ public:
 
 	uint32_t size = 0;
 
+	//Used to map A mesh to its corresponding MeshAsset in AssetLibrary
+	uint32_t meshRegistryIndex = UINT32_MAX;
+
 	SDL_GPUTexture* diffuseTexture;
 
 
@@ -182,27 +185,5 @@ public:
 
 };
 
-struct MeshInstance {
-
-	Transform transform;
-
-	SDL_GPUBuffer* vertexBuffer = NULL;
-	SDL_GPUBuffer* indexBuffer = NULL;
-
-	SDL_GPUTexture* diffuseTexture;
-
-	Uint32 size = 0;
-};
-
-
-struct MeshInstance2 {
-
-	Transform transform;
-
-	SDL_GPUBuffer* vertexBuffer = NULL;
-	SDL_GPUBuffer* indexBuffer = NULL;
-
-	Uint32 size = 0;
-};
 
 

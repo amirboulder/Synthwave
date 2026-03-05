@@ -29,11 +29,9 @@ public:
 		if (!validatePipelineExistence(ecs, pipelineName)) return false;
 
 		//Get the modelSource from Asset Library
-		AssetLibRef ref = ecs.get<AssetLibRef>();
-
-		uint32_t modelIndex = ref.assetLib->requestIndex(ModelSrcName);
-		const ModelSource * modelSource  = ref.assetLib->models.at(modelIndex).source.get();
-		if (!validateModelID(modelIndex, ModelSrcName)) return false;
+		AssetLibrary * assetLib = ecs.get<AssetLibRef>().assetLib;
+		const ModelSource* modelSource = assetLib->getModel(ModelSrcName);
+		if (!validateModelSource(modelSource, ModelSrcName));
 
 		float meshX;
 		float meshY;
@@ -81,7 +79,8 @@ public:
 			.set<EntityType>({ EntityType::Cube })
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
-			.set<ModelIndex>({ modelIndex })
+			.set<ModelSourceName>({ ModelSrcName.c_str() })
+			.set<MeshComponent>({ assetLib->requestMeshComponent(ModelSrcName.c_str()) })
 			.set<JPH::BodyID>(physicsID)
 			.add<RenderPipeline>(ecs.lookup(pipelineName.c_str()))
 			.child_of(parent)
@@ -473,10 +472,9 @@ public:
 		if(!validatePipelineExistence(ecs,pipelineName)) return false;
 
 		//Get the modelSource from Asset Library
-		AssetLibRef ref = ecs.get<AssetLibRef>();
-		uint32_t modelIndex = ref.assetLib->requestIndex(ModelSrcName);
-		const ModelSource* modelSource = ref.assetLib->models.at(modelIndex).source.get();
-		if (!validateModelID(modelIndex, ModelSrcName)) return false;
+		AssetLibrary* assetLib = ecs.get<AssetLibRef>().assetLib;
+		const ModelSource* modelSource = assetLib->getModel(ModelSrcName);
+		if (!validateModelSource(modelSource, ModelSrcName));
 
 		float meshX;
 		float meshY;
@@ -528,7 +526,8 @@ public:
 			.set<EntityType>({ EntityType::Capsule })
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
-			.set<ModelIndex>({ modelIndex })
+			.set<ModelSourceName>({ ModelSrcName.c_str() })
+			.set<MeshComponent>({ assetLib->requestMeshComponent(ModelSrcName.c_str()) })
 			.set<JPH::BodyID>(physicsID)
 			.add<RenderPipeline>(ecs.lookup(pipelineName.c_str()))
 			.child_of(parent)
@@ -551,10 +550,9 @@ public:
 		if (!validatePipelineExistence(ecs, pipelineName)) return false;
 
 		//Get the modelSource from Asset Library
-		AssetLibRef ref = ecs.get<AssetLibRef>();
-		uint32_t modelIndex = ref.assetLib->requestIndex(ModelSrcName);
-		const ModelSource* modelSource = ref.assetLib->models.at(modelIndex).source.get();
-		if (!validateModelID(modelIndex, ModelSrcName)) return false;
+		AssetLibrary* assetLib = ecs.get<AssetLibRef>().assetLib;
+		const ModelSource* modelSource = assetLib->getModel(ModelSrcName);
+		if (!validateModelSource(modelSource, ModelSrcName));
 
 		// Convert GLM to Jolt types
 		JPH::Vec3 joltPosition(transform.position.x, transform.position.y, transform.position.z);
@@ -579,7 +577,8 @@ public:
 			.set<EntityType>({ EntityType::Actor})
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
-			.set<ModelIndex>({modelIndex})
+			.set<ModelSourceName>({ ModelSrcName.c_str() })
+			.set<MeshComponent>({ assetLib->requestMeshComponent(ModelSrcName.c_str()) })
 			.set<JoltCharacter>({ joltCharacter })
 			.set<JPH::BodyID>(joltCharacter->GetBodyID())
 			.emplace<ActorBehavior>(actorUpdate)
@@ -604,14 +603,16 @@ public:
 		if (!EntityFactory::validateName(name)) return false;
 		if (!EntityFactory::validateTransform(transform, name.c_str())) return false;
 
-		AssetLibRef ref = ecs.get<AssetLibRef>();
-		uint32_t modelIndex = ref.assetLib->requestIndex(ModelSrcName);
-		const ModelSource* modelSource = ref.assetLib->models.at(modelIndex).source.get();
-		if (!validateModelID(modelIndex, ModelSrcName)) return false;
+		//Get the modelSource from Asset Library
+		AssetLibrary* assetLib = ecs.get<AssetLibRef>().assetLib;
+		const ModelSource* modelSource = assetLib->getModel(ModelSrcName);
+		if (!validateModelSource(modelSource, ModelSrcName));
 
 		const flecs::entity entity = ecs.entity(name.c_str())
 			.set<Transform>(transform)
-			.set<ModelIndex>({modelIndex});
+			.set<ModelSourceName>({ ModelSrcName.c_str() })
+			.set<MeshComponent>({ assetLib->requestMeshComponent(ModelSrcName.c_str()) });
+
 		if (pipelineName) {
 			entity.add<RenderPipeline>(ecs.lookup(pipelineName));
 
@@ -632,10 +633,9 @@ public:
 		float scaleFactor = 1.0f;
 
 		//Get the modelSource from Asset Library
-		AssetLibRef ref = ecs.get<AssetLibRef>();
-		uint32_t modelIndex = ref.assetLib->requestIndex(ModelSrcName);
-		const ModelSource* modelSource = ref.assetLib->models.at(modelIndex).source.get();
-		if (!validateModelID(modelIndex, ModelSrcName)) return false;
+		AssetLibrary* assetLib = ecs.get<AssetLibRef>().assetLib;
+		const ModelSource* modelSource = assetLib->getModel(ModelSrcName);
+		if (!validateModelSource(modelSource, ModelSrcName));
 
 		// Scale vertices
 		//ASSUMING the model only has one mesh
@@ -694,7 +694,8 @@ public:
 			.set<EntityType>({ EntityType::StaticMesh })
 			.add<StaticEnt>()
 			.set<Transform>(transform)
-			.set<ModelIndex>({modelIndex})
+			.set<ModelSourceName>({ ModelSrcName.c_str() })
+			.set<MeshComponent>({ assetLib->requestMeshComponent(ModelSrcName.c_str()) })
 			.set<JPH::BodyID>(physicsID)
 			.add<RenderPipeline>( ecs.lookup(pipelineName.c_str()))
 			.child_of(parent);
@@ -715,16 +716,15 @@ public:
 		if (!validateTransform(transform, name.c_str())) return false;
 		if (!validatePipelineExistence(ecs, pipelineName)) return false;
 
+
 		//Get the modelSource from Asset Library
-		AssetLibRef ref = ecs.get<AssetLibRef>();
+		AssetLibrary* assetLib = ecs.get<AssetLibRef>().assetLib;
 
-		//Grid is generated so generate then ask for its index
-		std::string modelName = ref.assetLib->generateGridModel(size);
-		uint32_t modelIndex = ref.assetLib->requestIndex(modelName);
-		
+		//Grid is generated so generate then get the model
+		std::string modelName = assetLib->generateGridModel(size);
 
-		const ModelSource* modelSource = ref.assetLib->models.at(modelIndex).source.get();
-		if (!validateModelID(modelIndex, modelName)) return false;
+		//const ModelSource* modelSource = assetLib->getModel(modelName);
+		//if (!validateModelSource(modelSource, modelName));
 
 		// any thickness less than 0.01 will break jolt!
 		float boxThickness = 1;
@@ -766,7 +766,8 @@ public:
 			.set<EntityType>({ EntityType::Grid })
 			.add<StaticEnt>()
 			.set<Transform>(transform)
-			.set<ModelIndex>({ modelIndex })
+			.set<ModelSourceName>({ modelName.c_str() })
+			.set<MeshComponent>({ assetLib->requestMeshComponent(modelName.c_str()) })
 			.set<JPH::BodyID>(physicsID)
 			.add<RenderPipeline>(ecs.lookup(pipelineName.c_str()))
 			.child_of(parent);
@@ -989,10 +990,10 @@ public:
 
 	}
 
-	static bool validateModelID(uint32_t modelID, const std::string modelName) {
+	static bool validateModelSource(const ModelSource * src, const std::string modelName) {
 
-		if (modelID == UINT32_MAX) {
-			SDL_LogError(SDL_LOG_CATEGORY_ERROR, "EntityFactory ModelIndex is not valid! : %s", modelName.c_str());
+		if (!src) {
+			SDL_LogError(SDL_LOG_CATEGORY_ERROR, "EntityFactory ModelSource %s does not exist", modelName.c_str());
 			return false;
 		}
 		return true;

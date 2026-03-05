@@ -1,6 +1,5 @@
 #pragma once
 
-
 #include "Model.hpp"
 #include "../physics/physics.hpp"
 
@@ -19,35 +18,56 @@
 
 #include "pipeline.hpp"
 
+#include "../AssetLibrary/AssetLibrary.hpp"
+
+struct DrawBatch {
+	SDL_GPUBuffer* vertexBuffer = nullptr;
+	SDL_GPUBuffer* indexBuffer = nullptr;
+	SDL_GPUBuffer* transformsBuffer = nullptr;
+	uint32_t              numIndices = 0;
+	std::vector<glm::mat4> transforms;
+
+	SDL_GPUTexture* diffuseTexture = nullptr;
+};
+
+struct PipelineBatch {
+	std::unordered_map<uint32_t, DrawBatch> meshBatches; // keyed by mesh asset index
+};
 
 struct Renderer {
 
 	Uint32 swapchainWidth, swapchainHeight;
 
-	SDL_GPUTexture* defaultTexture = NULL;
-	SDL_GPUSampler* defaultSampler = NULL;
+	SDL_GPUTexture* defaultTexture = nullptr;
+	SDL_GPUSampler* defaultSampler = nullptr;
 	SDL_GPUTextureSamplerBinding defaultSamplerBinding;
 
-	SDL_GPUSampler* nearestSampler = NULL;
+	SDL_GPUSampler* nearestSampler = nullptr;
 
-	SDL_GPUTexture* mainDepthStencilTexture = NULL;
-	
-	SDL_GPUTexture* mainColorTarget = NULL;
-	SDL_GPUTexture* mainResolveTarget = NULL;
+	SDL_GPUTexture* mainDepthStencilTexture = nullptr;
 
-	SDL_GPUTexture* entIdColorTarget = NULL;
-	SDL_GPUTexture* entIdDepthTexture = NULL;
-	SDL_GPUTexture* selectedEntColorTarget = NULL;
+	SDL_GPUTexture* mainColorTarget = nullptr;
+	SDL_GPUTexture* mainResolveTarget = nullptr;
 
-	SDL_GPUTexture* editorVisualsDepthStencilTexture = NULL;
+	SDL_GPUTexture* entIdColorTarget = nullptr;
+	SDL_GPUTexture* entIdDepthTexture = nullptr;
+	SDL_GPUTexture* selectedEntColorTarget = nullptr;
 
-	SDL_GPURenderPass* mainRenderPass;
+	SDL_GPUTexture* editorVisualsDepthStencilTexture = nullptr;
+
+	SDL_GPURenderPass* activeRenderPass = nullptr;
 
 	FrameDataUniforms uniforms;
 
+	std::unordered_map<uint32_t, PipelineBatch> pipelineBatches; // keyed by pipeline entity id
+
 	flecs::world& ecs;
 
-	flecs::query<Transform, ModelInstance >renderQuery;
+	flecs::system buildRenderBatchesSys;
+
+	flecs::entity renderPhase;
+
+	flecs::query<Transform, MeshComponent>queryEntID;
 	flecs::query<EditorVisuals>editorVisualsQuery;
 
 	flecs::system drawPhysicsBodiesSys;
@@ -74,21 +94,22 @@ struct Renderer {
 
 		buildRenderQueries();
 
+		registerPhase();
 		registerSystems();
 
-		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, GOOD "Renderer Initialized" RESET);
+		pipelineLib.init();
+
+		LogSuccess(LOG_RENDER, "Renderer Initialized");
 	}
 
 
 	void initSubSystems() {
 
-		pipelineLib.init();
-
 		initPhysicsRenderer();
 
 		overlay.init();
 
-		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, GOOD "Renderer SubSystems Initialized" RESET);
+		LogSuccess(LOG_RENDER, "Renderer SubSystems Initialized");
 
 	}
 
@@ -123,7 +144,7 @@ struct Renderer {
 	bool createWindow() {
 
 		if (!SDL_Init(SDL_INIT_VIDEO)) {
-			printf("SDL_Init failed: %s\n", SDL_GetError());
+			LogError(LOG_RENDER, "SDL_Init failed: %s\n", SDL_GetError());
 			return false;
 		}
 
@@ -140,7 +161,7 @@ struct Renderer {
 
 		renderContext.window = SDL_CreateWindow("Synthwave", config.windowWidth, config.windowHeight, SDL_WINDOW_VULKAN);
 		if (!renderContext.window) {
-			SDL_Log("Failed to create window!");
+			LogError(LOG_RENDER, "Failed to create window!");
 			return false;
 		}
 
@@ -152,6 +173,7 @@ struct Renderer {
 		return true;
 	}
 
+
 	bool createAndClaimGPU() {
 
 		bool debugMode = true;
@@ -159,10 +181,12 @@ struct Renderer {
 		SDL_GPUVulkanOptions vulkanProps = { 0 };
 		vulkanProps.vulkan_api_version = 4206592; // Vulkan 1.3.0
 
-		SDL_PropertiesID props =  SDL_CreateProperties();
+		SDL_PropertiesID props = SDL_CreateProperties();
 
 		SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_SHADERS_SPIRV_BOOLEAN, true);
 		SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_DEBUGMODE_BOOLEAN, debugMode);
+
+		//SDL_SetBooleanProperty(props, SDL_PROP_GPU_DEVICE_CREATE_FEATURE_INDIRECT_DRAW_FIRST_INSTANCE_BOOLEAN, true);
 
 		// Get verbose debug output 
 		if (debugMode) {
@@ -181,13 +205,13 @@ struct Renderer {
 		renderContext.device = SDL_CreateGPUDeviceWithProperties(props);
 		if (!renderContext.device)
 		{
-			SDL_Log("GPUCreateDevice failed: %s", SDL_GetError());
+			LogError(LOG_RENDER, "SDL_CreateGPUDeviceWithProperties failed: %s", SDL_GetError());
 			return false;
 		}
 
 		if (!SDL_ClaimWindowForGPUDevice(renderContext.device, renderContext.window))
 		{
-			SDL_Log("GPUClaimWindow failed");
+			LogError(LOG_RENDER, "SDL_ClaimWindowForGPUDevice failed");
 			return false;
 		}
 
@@ -197,11 +221,33 @@ struct Renderer {
 		// SDL_GPU_PRESENTMODE_IMMEDIATE for uncapped fps
 		// SDL_GPU_PRESENTMODE_VSYNC for VSYNC
 		SDL_SetGPUSwapchainParameters(renderContext.device, renderContext.window,
-			SDL_GPU_SWAPCHAINCOMPOSITION_SDR, SDL_GPU_PRESENTMODE_VSYNC);
+			SDL_GPU_SWAPCHAINCOMPOSITION_SDR, SDL_GPU_PRESENTMODE_IMMEDIATE);
 
 		return true;
 	}
 
+	void registerPhase() {
+
+		// Each phase has its own dependency, it ensures that
+		// 1.phases can be disabled without affecting other phases (disabling is transitive in flecs)
+		// 2.Phases can run in the order we want regardless of creation order 
+		//PhaseDependencies depend on each other, that's handled in StateManager.RegisterPhaseDependencies()
+		// that way phases created earlier in initialization can depend on phases created after them
+		flecs::entity renderPhaseDependency = ecs.entity("RenderPhaseDependency");
+
+		renderPhase = ecs.entity("PhysicsPhase")
+			.add(flecs::Phase)
+			.depends_on(renderPhaseDependency);
+
+	}
+
+	void registerSystems() {
+
+		createRenderBatchesSystem();
+		createPhysicsBatchesSystem();
+		renderPhysicsSystem();
+
+	}
 
 	bool createSamplerAndDefaultTexture() {
 
@@ -219,7 +265,7 @@ struct Renderer {
 		defaultSampler = SDL_CreateGPUSampler(renderContext.device, &samplerCreateInfo);
 
 		if (!defaultSampler) {
-			SDL_Log("Could not create GPU sampler!");
+			LogError(LOG_RENDER, "Could not create GPU sampler!");
 			return false;
 		}
 
@@ -235,7 +281,7 @@ struct Renderer {
 		nearestSampler = SDL_CreateGPUSampler(renderContext.device, &nearestSamplerInfo);
 
 		if (!defaultSampler) {
-			SDL_Log("Could not create nearestSampler !");
+			LogError(LOG_RENDER, "Could not create nearestSampler !");
 			return false;
 		}
 
@@ -243,70 +289,12 @@ struct Renderer {
 		SDL_Surface* imageData1 = RenderUtil::LoadImage("assets/checkerboard.bmp", 4);
 		if (imageData1 == NULL)
 		{
-			SDL_Log("Could not load first image data!");
+			LogError(LOG_RENDER, "Could not load checkerboard.bmp image data!");
 			return false;
 		}
 
-		// Set up texture data
-		const Uint32 imageSizeInBytes = imageData1->w * imageData1->h * 4;
+		MaterialLoader::createGPUTexture(imageData1, defaultTexture, "defaultTexture", renderContext.device);
 
-		SDL_GPUTextureCreateInfo textureCreateInfo = {
-			.type = SDL_GPU_TEXTURETYPE_2D,
-			.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM,
-			.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER,
-			.width = static_cast<Uint32>(imageData1->w),
-			.height = static_cast<Uint32>(imageData1->h),
-			.layer_count_or_depth = 1, 
-			.num_levels = 1,
-
-		};
-		defaultTexture = SDL_CreateGPUTexture(renderContext.device, &textureCreateInfo);
-
-		if (!defaultTexture) {
-			SDL_Log("Could not create GPU texture");
-			return false;
-		}
-
-		SDL_SetGPUTextureName(
-			renderContext.device,
-			defaultTexture,
-			"Default Texture"
-		);
-
-		// Set up buffer data
-		SDL_GPUTransferBufferCreateInfo transferBufferInfo = {
-			.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
-			.size = imageSizeInBytes
-		};
-		SDL_GPUTransferBuffer* textureTransferBuffer = SDL_CreateGPUTransferBuffer(renderContext.device, &transferBufferInfo);
-
-		void* textureTransferPtr = SDL_MapGPUTransferBuffer(renderContext.device, textureTransferBuffer, false);
-
-		SDL_memcpy(textureTransferPtr, imageData1->pixels, imageSizeInBytes);
-
-		SDL_UnmapGPUTransferBuffer(renderContext.device, textureTransferBuffer);
-
-		// Upload the transfer data to the GPU resources
-		SDL_GPUCommandBuffer* uploadCmdBuf = SDL_AcquireGPUCommandBuffer(renderContext.device);
-		SDL_GPUCopyPass* copyPass = SDL_BeginGPUCopyPass(uploadCmdBuf);
-
-
-		SDL_GPUTextureTransferInfo textureTransferInfo = {
-			.transfer_buffer = textureTransferBuffer,
-			.offset = 0,
-		};
-
-		SDL_GPUTextureRegion textureRegion = {
-			.texture = defaultTexture,
-			.w = static_cast<Uint32>(imageData1->w),
-			.h = static_cast<Uint32>(imageData1->h),
-			.d = 1
-
-		};
-
-		SDL_UploadToGPUTexture(copyPass, &textureTransferInfo, &textureRegion, false);
-		SDL_EndGPUCopyPass(copyPass);
-		SDL_SubmitGPUCommandBuffer(uploadCmdBuf);
 
 		return true;
 	}
@@ -331,7 +319,7 @@ struct Renderer {
 
 		mainColorTarget = SDL_CreateGPUTexture(renderContext.device, &colorTextureInfo);
 		if (!mainColorTarget) {
-			SDL_Log("Failed to create main color target: %s", SDL_GetError());
+			LogError(LOG_RENDER, "Failed to create main color target: %s", SDL_GetError());
 			return false;
 		}
 
@@ -348,7 +336,7 @@ struct Renderer {
 
 		mainResolveTarget = SDL_CreateGPUTexture(renderContext.device, &resolveTextureInfo);
 		if (!mainResolveTarget) {
-			SDL_Log("Failed to create main resolve target: %s", SDL_GetError());
+			LogError(LOG_RENDER, "Failed to create main resolve target: %s", SDL_GetError());
 			return false;
 		}
 
@@ -359,7 +347,7 @@ struct Renderer {
 		//Stencil cannot be separated from depth to be used in shader!!!
 		SDL_GPUTextureCreateInfo depthTextureCreateInfo = {
 			.type = SDL_GPU_TEXTURETYPE_2D,
-			.format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT_S8_UINT, 
+			.format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT_S8_UINT,
 			.usage = SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET ,
 			.width = config.windowWidth,
 			.height = config.windowHeight,
@@ -370,11 +358,11 @@ struct Renderer {
 		mainDepthStencilTexture = SDL_CreateGPUTexture(renderContext.device, &depthTextureCreateInfo);
 
 		if (!mainDepthStencilTexture) {
-			SDL_Log("Failed to create depth texture: %s", SDL_GetError());
+			LogError(LOG_RENDER, "Failed to create depth texture: %s", SDL_GetError());
 			return false;
 		}
 
-		
+
 		// Entity ID target
 		SDL_GPUTextureCreateInfo entIDTextureInfo = {
 			.type = SDL_GPU_TEXTURETYPE_2D,
@@ -389,7 +377,7 @@ struct Renderer {
 
 		entIdColorTarget = SDL_CreateGPUTexture(renderContext.device, &entIDTextureInfo);
 		if (!entIdColorTarget) {
-			SDL_Log("Failed to create entIdColorTarget : %s", SDL_GetError());
+			LogError(LOG_RENDER, "Failed to create entIdColorTarget : %s", SDL_GetError());
 			return false;
 		}
 
@@ -406,7 +394,7 @@ struct Renderer {
 		entIdDepthTexture = SDL_CreateGPUTexture(renderContext.device, &entIdDepthTextureInfo);
 
 		if (!entIdDepthTexture) {
-			SDL_Log("Failed to create depth texture: %s", SDL_GetError());
+			LogError(LOG_RENDER, "Failed to create depth texture: %s", SDL_GetError());
 			return false;
 		}
 
@@ -424,7 +412,7 @@ struct Renderer {
 
 		selectedEntColorTarget = SDL_CreateGPUTexture(renderContext.device, &selectedEntColorInfo);
 		if (!selectedEntColorTarget) {
-			SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Failed to create selectedEntColorTarget : %s", SDL_GetError());
+			LogError(LOG_RENDER, "Failed to create selectedEntColorTarget : %s", SDL_GetError());
 			return false;
 		}
 
@@ -442,7 +430,7 @@ struct Renderer {
 		editorVisualsDepthStencilTexture = SDL_CreateGPUTexture(renderContext.device, &editorVisualsDepthInfo);
 
 		if (!editorVisualsDepthStencilTexture) {
-			SDL_Log("Failed to create depth texture: %s", SDL_GetError());
+			LogError(LOG_RENDER, "Failed to create depth texture: %s", SDL_GetError());
 			return false;
 		}
 
@@ -451,12 +439,9 @@ struct Renderer {
 
 
 	void buildRenderQueries() {
-		
-		// Queries that use cascade(), group_by() or order_by() are cached
-		renderQuery = ecs.query_builder<Transform, ModelInstance>()
-			.with<RenderPipeline>(flecs::Wildcard)
-			.group_by<RenderPipeline>()
-			.build();
+
+		queryEntID = ecs.query_builder<Transform, MeshComponent>()
+		.build();
 
 		editorVisualsQuery = ecs.query_builder<EditorVisuals>()
 			//.with<RenderPipeline>(flecs::Wildcard)
@@ -464,12 +449,7 @@ struct Renderer {
 			.build();
 	}
 
-	void registerSystems() {
 
-		createPhysicsBatchesSystem();
-		renderPhysicsSystem();
-		
-	}
 
 	void drawAll() {
 
@@ -479,14 +459,15 @@ struct Renderer {
 
 		beginRenderPass(renderContext, frameContext);
 
-		drawModels(frameContext);
+		//buildBatches(frameContext);
+		drawAllBatches(frameContext);
 
 		//Keeping this part of the main render Pass because they look/work better
 #if defined(JPH_DEBUG_RENDERER)
 		drawPhysicsBodiesSys.run();
 #endif
 
-		SDL_EndGPURenderPass(mainRenderPass);
+		SDL_EndGPURenderPass(activeRenderPass);
 
 		drawEditorVisuals(frameContext, renderContext, config);
 
@@ -498,7 +479,7 @@ struct Renderer {
 	}
 
 
-	void beginRenderPass(const RenderContext& renderContext,FrameContext& frameContext) {
+	void beginRenderPass(const RenderContext& renderContext, FrameContext& frameContext) {
 
 		frameContext.commandBuffer = check_error_ptr(SDL_AcquireGPUCommandBuffer(renderContext.device));
 
@@ -517,21 +498,21 @@ struct Renderer {
 			.store_op = SDL_GPU_STOREOP_RESOLVE,
 			.resolve_texture = mainResolveTarget
 			},
-			
+
 		};
 
 		SDL_GPUDepthStencilTargetInfo depthStencilTargetInfo = {};
 		depthStencilTargetInfo.texture = mainDepthStencilTexture;
 		depthStencilTargetInfo.clear_depth = 1.0f;
-		depthStencilTargetInfo.clear_stencil = 0;                       
+		depthStencilTargetInfo.clear_stencil = 0;
 		depthStencilTargetInfo.load_op = SDL_GPU_LOADOP_CLEAR;
 		depthStencilTargetInfo.store_op = SDL_GPU_STOREOP_STORE;
-		depthStencilTargetInfo.stencil_load_op = SDL_GPU_LOADOP_CLEAR; 
+		depthStencilTargetInfo.stencil_load_op = SDL_GPU_LOADOP_CLEAR;
 		depthStencilTargetInfo.stencil_store_op = SDL_GPU_STOREOP_STORE;
 		depthStencilTargetInfo.cycle = false;
 
 		// Begin render pass
-		mainRenderPass = SDL_BeginGPURenderPass(
+		activeRenderPass = SDL_BeginGPURenderPass(
 			frameContext.commandBuffer,
 			targetInfos, 1,
 			&depthStencilTargetInfo
@@ -552,90 +533,122 @@ struct Renderer {
 		SDL_PushGPUVertexUniformData(frameContext.commandBuffer, 0, &uniforms, sizeof(uniforms));
 	}
 
-	//Draws model Using whatever pipeline is bound. Uses models diffuse texture if it has any otherwise it will use default checkerboard
-	//This function assumes its part of the main render pass ,which is not necessarily true. 
-	void drawModel(const uint32_t entID,const ModelInstance& model, const Transform& transform,SDL_GPUCommandBuffer* cmdBuffer) {
+	
+	void createRenderBatchesSystem() {
 
-		
-		glm::mat4 modelTranslation = glm::translate(glm::mat4(1.0f), transform.position);
-		glm::mat4 modelRotation = glm::toMat4(transform.rotation);
-		glm::mat4 modelScale = glm::scale(glm::mat4(1.0f), transform.scale);
-		glm::mat4 modelMat = modelTranslation * modelRotation * modelScale;
+		buildRenderBatchesSys = ecs.system<Transform, MeshComponent>("BuildRenderBatchesSys")
+			.with(ecs.id<RenderPipeline>(), flecs::Wildcard)
+			.group_by<RenderPipeline>()
+			.kind(renderPhase)
+			.run([&](flecs::iter& it) {
 
-		for (int j = 0; j < model.meshes.size(); j++) {
+			pipelineBatches.clear();
 
-			const MeshInstance& mesh = model.meshes[j];
+			AssetLibrary* assetLib = ecs.get<AssetLibRef>().assetLib;
+			const RenderContext& renderContext = ecs.get<RenderContext>();
 
-			//If mesh has a texture then 
-			if (mesh.diffuseTexture != nullptr) {
-				SDL_GPUTextureSamplerBinding sampler = { .texture = mesh.diffuseTexture, .sampler = defaultSampler };
-				SDL_BindGPUFragmentSamplers(mainRenderPass, 0, &sampler, 1);
-
-			}
-			//else use the default texture
-			//TODO look into binding this once per frame or just once ???
-			else {
-
-				SDL_BindGPUFragmentSamplers(mainRenderPass, 0, &defaultSamplerBinding, 1);
-			}
-
-			SDL_GPUBufferBinding vertexBufferBinding = {};
-			vertexBufferBinding.buffer = mesh.vertexBuffer;
-			vertexBufferBinding.offset = 0;
-
-			SDL_GPUBufferBinding indexBufferBinding = {};
-			indexBufferBinding.buffer = mesh.indexBuffer;
-			indexBufferBinding.offset = 0;
-
-			SDL_BindGPUVertexBuffers(mainRenderPass, 0, &vertexBufferBinding, 1);
-			SDL_BindGPUIndexBuffer(mainRenderPass, &indexBufferBinding, SDL_GPU_INDEXELEMENTSIZE_32BIT);
-
-
-			glm::mat4 meshTrans = glm::translate(glm::mat4(1.0f), mesh.transform.position);
-			glm::mat4 meshRot = glm::toMat4(mesh.transform.rotation);
-			glm::mat4 meshScale = glm::scale(glm::mat4(1.0f), mesh.transform.scale);
-			glm::mat4 meshMat = meshTrans * meshRot * meshScale;
-
-			meshMat = modelMat * meshMat;
-
-			glm::mat4 mvp = uniforms.viewProjection * meshMat;
-			//transpose because slang expect col major matrices
-			PerModelUniforms modelUnifroms;
-			modelUnifroms.mvp = glm::transpose(mvp);
-			modelUnifroms.model = glm::transpose(meshMat);
-
-			SDL_PushGPUVertexUniformData(cmdBuffer, 1, &modelUnifroms, sizeof(modelUnifroms));
-
-			SDL_PushGPUFragmentUniformData(cmdBuffer, 0, &entID, sizeof(entID));
-
-			SDL_DrawGPUIndexedPrimitives(mainRenderPass, mesh.size, 1, 0, 0, 0);
-		}
-	}
-
-	void drawModels(const FrameContext& frameContext) {
-
-		renderQuery.run([&](flecs::iter& it) {
 			while (it.next()) {
+
 				auto transforms = it.field<Transform>(0);
-				auto models = it.field<ModelInstance>(1);
-				flecs::entity pipeline_entity = flecs::entity(it.world(), it.group_id());
+				auto meshComponent = it.field<MeshComponent>(1);
+				flecs::entity pipelineEntity = flecs::entity(it.world(), it.group_id());
 
-				//TODO FIX TO HANDLE NON-MULTI SAMPLED PIPELINES!!!
-				const Pipeline* pipelineSecond = &pipeline_entity.get<Pipeline>();
-				SDL_BindGPUGraphicsPipeline(mainRenderPass, pipelineSecond->pipelineMS);
 
-				// Process all entities in this group
+				//For each entity put all of it meshes in a batch
 				for (auto i : it) {
-					flecs::entity entity = it.entity(i);
-					drawModel((uint32_t)entity.id(),models[i], transforms[i], frameContext.commandBuffer);
+
+					//calculate Ent model matrix
+					glm::mat4 modelMat = createModelMatrix(transforms[i]);
+
+					//put this outside of this loop
+					PipelineBatch& pipelineBatch = pipelineBatches[(uint32_t)pipelineEntity.id()];
+
+					for (uint32_t index : meshComponent->MeshAssetIndices) {
+
+						MeshAsset& asset = assetLib->meshRegistry[index];
+
+						glm::mat4 localMat = createModelMatrix(asset.transform);
+						localMat = modelMat * localMat;
+						glm::mat4 mvp = uniforms.viewProjection * localMat;
+						mvp = glm::transpose(mvp);
+
+						// Get or create the batch for this pipeline
+
+						// batch key is a combination of pipelineEntity ID and index of meshComponent
+						DrawBatch& batch = pipelineBatch.meshBatches[index];
+
+						// Only set geometry once (all instances share the same mesh)
+						if (batch.vertexBuffer == nullptr) {
+							batch.vertexBuffer = asset.vertexBuffer;
+							batch.indexBuffer = asset.indexBuffer;
+							batch.numIndices = asset.numIndices;
+
+							batch.diffuseTexture = asset.diffuseTexture;
+						}
+
+						// Accumulate transforms across all entities
+						batch.transforms.push_back(mvp);
+					}
+				}
+			}
+
+			//upload buffer data
+			for (auto& [pipelineId, pipelineBatch] : pipelineBatches) {
+
+				for (auto& [meshIndex, drawBatch] : pipelineBatch.meshBatches) {
+
+
+
+					//maybe one buffer for the entire transforms and
+					RenderUtil::uploadBufferData(renderContext.device, drawBatch.transformsBuffer,
+						drawBatch.transforms.data(), drawBatch.transforms.size() * sizeof(glm::mat4), SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ);
 
 				}
 			}
 		});
 
+
 	}
 
+	void drawAllBatches(const FrameContext& frameContext) {
+		for (auto& [pipelineId, pipelineBatch] : pipelineBatches) {
 
+			// Bind pipeline ONCE
+			flecs::entity pipelineEntity = ecs.entity(pipelineId);
+			const Pipeline* pipeline = &pipelineEntity.get<Pipeline>();
+			SDL_BindGPUGraphicsPipeline(activeRenderPass, pipeline->pipelineMS);
+			SDL_BindGPUFragmentSamplers(activeRenderPass, 0, &defaultSamplerBinding, 1);
+
+			// Draw each mesh batch under this pipeline
+			for (auto& [meshIndex, batch] : pipelineBatch.meshBatches) {
+
+				//If mesh has a texture then 
+				if (batch.diffuseTexture != nullptr) {
+					SDL_GPUTextureSamplerBinding sampler = { .texture = batch.diffuseTexture, .sampler = defaultSampler };
+					SDL_BindGPUFragmentSamplers(activeRenderPass, 0, &sampler, 1);
+				}
+				//else use the default texture
+				else {
+					SDL_BindGPUFragmentSamplers(activeRenderPass, 0, &defaultSamplerBinding, 1);
+				}
+
+				SDL_GPUBufferBinding vbBinding{ .buffer = batch.vertexBuffer, .offset = 0 };
+				SDL_GPUBufferBinding ibBinding{ .buffer = batch.indexBuffer,  .offset = 0 };
+				SDL_BindGPUVertexBuffers(activeRenderPass, 0, &vbBinding, 1);
+				SDL_BindGPUIndexBuffer(activeRenderPass, &ibBinding, SDL_GPU_INDEXELEMENTSIZE_32BIT);
+				SDL_BindGPUVertexStorageBuffers(activeRenderPass, 0, &batch.transformsBuffer, 1);
+
+				SDL_DrawGPUIndexedPrimitives(
+					activeRenderPass,
+					batch.numIndices,
+					batch.transforms.size(), // all instances of this mesh
+					0, 0, 0
+				);
+			}
+		}
+	}
+
+	
 	void initPhysicsRenderer() {
 #ifdef JPH_DEBUG_RENDERER
 
@@ -658,7 +671,7 @@ struct Renderer {
 		flecs::system createPhysicsBatchesSys = ecs.system<fisiksDebugRenderer>("CreatePhysicsBatchesSys")
 			//.with<fisiksDebugRenderer>()
 			.term_at(0).src<fisiksDebugRenderer>()
-			.kind(flecs::PostFrame)
+			.kind(renderPhase)
 			.each([&](fisiksDebugRenderer& fisiksRenderer) {
 
 			//Clear all the old data
@@ -700,13 +713,40 @@ struct Renderer {
 			});
 
 			// The following are updated every frame so we pass them to fisiksRenderer here instead of during construction
-			fisiksRenderer.renderPass = mainRenderPass;
+			fisiksRenderer.renderPass = activeRenderPass;
 
 			// actually draws
 			fisiksRenderer.drawAll();
 
 		});
 #endif
+
+	}
+
+	void drawMeshWithID(const FrameContext& frameContext, MeshAsset& mesh, uint32_t entID, glm::mat4& modelMat) {
+
+		glm::mat4 localMat = createModelMatrix(mesh.transform);
+		localMat = modelMat * localMat;
+		glm::mat4 mvp = uniforms.viewProjection * localMat;
+
+		mvp = glm::transpose(mvp);
+
+		SDL_PushGPUVertexUniformData(frameContext.commandBuffer, 1, &mvp, sizeof(mvp));
+
+		SDL_GPUBufferBinding vbBinding{ .buffer = mesh.vertexBuffer, .offset = 0 };
+		SDL_GPUBufferBinding ibBinding{ .buffer = mesh.indexBuffer,  .offset = 0 };
+		SDL_BindGPUVertexBuffers(activeRenderPass, 0, &vbBinding, 1);
+		SDL_BindGPUIndexBuffer(activeRenderPass, &ibBinding, SDL_GPU_INDEXELEMENTSIZE_32BIT);
+
+		SDL_PushGPUFragmentUniformData(frameContext.commandBuffer, 0, &entID, sizeof(entID));
+
+
+		SDL_DrawGPUIndexedPrimitives(
+			activeRenderPass,
+			mesh.numIndices,
+			1, // all instances of this mesh
+			0, 0, 0
+		);
 
 	}
 
@@ -728,39 +768,40 @@ struct Renderer {
 		depthStencilTargetInfo.load_op = SDL_GPU_LOADOP_CLEAR;
 		depthStencilTargetInfo.store_op = SDL_GPU_STOREOP_STORE;
 
-		SDL_GPURenderPass* renderPass = SDL_BeginGPURenderPass(
+		activeRenderPass = SDL_BeginGPURenderPass(
 			frameContext.commandBuffer,
 			&colorTargetInfo, 1,
 			&depthStencilTargetInfo
 		);
 
-
+		
 		flecs::entity pipelineEnt = ecs.lookup("pipelineEntID");
 		const Pipeline& pipeline = pipelineEnt.get<Pipeline>();
 
-		SDL_BindGPUGraphicsPipeline(mainRenderPass, pipeline.pipeline);
+		AssetLibrary* assetLib = ecs.get<AssetLibRef>().assetLib;
 
-		renderQuery.run([&](flecs::iter& it) {
-			while (it.next()) {
-				auto transforms = it.field<Transform>(0);
-				auto models = it.field<ModelInstance>(1);
-				flecs::entity pipeline_entity = flecs::entity(it.world(), it.group_id());
+		SDL_BindGPUGraphicsPipeline(activeRenderPass, pipeline.pipeline);
 
-				// Process all entities in this group
-				for (auto i : it) {
-					flecs::entity entity = it.entity(i);
-					drawModel((uint32_t)entity.id(), models[i], transforms[i], frameContext.commandBuffer);
+		queryEntID.each([&](flecs::entity entity, Transform & transform, MeshComponent & meshComponent) {
 
-				}
+			uint32_t entID = (uint32_t)entity.id();
+
+			//calculate Ent model matrix
+			glm::mat4 modelMat = createModelMatrix(transform);
+
+			for (uint32_t index : meshComponent.MeshAssetIndices) {
+
+				MeshAsset& mesh = assetLib->meshRegistry[index];
+
+				drawMeshWithID(frameContext, mesh, entID, modelMat);
 			}
+
 		});
+		
 
-		//add query for all item with editor-only proxy
-
-		SDL_EndGPURenderPass(renderPass);
+		SDL_EndGPURenderPass(activeRenderPass);
 
 	}
-
 
 	//A draw selected ent to selectedEntColorTarget and call applyOutlineComputePass
 	void drawSelectedEnt(const FrameContext& frameContext,
@@ -785,30 +826,39 @@ struct Renderer {
 		depthStencilTargetInfo.load_op = SDL_GPU_LOADOP_CLEAR;
 		depthStencilTargetInfo.store_op = SDL_GPU_STOREOP_STORE;
 
-		SDL_GPURenderPass* renderPass = SDL_BeginGPURenderPass(
+		activeRenderPass = SDL_BeginGPURenderPass(
 			frameContext.commandBuffer,
 			&colorTargetInfo, 1,
 			&depthStencilTargetInfo
 		);
 
-		//TODO add ablity to draw models that don't have a model
-		const ModelInstance& model = selectedEnt.get<ModelInstance>();
-		const Transform& transform = selectedEnt.get<Transform>();
-		
-		// Write highlighted object to stencil buffer 
-		
 		flecs::entity pipelineEnt = ecs.lookup("pipelineEntID");
 		const Pipeline& pipeline = pipelineEnt.get<Pipeline>();
 
-		SDL_BindGPUGraphicsPipeline(renderPass, pipeline.pipeline);
+		SDL_BindGPUGraphicsPipeline(activeRenderPass, pipeline.pipeline);
 
-		drawModel((uint32_t)selectedEnt.id(),model, transform, frameContext.commandBuffer);
+		AssetLibrary * assetLib = ecs.get<AssetLibRef>().assetLib;
 
-		SDL_EndGPURenderPass(renderPass);
+		const Transform& transform = selectedEnt.get<Transform>();
+		const MeshComponent& meshcomponent = selectedEnt.get<MeshComponent>();
 
+		glm::mat4 modelMat = createModelMatrix(transform);
+
+		uint32_t entID = (uint32_t)selectedEnt.id();
+
+		for (uint32_t meshIndex : meshcomponent.MeshAssetIndices) {
+
+			MeshAsset& mesh = assetLib->meshRegistry[meshIndex];
+
+			drawMeshWithID(frameContext, mesh, entID, modelMat);
+
+			SDL_EndGPURenderPass(activeRenderPass);
+		}
+		
+		
 		applyOutlineComputePass(frameContext, renderContext, config);
-
 	}
+
 
 	//Send entIDStencilTarget to read from
 	//Send the colorTarget to write to 
@@ -843,13 +893,6 @@ struct Renderer {
 		const ComputePipeline& outlineComputePipeline = outlineComputePipelineEnt.get<ComputePipeline>();
 		SDL_BindGPUComputePipeline(computePass, outlineComputePipeline.pipeline);
 
-		// Bind textures
-
-		//SDL_GPUTextureSamplerBinding inputBinding = {
-		//	.texture = selectedEntColorTarget,
-		//	.sampler = nearestSampler
-		//};
-		//SDL_BindGPUComputeSamplers(computePass, 0, &inputBinding, 1);
 
 		SDL_BindGPUComputeStorageTextures(computePass, 0, &selectedEntColorTarget, 1);
 
@@ -862,7 +905,7 @@ struct Renderer {
 			uint32_t screenHeight;  
 		} params;
 
-		params.color = glm::vec4(1.0f, 1.0f, 0.0f, 1.0f);
+		params.color = glm::vec4(1.0f, 0.70f, 0.0f, 1.0f); //orange
 		params.thickness = 2.0f;
 		params.entId = static_cast<uint32_t>(selectedEnt.id());
 		params.screenWidth = config.windowWidth;
@@ -916,7 +959,7 @@ struct Renderer {
 		depthStencilTargetInfo.load_op = SDL_GPU_LOADOP_CLEAR;
 		depthStencilTargetInfo.store_op = SDL_GPU_STOREOP_STORE;
 
-		SDL_GPURenderPass* renderPass = SDL_BeginGPURenderPass(
+		activeRenderPass = SDL_BeginGPURenderPass(
 			frameContext.commandBuffer,
 			&colorTargetInfo, 1,
 			&depthStencilTargetInfo
@@ -928,18 +971,19 @@ struct Renderer {
 			flecs::entity pipelineEnt = e.target<RenderPipeline>();
 			const Pipeline pipeline = pipelineEnt.get<Pipeline>();
 
-			SDL_BindGPUGraphicsPipeline(renderPass, pipeline.pipeline);
+			SDL_BindGPUGraphicsPipeline(activeRenderPass, pipeline.pipeline);
 
 			SDL_GPUBufferBinding vertexBufferBinding = {};
 			vertexBufferBinding.buffer = e.get<VertexBuffer>().handle;
 			vertexBufferBinding.offset = 0;
-			SDL_BindGPUVertexBuffers(renderPass, 0, &vertexBufferBinding, 1);
+			SDL_BindGPUVertexBuffers(activeRenderPass, 0, &vertexBufferBinding, 1);
 
-			SDL_DrawGPUPrimitives(renderPass, e.get<LineVertices>().data.size(), 1, 0, 0);
+			SDL_DrawGPUPrimitives(activeRenderPass, e.get<LineVertices>().data.size(), 1, 0, 0);
+
 
 		});
 
-		SDL_EndGPURenderPass(renderPass);
+		SDL_EndGPURenderPass(activeRenderPass);
 
 	}
 
@@ -984,7 +1028,6 @@ struct Renderer {
 			.d = 1
 		};
 
-
 		SDL_GPUTextureTransferInfo textureTransferInfo = {
 			.transfer_buffer = entityIDTransferBuffer,
 			.offset = 0,
@@ -993,11 +1036,7 @@ struct Renderer {
 		};
 
 		// Queue the download
-		SDL_DownloadFromGPUTexture(
-			copyPass,
-			&textureRegion,
-			&textureTransferInfo
-		);
+		SDL_DownloadFromGPUTexture(copyPass, &textureRegion, &textureTransferInfo);
 
 
 		SDL_EndGPUCopyPass(copyPass);
@@ -1005,12 +1044,7 @@ struct Renderer {
 		SDL_GPUFence* fence =  SDL_SubmitGPUCommandBufferAndAcquireFence(copyCommandBuffer);
 
 		// TODO Maybe do this in a background thread
-		SDL_WaitForGPUFences(
-			renderContext.device,
-			true, 
-			&fence,
-			1
-		);
+		SDL_WaitForGPUFences(renderContext.device,true, &fence, 1);
 
 		uint32_t* data = (uint32_t*)SDL_MapGPUTransferBuffer(
 			renderContext.device,
@@ -1045,6 +1079,14 @@ struct Renderer {
 		blitInfo.filter = SDL_GPU_FILTER_LINEAR;
 		SDL_BlitGPUTexture(frameContext.commandBuffer, &blitInfo);
 
+	}
+
+	glm::mat4 createModelMatrix(const Transform& transform) {
+
+		glm::mat4 modelTranslation = glm::translate(glm::mat4(1.0f), transform.position);
+		glm::mat4 modelRotation = glm::toMat4(transform.rotation);
+		glm::mat4 modelScale = glm::scale(glm::mat4(1.0f), transform.scale);
+		return modelTranslation * modelRotation * modelScale;
 	}
 
 };

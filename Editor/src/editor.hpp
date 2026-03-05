@@ -27,9 +27,22 @@ public:
 		registerReflectionData(ecs);
 
 		const RenderConfig& config = ecs.get<RenderConfig>();
+
+		Transform transform;
+
+		transform.position = config.FreeCamPos;
+
+		//Get the modelSource from Asset Library
+		AssetLibrary * assetLib = ecs.get<AssetLibRef>().assetLib;
+
 		freeCam = ecs.entity("FreeCam")
 			.emplace<Camera>(config)
-			.set<CameraMVMTState>({false});
+			.set<Transform>(transform)
+			.set<ModelSourceName>({ "camera" })
+			.set<MeshComponent>({ assetLib->requestMeshComponent("camera") })
+			.add<RenderPipeline>(ecs.lookup("pipelineUnlit"))
+			.set<CameraMVMTState>({false})
+			.add<EditorMesh>();
 
 		ecs.component<HighlightedEntRef>().add(flecs::Singleton);
 		ecs.set<HighlightedEntRef>({ flecs::entity::null() });
@@ -187,6 +200,17 @@ public:
 
 		ecs.set<HighlightedEntRef>({ ent });
 
+	}
+
+
+	void updateEditorComponentsSys() {
+
+		//Update camera
+
+
+		//update gizmos
+
+		// update xyz
 	}
 
 };

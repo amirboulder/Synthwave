@@ -282,7 +282,6 @@ public:
 	flecs::system syncSys;
 
 	flecs::entity physicsPhase;
-	flecs::entity physicsRenderPhase;
 
 	Fisiks(flecs::world& ecs)
 		: broad_phase_layer_interface(),

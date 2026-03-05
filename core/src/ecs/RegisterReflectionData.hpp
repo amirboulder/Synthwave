@@ -43,7 +43,7 @@ void registerReflectionData(flecs::world & ecs){
        *data = value; // Assign new value to std::string
    });
    
-   ecs.component<ModelSourceRef>()
+   ecs.component<ModelSourceName>()
        .member<std::string>("name");
 
    ecs.component<ObjectType>()

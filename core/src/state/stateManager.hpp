@@ -176,7 +176,8 @@ public:
 		//TODO maybe gameState phase
 		flecs::entity playerPhaseDependency = ecs.lookup("PlayerPhaseDependency").depends_on(aiPhaseDependency);
 
-		flecs::entity physicsRenderPhaseDependency = ecs.entity("PhysicsRenderPhaseDependency").depends_on(flecs::PostFrame);
+		flecs::entity renderPhaseDependency = ecs.lookup("RenderPhaseDependency").depends_on(playerPhaseDependency);
+
 
 		/* This still works with flecs builtin pipeline query :
 		world.pipeline()

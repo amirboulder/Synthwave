@@ -7,18 +7,18 @@ public:
 
     GridGenerator(){}
 
-    static void generateGrid(int rows, int cols, std::vector<Vertex> & vertices, std::vector <unsigned int> & indices) {
+    static void generateGrid(int size, std::vector<Vertex> & vertices, std::vector <unsigned int> & indices) {
 
         // Generate vertices
        // adding one to rows and cols becasuet the loops go to <=
-       vertices.reserve((rows+1) * (cols + 1));
+       vertices.reserve((size +1) * (size + 1));
 
-        for (int r = 0; r <= rows; r++) {
-            for (int c = 0; c <= cols; c++) {
+        for (int r = 0; r <= size; r++) {
+            for (int c = 0; c <= size; c++) {
 
-                float x = static_cast<float>(c) - (cols  / 2.0f);
+                float x = static_cast<float>(c) - (size / 2.0f);
                 float y = 0.0f;
-                float z = static_cast<float>(r)  - (rows  / 2.0f);
+                float z = static_cast<float>(r)  - (size / 2.0f);
 
                 vertices.emplace_back();
                 Vertex& currentVertex = vertices.back();
@@ -30,15 +30,15 @@ public:
             }
         }
 
-        indices.reserve(rows * cols * 6);
+        indices.reserve(size * size * 6);
 
         // Generate indices for GL_TRIANGLES
-        for (int r = 0; r < rows; r++) {
-            for (int c = 0; c < cols; c++) {
+        for (int r = 0; r < size; r++) {
+            for (int c = 0; c < size; c++) {
                 // Define two triangles for each grid cell
-                int topLeft = r * (cols + 1) + c;
+                int topLeft = r * (size + 1) + c;
                 int topRight = topLeft + 1;
-                int bottomLeft = (r + 1) * (cols + 1) + c;
+                int bottomLeft = (r + 1) * (size + 1) + c;
                 int bottomRight = bottomLeft + 1;
 
                 // First triangle (top-left, bottom-left, top-right)
