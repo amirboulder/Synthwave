@@ -44,14 +44,15 @@ int main(int argc, char* argv[])
 		time.tick();
 		while (time.accumulator >= time.timeStep) {
 
-			inputManager.handleInput();
+			//TODO input can be handled at a faster rate which would enable faster camera movement, which would then require interpolation.
+			inputManager.handleInput(); 
 
-			//All systems except rendering are called by this
+			//All systems except rendering happen here.
 			ecs.progress();
 
 			time.accumulator -= time.timeStep;
 		}
-		//TODO INTERPOLATE to account for physics and rendering happening at different rates
+		
 		renderer.drawAll();
 
 	}

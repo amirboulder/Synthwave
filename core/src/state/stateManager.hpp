@@ -122,6 +122,7 @@ public:
 		physicsRenderToggleEventHook();
 		saveGameSrcEventHook();
 		ragdollSavedEventHook();
+		PrintSystemsEventHook();
 
 	}
 
@@ -699,6 +700,18 @@ public:
 			}
 		});
 	}
+
+	void PrintSystemsEventHook() {
+
+		ecs.component<PrintSystemsEvent>()
+			.on_set([&](PrintSystemsEvent& event) {
+
+			if (event.occurred == true) {
+
+				printSystems();
+			}
+		});
+	}
 	
 	//TODO Maybe fix the redundant calls at some point
 	void MenuObserver() {
@@ -921,14 +934,11 @@ public:
 
 	void toMainMenuCallback () {
 
-
 		serde.unload();
 		
 		ecs.set<MenuState>({ MenuState::MAIN });
 
 		ecs.set<GameLoadedState>({ GameLoadedState::NotLoaded });
-
-
 	}
 
 
@@ -944,12 +954,8 @@ public:
 			.build();
 
 
-		pipeline_query.each([&](flecs::iter& it, size_t i) {
-
-			flecs::entity system = it.entity(i);
-
-			cout << "  System: " << system.name() << std::endl;
-
+		pipeline_query.each([&](flecs::entity system) {
+			cout << "  System: " << system.name() << "\n";
 		});
 	}
 

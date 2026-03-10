@@ -235,7 +235,7 @@ struct Renderer {
 		// that way phases created earlier in initialization can depend on phases created after them
 		flecs::entity renderPhaseDependency = ecs.entity("RenderPhaseDependency");
 
-		renderPhase = ecs.entity("PhysicsPhase")
+		renderPhase = ecs.entity("RenderPhase")
 			.add(flecs::Phase)
 			.depends_on(renderPhaseDependency);
 
@@ -459,7 +459,6 @@ struct Renderer {
 
 		beginRenderPass(renderContext, frameContext);
 
-		//buildBatches(frameContext);
 		drawAllBatches(frameContext);
 
 		//Keeping this part of the main render Pass because they look/work better
@@ -527,6 +526,8 @@ struct Renderer {
 			uniforms.view = cam.generateview();
 			uniforms.projection = cam.generateProj();
 			uniforms.viewProjection = cam.generateviewProj();
+			//Transpose because matrix layout in memory for Slang is is row-major
+			uniforms.viewProjection = glm::transpose(uniforms.viewProjection);
 
 		});
 
@@ -569,10 +570,8 @@ struct Renderer {
 
 						glm::mat4 localMat = createModelMatrix(asset.transform);
 						localMat = modelMat * localMat;
-						glm::mat4 mvp = uniforms.viewProjection * localMat;
-						mvp = glm::transpose(mvp);
-
-						// Get or create the batch for this pipeline
+						//Transpose because matrix layout in memory for Slang is is row-major
+						localMat = glm::transpose(localMat);
 
 						// batch key is a combination of pipelineEntity ID and index of meshComponent
 						DrawBatch& batch = pipelineBatch.meshBatches[index];
@@ -587,7 +586,7 @@ struct Renderer {
 						}
 
 						// Accumulate transforms across all entities
-						batch.transforms.push_back(mvp);
+						batch.transforms.push_back(localMat);
 					}
 				}
 			}
@@ -606,7 +605,6 @@ struct Renderer {
 				}
 			}
 		});
-
 
 	}
 
@@ -688,7 +686,6 @@ struct Renderer {
 
 			physicsSystem.DrawConstraintLimits(&fisiksRenderer);
 			//physicsSystem.DrawConstraintReferenceFrame(&fisiksRenderer);
-
 
 		});
 
@@ -832,7 +829,7 @@ struct Renderer {
 			&depthStencilTargetInfo
 		);
 
-		flecs::entity pipelineEnt = ecs.lookup("pipelineEntID");
+		flecs::entity pipelineEnt = ecs.lookup("pipelineEntID"); //TODO maybe use a different pipeline
 		const Pipeline& pipeline = pipelineEnt.get<Pipeline>();
 
 		SDL_BindGPUGraphicsPipeline(activeRenderPass, pipeline.pipeline);

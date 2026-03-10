@@ -24,7 +24,8 @@ struct VertexOutput
 [shader("vertex")]
 VertexOutput vertexMain(VertexInput input, uint instanceIndex: SV_InstanceID)
 {
-    float4x4 mvp = transforms[instanceIndex];
+    float4x4 model = transforms[instanceIndex];
+    float4x4 mvp = mul(viewProjection, model);
 
     VertexOutput output;
 

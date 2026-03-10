@@ -61,6 +61,9 @@ public:
 		ecs.component<SaveGameSrcEvent>().add(flecs::Singleton);
 		ecs.set<SaveGameSrcEvent>({});
 
+		ecs.component<PrintSystemsEvent>().add(flecs::Singleton);
+		ecs.set<PrintSystemsEvent>({});
+
 		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, GOOD "InputManager Initialized" RESET);
 	}
 
@@ -213,6 +216,7 @@ public:
 		if (event.type == SDL_EVENT_KEY_DOWN && event.key.repeat == 0 && event.key.scancode == SDL_SCANCODE_F3) {
 
 			//stateManager.printSystems();
+			ecs.set<PrintSystemsEvent>({ true });
 
 		}
 

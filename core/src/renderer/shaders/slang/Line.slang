@@ -22,10 +22,7 @@ VertexOutput vertexMain(VertexInput input)
 {
     VertexOutput output;
 
-    // Transposing here for now instead of in cpu because we need viewProjection in its original form to be multipied with model matrix in cpu,which does not apply to this mesh
-    float4x4 viewProjT = transpose(viewProjection);
-
-    output.position = mul(viewProjT, float4(input.position, 1.0));
+    output.position = mul(viewProjection, float4(input.position, 1.0));
     output.color = input.color;
 
     

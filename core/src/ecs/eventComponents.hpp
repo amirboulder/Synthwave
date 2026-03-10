@@ -41,3 +41,7 @@ struct SaveGameSrcEvent {
 struct RagdollSavedEvent {
 	bool occurred = false;
 };
+
+struct PrintSystemsEvent {
+	bool occurred = false;
+};
