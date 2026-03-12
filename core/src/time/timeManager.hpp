@@ -4,6 +4,7 @@
 /// Keeps track of how much times is consumed in every frame.
 /// If enough time accumulated (>= timeStep) then game loop will progress
 /// Note: When game is paused we DO NOT pause time but rather disable game systems.
+/// Note: deltaTime has been capped 50ms to avoid doing too many updates when debugging.
 /// </summary>
 class TimeManager {
 
@@ -34,11 +35,11 @@ public:
 	}
 
 	void tick() {
-
-		deltaTime = (SDL_GetTicks() - lastTime) / 1000.0f;
-		lastTime = SDL_GetTicks();
+		uint64_t now = SDL_GetTicks();
+		deltaTime = (now - lastTime) / 1000.0f;
+		lastTime = now;
+		deltaTime = std::min(deltaTime, 0.05f); // clamp before accumulating
 		accumulator += deltaTime;
-
 	}
 
 };

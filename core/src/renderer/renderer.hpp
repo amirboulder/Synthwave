@@ -543,10 +543,16 @@ struct Renderer {
 			.kind(renderPhase)
 			.run([&](flecs::iter& it) {
 
-			pipelineBatches.clear();
-
 			AssetLibrary* assetLib = ecs.get<AssetLibRef>().assetLib;
 			const RenderContext& renderContext = ecs.get<RenderContext>();
+
+			//clear previous batch
+			for (auto& [pipelineId, pipelineBatch] : pipelineBatches) {
+				for (auto& [meshIndex, drawBatch] : pipelineBatch.meshBatches) {
+					drawBatch.transforms.clear();
+					drawBatch.numIndices = 0;
+				}
+			}
 
 			while (it.next()) {
 
@@ -576,14 +582,11 @@ struct Renderer {
 						// batch key is a combination of pipelineEntity ID and index of meshComponent
 						DrawBatch& batch = pipelineBatch.meshBatches[index];
 
-						// Only set geometry once (all instances share the same mesh)
-						if (batch.vertexBuffer == nullptr) {
-							batch.vertexBuffer = asset.vertexBuffer;
-							batch.indexBuffer = asset.indexBuffer;
-							batch.numIndices = asset.numIndices;
+						batch.vertexBuffer = asset.vertexBuffer;
+						batch.indexBuffer = asset.indexBuffer;
+						batch.numIndices = asset.numIndices;
 
-							batch.diffuseTexture = asset.diffuseTexture;
-						}
+						batch.diffuseTexture = asset.diffuseTexture;
 
 						// Accumulate transforms across all entities
 						batch.transforms.push_back(localMat);
@@ -596,11 +599,22 @@ struct Renderer {
 
 				for (auto& [meshIndex, drawBatch] : pipelineBatch.meshBatches) {
 
+					if (drawBatch.transforms.empty()) continue;
 
+					//Frees prevoius frames buffer.(prevents memory leak)
+					if (drawBatch.transformsBuffer != nullptr) {
+						SDL_ReleaseGPUBuffer(renderContext.device, drawBatch.transformsBuffer);
+						drawBatch.transformsBuffer = nullptr;
+					}
 
-					//maybe one buffer for the entire transforms and
-					RenderUtil::uploadBufferData(renderContext.device, drawBatch.transformsBuffer,
-						drawBatch.transforms.data(), drawBatch.transforms.size() * sizeof(glm::mat4), SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ);
+					//TODO maybe one buffer for the entire transforms and
+					RenderUtil::uploadBufferData(
+						renderContext.device,
+						drawBatch.transformsBuffer,
+						drawBatch.transforms.data(),
+						drawBatch.transforms.size() * sizeof(glm::mat4),
+						SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ
+					);
 
 				}
 			}

@@ -59,8 +59,6 @@ public:
         if (!transferBuffer) {
 
 			LogError(LOG_RENDER, "Failed to create transfer buffer: %s", SDL_GetError());
-			SDL_ReleaseGPUTransferBuffer(device, transferBuffer);
-
             return;
         }
 

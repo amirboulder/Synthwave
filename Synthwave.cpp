@@ -47,8 +47,7 @@ int main(int argc, char* argv[])
 			//TODO input can be handled at a faster rate which would enable faster camera movement, which would then require interpolation.
 			inputManager.handleInput(); 
 
-			//All systems except rendering happen here.
-			ecs.progress();
+			ecs.progress(); //All systems except rendering happen here.
 
 			time.accumulator -= time.timeStep;
 		}
