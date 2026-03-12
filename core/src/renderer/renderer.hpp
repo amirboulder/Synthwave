@@ -557,9 +557,8 @@ struct Renderer {
 			while (it.next()) {
 
 				auto transforms = it.field<Transform>(0);
-				auto meshComponent = it.field<MeshComponent>(1);
+				auto meshComponents = it.field<MeshComponent>(1);
 				flecs::entity pipelineEntity = flecs::entity(it.world(), it.group_id());
-
 
 				//For each entity put all of it meshes in a batch
 				for (auto i : it) {
@@ -570,7 +569,7 @@ struct Renderer {
 					//put this outside of this loop
 					PipelineBatch& pipelineBatch = pipelineBatches[(uint32_t)pipelineEntity.id()];
 
-					for (uint32_t index : meshComponent->MeshAssetIndices) {
+					for (uint32_t index : meshComponents[i].MeshAssetIndices) {
 
 						MeshAsset& asset = assetLib->meshRegistry[index];
 
