@@ -48,6 +48,8 @@ public:
         ecs.component<AssetLibRef>();
         ecs.set<AssetLibRef>({ this });
 
+        meshRegistry.reserve(modelPaths.size());
+
         scanForRagdolls();
 
         LogSuccess(LOG_APP, "AssetLibrary Initialized");
@@ -125,28 +127,21 @@ public:
     /// It first checks if the model is already loaded if not it will attempt to load it.
     /// If it cannot fine the source file it will return null
     /// </summary>
-    ModelSource* getModel(const std::string& modelName) {
-
-        ModelSource* modelSourcePtr = nullptr;
+    const ModelSource* getModel(const std::string& modelName) {
 
         auto itr = loadedModels.find(modelName);
         if (itr != loadedModels.end()) {
-
-            modelSourcePtr = itr->second.get();
-            
+            return itr->second.get();
         }
-
         if (VerifyModelPathExistence(modelName)) {
-
             auto pathItr = modelPaths.find(modelName);
-            modelSourcePtr = loadModel(modelName, pathItr->second.string());
+            return loadModel(modelName, pathItr->second.string());
         }
-
-        return modelSourcePtr;
+        return nullptr;
     }
 
 
-    ModelSource* loadModel(const std::string& modelName, const std::string filepath) {
+    ModelSource* loadModel(const std::string& modelName, const std::string & filepath) {
 
         auto pathIt = modelPaths.find(modelName);
 
@@ -168,8 +163,6 @@ public:
     /// will return a struct with an empty vector if model does not exist.
     /// Used in Entity factory
     /// </summary>
-    /// <param name="modelName"></param>
-    /// <returns></returns>
     MeshComponent requestMeshComponent(const std::string& modelName) {
 
         MeshComponent meshComponent;
@@ -199,7 +192,7 @@ public:
         return meshComponent;
     }
 
-    
+
     bool VerifyModelPathExistence(const std::string& modelName) {
 
         auto pathItr = modelPaths.find(modelName);

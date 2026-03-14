@@ -31,11 +31,9 @@ public:
 		//Get the modelSource from Asset Library
 		AssetLibrary * assetLib = ecs.get<AssetLibRef>().assetLib;
 		const ModelSource* modelSource = assetLib->getModel(ModelSrcName);
-		if (!validateModelSource(modelSource, ModelSrcName));
+		if (!validateModelSource(modelSource, ModelSrcName)) return false;
 
-		float meshX;
-		float meshY;
-		float meshZ;
+		float meshX, meshY, meshZ;
 
 		// Assuming modelSource has only 1 mesh
 		calculateMeshSize(modelSource->meshes[0], meshX, meshY, meshZ);
@@ -76,7 +74,7 @@ public:
 
 
 		const flecs::entity entity = ecs.entity(name.c_str())
-			.set<EntityType>({ EntityType::Cube })
+			.set<EntityTypeComponent>({ EntityType::Cube })
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
 			.set<ModelSourceName>({ ModelSrcName.c_str() })
@@ -86,10 +84,90 @@ public:
 			.child_of(parent)
 			;
 
+
+
 		// Store the entity ID in the physics body which gives us a two way mapping between entity and bodyId
 		bodyInterface.SetUserData(physicsID, entity.id());
 
 		if (!validateEntityCreation(entity, name))  return false;
+
+		return true;
+
+	}
+
+	static bool createCarEntity(flecs::world& ecs, const flecs::entity parent, const std::string name,
+		const std::string ModelSrcName, const Transform transform, const std::string pipelineName) {
+
+		if (!validateName(ecs, parent, name)) return false;
+		if (!validateTransform(transform, name.c_str())) return false;
+		if (!validatePipelineExistence(ecs, pipelineName)) return false;
+
+		//Get the modelSource from Asset Library
+		AssetLibrary* assetLib = ecs.get<AssetLibRef>().assetLib;
+		const ModelSource* modelSource = assetLib->getModel(ModelSrcName);
+		if (!validateModelSource(modelSource, ModelSrcName)) return false;
+
+		JPH::BodyInterface& bodyInterface = ecs.get<PhysicsSystemRef>().physicsSystem.GetBodyInterface();
+
+		MeshComponent meshComp = assetLib->requestMeshComponent(ModelSrcName.c_str());
+
+		flecs::entity entity = ecs.entity(name.c_str())
+			.set<EntityTypeComponent>({ EntityType::Car })
+			.add<DynamicEnt>()
+			.set<Transform>(transform)
+			.set<ModelSourceName>({ ModelSrcName.c_str() })
+			.set<MeshComponent>({ std::move(meshComp) })
+			//.set<PhysicsBody>(std::move(physicsBodyIDs))
+			.add<RenderPipeline>(ecs.lookup(pipelineName.c_str()))
+			.child_of(parent)
+			;
+
+		if (!validateEntityCreation(entity, name))  return false;
+
+
+		StaticCompoundShapeSettings settings;
+
+		for (const MeshSource& mesh : modelSource->meshes) {
+
+			float meshX, meshY, meshZ;
+
+			// Assuming modelSource has only 1 mesh
+			calculateMeshSize(mesh, meshX, meshY, meshZ);
+
+			Vec3 boxHalfExtents(meshX * 0.5, meshY * 0.5, meshZ * 0.5);
+			
+			//For now just use a box for everything
+			Ref<BoxShapeSettings> boxShapeSettings = new BoxShapeSettings(boxHalfExtents);
+
+			JPH::Vec3 joltPos(mesh.transform.position.x, mesh.transform.position.y, mesh.transform.position.z);
+			JPH::Quat joltRot(mesh.transform.rotation.x, mesh.transform.rotation.y, mesh.transform.rotation.z, mesh.transform.rotation.w);
+			if (!joltRot.IsNormalized()) {
+				joltRot = joltRot.Normalized();
+			}
+
+			settings.AddShape(joltPos, joltRot, boxShapeSettings, (uint32_t)entity.id());
+
+		}
+
+		Result<Ref<Shape>> shapeResult = settings.Create();
+
+		// Convert GLM to Jolt types
+		JPH::Vec3 joltPos(transform.position.x, transform.position.y, transform.position.z);
+		JPH::Quat joltRot(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
+
+		BodyCreationSettings bodySettings(
+			shapeResult.Get(),
+			joltPos,
+			joltRot,
+			EMotionType::Dynamic,
+			Layers::MOVING
+		);
+
+		const BodyID physicsID = bodyInterface.CreateAndAddBody(bodySettings, JPH::EActivation::Activate);
+
+
+		entity.set<JPH::BodyID>(physicsID);
+
 
 		return true;
 
@@ -117,7 +195,7 @@ public:
 		}
 
 		const flecs::entity entity = ecs.entity(name.c_str())
-			.set<EntityType>({ EntityType::Ragdoll })
+			.set<EntityTypeComponent>({ EntityType::Ragdoll })
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
 			//.set<ModelInstance>(modelSource->createInstance())
@@ -168,7 +246,7 @@ public:
 
 
 		const flecs::entity entity = ecs.entity(name.c_str())
-			.set<EntityType>({ EntityType::Ragdoll })
+			.set<EntityTypeComponent>({ EntityType::Ragdoll })
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
 			//.set<ModelInstance>(modelSource->createInstance())
@@ -268,7 +346,7 @@ public:
 		ragdoll->AddToPhysicsSystem(EActivation::Activate);
 
 		const flecs::entity entity = ecs.entity(name.c_str())
-			.set<EntityType>({ EntityType::Humanoid })
+			.set<EntityTypeComponent>({ EntityType::Humanoid })
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
 			//.set<ModelInstance>(modelSource->createInstance())
@@ -311,7 +389,7 @@ public:
 		Ref<RagdollSettings> mRagdollSettings = RagdollLoader::createArm(pos,1.0f);
 
 		const flecs::entity entity = ecs.entity(name.c_str())
-			.set<EntityType>({ EntityType::Humanoid })
+			.set<EntityTypeComponent>({ EntityType::Humanoid })
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
 			//.set<ModelInstance>(modelSource->createInstance())
@@ -372,7 +450,7 @@ public:
 		Ref<RagdollSettings> mRagdollSettings = RagdollLoader::createSnake(pos, 1.0f);
 
 		const flecs::entity entity = ecs.entity(name.c_str())
-			.set<EntityType>({ EntityType::Humanoid })
+			.set<EntityTypeComponent>({ EntityType::Humanoid })
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
 			//.set<ModelInstance>(modelSource->createInstance())
@@ -447,7 +525,7 @@ public:
 		if (!validatePhysicsBodyCreation(physicsID, name)) return false;
 
 		const flecs::entity entity = ecs.entity(name.c_str())
-			.set<EntityType>({ EntityType::Sensor })
+			.set<EntityTypeComponent>({ EntityType::Sensor })
 			.add<StaticEnt>()
 			.add<Sensor>()
 			.set<Transform>(transform)
@@ -474,7 +552,7 @@ public:
 		//Get the modelSource from Asset Library
 		AssetLibrary* assetLib = ecs.get<AssetLibRef>().assetLib;
 		const ModelSource* modelSource = assetLib->getModel(ModelSrcName);
-		if (!validateModelSource(modelSource, ModelSrcName));
+		if (!validateModelSource(modelSource, ModelSrcName)) return false;
 
 		float meshX;
 		float meshY;
@@ -523,7 +601,7 @@ public:
 
 
 		const flecs::entity entity = ecs.entity(name.c_str())
-			.set<EntityType>({ EntityType::Capsule })
+			.set<EntityTypeComponent>({ EntityType::Capsule })
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
 			.set<ModelSourceName>({ ModelSrcName.c_str() })
@@ -574,7 +652,7 @@ public:
 		}
 
 		flecs::entity actorEnt = ecs.entity(name.c_str())
-			.set<EntityType>({ EntityType::Actor})
+			.set<EntityTypeComponent>({ EntityType::Actor})
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
 			.set<ModelSourceName>({ ModelSrcName.c_str() })
@@ -691,7 +769,7 @@ public:
 		if (!validatePhysicsBodyCreation(physicsID, name)) return false;
 
 		const flecs::entity entity = ecs.entity(name.c_str())
-			.set<EntityType>({ EntityType::StaticMesh })
+			.set<EntityTypeComponent>({ EntityType::StaticMesh })
 			.add<StaticEnt>()
 			.set<Transform>(transform)
 			.set<ModelSourceName>({ ModelSrcName.c_str() })
@@ -763,7 +841,7 @@ public:
 
 
 		const flecs::entity entity = ecs.entity(name.c_str())
-			.set<EntityType>({ EntityType::Grid })
+			.set<EntityTypeComponent>({ EntityType::Grid })
 			.add<StaticEnt>()
 			.set<Transform>(transform)
 			.set<ModelSourceName>({ modelName.c_str() })
@@ -793,7 +871,7 @@ public:
 		if (!validateName(ecs, parent, playerCamName)) return false;
 
 		flecs::entity playerEntity = ecs.entity(playerName.c_str())
-			.set<EntityType>({ EntityType::Player })
+			.set<EntityTypeComponent>({ EntityType::Player })
 			.child_of(parent);
 		playerEntity.emplace<Player>(ecs, JPH::Vec3(1.0f, 15.0f, 0.0f), JPH::Quat(0.0f, 0.0f, 0.0f, 1.0f), 2.0f, 1.0f, playerEntity.id());
 
@@ -803,7 +881,7 @@ public:
 
 
 		flecs::entity playerCam = ecs.entity(playerCamName.c_str())
-			.set<EntityType>({ EntityType::Camera })
+			.set<EntityTypeComponent>({ EntityType::Camera })
 			.emplace<Camera>(config)
 			.child_of(parent);
 
@@ -853,6 +931,16 @@ public:
 		if (!validateEntityCreation(entity, name)) return flecs::entity::null();
 
 		return entity;
+	}
+
+	static const ModelSource* getModelSource(flecs::world& ecs, std::string ModelSrcName) {
+
+		//Get the modelSource from Asset Library
+		AssetLibrary* assetLib = ecs.get<AssetLibRef>().assetLib;
+		const ModelSource* modelSource = assetLib->getModel(ModelSrcName);
+		if (!validateModelSource(modelSource, ModelSrcName)) return nullptr;
+
+		return modelSource;
 	}
 
 

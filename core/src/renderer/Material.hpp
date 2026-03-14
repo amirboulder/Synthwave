@@ -6,6 +6,12 @@ struct MaterialSMPL {
     SDL_GPUTexture* diffuseTexture;
 };
 
+struct Material {
+	SDL_GPUTexture* diffuseTexture;
+	SDL_GPUTexture* specularTexture;
+	SDL_GPUTexture* normalTexture;
+};
+
 class MaterialLoader {
 public:
 
@@ -137,10 +143,10 @@ public:
 
     }
 
-	void createGPUTexture(SDL_Surface* imageData, SDL_GPUTexture* & TextureSDL, const std::string textureName, SDL_GPUDevice* device) {
+	static void createGPUTexture(SDL_Surface* imageData, SDL_GPUTexture* & TextureSDL, const std::string textureName, SDL_GPUDevice* device) {
 
 		// Set up texture data
-		const Uint32 imageSizeInBytes = imageData->w * imageData->h * 4;
+		const Uint32 imageSizeInBytes = imageData->w * imageData->h * 4; //This assumes rgba maybe addd this as a parameter
 
 		SDL_GPUTextureCreateInfo textureCreateInfo = {
 			.type = SDL_GPU_TEXTURETYPE_2D,

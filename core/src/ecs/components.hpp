@@ -99,25 +99,7 @@ struct Draw {
 };
 
 
-struct JoltCharacter {
-	JPH::Character* characterPtr = nullptr;
-};
 
-struct JoltRagdoll {
-	JPH::Ragdoll* ragdollPtr = nullptr;
-};
-
-struct JoltAnimation {
-	JPH::SkeletalAnimation* animationPtr = nullptr;
-};
-
-struct JoltPose {
-	JPH::SkeletonPose* posePtr = nullptr;
-};
-
-struct AnimationTime {
-	float time = 0.0f;
-};
 
 //TODO rename CallbackComponent
 struct Callback {
@@ -176,6 +158,9 @@ struct Renderable{};
 
 struct IsActive {};
 
+//=============================================
+// Physics
+//=============================================
 
 /// <summary>
 /// Reference to the physics system which allows other system query it from the ECS
@@ -184,6 +169,36 @@ struct IsActive {};
 struct PhysicsSystemRef {
 	JPH::PhysicsSystem & physicsSystem;
 };
+
+struct PhysicsBody {
+	JPH::BodyID ID;
+};
+
+struct PhysicsBodyGroup {
+	std::vector<JPH::BodyID> IDs;
+};
+
+struct JoltCharacter {
+	JPH::Character* characterPtr = nullptr;
+};
+
+struct JoltRagdoll {
+	JPH::Ragdoll* ragdollPtr = nullptr;
+};
+
+struct JoltAnimation {
+	JPH::SkeletalAnimation* animationPtr = nullptr;
+};
+
+struct JoltPose {
+	JPH::SkeletonPose* posePtr = nullptr;
+};
+
+struct AnimationTime {
+	float time = 0.0f;
+};
+
+//////////////////////////////////////////////
 
 struct Game {};
 struct _Scene {};
@@ -218,6 +233,7 @@ enum class EntityType {
 	Empty,
 	Game,
 	Scene,
+	Car,
 	Player,
 	Humanoid,
 	Ragdoll,
@@ -233,4 +249,9 @@ enum class EntityType {
 	Light,
 	Camera,
 	COUNT
+};
+
+
+struct EntityTypeComponent {
+	EntityType type;
 };
