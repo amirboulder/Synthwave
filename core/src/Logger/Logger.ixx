@@ -21,12 +21,14 @@ export typedef enum {
 	LOG_APP = SDL_LOG_CATEGORY_APPLICATION,
 	LOG_ERR = SDL_LOG_CATEGORY_ERROR,
 	LOG_SYS = SDL_LOG_CATEGORY_SYSTEM,
-	LOG_AUD = SDL_LOG_CATEGORY_AUDIO,
-	LOG_VID = SDL_LOG_CATEGORY_VIDEO,
+	LOG_AUDIO = SDL_LOG_CATEGORY_AUDIO,
+	LOG_VIDEO = SDL_LOG_CATEGORY_VIDEO,
 	LOG_RENDER = SDL_LOG_CATEGORY_RENDER,
-	LOG_INP = SDL_LOG_CATEGORY_INPUT,
-	LOG_TST = SDL_LOG_CATEGORY_TEST,
+	LOG_INPUT = SDL_LOG_CATEGORY_INPUT,
+	LOG_TEST = SDL_LOG_CATEGORY_TEST,
 	LOG_GPU = SDL_LOG_CATEGORY_GPU,
+	LOG_PHYSICS = SDL_LOG_CATEGORY_CUSTOM,
+    LOG_AI = SDL_LOG_CATEGORY_CUSTOM + 1,
 } LogCategory;
 
 // Helper to format variadic args into a std::string
@@ -103,7 +105,7 @@ export void LogSuccess(LogCategory category, SDL_PRINTF_FORMAT_STRING const char
 }
 
 /// <summary>
-/// This exists just for FUN!
+/// Logs in purple.
 /// </summary>
 export void LogSynth(LogCategory category, SDL_PRINTF_FORMAT_STRING const char* fmt, ...) SDL_PRINTF_VARARG_FUNC(2) {
     va_list args;

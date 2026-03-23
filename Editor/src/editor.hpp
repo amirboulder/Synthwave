@@ -17,6 +17,10 @@ class Editor {
 
 	flecs::entity freeCam;
 
+	flecs::entity editorPhase;
+
+	flecs::system updateUIComponentsSys;
+
 public:
 
 	flecs::world& ecs;
@@ -64,6 +68,9 @@ public:
 
 		editorToggle.disable();
 
+		registerPhase();
+		registerSystems();
+
 		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, GOOD "Editor Initialized" RESET);
 	}
 
@@ -94,6 +101,8 @@ public:
 		editorToggle.disable();
 
 		freeCam.get_mut<CameraMVMTState>().locked = false;
+
+		editorPhase.disable();
 	}
 
 	void enable() {
@@ -102,6 +111,7 @@ public:
 
 		freeCam.get_mut<CameraMVMTState>().locked = true;
 
+		editorPhase.enable();
 	}
 
 	// TODO Remove
@@ -202,15 +212,81 @@ public:
 
 	}
 
+	void registerSystems() {
 
-	void updateEditorComponentsSys() {
+		//Creation order determines the order in which these systems run within a phase
+		updateEditorComponentsSystem();
 
-		//Update camera
+
+	}
+
+	void registerPhase() {
+
+		// Each phase has its own dependency, it ensures that
+		// 1.phases can be disabled without affecting other phases (disabling is transitive in flecs)
+		// 2.Phases can run in the order we want regardless of creation order 
+		//PhaseDependencies depend on each other, that's handled in StateManager.RegisterPhaseDependencies()
+		// that way phases created earlier in initialization can depend on phases created after them
+		flecs::entity editorPhaseDependency = ecs.entity("EditorPhaseDependency");
+
+		editorPhase = ecs.entity("EditorPhase")
+			.add(flecs::Phase)
+			.depends_on(editorPhaseDependency);
+	}
+
+	void updateEditorComponentsSystem() {
+
+		
+		updateUIComponentsSys = ecs.system("UpdateUIComponentsSys")
+			.kind(editorPhase)
+			.run([&](flecs::iter& it) {
+
+			updateCamera();
+
+			//TODO update gizmos
+
+			//TODO update xyz lines
+
+		});
+
+	}
+
+	void updateCamera() {
+
+		CameraState camState = ecs.get<CameraState>();
+
+		if (camState != CameraState::FREECAM) {
+			return;
+		}
+
+		//Camera& camera = freeCam.get_mut<Camera>();
+		bool camLocked = freeCam.get<CameraMVMTState>().locked;
+		if (camLocked) {
+			return;
+		}
+
+		//check which camera is active
+
+		const UserInput& input = ecs.get<UserInput>();
+		Camera& camera = freeCam.get_mut<Camera>();
+
+		camera.rotateCamera(input.offsetX, input.offsetY);
 
 
-		//update gizmos
+		camera.position += camera.front * input.direction.y * camera.movementSpeed;
+		camera.position += camera.right * input.direction.x * camera.movementSpeed;
 
-		// update xyz
+
+		camera.updateVectors();
+
+
+
+
+		Transform& transform = freeCam.get_mut<Transform>();
+		
+		transform.position = camera.position;
+		transform.rotation = camera.getRotationQuat();
+
 	}
 
 };

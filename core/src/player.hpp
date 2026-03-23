@@ -36,7 +36,7 @@ public:
 	glm::vec3 cameraOffset = glm::vec3(0.0f, 2.0f, 0.0f);
 
 	// Input state
-	Vec3 mMoveInput = Vec3::sZero();
+	Vec3 movementDirection = Vec3::sZero();
 	bool mJumpPressed = false;
 	
 	//how many pixel to rotate the camera
@@ -47,6 +47,7 @@ public:
 	Player(flecs::world& ecs)
 		:ecs(ecs)
 	{
+		//TODO Player can create it own phase here
 
 		temp_allocator = new TempAllocatorImpl(1 * 1024 * 1024);
 	
@@ -198,6 +199,44 @@ public:
 
 	};
 
+	void update() {
+
+		if (ecs.get<CameraState>() != CameraState::PLAYER) return;
+
+		UserInput& input = ecs.get_mut<UserInput>();
+
+		flecs::entity cameraEnt = ecs.get<PlayerCamRef>().value;
+		Camera& camera = cameraEnt.get_mut<Camera>();
+
+		glm::vec3 forward = glm::normalize(glm::vec3(camera.front.x, 0.0f, camera.front.z));
+		glm::vec3 right = glm::normalize(glm::vec3(camera.right.x, 0.0f, camera.right.z));
+
+		offsetX = input.offsetX;
+		offsetY = input.offsetY;
+
+		forward *= input.direction.y;
+		right *= input.direction.x;
+
+		glm::vec3 playerInput = glm::vec3(0);
+
+		playerInput += forward;
+		playerInput += right;
+
+		movementDirection.SetX(playerInput.x);
+		movementDirection.SetY(playerInput.y);
+		movementDirection.SetZ(playerInput.z);
+
+		if (input.jump) {
+
+			//attempts jump if player is grounded.
+			mJumpPressed = true;
+		}
+
+		UpdateVelocity();
+		UpdateCharacter();
+		updatePlayerCam();
+	}
+
 	void UpdateVelocity() {
 		CharacterVirtual::EGroundState groundState = mCharacter->GetGroundState();
 
@@ -207,8 +246,10 @@ public:
 
 			// Jump
 			if (mJumpPressed) {
-				mVerticalVelocity = Vec3(0, jumpSpeed, 0);
-				mJumpPressed = false;  // Consume jump input
+				if (mCharacter->GetGroundState() == CharacterVirtual::EGroundState::OnGround) {
+					mVerticalVelocity = Vec3(0, jumpSpeed, 0);
+					mJumpPressed = false;  // Consume jump input
+				}
 			}
 		}
 		else {
@@ -222,18 +263,11 @@ public:
 		}
 	}
 
-	void update() {
-
-		UpdateVelocity();
-		UpdateCharacter();
-		updatePlayerCam();
-	}
-
 	
 	void UpdateCharacter() {
 
 		// Horizontal movement (player controlled)
-		Vec3 horizontalVelocity = mMoveInput * moveSpeed;
+		Vec3 horizontalVelocity = movementDirection * moveSpeed;
 		horizontalVelocity.SetY(0);  // Keep horizontal only
 
 		// Combine with vertical velocity (gravity/jump)
@@ -262,20 +296,9 @@ public:
 
 	}
 
-	void SetMoveInput(Vec3 input) {
-		mMoveInput = input;
-	}
-
-	void Jump() {
-		if (mCharacter->GetGroundState() == CharacterVirtual::EGroundState::OnGround) {
-			mJumpPressed = true;
-		}
-	}
-
-
 	void updatePlayerCam() {
 
-		// keep a ref instead
+		// TODO keep a ref instead
 		flecs::entity cameraEnt = ecs.get<PlayerCamRef>().value;
 
 		if (!cameraEnt) {
@@ -301,8 +324,6 @@ public:
 		camera.updateVectors();
 
 	}
-
-
 };
 
 

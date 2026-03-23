@@ -523,9 +523,9 @@ struct Renderer {
 		ecs.query<Camera, ActiveCamera>()
 			.each([&](Camera& cam, ActiveCamera) {
 
-			uniforms.view = cam.generateview();
+			uniforms.view = cam.generateView();
 			uniforms.projection = cam.generateProj();
-			uniforms.viewProjection = cam.generateviewProj();
+			uniforms.viewProjection = cam.generateViewProj();
 			//Transpose because matrix layout in memory for Slang is is row-major
 			uniforms.viewProjection = glm::transpose(uniforms.viewProjection);
 
@@ -718,7 +718,7 @@ struct Renderer {
 
 				RVec3Arg camPos(cam.position.x, cam.position.y, cam.position.z);
 
-				fisiksRenderer.setCameraUniforms(camPos, cam.generateview(), cam.generateProj());
+				fisiksRenderer.setCameraUniforms(camPos, cam.generateView(), cam.generateProj());
 
 			});
 

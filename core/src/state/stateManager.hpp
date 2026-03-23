@@ -171,6 +171,9 @@ public:
 	void RegisterCustomPhaseDeps() {
 
 		flecs::entity inputPhaseDependency = ecs.lookup("InputPhaseDependency");
+
+		flecs::entity editorPhaseDependency = ecs.lookup("EditorPhaseDependency");
+
 		flecs::entity physicsPhaseDependency = ecs.lookup("PhysicsPhaseDependency").depends_on(inputPhaseDependency);
 		flecs::entity aiPhaseDependency = ecs.lookup("AIPhaseDependency").depends_on(physicsPhaseDependency);
 		//TODO Audio phase
@@ -302,20 +305,6 @@ public:
 		else if (state == PlayState::PAUSE) {
 
 			ecs.set<PlayState>(PlayState::PLAY);
-		}
-	}
-
-
-	// Switch between player and freeCam by triggering CameraState hooks
-	void cameraSwitchHandler() {
-
-		CameraState state = ecs.get<CameraState>();
-
-		if (state == CameraState::PLAYER) {
-			ecs.set<CameraState>({ CameraState::FREECAM });
-		}
-		else if (state == CameraState::FREECAM) {
-			ecs.set<CameraState>({ CameraState::PLAYER });
 		}
 	}
 
@@ -655,9 +644,21 @@ public:
 		ecs.component<CameraSwitchEvent>()
 			.on_set([&](CameraSwitchEvent& event) {
 
+			// Switch between player and freeCam by triggering CameraState hooks
 			if (event.occurred == true) {
 				
-				cameraSwitchHandler();
+				CameraState state = ecs.get<CameraState>();
+
+				if (state == CameraState::PLAYER) {
+					ecs.set<CameraState>({ CameraState::FREECAM });
+				}
+				else if (state == CameraState::FREECAM) {
+					ecs.set<CameraState>({ CameraState::PLAYER });
+				}
+
+				// Clear input so nothing acts on stale data
+				UserInput& input = ecs.get_mut<UserInput>();
+				input = UserInput{}; // reset to defaults
 			}
 		});
 	}

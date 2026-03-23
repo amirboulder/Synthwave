@@ -20,7 +20,7 @@ struct EntIdVertex {
 	glm::uint32 entID;
 };
 
-//TODO stop using as a component use it only for entity creation
+//TODO stop using as a component use it only for serialization
 struct Transform {
 	glm::vec3 position = glm::vec3(1);
 	glm::quat rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
@@ -50,20 +50,17 @@ struct LinearVelocity {
 	glm::vec3 position = glm::vec3(1);
 };
 
-
-struct PlayerInput {
-	glm::vec3 direction = glm::vec3(0);
+/// <summary>
+/// Created by InputManager and consumed by player and freeCam.
+/// Data is reset when camera switches.
+/// </summary>
+struct UserInput {
+	glm::vec2 direction = glm::vec2(0);
 	float offsetX = 0.0f;
 	float offsetY = 0.0f;
+	float magnitude = 0.0f;         // 0-1, for speed scaling
 	bool jump = false;
-};
-
-//TODO use this
-struct PlayerInput2 {
-	JPH::Vec3 direction = JPH::Vec3::sZero();
-	float offsetX = 0.0f;
-	float offsetY = 0.0f;
-	bool jump = false;
+	bool jumpConsumed = true; //TODO we can store multiple bools in an int if we have many
 };
 
 

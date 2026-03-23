@@ -5,11 +5,10 @@
 
 #include "../common.hpp"
 
-//TODO decouple from everything and rename to inputSystem
-//TODO input mapping
 
 /// <summary>
 /// Processes input and emits events when appropriate.
+/// This class is responsible for creating input components
 /// </summary>
 class InputManager {
 
@@ -17,10 +16,13 @@ class InputManager {
 
 public:
 
-	uint16_t forward = SDL_SCANCODE_W;
-	uint16_t left = SDL_SCANCODE_A;
-	uint16_t right = SDL_SCANCODE_D;
-	uint16_t backward = SDL_SCANCODE_S;
+	//TODO Key mappings should be loaded from a config file.
+	uint16_t forwardKey = SDL_SCANCODE_W;
+	uint16_t leftKey = SDL_SCANCODE_A;
+	uint16_t rightKey = SDL_SCANCODE_D;
+	uint16_t backwardKey = SDL_SCANCODE_S;
+
+	uint16_t jumpKey = SDL_SCANCODE_SPACE;
 
 	uint16_t escapeMenu = SDL_SCANCODE_ESCAPE;
 
@@ -31,8 +33,8 @@ public:
 		: ecs(ecs)
 	{
 
-		ecs.component<PlayerInput2>().add(flecs::Singleton);
-		ecs.set<PlayerInput2>({});
+		ecs.component<UserInput>().add(flecs::Singleton);
+		ecs.set<UserInput>({});
 
 		ecs.component<Direction>().add(flecs::Singleton);
 		ecs.set<Direction>({ Direction::forward });
@@ -64,103 +66,29 @@ public:
 		ecs.component<PrintSystemsEvent>().add(flecs::Singleton);
 		ecs.set<PrintSystemsEvent>({});
 
-		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, GOOD "InputManager Initialized" RESET);
+		LogSuccess(LOG_APP, "InputManager Initialized");
 	}
 
-
+	/// <summary>
+	/// Resolves input based on the current input device
+	/// </summary>
 	void handleInput() {
 
 		//TODO implement switching based on InputDeviceState as well once we get there
-
-
-		CameraState camState = ecs.get<CameraState>();
-
-		switch (camState) {
-		case CameraState::FREECAM:
-
-			processFreeCamKBMInput();
-			break;
-
-		case CameraState::PLAYER:
-
-			// If game is paused don't handle player input
-			if (ecs.get<PlayState>() == PlayState::PAUSE) {
-				return;
-			}
-
-			handlePlayerKBMInput();
-			break;
-
-
-		}
-
-		captureInput();
-
-
+		captureInputKeyboardMouse();
 	}
 
-	void processFreeCamKBMInput() {
-		//TODO keep a ref instead of looking up by name
-
-		flecs::entity cameraEnt = ecs.lookup("FreeCam");
-		if (!cameraEnt ) {
-			return;
-		}
-
-		Camera& camera = cameraEnt.get_mut<Camera>();
-		bool camLocked = cameraEnt.get<CameraMVMTState>().locked;
-
-		if (camLocked) {
-			return;
-		}
-
-		const bool* keystates = SDL_GetKeyboardState(NULL);
-		 
-		// Handle WASD movement
-		if (keystates[SDL_SCANCODE_W]) {
-			camera.position += camera.front  * camera.movementSpeed;
-		}
-		if (keystates[SDL_SCANCODE_S]) {
-			camera.position -= camera.front * camera.movementSpeed;
-		}
-		if (keystates[SDL_SCANCODE_D]) {
-			camera.position += camera.right * camera.movementSpeed;
-		}
-		if (keystates[SDL_SCANCODE_A]) {
-			camera.position -= camera.right * camera.movementSpeed;
-		}
-
-		// Handle mouse input for rotation
-		float deltaX, deltaY;
-		SDL_GetRelativeMouseState(&deltaX, &deltaY);
-
-		float smoothingFactor = 0.7f; // Adjust between 0-1 (lower = smoother)
-		static float smoothedXOffset = 0.0f, smoothedYOffset = 0.0f;
-
-		// Apply smoothing
-		smoothedXOffset = smoothedXOffset * (1.0f - smoothingFactor) + deltaX * smoothingFactor;
-		smoothedYOffset = smoothedYOffset * (1.0f - smoothingFactor) + deltaY * smoothingFactor;
-
-		camera.rotateCamera(smoothedXOffset, smoothedYOffset);
-
-		camera.updateVectors();
-
-	}
 
 	void handleEvents(SDL_Event& event) {
 
 		if (event.type == SDL_EVENT_QUIT) {
-			//stateManager.exitCallback();
-			
-			ecs.set<ExitEvent>({ true });
 
+			ecs.set<ExitEvent>({ true });
 		}
 
 		if (event.type == SDL_EVENT_KEY_DOWN && event.key.repeat == 0 && event.key.scancode == SDL_SCANCODE_ESCAPE) {
 
-
 			ecs.set<GamePauseEvent>({true});
-
 		}
 
 		if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN && event.button.button == SDL_BUTTON_LEFT) {
@@ -171,17 +99,6 @@ public:
 		handleEditorEvents(event);
 	}
 
-	void handleAlwaysEvents(SDL_Event& event) {
-
-	}
-
-	void handlePlayerEvents(SDL_Event& event) {
-
-	}
-
-	void handleMenuEvents(SDL_Event& event) {
-
-	}
 
 	// Put things in here that we don't want in distribution mode.
 	void handleEditorEvents(SDL_Event& event) {
@@ -202,7 +119,7 @@ public:
 			ecs.set<WindowLostFocusEvent>({ true });
 		}
 		if (event.type == SDL_EVENT_WINDOW_FOCUS_GAINED) {
-			std::cout << "Window gained focus!" << std::endl;
+			LogDebug(LOG_INPUT, "Window gained focus!");
 		}
 
 		// Switch between playerCam and freeCam
@@ -246,7 +163,7 @@ public:
 			CameraMVMTState* state = cameraEnt.try_get_mut<CameraMVMTState>();
 			if (!state) {
 
-				SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, ERROR "CameraMVMTState does not exist!" RESET);
+				LogError(LOG_INPUT, "CameraMVMTState does not exist!");
 				return;
 			}
 
@@ -268,71 +185,49 @@ public:
 
 	}
 
-	void handleEditorInputs() {
 
-	}
-	
-	//TODO look into decoupling inputManager and Player/PlayerCam
-	void handlePlayerKBMInput() {
-
-		flecs::entity playerEnt;
-		flecs::entity cameraEnt;
-		
-		if (!ecs.try_get<PlayerRef>() || !ecs.try_get<PlayerCamRef>()) {
-			return;
-		}
-
-		playerEnt = ecs.get<PlayerRef>().value;
-		cameraEnt = ecs.get<PlayerCamRef>().value;
-
-
-		if (!cameraEnt || !playerEnt) {
-			return;
-		}
-
-		Camera& camera = cameraEnt.get_mut<Camera>();
-		Player & player = playerEnt.get_mut<Player>();
+	/// <summary>
+	/// captures all relevant Keyboard and Mouse input and updates the ECS.
+	/// </summary>
+	void captureInputKeyboardMouse() {
 
 		const bool* keystates = SDL_GetKeyboardState(NULL);
 
-		// Project camera vectors onto horizontal plane for movement
-		// This takes prevents Y from contribution to toward the vector's length 
-		// which will cause slower movement when camera is pointing down
-		//Assumes Y is up , works because camera PITCH_LIMIT = 89.0f
-		glm::vec3 forward = glm::normalize(glm::vec3(camera.front.x, 0.0f, camera.front.z));
-		glm::vec3 right = glm::normalize(glm::vec3(camera.right.x, 0.0f, camera.right.z));
+		UserInput& input = ecs.get_mut<UserInput>();
 
-		glm::vec3 playerInput = glm::vec3(0);
+		// Reset each frame before accumulating
+		input.direction = glm::vec2(0);
+		input.jump = false;
 
-		// Handle WASD movement
-		if (keystates[SDL_SCANCODE_W]) {
-			playerInput += forward;
+		if (keystates[forwardKey]) {
+
+			input.direction.y += 1;
 		}
-		if (keystates[SDL_SCANCODE_S]) {
-			playerInput -= forward;
+		if (keystates[backwardKey]) {
+
+			input.direction.y -= 1;
 		}
-		if (keystates[SDL_SCANCODE_D]) {
-			playerInput += right;
+		if (keystates[leftKey]) {
+
+			input.direction.x -= 1;
 		}
-		if (keystates[SDL_SCANCODE_A]) {
-			playerInput -= right;
+		if (keystates[rightKey]) {
+
+			input.direction.x += 1;
 		}
+
+		if (keystates[jumpKey] && input.jumpConsumed) {
+			input.jump = true;
+			input.jumpConsumed = false;
+		}
+		if (!keystates[jumpKey])
+			input.jumpConsumed = true; // ready to jump again
 
 		// Normalize direction to prevent faster diagonal movement
-		if (glm::length2(playerInput) > 0.0f) {
-			playerInput = glm::normalize(playerInput);
+		if (glm::length2(input.direction) > 0.0f) {
+			input.direction = glm::normalize(input.direction);
 		}
 
-		player.mMoveInput.SetX(playerInput.x);
-		player.mMoveInput.SetY(playerInput.y);
-		player.mMoveInput.SetZ(playerInput.z);
-
-		// Handle jump (spacebar)
-		if (keystates[SDL_SCANCODE_SPACE]) {
-			
-			player.Jump();
-
-		}
 
 		// Handle mouse input for rotation
 		float deltaX, deltaY;
@@ -346,24 +241,8 @@ public:
 		smoothedXOffset = smoothedXOffset * (1.0f - smoothingFactor) + deltaX * smoothingFactor;
 		smoothedYOffset = smoothedYOffset * (1.0f - smoothingFactor) + deltaY * smoothingFactor;
 
-		player.offsetX = smoothedXOffset;
-		player.offsetY = smoothedYOffset;
-
-	}
-
-	//TO be used for ragdoll
-	void captureInput() {
-
-		const bool* keystates = SDL_GetKeyboardState(NULL);
-
-		Direction& dir = ecs.get_mut<Direction>();
-
-		if (keystates[SDL_SCANCODE_UP]) {
-			dir = Direction::forward;
-		}
-		if (keystates[SDL_SCANCODE_DOWN]) {
-			dir = Direction::backward;
-		}
+		input.offsetX = smoothedXOffset;
+		input.offsetY = smoothedYOffset;
 	}
 
 

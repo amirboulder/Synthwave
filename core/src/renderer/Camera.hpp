@@ -59,7 +59,7 @@ public:
         up = glm::normalize(glm::cross(right, front));
     }
 
-    glm::mat4 generateview() {
+    glm::mat4 generateView() {
 
         glm::mat4 view = glm::lookAtRH(position, position + front, up);
         return view;
@@ -70,9 +70,17 @@ public:
         return proj;
     }
 
-    glm::mat4 generateviewProj() {
+    glm::mat4 generateViewProj() {
 
-        return generateProj() * generateview();
+        return generateProj() * generateView();
+    }
+
+    glm::quat getRotationQuat() const {
+        return glm::quat(glm::vec3(
+            glm::radians(pitch),
+            glm::radians(yaw),
+            0.0f
+        ));
     }
 
     void rotateCamera(float xoffset, float yoffset, bool constrainPitch = true) {
