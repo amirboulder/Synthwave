@@ -412,39 +412,33 @@ foreach(MODULE_FILE ${MODULE_INTERFACE_UNITS})
     )
 endforeach()
 
-# Glob all shader source files so any addition/change triggers a recopy
+# If any shader file is updated OR added, copy it into the build folder
 file(GLOB_RECURSE SHADER_SOURCE_FILES
     "${CMAKE_SOURCE_DIR}/core/src/renderer/shaders/slang/*"
 )
 
-# If any shader src file is updated OR added, copy it into the build folder
 add_custom_command(
     OUTPUT ${CMAKE_BINARY_DIR}/shaders/slang
     COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different
             ${CMAKE_SOURCE_DIR}/core/src/renderer/shaders/slang
             ${CMAKE_BINARY_DIR}/shaders/slang
-    DEPENDS ${SHADER_SOURCE_FILES}
+    DEPENDS ${CMAKE_SOURCE_DIR}/core/src/renderer/shaders/slang
     COMMENT "Copying shader files..."
 )
-
 
 add_custom_target(copy_shaders ALL
     DEPENDS ${CMAKE_BINARY_DIR}/shaders/slang)
 
 add_dependencies(Synthwave copy_shaders)
 
-# Glob all asset files so any addition/change triggers a recopy
-file(GLOB_RECURSE ASSET_SOURCE_FILES
-    "${CMAKE_SOURCE_DIR}/assets/*"
-)
-
 # If any asset file is updated OR added, copy it into the build folder
+#TODO shaders can be put into assets folder and this can be just one command
 add_custom_command(
     OUTPUT ${CMAKE_BINARY_DIR}/assets
     COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different
             ${CMAKE_SOURCE_DIR}/assets
             ${CMAKE_BINARY_DIR}/assets
-    DEPENDS ${ASSET_SOURCE_FILES}
+    DEPENDS ${CMAKE_SOURCE_DIR}/assets
     COMMENT "Copying asset files..."
 )
 
@@ -452,6 +446,7 @@ add_custom_target(copy_assets ALL
     DEPENDS ${CMAKE_BINARY_DIR}/assets)
 
 add_dependencies(Synthwave copy_assets)
+
 
 file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/data)
 file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/config)
