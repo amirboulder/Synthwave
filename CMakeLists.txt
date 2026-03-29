@@ -433,6 +433,25 @@ add_custom_target(copy_shaders ALL
 
 add_dependencies(Synthwave copy_shaders)
 
-file(COPY assets DESTINATION ${CMAKE_BINARY_DIR})
+# Glob all asset files so any addition/change triggers a recopy
+file(GLOB_RECURSE ASSET_SOURCE_FILES
+    "${CMAKE_SOURCE_DIR}/assets/*"
+)
+
+# If any asset file is updated OR added, copy it into the build folder
+add_custom_command(
+    OUTPUT ${CMAKE_BINARY_DIR}/assets
+    COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different
+            ${CMAKE_SOURCE_DIR}/assets
+            ${CMAKE_BINARY_DIR}/assets
+    DEPENDS ${ASSET_SOURCE_FILES}
+    COMMENT "Copying asset files..."
+)
+
+add_custom_target(copy_assets ALL
+    DEPENDS ${CMAKE_BINARY_DIR}/assets)
+
+add_dependencies(Synthwave copy_assets)
+
 file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/data)
 file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/config)
