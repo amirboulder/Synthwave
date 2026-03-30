@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "Model.hpp"
 #include "../physics/physics.hpp"
@@ -736,10 +736,13 @@ struct Renderer {
 	void drawMeshWithID(const FrameContext& frameContext, MeshAsset& mesh, uint32_t entID, glm::mat4& modelMat) {
 
 		glm::mat4 localMat = createModelMatrix(mesh.transform);
-		localMat = modelMat * localMat;
-		glm::mat4 mvp = uniforms.viewProjection * localMat;
 
-		mvp = glm::transpose(mvp);
+		localMat = modelMat * localMat;
+		localMat = glm::transpose(localMat);
+
+		// Reversed multiplication order (Mᵀ × VPᵀ) because both matrices are pre-transposed for Slang's row-major layout.
+		// This is equivalent to (VP × M)ᵀ, which the GPU interprets correctly as model transform followed by view-projection.
+		glm::mat4 mvp = localMat * uniforms.viewProjection;
 
 		SDL_PushGPUVertexUniformData(frameContext.commandBuffer, 1, &mvp, sizeof(mvp));
 
@@ -749,7 +752,6 @@ struct Renderer {
 		SDL_BindGPUIndexBuffer(activeRenderPass, &ibBinding, SDL_GPU_INDEXELEMENTSIZE_32BIT);
 
 		SDL_PushGPUFragmentUniformData(frameContext.commandBuffer, 0, &entID, sizeof(entID));
-
 
 		SDL_DrawGPUIndexedPrimitives(
 			activeRenderPass,
@@ -808,9 +810,7 @@ struct Renderer {
 
 		});
 		
-
 		SDL_EndGPURenderPass(activeRenderPass);
-
 	}
 
 	//A draw selected ent to selectedEntColorTarget and call applyOutlineComputePass
@@ -864,7 +864,6 @@ struct Renderer {
 
 			SDL_EndGPURenderPass(activeRenderPass);
 		}
-		
 		
 		applyOutlineComputePass(frameContext, renderContext, config);
 	}
@@ -947,8 +946,6 @@ struct Renderer {
 		drawEntID(frameContext, renderContext, config);
 		drawSelectedEnt(frameContext, renderContext, config);
 		editorVisualsPass(frameContext, renderContext, config);
-
-		
 	}
 
 	void editorVisualsPass(const FrameContext& frameContext,
