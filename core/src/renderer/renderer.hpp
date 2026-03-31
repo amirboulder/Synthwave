@@ -68,7 +68,7 @@ struct Renderer {
 	flecs::entity renderPhase;
 
 	flecs::query<Transform, MeshComponent>queryEntID;
-	flecs::query<EditorVisuals>editorVisualsQuery;
+	flecs::query<EditorMesh>editorVisualsQuery;
 
 	flecs::system drawPhysicsBodiesSys;
 
@@ -443,7 +443,7 @@ struct Renderer {
 		queryEntID = ecs.query_builder<Transform, MeshComponent>()
 		.build();
 
-		editorVisualsQuery = ecs.query_builder<EditorVisuals>()
+		editorVisualsQuery = ecs.query_builder<EditorMesh>()
 			//.with<RenderPipeline>(flecs::Wildcard)
 			//.group_by<RenderPipeline>()
 			.build();
@@ -537,7 +537,7 @@ struct Renderer {
 	
 	void createRenderBatchesSystem() {
 
-		buildRenderBatchesSys = ecs.system<Transform, MeshComponent>("BuildRenderBatchesSys")
+		buildRenderBatchesSys = ecs.system<Transform, MeshComponent, Renderable>("BuildRenderBatchesSys")
 			.with(ecs.id<RenderPipeline>(), flecs::Wildcard)
 			.group_by<RenderPipeline>()
 			.kind(renderPhase)
@@ -972,21 +972,46 @@ struct Renderer {
 			&depthStencilTargetInfo
 		);
 
-
-		editorVisualsQuery.each([&](flecs::entity e, EditorVisuals visualElement) {
+		//TODO group by pipeline.
+		editorVisualsQuery.each([&](flecs::entity e, EditorMesh em) {
 
 			flecs::entity pipelineEnt = e.target<RenderPipeline>();
 			const Pipeline pipeline = pipelineEnt.get<Pipeline>();
 
 			SDL_BindGPUGraphicsPipeline(activeRenderPass, pipeline.pipeline);
 
-			SDL_GPUBufferBinding vertexBufferBinding = {};
-			vertexBufferBinding.buffer = e.get<VertexBuffer>().handle;
-			vertexBufferBinding.offset = 0;
-			SDL_BindGPUVertexBuffers(activeRenderPass, 0, &vertexBufferBinding, 1);
+			const MeshInstance & meshInstance  = e.get<MeshInstance>();
+			
+			SDL_GPUBufferBinding vbBinding{ .buffer = meshInstance.vertexBuffer, .offset = 0 };
+			SDL_BindGPUVertexBuffers(activeRenderPass, 0, &vbBinding, 1);
 
-			SDL_DrawGPUPrimitives(activeRenderPass, e.get<LineVertices>().data.size(), 1, 0, 0);
+			//edge case for xyz lines
+			if (e.try_get<LineVertices>()) {
+				SDL_DrawGPUPrimitives(activeRenderPass, e.get<LineVertices>().data.size(), 1, 0, 0);
 
+			}
+			else {
+
+				const Transform & transform =  e.get<Transform>();
+
+				glm::mat4 localMat = createModelMatrix(meshInstance.transform);
+				glm::mat4 modelMat = createModelMatrix(transform);
+
+				localMat = modelMat * localMat;
+				localMat = glm::transpose(localMat);
+
+				// Reversed multiplication order (Mᵀ × VPᵀ) because both matrices are pre-transposed for Slang's row-major layout.
+				// This is equivalent to (VP × M)ᵀ, which the GPU interprets correctly as model transform followed by view-projection.
+				glm::mat4 mvp = localMat * uniforms.viewProjection;
+
+				SDL_PushGPUVertexUniformData(frameContext.commandBuffer, 1, &mvp, sizeof(mvp));
+
+				SDL_GPUBufferBinding ibBinding{ .buffer = meshInstance.indexBuffer,  .offset = 0 };
+				SDL_BindGPUIndexBuffer(activeRenderPass, &ibBinding, SDL_GPU_INDEXELEMENTSIZE_32BIT);
+
+				SDL_DrawGPUIndexedPrimitives(activeRenderPass, meshInstance.numIndices, 1, 0, 0, 0);
+
+			}
 
 		});
 

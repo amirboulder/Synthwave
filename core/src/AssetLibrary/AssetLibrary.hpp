@@ -21,6 +21,29 @@ struct MeshAsset {
 
 };
 
+/*
+Instead of having entities store MeshComponent they will have a Vector Mesh instances. That we don't have to
+get data from mesh registry every frame, instead we should just store a an ID with each mesh instance and use that
+to add it to each batch.
+*/
+
+//TODO put this in Mesh.hpp
+struct MeshInstance {
+
+    Transform transform; //local transform relative to entity's position
+
+    SDL_GPUBuffer* vertexBuffer = nullptr;
+    SDL_GPUBuffer* indexBuffer = nullptr;
+
+    uint32_t numIndices = 0;
+    uint32_t id = 0;
+};
+
+struct MaterialInstance {
+
+    SDL_GPUTexture* diffuseTexture = nullptr;
+};
+
 
 //TODO FIX HARDCODED PATHS
 class AssetLibrary {

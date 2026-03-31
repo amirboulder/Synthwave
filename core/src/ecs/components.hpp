@@ -36,10 +36,6 @@ struct MeshComponent {
 	std::vector<uint32_t> MeshAssetIndices;
 };
 
-struct VertexBuffer {
-	SDL_GPUBuffer* handle = nullptr;
-	bool owns = false;
-};
 
 struct LineVertices {
 	std::vector<LineVertex> data;
@@ -137,7 +133,6 @@ struct ActiveCamera {};
 struct MenuComponent {};
 struct HudComponent {};
 struct EditorUIComponent {};
-struct EditorVisuals {};
 struct OverlayComponent {};
 struct Active{};
 

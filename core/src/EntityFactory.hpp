@@ -79,8 +79,9 @@ public:
 			.set<Transform>(transform)
 			.set<ModelSourceName>({ ModelSrcName.c_str() })
 			.set<MeshComponent>({ assetLib->requestMeshComponent(ModelSrcName.c_str()) })
-			.set<JPH::BodyID>(physicsID)
 			.add<RenderPipeline>(ecs.lookup(pipelineName.c_str()))
+			.add<Renderable>()
+			.set<JPH::BodyID>(physicsID)
 			.child_of(parent)
 			;
 
@@ -117,6 +118,7 @@ public:
 			.set<Transform>(transform)
 			.set<ModelSourceName>({ ModelSrcName.c_str() })
 			.set<MeshComponent>({ std::move(meshComp) })
+			.add<Renderable>()
 			//.set<PhysicsBody>(std::move(physicsBodyIDs))
 			.add<RenderPipeline>(ecs.lookup(pipelineName.c_str()))
 			.child_of(parent)
@@ -606,6 +608,7 @@ public:
 			.set<Transform>(transform)
 			.set<ModelSourceName>({ ModelSrcName.c_str() })
 			.set<MeshComponent>({ assetLib->requestMeshComponent(ModelSrcName.c_str()) })
+			.add<Renderable>()
 			.set<JPH::BodyID>(physicsID)
 			.add<RenderPipeline>(ecs.lookup(pipelineName.c_str()))
 			.child_of(parent)
@@ -657,6 +660,7 @@ public:
 			.set<Transform>(transform)
 			.set<ModelSourceName>({ ModelSrcName.c_str() })
 			.set<MeshComponent>({ assetLib->requestMeshComponent(ModelSrcName.c_str()) })
+			.add<Renderable>()
 			.set<JoltCharacter>({ joltCharacter })
 			.set<JPH::BodyID>(joltCharacter->GetBodyID())
 			.emplace<ActorBehavior>(actorUpdate)
@@ -689,7 +693,9 @@ public:
 		const flecs::entity entity = ecs.entity(name.c_str())
 			.set<Transform>(transform)
 			.set<ModelSourceName>({ ModelSrcName.c_str() })
-			.set<MeshComponent>({ assetLib->requestMeshComponent(ModelSrcName.c_str()) });
+			.set<MeshComponent>({ assetLib->requestMeshComponent(ModelSrcName.c_str()) })
+			.add<Renderable>()
+			;
 
 		if (pipelineName) {
 			entity.add<RenderPipeline>(ecs.lookup(pipelineName));
@@ -774,6 +780,7 @@ public:
 			.set<Transform>(transform)
 			.set<ModelSourceName>({ ModelSrcName.c_str() })
 			.set<MeshComponent>({ assetLib->requestMeshComponent(ModelSrcName.c_str()) })
+			.add<Renderable>()
 			.set<JPH::BodyID>(physicsID)
 			.add<RenderPipeline>( ecs.lookup(pipelineName.c_str()))
 			.child_of(parent);
@@ -846,6 +853,7 @@ public:
 			.set<Transform>(transform)
 			.set<ModelSourceName>({ modelName.c_str() })
 			.set<MeshComponent>({ assetLib->requestMeshComponent(modelName.c_str()) })
+			.add<Renderable>()
 			.set<JPH::BodyID>(physicsID)
 			.add<RenderPipeline>(ecs.lookup(pipelineName.c_str()))
 			.child_of(parent);

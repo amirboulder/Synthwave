@@ -30,23 +30,7 @@ public:
 	{
 		registerReflectionData(ecs);
 
-		const RenderConfig& config = ecs.get<RenderConfig>();
-
-		Transform transform;
-
-		transform.position = config.FreeCamPos;
-
-		//Get the modelSource from Asset Library
-		AssetLibrary * assetLib = ecs.get<AssetLibRef>().assetLib;
-
-		freeCam = ecs.entity("FreeCam")
-			.emplace<Camera>(config)
-			.set<Transform>(transform)
-			.set<ModelSourceName>({ "camera" })
-			.set<MeshComponent>({ assetLib->requestMeshComponent("camera") })
-			.add<RenderPipeline>(ecs.lookup("pipelineUnlit"))
-			.set<CameraMVMTState>({false})
-			.add<EditorMesh>();
+		registerFreeCam();
 
 		ecs.component<HighlightedEntRef>().add(flecs::Singleton);
 		ecs.set<HighlightedEntRef>({ flecs::entity::null() });
@@ -184,16 +168,50 @@ public:
 		xyzLines.emplace_back(glm::vec3(0.0f, 0.0f, 100.0f), glm::vec4(0.0f, 0.0f, 1.0f, 1.0f));
 
 		flecs::entity xyzAxis = ecs.entity("XYZAxis")
-			.add<EditorVisuals>()
+			.add<EditorMesh>()
 			.set<LineVertices>({xyzLines})
 			.add<RenderPipeline>(ecs.lookup("pipelineLine"))
-			.set<VertexBuffer>({})
+			.set<MeshInstance>({})
 			.set<Transform>(xyzAxisTransform);
 
 		const RenderContext& renderContext = ecs.get<RenderContext>();
 
-		RenderUtil::uploadBufferData(renderContext.device, xyzAxis.get_mut<VertexBuffer>().handle, xyzLines.data(),
+		RenderUtil::uploadBufferData(renderContext.device, xyzAxis.get_mut<MeshInstance>().vertexBuffer, xyzLines.data(),
 			xyzLines.size() * sizeof(LineVertex), SDL_GPU_BUFFERUSAGE_VERTEX);
+
+	}
+
+	void registerFreeCam() {
+
+		const RenderConfig& config = ecs.get<RenderConfig>();
+
+		Transform transform;
+
+		transform.position = config.FreeCamPos;
+
+		//Get the modelSource from Asset Library
+		AssetLibrary* assetLib = ecs.get<AssetLibRef>().assetLib;
+
+		MeshComponent meshComp = assetLib->requestMeshComponent("camera");
+
+		MeshAsset& asset = assetLib->meshRegistry[meshComp.MeshAssetIndices[0]];
+
+		MeshInstance instance;
+
+		instance.transform = asset.transform;
+		instance.vertexBuffer = asset.vertexBuffer;
+		instance.indexBuffer = asset.indexBuffer;
+		instance.numIndices = asset.numIndices;
+
+
+		freeCam = ecs.entity("FreeCam")
+			.emplace<Camera>(config)
+			.set<Transform>(transform)
+			.set<ModelSourceName>({ "camera" })
+			.set<MeshInstance>({ std::move(instance) })
+			.add<RenderPipeline>(ecs.lookup("pipelineWireframe2"))
+			.set<CameraMVMTState>({ false })
+			.add<EditorMesh>();
 
 	}
 
