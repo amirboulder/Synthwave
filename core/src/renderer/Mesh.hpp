@@ -182,6 +182,35 @@ public:
 
 	}
 
+	static void calculateMeshSize(const MeshSource& mesh, float& x, float& y, float& z) {
+		if (mesh.vertices.empty()) {
+			//width = 0.0f;
+			//height = 0.0f;
+			cout << "MESH DIMENSIONS ARE ZERO !!!\n";
+			return;
+		}
+
+		float minX = FLT_MAX, maxX = -FLT_MAX;
+		float minY = FLT_MAX, maxY = -FLT_MAX;
+		float minZ = FLT_MAX, maxZ = -FLT_MAX;
+
+		for (const auto& current : mesh.vertices) {
+
+			minX = std::min(minX, current.position.x);
+			maxX = std::max(maxX, current.position.x);
+
+			minY = std::min(minY, current.position.y);
+			maxY = std::max(maxY, current.position.y);
+
+			minZ = std::min(minZ, current.position.z);
+			maxZ = std::max(maxZ, current.position.z);
+		}
+
+		x = maxX - minX;
+		y = maxY - minY;
+		z = maxZ - minZ;
+	}
+
 
 };
 

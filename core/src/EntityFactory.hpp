@@ -5,7 +5,6 @@
 using entUpdateFn = std::function<void(flecs::world&, flecs::entity)>;
 
 
-
 /// <summary>
 /// All member functions are static so other systems don't need to instantiate the class in order to use them.
 /// Used for creating various entity types that the engine supports,
@@ -36,7 +35,7 @@ public:
 		float meshX, meshY, meshZ;
 
 		// Assuming modelSource has only 1 mesh
-		calculateMeshSize(modelSource->meshes[0], meshX, meshY, meshZ);
+		MeshSource::calculateMeshSize(modelSource->meshes[0], meshX, meshY, meshZ);
 
 		Vec3 boxHalfExtents(meshX * 0.5, meshY * 0.5, meshZ * 0.5);
 
@@ -134,7 +133,7 @@ public:
 			float meshX, meshY, meshZ;
 
 			// Assuming modelSource has only 1 mesh
-			calculateMeshSize(mesh, meshX, meshY, meshZ);
+			MeshSource::calculateMeshSize(mesh, meshX, meshY, meshZ);
 
 			Vec3 boxHalfExtents(meshX * 0.5, meshY * 0.5, meshZ * 0.5);
 			
@@ -192,7 +191,7 @@ public:
 		Ref<RagdollSettings> ragdollSettings = RagdollLoader::create(2.0f);
 
 		if (!ragdollSettings) {
-			SDL_LogError(SDL_LOG_CATEGORY_ERROR, ERROR "ragdollSettings is null" RESET);
+			LogError(LOG_PHYSICS, "ragdollSettings is null for entity %s", name.c_str());
 			return false;
 		}
 
@@ -242,7 +241,7 @@ public:
 
 		if (!ragdollSettings) {
 
-			SDL_LogError(SDL_LOG_CATEGORY_ERROR, ERROR "ragdollSettings is null" RESET);
+			LogError(LOG_PHYSICS, "ragdollSettings is null for entity %s", name.c_str());
 			return false;
 		}
 
@@ -332,14 +331,14 @@ public:
 
 		}
 		else {
-			SDL_LogError(SDL_LOG_CATEGORY_ERROR, ERROR "Failed to open file for reading : %s" RESET, ragdollFilePath);
+			LogError(LOG_SYS, "Failed to open file for reading : %s", ragdollFilePath);
 		}
 
 
 		StreamInWrapper stream_in(dataIn);
 		RagdollSettings::RagdollResult result = RagdollSettings::sRestoreFromBinaryState(stream_in);
 		if (result.HasError()) {
-			SDL_LogError(SDL_LOG_CATEGORY_ERROR, ERROR "Failed to load binary file: %s" RESET, result.GetError().c_str());
+			LogError(LOG_SYS, "Failed to load binary file: %s", result.GetError().c_str());
 			return false;
 		}
 
@@ -492,7 +491,7 @@ public:
 		Transform transform, JPH::Vec3Arg size,
 		std::function<void(flecs::world& ecs, flecs::entity self, flecs::entity other)> onContactAdded) {
 
-		if (!EntityFactory::validateName(name)) return false;
+		if (!EntityFactory::validateName(ecs, parent, name)) return false;
 		if (!EntityFactory::validateTransform(transform, name)) return false;
 		if (!EntityFactory::validateSize(size, name,/*isDynamic=*/false)) return false;
 
@@ -561,7 +560,7 @@ public:
 		float meshZ;
 
 		// Assuming modelSource has only 1 mesh
-		calculateMeshSize(modelSource->meshes[0], meshX, meshY, meshZ);
+		MeshSource::calculateMeshSize(modelSource->meshes[0], meshX, meshY, meshZ);
 
 		// Compute capsule dimensions
 		float modelRadius = meshX / 2.0f; // Unscaled model radius
@@ -682,7 +681,7 @@ public:
 	//TODO Update
 	static bool createRenderableEntity(flecs::world& ecs, flecs::entity parent, std::string name, const std::string ModelSrcName, Transform transform, const char* pipelineName = NULL) {
 
-		if (!EntityFactory::validateName(name)) return false;
+		if (!EntityFactory::validateName(ecs, parent, name)) return false;
 		if (!EntityFactory::validateTransform(transform, name.c_str())) return false;
 
 		//Get the modelSource from Asset Library
@@ -952,31 +951,13 @@ public:
 	}
 
 
-	static bool validateName(std::string name) {
-		if (name.empty()) {
-			SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Error name cannot be empty");
-			return false;
-		}
-		if (name.length() > 256) {
-			SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Error Entity name %s  ' exceeds 256 characters ", name.c_str());
-			return false;
-		}
-
-		//TODO validate Entity Name uniqueness
-		// Check if an entity with the same name already exists in the global scope
-		//flecs::entity existing;
-		//existing = ecs.lookup(name.c_str());
-
-		return true;
-	}
-
 	static bool validateName(flecs::world& ecs, flecs::entity parent, std::string name) {
 		if (name.empty()) {
-			SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Error name cannot be empty");
+			LogError(LOG_APP, "Entity name cannot be empty, unable to create child entity for %s", parent.name());
 			return false;
 		}
 		if (name.length() > 256) {
-			SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Error Entity name '%s' exceeds 256 characters", name.c_str());
+			LogError(LOG_APP, "Error Entity name '%s' exceeds 256 characters", name.c_str());
 			return false;
 		}
 
@@ -989,7 +970,7 @@ public:
 		}
 		
 		if (existing.is_valid()) {
-			SDL_LogError(SDL_LOG_CATEGORY_ERROR, "EntityFactory Error: Entity with name '%s' already exists under parent '%s'",
+			LogError(LOG_ECS, "EntityFactory Error: Entity with name '%s' already exists under parent '%s'",
 				name.c_str(),
 				parent.name().c_str());
 			return false;
@@ -999,17 +980,17 @@ public:
 
 	static bool validateTransform(Transform transform, std::string name) {
 		if (!std::isfinite(transform.position.x) || !std::isfinite(transform.position.y) || !std::isfinite(transform.position.z)) {
-			SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Error Invalid position (contains NaN or Inf) found in transform for : %s", name.c_str());
+			LogError(LOG_APP, "Error Invalid position (contains NaN or Inf) found in transform for : %s", name.c_str());
 			return false;
 		}
 		if (!std::isfinite(transform.rotation.x) || !std::isfinite(transform.rotation.y) ||
 			!std::isfinite(transform.rotation.z) || !std::isfinite(transform.rotation.w)) {
-			SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Error Invalid rotation (contains NaN or Inf) found in transform for : %s", name.c_str());
+			LogError(LOG_APP, "Error Invalid rotation (contains NaN or Inf) found in transform for : %s", name.c_str());
 			return false;
 		}
 		if (!std::isfinite(transform.scale.x) || !std::isfinite(transform.scale.y) ||
 			!std::isfinite(transform.scale.z)) {
-			SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Error Invalid scale (contains NaN or Inf) found in transform for : %s", name.c_str());
+			LogError(LOG_APP, "Error Invalid scale (contains NaN or Inf) found in transform for : %s", name.c_str());
 			return false;
 		}
 		return true;
@@ -1027,13 +1008,13 @@ public:
 
 		// Check for NaN / Inf first
 		if (!std::isfinite(size.GetX()) || !std::isfinite(size.GetY()) || !std::isfinite(size.GetZ())) {
-			SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Error: Entity %s size contains NaN or Inf", name.c_str());
+			LogError(LOG_APP, "Error: Entity %s size contains NaN or Inf", name.c_str());
 			return false;
 		}
 
 		// Minimum constraint check
 		if (size.GetX() < minSizeConstraint.GetX() || size.GetY() < minSizeConstraint.GetY() || size.GetZ() < minSizeConstraint.GetZ()) {
-			SDL_LogError(SDL_LOG_CATEGORY_ERROR,
+			LogError(LOG_APP,
 				"Error: Size components for entity %s must be >= 0.1 m (x: %.3f, y: %.3f, z: %.3f)",
 				name.c_str(), size.GetX(), size.GetY(), size.GetZ());
 			return false;
@@ -1041,7 +1022,7 @@ public:
 
 		// Maximum constraint check
 		if (size.GetX() > maxSizeConstraint.GetX() || size.GetY() > maxSizeConstraint.GetY() || size.GetZ() > maxSizeConstraint.GetZ()) {
-			SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+			LogError(LOG_APP,
 				"Warning: Entity %s size exceeds recommended bounds for %s objects (x: %.3f, y: %.3f, z: %.3f)",
 				name.c_str(), dynamicObject ? "dynamic" : "static", size.GetX(), size.GetY(), size.GetZ());
 			return false;
@@ -1053,7 +1034,7 @@ public:
 	static bool validatePhysicsBodyCreation(JPH::BodyID id, std::string name) {
 
 		if (id.IsInvalid()) {
-			SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Error creating physics body for Entity : %s", name.c_str());
+			LogError(LOG_PHYSICS, "Error creating physics body for Entity : %s", name.c_str());
 			return false;
 		}
 		return true;
@@ -1064,13 +1045,13 @@ public:
 		flecs::entity pipelineEnt = ecs.lookup(pipelineName.c_str());
 
 		if (!pipelineEnt.is_valid()) {
-			SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Pipeline entity does not exist : %s", pipelineName.c_str());
+			LogError(LOG_ECS, "Pipeline entity does not exist : %s", pipelineName.c_str());
 			return false;
 		}
 	}
 	static bool validateEntityCreation(flecs::entity entity, std::string name) {
 		if (!entity.is_valid()) {
-			SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Error creating Entity : %s", name.c_str());
+			LogError(LOG_ECS, "Error creating Entity : %s", name.c_str());
 			return false;
 		}
 		return true;
@@ -1079,7 +1060,7 @@ public:
 	static bool validateModelSrcExistence(ModelSource* model,const std::string modelName) {
 
 		if (!model) {
-			SDL_LogError(SDL_LOG_CATEGORY_ERROR, "EntityFactory Error ModelSource does not exist! : %s", modelName.c_str());
+			LogError(LOG_ECS, "EntityFactory Error ModelSource does not exist! : %s", modelName.c_str());
 			return false;
 		}
 		return true;
@@ -1089,7 +1070,7 @@ public:
 	static bool validateModelSource(const ModelSource * src, const std::string modelName) {
 
 		if (!src) {
-			SDL_LogError(SDL_LOG_CATEGORY_ERROR, "EntityFactory ModelSource %s does not exist", modelName.c_str());
+			LogError(LOG_ECS, "EntityFactory ModelSource %s does not exist", modelName.c_str());
 			return false;
 		}
 		return true;
@@ -1099,7 +1080,7 @@ public:
 	static bool validateRagdollExistence(const std::string key, const std::map<std::string, std::string>& ragdolls) {
 
 		if (!ragdolls.contains(key)) {
-			SDL_LogError(SDL_LOG_CATEGORY_ERROR, ERROR "Ragdoll list does not have the following key : %s" RESET, key.c_str());
+			LogError(LOG_ECS, ERROR "Ragdoll list does not have the following key : %s" RESET, key.c_str());
 			return false;
 		}
 
@@ -1108,34 +1089,7 @@ public:
 	}
 
 	//TODO move this function
-	static void calculateMeshSize(const MeshSource& mesh, float& x, float& y, float& z) {
-		if (mesh.vertices.empty()) {
-			//width = 0.0f;
-			//height = 0.0f;
-			cout << "MESH DIMENSIONS ARE ZERO !!!\n";
-			return;
-		}
-
-		float minX = FLT_MAX, maxX = -FLT_MAX;
-		float minY = FLT_MAX, maxY = -FLT_MAX;
-		float minZ = FLT_MAX, maxZ = -FLT_MAX;
-
-		for (const auto& current : mesh.vertices) {
-
-			minX = std::min(minX, current.position.x);
-			maxX = std::max(maxX, current.position.x);
-
-			minY = std::min(minY, current.position.y);
-			maxY = std::max(maxY, current.position.y);
-
-			minZ = std::min(minZ, current.position.z);
-			maxZ = std::max(maxZ, current.position.z);
-		}
-
-		x = maxX - minX;
-		y = maxY - minY;
-		z = maxZ - minZ;
-	}
+	
 
 
 };

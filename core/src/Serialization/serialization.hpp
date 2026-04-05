@@ -15,7 +15,7 @@ public:
     {
         registerQuery();
 
-		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, GOOD "Serializer Initialized" RESET);
+		LogSuccess(LOG_APP, "Serializer Initialized");
     }
 
     void registerQuery() {
@@ -105,7 +105,7 @@ public:
 
         file << buffer.GetString();
 
-		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, SYNTH "💾 saved to  %s" RESET , path.c_str());
+		LogSynth(LOG_APP, "💾 saved to  %s", path.c_str());
 
 		return true;
     }
@@ -114,7 +114,7 @@ public:
 
 		std::ifstream file(path);
 		if (!file.is_open()) {
-			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, ERROR "Failed to open file %s" RESET, path.c_str());
+			LogError(LOG_APP, "Failed to open Game file %s", path.c_str());
 			return false;
 		}
 
@@ -123,25 +123,30 @@ public:
 		doc.ParseStream(isw);
 
 		if (doc.HasParseError()) {
-			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "JSON parse error: %s at offset %s", doc.GetParseError(), doc.GetErrorOffset());
+			LogError(LOG_APP, "JSON parse error: %s at offset %s in file", doc.GetParseError(), doc.GetErrorOffset(), path.c_str());
 			return false;
 		}
 
 		if (doc.IsObject()) {
-			SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Successfully loaded JSON object");
+			LogDebug(LOG_APP, "Successfully loaded JSON object from file %s", path.c_str());
 		}
 
 		if (!doc.IsArray()) {
-			SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Root value is not a JSON array");
+			LogError(LOG_APP, "Root value is not a JSON array in file %s", path.c_str());
 			return false;
 		}
 
 
 		for (const auto& item : doc.GetArray()) {
 
-
 			if (!item.IsObject()) {
-				SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "ERROR item in json is not object!!!");
+
+				std::string itemName;
+				if (item.IsString()) {
+					itemName = item.GetString();
+				}
+
+				LogError(LOG_APP, "ERROR item %s in json is not object in file %s", itemName.c_str(), path.c_str());
 
 			}
 
@@ -154,35 +159,35 @@ public:
 
 					if (entType == "Game") {
 
-						createGameEntFromJson(item);
+						createGameEntFromJson(item, path);
 					}
 					else if (entType == "Scene") {
 
-						createSceneEntFromJson(item);
+						createSceneEntFromJson(item, path);
 					}
 					else if (entType == "Player") {
 
-						createPlayerEntFromJson(item);
+						createPlayerEntFromJson(item, path);
 					}
 					else if (entType == "Capsule") {
 
-						createCapsuleEntFromJson(item);
+						createCapsuleEntFromJson(item, path);
 					}
 					else if (entType == "Actor") {
 
-						createActorEntFromJson(item);
+						createActorEntFromJson(item, path);
 					}
 					else if (entType == "Sensor") {
 
-						createSensorEntFromJson(item);
+						createSensorEntFromJson(item, path);
 					}
 					else if (entType == "Grid") {
 
-						createGridEntFromJson(item);
+						createGridEntFromJson(item, path);
 					}
 					else if (entType == "StaticMesh") {
 
-						createStaticMeshEntFromJson(item);
+						createStaticMeshEntFromJson(item, path);
 					}
 					else if (entType == "Camera") {
 
@@ -190,7 +195,7 @@ public:
 					}
 					else {
 
-						SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, WARN "Entity type %s exists in Game File" RESET, entType.c_str());
+						LogWarn(LOG_APP, "Entity type %s exists in Game File %s", entType.c_str(), path.c_str());
 					}
 				}
 			}
@@ -201,11 +206,11 @@ public:
 	}
 
 	//TODO create entityFactory function
-	bool createGameEntFromJson(const rapidjson::Value& item) {
+	bool createGameEntFromJson(const rapidjson::Value& item, const std::string& filename) {
 
 		std::string name;
 
-		if (!validateName(item)) return false;
+		if (!validateName(item, filename)) return false;
 		name = item["name"].GetString();
 
 		//TODO create Factory function
@@ -220,15 +225,15 @@ public:
 	}
 
 	//TODO create entityFactory function
-	bool createSceneEntFromJson(const rapidjson::Value& item) {
+	bool createSceneEntFromJson(const rapidjson::Value& item, const std::string& filename) {
 
 		std::string name;
 		std::string parentName;
 
-		if (!validateName(item)) return false;
+		if (!validateName(item, filename)) return false;
 		name = item["name"].GetString();
 
-		if (!validateParent(item)) return false;
+		if (!validateParent(item, filename)) return false;
 		parentName = item["parent"].GetString();
 		flecs::entity parentEnt = ecs.lookup(parentName.c_str(), ".");
 
@@ -244,12 +249,12 @@ public:
 		return true;
 	}
 
-	bool createPlayerEntFromJson(const rapidjson::Value& item) {
+	bool createPlayerEntFromJson(const rapidjson::Value& item, const std::string& filename) {
 
 		std::string name;
 		std::string parentName;
 
-		if (!validateParent(item)) return false;
+		if (!validateParent(item, filename)) return false;
 		parentName = item["parent"].GetString();
 		flecs::entity parentEnt = ecs.lookup(parentName.c_str(), ".");
 
@@ -267,27 +272,27 @@ public:
 		return true;
 	}
 
-	bool createCapsuleEntFromJson(const rapidjson::Value& item) {
+	bool createCapsuleEntFromJson(const rapidjson::Value& item, const std::string& filename) {
 
 		std::string name;
 		std::string parentName;
 		std::string modelSrcName;
 		Transform transform;
 
-		if (!validateName(item)) return false;
+		if (!validateName(item, filename)) return false;
 		name = item["name"].GetString();
 
-		if (!validateTransform(item)) return false;
+		if (!validateTransform(item, filename)) return false;
 		auto optTransform = deserTransform(item["components"]["Transform"]);
 
 		if (!optTransform) return false;
 		transform = optTransform.value();
 
 		//validate modelSrc
-		if (!validateModelSrc(item)) return false;
+		if (!validateModelSrc(item, filename)) return false;
 		modelSrcName = item["components"]["ModelSourceRef"]["name"].GetString();
 
-		if (!validateParent(item)) return false;
+		if (!validateParent(item, filename)) return false;
 		parentName = item["parent"].GetString();
 		flecs::entity parentEnt = ecs.lookup(parentName.c_str(), ".");
 
@@ -298,7 +303,7 @@ public:
 		return true;
 	}
 
-	bool createActorEntFromJson(const rapidjson::Value& item) {
+	bool createActorEntFromJson(const rapidjson::Value& item, const std::string& filename) {
 
 		std::string name;
 		std::string parentName;
@@ -306,16 +311,16 @@ public:
 
 		//By the time we get here We know the item already has components
 
-		if (!validateName(item)) return false;
+		if (!validateName(item, filename)) return false;
 		name = item["name"].GetString();
 
-		if (!validateTransform(item)) return false;
+		if (!validateTransform(item, filename)) return false;
 		auto optTransform = deserTransform(item["components"]["Transform"]);
 
 		if (!optTransform) return false;
 		transform = optTransform.value();
 
-		if (!validateParent(item)) return false;
+		if (!validateParent(item, filename)) return false;
 		parentName = item["parent"].GetString();
 		flecs::entity parentEnt = ecs.lookup(parentName.c_str(), ".");
 
@@ -334,15 +339,15 @@ public:
 		return true;
 	}
 
-	bool createSensorEntFromJson(const rapidjson::Value& item) {
+	bool createSensorEntFromJson(const rapidjson::Value& item, const std::string& filename) {
 
 		std::string name;
 		std::string parentName;
 		Transform transform;
 
-		if (!validateName(item)) return false;
-		if (!validateTransform(item)) return false;
-		if (!validateParent(item)) return false;
+		if (!validateName(item, filename)) return false;
+		if (!validateTransform(item, filename)) return false;
+		if (!validateParent(item, filename)) return false;
 
 		name = item["name"].GetString();
 		parentName = item["parent"].GetString();
@@ -360,17 +365,17 @@ public:
 		return true;
 	}
 
-	bool createGridEntFromJson(const rapidjson::Value& item) {
+	bool createGridEntFromJson(const rapidjson::Value& item, const std::string& filename) {
 
 		std::string name;
 		std::string parentName;
 		std::string modelSrcName;
 		Transform transform;
 
-		if (!validateName(item)) return false;
-		if (!validateTransform(item)) return false;
-		if (!validateParent(item)) return false;
-		if (!validateModelSrc(item)) return false;
+		if (!validateName(item, filename)) return false;
+		if (!validateTransform(item, filename)) return false;
+		if (!validateParent(item, filename)) return false;
+		if (!validateModelSrc(item, filename)) return false;
 
 		//TODO entityFactory validate Name 
 
@@ -391,17 +396,17 @@ public:
 		return true;
 	}
 
-	bool createStaticMeshEntFromJson(const rapidjson::Value& item) {
+	bool createStaticMeshEntFromJson(const rapidjson::Value& item, const std::string& filename) {
 
 		std::string name;
 		std::string parentName;
 		std::string modelSrcName;
 		Transform transform;
 
-		if (!validateName(item)) return false;
-		if (!validateTransform(item)) return false;
-		if (!validateParent(item)) return false;
-		if (!validateModelSrc(item)) return false;
+		if (!validateName(item, filename)) return false;
+		if (!validateTransform(item, filename)) return false;
+		if (!validateParent(item, filename)) return false;
+		if (!validateModelSrc(item, filename)) return false;
 
 		//TODO entityFactory validate Name 
 
@@ -423,11 +428,11 @@ public:
 	}
 
 
-	bool validateParent(const rapidjson::Value& item) const {
+	bool validateParent(const rapidjson::Value& item, const std::string filename) const {
 
 		if (!item.HasMember("parent") || !item["parent"].IsString()) {
 
-			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "ERROR Json entity does not have parent");
+			LogError(LOG_APP, "Json entity does not have parent in file %s" , filename.c_str());
 			return false;
 		}
 
@@ -437,7 +442,7 @@ public:
 
 		if (!parentEnt.is_valid()) {
 
-			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "ERROR parentEnt named %s read from json is invalid entity", parentName.c_str());
+			LogError(LOG_APP, " parentEnt named %s read from json is invalid entity in file %s", parentName.c_str(), filename.c_str());
 			return false;
 		}
 
@@ -446,48 +451,45 @@ public:
 	}
 
 	// does not check if components is valid because we assume that has already been checked
-	bool validateName(const rapidjson::Value& item) {
+	bool validateName(const rapidjson::Value& item, const std::string filename) {
 
 		if (!item.HasMember("name") || !item["name"].IsString()) {
 
-			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "ERROR this poor entity doesn't even have a name!");
+			LogError(LOG_APP, "this poor entity doesn't even have a name! in file %s", filename.c_str());
 			return false;
 		}
 		return true;
 	}
 
-	bool validateComponents(const rapidjson::Value& item) {
-
-	}
-
-	bool validateModelSrc(const rapidjson::Value& item) {
+	
+	bool validateModelSrc(const rapidjson::Value& item, const std::string filename) {
 
 		if (!item["components"].HasMember("ModelSourceRef")) {
 
-			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "ERROR components does not have ModelSourceRef");
+			LogError(LOG_APP, "components section does not have ModelSourceRef in file %s", filename.c_str());
 			return false;
 		}
 
 		if (!item["components"]["ModelSourceRef"].HasMember("name")) {
 
-			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "ERROR components does not have ModelSourceRef name");
+			LogError(LOG_APP, "ERROR components does not have ModelSourceRef name in file %s", filename.c_str());
 			return false;
 		}
 
 		if (!item["components"]["ModelSourceRef"]["name"].IsString()) {
 
-			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "ERROR components does not have ModelSourceRef name string");
+			LogError(LOG_APP, "ERROR components does not have ModelSourceRef name string in file %s", filename.c_str());
 			return false;
 		}
 		return true;
 	}
 
 	//validates and gets transform from json
-	bool validateTransform(const rapidjson::Value& item) {
+	bool validateTransform(const rapidjson::Value& item, const std::string filename) {
 
 		if (!item["components"].HasMember("Transform")) {
 
-			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "ERROR components does not have Transform");
+			LogError(LOG_APP, "ERROR components section does not have Transform in file %s", filename.c_str());
 			return false;
 		}
 		return true;

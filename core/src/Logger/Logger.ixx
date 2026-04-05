@@ -29,6 +29,7 @@ export typedef enum {
 	LOG_GPU = SDL_LOG_CATEGORY_GPU,
 	LOG_PHYSICS = SDL_LOG_CATEGORY_CUSTOM,
     LOG_AI = SDL_LOG_CATEGORY_CUSTOM + 1,
+    LOG_ECS = SDL_LOG_CATEGORY_CUSTOM + 2,
 } LogCategory;
 
 // Helper to format variadic args into a std::string
