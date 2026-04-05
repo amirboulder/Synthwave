@@ -1,3 +1,18 @@
+#include "Shader_Types.config.slang"
+
+[FillMode("FILL")]
+[CullMode("BACK")]
+[FrontFace("COUNTER_CLOCKWISE")]
+[PrimitiveType("TRIANGLELIST")]
+[DepthCompareOp("LESS")]
+[BlendState("NONE")]
+[DepthFormat("D32_FLOAT_S8_UINT")]
+[ColorTarget("R8G8B8A8_UNORM")]
+[DepthTest("TRUE")]
+[DepthWrite("TRUE")]
+[MsaaCapable("TRUE")]
+[StencilTest("FALSE")]
+
 layout(set = 1, binding = 0) cbuffer FrameData {
     float4x4 view;
     float4x4 projection;
@@ -9,7 +24,6 @@ layout(set = 0, binding = 0) StructuredBuffer<float4x4> transforms;
 // Using Combined Image Sampler,
 layout(set = 2, binding = 0) SamplerState sampler;
 layout(set = 2, binding = 0) Texture2D<float4> diffuseTexture;
-
 
 
 struct VertexInput

@@ -145,7 +145,7 @@ public:
 	}
 
 
-	static bool loadShaderSPRIV(
+	static bool loadShaderSPIRV(
 		SDL_GPUDevice* device,
 		SDL_GPUShader*& shader,
 		const std::string& filename,
@@ -187,6 +187,8 @@ public:
 
 		if (shader == NULL) {
 			LogError(LOG_RENDER, "Failed to create SDL_GPU %s shader form file ", stageName.c_str(), filename.c_str());
+
+			SDL_ReleaseGPUShader(device, shader);
 			return false;
 		}
 	}

@@ -1,3 +1,19 @@
+#include "Shader_Types.config.slang"
+
+[FillMode("FILL")]
+[CullMode("BACK")]
+[FrontFace("COUNTER_CLOCKWISE")]
+[PrimitiveType("LINELIST")]
+[DepthCompareOp("LESS")]
+[BlendState("ALPHA")]
+[DepthFormat("D32_FLOAT_S8_UINT")]
+[ColorTarget("R8G8B8A8_UNORM")]
+[DepthTest("TRUE")]
+[DepthWrite("TRUE")]
+[MsaaCapable("TRUE")]
+[StencilTest("FALSE")]
+
+
 layout(set = 1, binding = 0) cbuffer FrameData {
     float4x4 view;
     float4x4 projection;

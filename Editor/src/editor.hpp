@@ -184,24 +184,31 @@ public:
 	void registerFreeCam() {
 
 		const RenderConfig& config = ecs.get<RenderConfig>();
+		const RenderContext& renderContext = ecs.get<RenderContext>();
+
 
 		Transform transform;
-
 		transform.position = config.FreeCamPos;
 
-		//Get the modelSource from Asset Library
-		AssetLibrary* assetLib = ecs.get<AssetLibRef>().assetLib;
+		MeshSource meshSrc = Camera::createMesh(config.freeCamFov);
 
-		MeshComponent meshComp = assetLib->requestMeshComponent("camera");
 
-		MeshAsset& asset = assetLib->meshRegistry[meshComp.MeshAssetIndices[0]];
+
+		RenderUtil::uploadBufferData(renderContext.device, meshSrc.vertexBuffer, meshSrc.vertices.data(),
+			meshSrc.vertices.size() * sizeof(Vertex), SDL_GPU_BUFFERUSAGE_VERTEX);
+
+		RenderUtil::uploadBufferData(renderContext.device, meshSrc.indexBuffer, meshSrc.indices.data(),
+			meshSrc.indices.size() * sizeof(unsigned int), SDL_GPU_BUFFERUSAGE_INDEX);
+
+		meshSrc.size = meshSrc.indices.size();
 
 		MeshInstance instance;
 
-		instance.transform = asset.transform;
-		instance.vertexBuffer = asset.vertexBuffer;
-		instance.indexBuffer = asset.indexBuffer;
-		instance.numIndices = asset.numIndices;
+
+		instance.transform = meshSrc.transform;
+		instance.vertexBuffer = meshSrc.vertexBuffer;
+		instance.indexBuffer = meshSrc.indexBuffer;
+		instance.numIndices = meshSrc.size;
 
 
 		freeCam = ecs.entity("FreeCam")
@@ -209,7 +216,7 @@ public:
 			.set<Transform>(transform)
 			.set<ModelSourceName>({ "camera" })
 			.set<MeshInstance>({ std::move(instance) })
-			.add<RenderPipeline>(ecs.lookup("pipelineWireframe2"))
+			.add<RenderPipeline>(ecs.lookup("pipelineWireframe-non-instanced"))
 			.set<CameraMVMTState>({ false })
 			.add<EditorMesh>();
 
@@ -294,11 +301,7 @@ public:
 		camera.position += camera.front * input.direction.y * camera.movementSpeed;
 		camera.position += camera.right * input.direction.x * camera.movementSpeed;
 
-
 		camera.updateVectors();
-
-
-
 
 		Transform& transform = freeCam.get_mut<Transform>();
 		

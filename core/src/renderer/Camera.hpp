@@ -1,8 +1,8 @@
-#pragma once 
+﻿#pragma once 
 
 
 #include "RendererConfig.hpp"
-
+#include "Mesh.hpp"
 
 
 class Camera {
@@ -103,6 +103,57 @@ public:
 
     }
 
+    static MeshSource createMesh(
+        float fovY = glm::radians(39.6f),
+        float aspect = 16.f / 9.f,
+        float nearDist = 0.1f,
+        float farDist = 1.0f,
+        float upTriScale = 0.3f)
+    {
+        const float hn = glm::tan(fovY * 0.5f) * nearDist;
+        const float wn = hn * aspect;
+        const float hf = glm::tan(fovY * 0.5f) * farDist;
+        const float wf = hf * aspect;
 
-    
+        auto vert = [](float x, float y, float z) -> Vertex {
+            return { .position = {x, y, z} };
+        };
+
+        MeshSource mesh;
+
+        mesh.vertices.emplace_back(vert(-wn, hn, -nearDist)); // 0 near top-left
+        mesh.vertices.emplace_back(vert(wn, hn, -nearDist)); // 1 near top-right
+        mesh.vertices.emplace_back(vert(wn, -hn, -nearDist)); // 2 near bottom-right
+        mesh.vertices.emplace_back(vert(-wn, -hn, -nearDist)); // 3 near bottom-left
+        mesh.vertices.emplace_back(vert(-wf, hf, -farDist));  // 4 far top-left
+        mesh.vertices.emplace_back(vert(wf, hf, -farDist));  // 5 far top-right
+        mesh.vertices.emplace_back(vert(wf, -hf, -farDist));  // 6 far bottom-right
+        mesh.vertices.emplace_back(vert(-wf, -hf, -farDist));  // 7 far bottom-left
+        mesh.vertices.emplace_back(vert(0.f, hn * (1.f + upTriScale), -nearDist)); // 8 up apex
+
+        mesh.indices = {
+            // Near face — viewed from outside = from -Z direction, so reverse winding
+            0, 2, 1,  0, 3, 2,
+
+            // Far face — viewed from outside = from +Z direction (behind it)
+            4, 6, 5,  4, 7, 6,
+
+            // Top side — outside is above
+            0, 5, 1,  0, 4, 5,
+
+            // Bottom side — outside is below
+            3, 6, 2,  3, 7, 6,
+
+            // Left side — outside is to the left
+            0, 3, 7,  0, 7, 4,
+
+            // Right side — outside is to the right
+            1, 6, 2,  1, 5, 6,
+
+            // Up triangle — outside is above/front
+            0, 1, 8,
+        };
+
+        return mesh;
+    }
 };

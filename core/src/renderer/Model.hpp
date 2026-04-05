@@ -189,6 +189,23 @@ public:
 
 	}
 
+	/// <summary>
+	/// Used for any arbitrary generated single mesh model
+	/// </summary>
+	ModelSource(flecs::world& ecs, MeshSource& mesh) {
+
+		const RenderContext& renderContext = ecs.get<RenderContext>();
+
+		RenderUtil::uploadBufferData(renderContext.device, mesh.vertexBuffer, mesh.vertices.data(),
+			mesh.vertices.size() * sizeof(Vertex), SDL_GPU_BUFFERUSAGE_VERTEX);
+
+		RenderUtil::uploadBufferData(renderContext.device, mesh.indexBuffer, mesh.indices.data(),
+			mesh.indices.size() * sizeof(unsigned int), SDL_GPU_BUFFERUSAGE_INDEX);
+
+		mesh.size = mesh.indices.size();
+
+	}
+
 	// Copy constructor
 	ModelSource(const ModelSource& other)
 	{

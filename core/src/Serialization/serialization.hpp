@@ -384,7 +384,7 @@ public:
 		transform = optTransform.value();
 
 		flecs::entity parentEnt = ecs.lookup(parentName.c_str(), ".");
-		if (!EntityFactory::createGridEntity(ecs, parentEnt, name, transform, "pipelineGrid", 256)) {
+		if (!EntityFactory::createGridEntity(ecs, parentEnt, name, transform, "pipelineGrid-Wireframe", 256)) {
 			return false;
 		}
 
@@ -415,7 +415,7 @@ public:
 		transform = optTransform.value();
 
 		flecs::entity parentEnt = ecs.lookup(parentName.c_str(), ".");
-		if (!EntityFactory::createStaticMeshEntity(ecs, parentEnt, name, modelSrcName, transform, "pipelineWireframe")) {
+		if (!EntityFactory::createStaticMeshEntity(ecs, parentEnt, name, modelSrcName, transform, "pipelineSolid-Wireframe")) {
 			return false;
 		}
 

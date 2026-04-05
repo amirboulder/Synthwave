@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../ShaderCompilation/ShaderReflection.hpp"
 #include "../pipeline.hpp"
 #include "../computePipeline.hpp"
 
@@ -24,7 +25,7 @@ public:
 		fs::path compiledDir = "shaders/compiled")
 		:ecs(ecs), shaderSourceDir(std::move(sourceDir)), shaderCompiledDir(std::move(compiledDir))
 	{
-
+	
 	}
 
 	void init() {
@@ -49,7 +50,7 @@ public:
 		buildNeedsCompileList();
 
 		for (const fs::path& path : needsRecompilePaths) {
-			cout << path << std::endl;
+			LogDebug(LOG_RENDER, "%s will be recompiled", path.string().c_str());
 		}
 
 		ShaderCompiler shaderCompiler;
@@ -72,7 +73,12 @@ public:
 
 		for (const auto& entry : fs::recursive_directory_iterator(shaderSourceDir)) {
 			if (!entry.is_regular_file()) continue;
-			if (entry.path().extension() != ".slang") continue;
+
+			auto& p = entry.path();
+			if (p.extension() != ".slang") continue;
+
+			// skip Shader_Types.config.slang etc.
+			if (p.stem().extension() == ".config") continue; 
 
 			shaderSrcPaths.push_back(entry);
 		}
@@ -148,229 +154,64 @@ public:
 			return false;
 		}
 
-		rapidjson::IStreamWrapper isw(file);
-		rapidjson::Document doc;
-		doc.ParseStream(isw);
 
-		if (doc.HasParseError()) {
-			LogError(LOG_RENDER, "JSON parse error: %s at offset %s in file %s",
-				doc.GetParseError(), doc.GetErrorOffset(), metaDataFilePath.string().c_str());
-			return false;
-		}
+		ShaderReflectionData reflectionData;
 
-		if (doc.IsObject()) {
-			LogTrace(LOG_RENDER, "Successfully loaded JSON object from file %s", metaDataFilePath.string().c_str());
-		}
+		ShaderReflectionMapper::mapShaderReflection(metaDataFilePath, reflectionData);
 
-		if (doc.HasMember("shaderType")) {
-
-			std::string shaderType = doc["shaderType"].GetString();
-
-			if (shaderType != "graphics" && shaderType != "compute") {
-
-				LogError(LOG_RENDER, "shader type %s in file %s is not supported",
-					shaderType.c_str(),	metaDataFilePath.string().c_str());
+		switch (reflectionData.type) {
+		case ShaderType::Graphics:
+			
+		{
+			flecs::entity pipelineEnt = ecs.entity(entityName.c_str()).set<Pipeline>({});
+			if (!pipelineEnt) {
+				LogError(LOG_RENDER, "Failed to create entity: %s", entityName);
+				return false;
 			}
 
-			//TODO maybe put the code in this if statement into a separate function
-			if (shaderType == "graphics") {
+			Pipeline& pipelineRef = pipelineEnt.get_mut<Pipeline>();
 
-				flecs::entity pipelineEnt = ecs.entity(entityName.c_str()).set<Pipeline>({});
-
-				if (!pipelineEnt) {
-					LogError(LOG_RENDER, "Failed to create entity: %s", entityName);
-					return false;
-				}
-
-				Pipeline& pipelneRef = pipelineEnt.get_mut<Pipeline>();
-
-				ShaderReflectionData reflectionVS;
-				ShaderReflectionData reflectionFS;
-
-				PipelineType pipelineType = PipelineType::NONE;
-
-
-				processGraphicsShaderMetadata(filename, doc, reflectionVS, reflectionFS, pipelineType);
-
-				if (!pipelneRef.createPipeline(ecs, filename, reflectionVS, reflectionFS, pipelineType)){
-					return false;
-				}
-
-			}
-			else if (shaderType == "compute") {
-
-				ComputeShaderReflectionData reflectionCS;
-
-				processComputeShaderMetadata(filename, doc, reflectionCS);
-
-
-				flecs::entity pipelineEnt = ecs.entity(entityName.c_str()).set<ComputePipeline>({});
-				ComputePipeline& pipelineRef = pipelineEnt.get_mut<ComputePipeline>();
-
-
-				if (!pipelineRef.createPipeline(ecs, entityName.c_str(), reflectionCS.outputFile.c_str(),
-					reflectionCS.numSamplers,
-					reflectionCS.numReadOnlyStorageTextures,
-					reflectionCS.numReadOnlyStorageBuffers,
-					reflectionCS.numReadwriteStorageTextures,
-					reflectionCS.numReadwriteStorageBuffers,
-					reflectionCS.numUniformBuffers,
-					reflectionCS.threadCountX,
-					reflectionCS.threadCountY,
-					reflectionCS.threadCountZ
-				)) return false;
-
+			if (!pipelineRef.createPipeline(ecs, filename, reflectionData)) {
+				return false;
 			}
 
-
+			break;
 		}
-		else {
 
-			LogError(LOG_RENDER, "shader metadata file %s is missing shaderType",
-				metaDataFilePath.string().c_str());
+
+		case ShaderType::Compute:
+
+		{
+			flecs::entity pipelineEnt = ecs.entity(entityName.c_str()).set<ComputePipeline>({});
+			if (!pipelineEnt) {
+				LogError(LOG_RENDER, "Failed to create entity: %s", entityName);
+				return false;
+			}
+
+			ComputePipeline& pipelineRef = pipelineEnt.get_mut<ComputePipeline>();
+
+			ComputeShaderReflectionData & reflectionCS =  reflectionData.reflectionCS;
+			if (!pipelineRef.createPipeline(ecs, entityName.c_str(), reflectionCS.outputFile.c_str(),
+				reflectionCS.numSamplers,
+				reflectionCS.numReadOnlyStorageTextures,
+				reflectionCS.numReadOnlyStorageBuffers,
+				reflectionCS.numReadwriteStorageTextures,
+				reflectionCS.numReadwriteStorageBuffers,
+				reflectionCS.numUniformBuffers,
+				reflectionCS.threadCountX,
+				reflectionCS.threadCountY,
+				reflectionCS.threadCountZ
+			)) return false;
+
+			break;
+		}
+
+		case ShaderType::Unknown:
+			LogError(LOG_RENDER, "Could not determine shader type for: %s", filename.c_str());
 			return false;
 		}
 
 		return true;
-
-	}
-
-	bool processGraphicsShaderMetadata(const std::string filename, const rapidjson::Document & doc,
-		ShaderReflectionData & reflectionVS,
-		ShaderReflectionData & reflectionFS,
-		PipelineType & pipelineType) {
-
-		if (!doc.HasMember("vertex")) {
-
-			LogError(LOG_RENDER, "Shader metadata file for %s is missing vertex section", filename.c_str());
-			return false;
-		}
-		if (!doc.HasMember("fragment")) {
-
-			LogError(LOG_RENDER, "Shader metadata file for %s is missing fragment section", filename.c_str());
-			return false;
-		}
-
-		const rapidjson::Value& vertexStage = doc["vertex"];
-		const rapidjson::Value& fragmentStage = doc["fragment"];
-
-
-		//Process Vertex Section
-		std::string errorMsgs;
-		
-		readIntField(vertexStage, "numSamplers", reflectionVS.numSamplers, errorMsgs);
-		readIntField(vertexStage, "numStorageBuffers", reflectionVS.numStorageBuffers, errorMsgs);
-		readIntField(vertexStage, "numStorageTextures", reflectionVS.numStorageTextures, errorMsgs);
-		readIntField(vertexStage, "numUniformBuffers", reflectionVS.numUniformBuffers, errorMsgs);
-		readStringField(vertexStage, "outputFile", reflectionVS.outputFile, errorMsgs);
-
-		if (errorMsgs.size() > 0) {
-
-			LogError(LOG_RENDER, "The following are missing from %s shader metadata file in vertex section : %s",
-				filename.c_str(), errorMsgs.c_str());
-			return false;
-		}
-
-		//Process fragment Section
-		
-		errorMsgs.clear();
-
-		readIntField(fragmentStage, "numSamplers", reflectionFS.numSamplers, errorMsgs);
-		readIntField(fragmentStage, "numStorageBuffers", reflectionFS.numStorageBuffers, errorMsgs);
-		readIntField(fragmentStage, "numStorageTextures", reflectionFS.numStorageTextures, errorMsgs);
-		readIntField(fragmentStage, "numUniformBuffers", reflectionFS.numUniformBuffers, errorMsgs);
-		readStringField(fragmentStage, "outputFile", reflectionFS.outputFile, errorMsgs);
-
-		if (errorMsgs.size() > 0) {
-
-			LogError(LOG_RENDER, "The following are missing from %s shader metadata file in fragment section : %s", filename.c_str(), errorMsgs.c_str());
-			return false;
-		}
-
-
-		//process common info
-		if (doc.HasMember("pipelineType") && doc["pipelineType"].IsInt()) {
-			int rawValue = doc["pipelineType"].GetInt();
-			pipelineType = static_cast<PipelineType>(rawValue);
-		}
-
-		if (!fs::exists(reflectionVS.outputFile)) {
-			LogError(LOG_RENDER, "compiled shader file %s does not exist",
-				reflectionVS.outputFile.c_str());
-			return false;
-		}
-		if (!fs::exists(reflectionFS.outputFile)) {
-			LogError(LOG_RENDER, "compiled shader file %s does not exist",
-				reflectionFS.outputFile.c_str());
-			return false;
-		}
-
-		return true;
-
-	}
-
-
-	bool processComputeShaderMetadata(const std::string filename, const rapidjson::Document& doc, ComputeShaderReflectionData & reflectionCS) {
-
-		if (!doc.HasMember("compute")) {
-			LogError(LOG_RENDER, "Shader metadata file %s is missing compute section", filename.c_str());
-			return false;
-		}
-		const rapidjson::Value& computeVal = doc["compute"];
-
-		std::string errorMsgs;
-
-		readIntField(computeVal, "numSamplers", reflectionCS.numSamplers, errorMsgs);
-		readIntField(computeVal, "numUniformBuffers", reflectionCS.numUniformBuffers, errorMsgs);
-
-		readIntField(computeVal, "numReadOnlyStorageBuffers", reflectionCS.numReadOnlyStorageBuffers, errorMsgs);
-		readIntField(computeVal, "numReadOnlyStorageTextures", reflectionCS.numReadOnlyStorageTextures, errorMsgs);
-
-		readIntField(computeVal, "numReadwriteStorageBuffers", reflectionCS.numReadwriteStorageBuffers, errorMsgs);
-		readIntField(computeVal, "numReadwriteStorageTextures", reflectionCS.numReadwriteStorageTextures, errorMsgs);
-
-		readIntField(computeVal, "threadCountX", reflectionCS.threadCountX, errorMsgs);
-		readIntField(computeVal, "threadCountY", reflectionCS.threadCountY, errorMsgs);
-		readIntField(computeVal, "threadCountZ", reflectionCS.threadCountZ, errorMsgs);
-
-		readStringField(computeVal, "outputFile", reflectionCS.outputFile, errorMsgs);
-
-		if (errorMsgs.size() > 0) {
-
-			LogError(LOG_RENDER, "The following are missing from %s shader metadata file :  %s", filename.c_str(), errorMsgs.c_str());
-			return false;
-		}
-
-		if (!fs::exists(reflectionCS.outputFile)) {
-			LogError(LOG_RENDER, "Compute shader output file %s referenced in %s metadata file does not exist",
-				reflectionCS.outputFile.c_str(), filename.c_str());
-			return false;
-		}
-
-	return true;
-	}
-
-
-	void readIntField(const rapidjson::Value& stage, const char* key, uint32_t& dest, std::string& errors)
-	{
-		if (stage.HasMember(key) && stage[key].IsInt()) {
-			dest = stage[key].GetInt();
-		}
-		else {
-			errors.append(" ").append(key);
-
-		}
-	}
-
-	void readStringField(const rapidjson::Value& stage, const char* key, std::string& dest, std::string& errors)
-	{
-		if (stage.HasMember(key) && stage[key].IsString()) {
-			dest = stage[key].GetString();
-		}
-		else {
-			errors.append(" ").append(key);
-
-		}
 	}
 
 };

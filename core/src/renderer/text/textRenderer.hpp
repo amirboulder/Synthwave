@@ -73,8 +73,8 @@ public:
 
        // shader::generateSpirvShaders("shaders/slang/textShader.slang", "shaders/compiled/text.vert.spv", "shaders/compiled/text.frag.spv");
 
-        RenderUtil::loadShaderSPRIV(renderContext.device, vertexShader, "shaders/compiled/text.vert.spv", SDL_GPU_SHADERSTAGE_VERTEX,0, 1, 0, 0);
-        RenderUtil::loadShaderSPRIV(renderContext.device, fragmentShader, "shaders/compiled/text.frag.spv", SDL_GPU_SHADERSTAGE_FRAGMENT,1, 0, 0, 0);
+        RenderUtil::loadShaderSPIRV(renderContext.device, vertexShader, "shaders/compiled/text.vert.spv", SDL_GPU_SHADERSTAGE_VERTEX,0, 1, 0, 0);
+        RenderUtil::loadShaderSPIRV(renderContext.device, fragmentShader, "shaders/compiled/text.frag.spv", SDL_GPU_SHADERSTAGE_FRAGMENT,1, 0, 0, 0);
 
        
         SDL_GPUVertexAttribute vertexAttributes[3] = {};

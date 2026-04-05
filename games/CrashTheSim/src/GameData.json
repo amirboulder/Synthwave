@@ -29,7 +29,7 @@
       "StaticEnt"
     ],
     "pairs": {
-      "RenderPipeline": "pipelineGrid"
+      "RenderPipeline": "pipelineGrid-Wireframe"
     },
     "components": {
       "Transform": {
@@ -65,7 +65,7 @@
       "StaticEnt"
     ],
     "pairs": {
-      "RenderPipeline": "pipelineWireframe"
+      "RenderPipeline": "pipelineSolid-Wireframe"
     },
     "components": {
       "Transform": {

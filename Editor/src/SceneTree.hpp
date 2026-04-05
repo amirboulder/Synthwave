@@ -457,7 +457,7 @@ public:
 		Transform gridTransform;
 		gridTransform.position = glm::vec3(12.0f, 0.0f, 0.0f);
 		gridTransform.rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
-		EntityFactory::createGridEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, gridTransform, "pipelineGrid", 256);
+		EntityFactory::createGridEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, gridTransform, "pipelineGrid-Wireframe", 256);
 
 	}
 
@@ -466,7 +466,7 @@ public:
 		Transform mtnTransform;
 		mtnTransform.position = glm::vec3(0.0f, -40.0f, 0.0f);
 		mtnTransform.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
-		EntityFactory::createStaticMeshEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, "Mountains", mtnTransform, "pipelineWireframe");
+		EntityFactory::createStaticMeshEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, "Mountains", mtnTransform, "pipelineSolid-Wireframe");
 
 	}
 
