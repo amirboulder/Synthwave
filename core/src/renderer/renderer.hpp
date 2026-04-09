@@ -176,10 +176,18 @@ struct Renderer {
 
 	bool createAndClaimGPU() {
 
+		//TODO debug mode should come from a config file
 		bool debugMode = true;
 
+		// Enable shaderDrawParameters via Vulkan 1.1 features struct
+		VkPhysicalDeviceVulkan11Features features11 = {};
+		features11.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES;
+		features11.pNext = NULL; 
+		features11.shaderDrawParameters = VK_TRUE;
+
 		SDL_GPUVulkanOptions vulkanProps = { 0 };
-		vulkanProps.vulkan_api_version = 4206592; // Vulkan 1.3.0
+		vulkanProps.vulkan_api_version = VK_MAKE_API_VERSION(0, 1, 3, 0); //Vulkan 1.3
+		vulkanProps.feature_list = &features11;
 
 		SDL_PropertiesID props = SDL_CreateProperties();
 
@@ -459,7 +467,7 @@ struct Renderer {
 
 		beginRenderPass(renderContext, frameContext);
 
-		drawAllBatches(frameContext);
+		drawAllBatches();
 
 		//Keeping this part of the main render Pass because they look/work better
 #if defined(JPH_DEBUG_RENDERER)
@@ -621,7 +629,7 @@ struct Renderer {
 
 	}
 
-	void drawAllBatches(const FrameContext& frameContext) {
+	void drawAllBatches() {
 		for (auto& [pipelineId, pipelineBatch] : pipelineBatches) {
 
 			// Bind pipeline ONCE

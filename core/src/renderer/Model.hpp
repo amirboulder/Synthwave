@@ -77,7 +77,7 @@ public:
 			meshes.emplace_back();
 			MeshSource& currentMesh = meshes.back();
 
-			currentMesh.processMesh(importedMeshCurrent);
+			currentMesh.processMesh(importedMeshCurrent, filePath);
 
 			// use the aiMeshTransforms we extracted using ExtractMeshTransforms to set the mesh matrix
 			Transform temp;

@@ -45,6 +45,12 @@ target_sources(Synthwave
              ${MODULE_INTERFACE_UNITS}
 )
 
+
+#=============================================
+# Vulkan
+#=============================================
+find_package(Vulkan REQUIRED)
+
 #=============================================
 # Slang-shader language and compiler - using Prebuilt Binary because building from scratch took a few minutes.
 #=============================================
@@ -387,6 +393,7 @@ target_link_libraries(imgui PUBLIC SDL3::SDL3 SDL3_ttf::SDL3_ttf Freetype::Freet
 #=============================================
 
 target_link_libraries(Synthwave PUBLIC
+Vulkan::Headers
 imgui
 SDL3::SDL3
 Slang::slang

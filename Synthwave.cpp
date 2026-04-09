@@ -18,11 +18,11 @@ int main(int argc, char* argv[])
 
 	Scene scene(ecs);
 
-	Serializer serde(ecs);
+	Serializer serializer(ecs);
 
 	Editor editor(ecs);
 
-	StateManager stateManager(ecs, renderer, fisiks, serde, menuSys, editor, time, scene, running);
+	StateManager stateManager(ecs, renderer, fisiks, serializer, menuSys, editor, time, scene, running);
 
 	InputManager inputManager(ecs);
 
