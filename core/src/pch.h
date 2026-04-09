@@ -17,6 +17,9 @@ namespace fs = std::filesystem;
 
 ///////////////////Third-party
 
+//Vulkan
+#include <vulkan/vulkan.h>
+
 //SDL
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_gpu.h>

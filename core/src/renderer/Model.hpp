@@ -5,16 +5,6 @@
 #include "renderUtil.hpp"
 
 
-struct LoadedTexture {
-	SDL_Surface* surface;
-	std::string name;
-	std::string format;
-	int width;
-	int height;
-};
-
-
-
 class ModelSource {
 
 public:
@@ -40,22 +30,23 @@ public:
 			);
 		}
 		catch (const std::exception& e) {
-			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Assimp threw exception: %s", e.what());
+			LogError(LOG_RENDER, "Assimp threw exception: %s", e.what());
 			return;
 		}
 		catch (...) {
-			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Assimp threw an unknown exception");
+			LogError(LOG_RENDER, "Assimp threw an unknown exception");
 			return;
 		}
 
 		if (!scene) {
 			const char* error = importer.GetErrorString();
-			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
+			LogError(LOG_RENDER,
 				"ASSIMP Error: %s", error ? error : "Unknown error");
 			return;
 		}
 
-		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "processing model : %s", filePath);
+		//TODO maybe change to debug priority eventually
+		LogInfo(LOG_RENDER, "processing model : %s", filePath);
 
 		// using resize instead of reserve to set the transforms to identity matrix 
 		aiMeshTransforms.resize(scene->mNumMeshes);
@@ -122,73 +113,7 @@ public:
 		mesh.size = mesh.indices.size();
 	}
 
-	//for Wireframe Mountains
-	ModelSource(flecs::world& ecs,const char* filePath, bool mtn) {
-
-		if (!validateFile(filePath)) return;
-
-		RenderContext& renderContext = ecs.get_mut<RenderContext>();
-
-		Assimp::Importer importer;
-		const aiScene* scene = nullptr;
-
-		try {
-			scene = importer.ReadFile(
-				filePath,
-				aiProcess_Triangulate |
-				aiProcess_GenSmoothNormals |
-				aiProcess_FlipUVs |
-				aiProcess_CalcTangentSpace
-			);
-		}
-		catch (const std::exception& e) {
-			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Assimp threw exception: %s", e.what());
-			return;
-		}
-		catch (...) {
-			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Assimp threw an unknown exception");
-			return;
-		}
-
-		if (!scene) {
-			const char* error = importer.GetErrorString();
-			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
-				"ASSIMP Error: %s", error ? error : "Unknown error");
-			return;
-		}
-
-		cout << "processing model : " << filePath << '\n';
-		//cout << "Number of meshes : " << scene->mNumMeshes << '\n';
-
-		aiMeshTransforms.resize(scene->mNumMeshes);
-		// Extract all mesh transforms first
-		ExtractMeshTransforms(scene->mRootNode, aiMatrix4x4(), scene);
-
-		meshes.reserve(scene->mNumMeshes);
-
-		for (int i = 0; i < scene->mNumMeshes; i++) {
-
-			aiMesh* importedMesh = scene->mMeshes[i];
-			meshes.emplace_back();
-
-			MeshSource& currentMesh = meshes.back();
-			currentMesh.processMeshSequential(importedMesh);
-
-			// set mesh transform
-			Transform temp;
-			decomposeModelMatrix(ConvertMatrix(aiMeshTransforms[i]), temp);
-
-			currentMesh.transform = temp;
-
-			RenderUtil::uploadBufferData(renderContext.device, currentMesh.vertexBuffer, currentMesh.vertices.data(),
-				currentMesh.vertices.size() * sizeof(Vertex), SDL_GPU_BUFFERUSAGE_VERTEX);
-			RenderUtil::uploadBufferData(renderContext.device, currentMesh.indexBuffer, currentMesh.indices.data(),
-				currentMesh.indices.size() * sizeof(unsigned int), SDL_GPU_BUFFERUSAGE_INDEX);
-
-		}
-
-	}
-
+	
 	/// <summary>
 	/// Used for any arbitrary generated single mesh model
 	/// </summary>
@@ -209,18 +134,18 @@ public:
 	// Copy constructor
 	ModelSource(const ModelSource& other)
 	{
-		printf("\033[33mModel copy constructor called!\033[0m\n");
+		LogWarn(LOG_RENDER, "Model copy constructor called!");
 	}
 
 	bool validateFile(const char* filePath) {
 
 		if (!filePath) {
-			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "filePath is null");
+			LogError(LOG_RENDER, "filePath is null");
 			return false;
 		}
 		std::filesystem::path folderPath = filePath;
 		if (!std::filesystem::exists(folderPath)) {
-			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "File does not exist: %s", filePath);
+			LogError(LOG_RENDER, "File does not exist: %s", filePath);
 			return false;
 		}
 

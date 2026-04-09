@@ -21,13 +21,12 @@ layout(set = 1, binding = 0) cbuffer FrameData {
 
 layout(set = 0, binding = 0) StructuredBuffer<float4x4> transforms;
 
-
 struct VertexInput
 {
     float3 position : POSITION;
     float3 normal : NORMAL;
     float2 texCoords : TextureCoords;
-    float4 barycentric : BARYCENTRIC;
+    float4 color : COLOR;
 };
 
 struct VertexOutput
@@ -39,17 +38,19 @@ struct VertexOutput
 };
 
 [shader("vertex")]
-VertexOutput vertexMain(VertexInput input, uint instanceIndex: SV_InstanceID)
+VertexOutput vertexMain(VertexInput input, uint vertexID: SV_VertexID, uint instanceIndex: SV_InstanceID)
 {
     float4x4 model = transforms[instanceIndex];
     float4x4 mvp = mul(viewProjection, model);
 
-    VertexOutput output;
+    // Derive barycentric from vertex index within triangle
+    uint localID = vertexID % 3;
+    float3 bary = float3(float(localID == 0), float(localID == 1), float(localID == 2));
 
+    VertexOutput output;
     output.position = mul(mvp, float4(input.position, 1.0));
     output.worldNormal = input.normal;
-    output.barycentric = input.barycentric.xyz;
-
+    output.barycentric = bary;
     return output;
 }
 
