@@ -2,44 +2,14 @@
 
 
 #include "../common.hpp"
+#include "GraphicsComponents.hpp"
 
-struct Vertex {
-	glm::vec3 position;
-	glm::vec3 normal;
-	glm::vec2 texCoord;
-	glm::vec4 color;
-};
 
-struct LineVertex {
-	glm::vec3 position;
-	glm::vec4 color;
-};
-
-struct EntIdVertex {
-	glm::vec3 position;
-	glm::uint32 entID;
-};
-
-//TODO stop using as a component use it only for serialization
-struct Transform {
-	glm::vec3 position = glm::vec3(1);
-	glm::quat rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
-	glm::vec3 scale = glm::vec3(1);
-
-};
 
 struct Position {
 	glm::vec3 position = glm::vec3(1);
 };
 
-struct MeshComponent {
-	std::vector<uint32_t> MeshAssetIndices;
-};
-
-
-struct LineVertices {
-	std::vector<LineVertex> data;
-};
 
 
 struct LinearVelocity {
@@ -60,13 +30,6 @@ struct UserInput {
 };
 
 
-struct RenderState {
-	flecs::entity activePipeline;
-};
-
-struct PipelineRef {
-	flecs::entity pipeline;
-};
 
 
 struct SensorBehavior {
@@ -126,9 +89,7 @@ struct DynamicEnt {};
 struct StaticEnt {};
 struct Sensor {};
 
-struct RenderPipeline {};
 
-struct ActiveCamera {};
 
 struct MenuComponent {};
 struct HudComponent {};
@@ -142,11 +103,7 @@ struct Active{};
 /// </summary>
 struct EditorMesh {};
 
-/// <summary>
-/// A Tag attached to objects that should be rendered in game.
-/// Used by renderer queries.
-/// </summary>
-struct Renderable{};
+
 
 struct IsActive {};
 

@@ -16,7 +16,7 @@ static const std::map<EntityType, std::string> sceneEntityNames = {
 	{EntityType::Sphere, "Sphere"},
 	{EntityType::Cube, "Cube"},
 	{EntityType::Car, "Car"},
-	//{EntityType::Light, "Light"},
+	{EntityType::Light, "Light"},
 	//{EntityType::Camera, "Camera"},
 };
 
@@ -352,7 +352,7 @@ public:
 						createCubeChild(ecs);
 						break;
 					case EntityType::Light:
-						SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, " Adding Camera not yet implemented");
+						createLightChild(ecs);
 						break;
 					case EntityType::Camera:
 						SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, " Adding Camera not yet implemented");
@@ -503,6 +503,19 @@ public:
 		transform.position = glm::vec3(1.0f, 7.0f, 1.0f);
 		transform.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
 		EntityFactory::createSnakeEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, "Capsule4", transform, SnakeUpdate, "pipelineUnlit");
+
+	}
+
+
+	static void createLightChild(flecs::world& ecs) {
+
+		Light light;
+		DirectionalLight directionalLight;
+
+		Transform transform;
+		transform.position = glm::vec3(1.0f, 7.0f, 1.0f);
+		transform.rotation = glm::quat(0.707f, 0.707f, 0.0f, 0.0f);
+		EntityFactory::createDirectionalLightEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, light, directionalLight,transform);
 
 	}
 

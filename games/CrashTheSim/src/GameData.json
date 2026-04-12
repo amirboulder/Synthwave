@@ -132,7 +132,7 @@
       "DynamicEnt"
     ],
     "pairs": {
-      "RenderPipeline": "pipelineUnlit"
+      "RenderPipeline": "pipelinePhong"
     },
     "components": {
       "Transform": {

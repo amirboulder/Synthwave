@@ -21,13 +21,19 @@
 #include "../AssetLibrary/AssetLibrary.hpp"
 
 struct DrawBatch {
+
 	SDL_GPUBuffer* vertexBuffer = nullptr;
 	SDL_GPUBuffer* indexBuffer = nullptr;
+
 	SDL_GPUBuffer* transformsBuffer = nullptr;
-	uint32_t              numIndices = 0;
+	SDL_GPUBuffer* normalMatricesBuffer = nullptr;
+
 	std::vector<glm::mat4> transforms;
+	std::vector<glm::mat4> normalMatrices;
 
 	SDL_GPUTexture* diffuseTexture = nullptr;
+
+	uint32_t              numIndices = 0;
 };
 
 struct PipelineBatch {
@@ -68,6 +74,7 @@ struct Renderer {
 	flecs::entity renderPhase;
 
 	flecs::query<Transform, MeshComponent>queryEntID;
+	flecs::query<const Light, const Transform>queryLights;
 	flecs::query<EditorMesh>editorVisualsQuery;
 
 	flecs::system drawPhysicsBodiesSys;
@@ -449,6 +456,9 @@ struct Renderer {
 		queryEntID = ecs.query_builder<Transform, MeshComponent>()
 		.build();
 
+		queryLights =  ecs.query_builder<const Light, const Transform>()
+			.build();
+
 		editorVisualsQuery = ecs.query_builder<EditorMesh>()
 			//.with<RenderPipeline>(flecs::Wildcard)
 			//.group_by<RenderPipeline>()
@@ -556,6 +566,7 @@ struct Renderer {
 			for (auto& [pipelineId, pipelineBatch] : pipelineBatches) {
 				for (auto& [meshIndex, drawBatch] : pipelineBatch.meshBatches) {
 					drawBatch.transforms.clear();
+					drawBatch.normalMatrices.clear();
 					drawBatch.numIndices = 0;
 				}
 			}
@@ -581,6 +592,15 @@ struct Renderer {
 
 						glm::mat4 localMat = createModelMatrix(asset.transform);
 						localMat = modelMat * localMat;
+
+						// Compute normal matrix BEFORE transposing localMat for Slang.
+						// Normal matrix = inverse transpose of the upper 3x3 of the model matrix.
+						// Stored as glm::mat4 with 4th column zeroed to satisfy GPU 16-byte row alignment.
+						glm::mat3 normalMat3 = glm::mat3(glm::transpose(glm::inverse(localMat)));
+						glm::mat4 normalMat4 = glm::mat4(normalMat3); // expands to mat4, 4th col = (0,0,0,1)
+						normalMat4[3] = glm::vec4(0.0f);       // zero out 4th column explicitly
+						normalMat4 = glm::transpose(normalMat4); // transpose for Slang row-major
+
 						//Transpose because matrix layout in memory for Slang is is row-major
 						localMat = glm::transpose(localMat);
 
@@ -593,8 +613,9 @@ struct Renderer {
 
 						batch.diffuseTexture = asset.diffuseTexture;
 
-						// Accumulate transforms across all entities
+						// Accumulate transforms and normalMatrices across all entities
 						batch.transforms.push_back(localMat);
+						batch.normalMatrices.push_back(normalMat4);
 					}
 				}
 			}
@@ -606,10 +627,15 @@ struct Renderer {
 
 					if (drawBatch.transforms.empty()) continue;
 
-					//Frees prevoius frames buffer.(prevents memory leak)
+					// Release previous frame's transform buffer
 					if (drawBatch.transformsBuffer != nullptr) {
 						SDL_ReleaseGPUBuffer(renderContext.device, drawBatch.transformsBuffer);
 						drawBatch.transformsBuffer = nullptr;
+					}
+					// Release previous frame's normal matrix buffer
+					if (drawBatch.normalMatricesBuffer != nullptr) {
+						SDL_ReleaseGPUBuffer(renderContext.device, drawBatch.normalMatricesBuffer);
+						drawBatch.normalMatricesBuffer = nullptr;
 					}
 
 					//TODO maybe one buffer for the entire transforms and
@@ -620,6 +646,16 @@ struct Renderer {
 						drawBatch.transforms.size() * sizeof(glm::mat4),
 						SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ
 					);
+					RenderUtil::uploadBufferData(
+						renderContext.device,
+						drawBatch.normalMatricesBuffer,
+						drawBatch.normalMatrices.data(),
+						drawBatch.normalMatrices.size() * sizeof(glm::mat4),
+						SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ
+					);
+				}
+			}
+		});
 
 				}
 			}

@@ -707,6 +707,86 @@ public:
 
 	}
 
+	/// <summary>
+	/// Infinitely far away, parallel rays — sun, moon .Has no position, only direction.
+	/// </summary>
+	static bool createDirectionalLightEntity(flecs::world& ecs, flecs::entity parent, std::string name, const Light& light, const DirectionalLight& directionalLight, Transform& transform) {
+
+		if (!EntityFactory::validateName(ecs, parent, name)) return false;
+		if (!EntityFactory::validateTransform(transform, name.c_str())) return false;
+
+		const flecs::entity entity = ecs.entity(name.c_str())
+			.set<Transform>(transform)
+			.set<Light>({ light })
+			.add<DirectionalLight>()
+			;
+
+		if (!validateEntityCreation(entity, name)) return false;
+
+		return true;
+	}
+
+	/// <summary>
+	/// A point light radiates in all directions from a point, fades with distance
+	/// </summary>
+	static bool createPointLightEntity(flecs::world& ecs, flecs::entity parent, std::string name, const Light& light, const PointLight& pointLight, Transform& transform) {
+
+		if (!EntityFactory::validateName(ecs, parent, name)) return false;
+		if (!EntityFactory::validateTransform(transform, name.c_str())) return false;
+
+		const flecs::entity entity = ecs.entity(name.c_str())
+			.set<Transform>(transform)
+			.set<Light>({ light })
+			.set<PointLight>({ pointLight })
+			;
+
+		if (!validateEntityCreation(entity, name)) return false;
+
+		return true;
+	}
+
+
+	/// <summary>
+	/// Global constant light — no position, no direction, hits everything equally
+	/// </summary>
+	static bool createAmbientLightEntity(flecs::world& ecs, flecs::entity parent, std::string name, const Light& light, const AmbientLight& ambientLight) {
+
+		if (!EntityFactory::validateName(ecs, parent, name)) return false;
+
+		const flecs::entity entity = ecs.entity(name.c_str())
+			.set<Light>({ light })
+			.set<AmbientLight>({ ambientLight })
+			;
+
+		if (!validateEntityCreation(entity, name)) return false;
+
+		return true;
+	}
+
+
+	static bool createAreaLightEntity(flecs::world& ecs, flecs::entity parent, std::string name, const Light& light, const PointLight& pointLight, Transform& transform) {
+
+		if (!EntityFactory::validateName(ecs, parent, name)) return false;
+		if (!EntityFactory::validateTransform(transform, name.c_str())) return false;
+
+		//Get the modelSource from Asset Library
+		//AssetLibrary* assetLib = ecs.get<AssetLibRef>().assetLib;
+		//const ModelSource* modelSource = assetLib->getModel(ModelSrcName);
+		//if (!validateModelSource(modelSource, ModelSrcName));
+
+		const flecs::entity entity = ecs.entity(name.c_str())
+			.set<Transform>(transform)
+
+			.set<Light>({ light })
+			.set<PointLight>({ pointLight })
+			;
+
+		if (!validateEntityCreation(entity, name)) return false;
+
+		return true;
+
+	}
+
 	static bool createStaticMeshEntity(flecs::world& ecs, const flecs::entity parent, const std::string name, const std::string ModelSrcName, Transform transform, const std::string pipelineName) {
 
 		if (!validateName(ecs, parent, name)) return false;
