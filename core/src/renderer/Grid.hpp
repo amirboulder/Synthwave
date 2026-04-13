@@ -9,8 +9,7 @@ public:
 
     static void generateGrid(int size, std::vector<Vertex> & vertices, std::vector <unsigned int> & indices) {
 
-        // Generate vertices
-       // adding one to rows and cols becasuet the loops go to <=
+       // adding one to rows and cols because the loops go to <=
        vertices.reserve((size +1) * (size + 1));
 
         for (int r = 0; r <= size; r++) {
@@ -27,12 +26,14 @@ public:
                 currentVertex.position.y = y;
                 currentVertex.position.z = z;
 
+                //normals point up
+                currentVertex.normal = glm::vec3(0.0f, 1.0f, 0.0f);
             }
         }
 
         indices.reserve(size * size * 6);
 
-        // Generate indices for GL_TRIANGLES
+        // Generate indices 
         for (int r = 0; r < size; r++) {
             for (int c = 0; c < size; c++) {
                 // Define two triangles for each grid cell
