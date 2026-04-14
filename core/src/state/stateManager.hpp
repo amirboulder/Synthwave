@@ -418,6 +418,9 @@ public:
 
 		ecs.component<PlayState>()
 			.on_set([&](PlayState& newState) {
+
+			PlayState currentState = ecs.get<PlayState>();
+
 			switch (newState) {
 			case PlayState::PLAY:
 
@@ -602,7 +605,7 @@ public:
 
 			if (event.occurred == true) {
 
-				//If ediotor is enabled don't do anything
+				//If editor is enabled don't do anything
 				const EditorState* editorState = ecs.try_get<EditorState>();
 				if (editorState) {
 					if (*editorState == EditorState::Enabled) {
@@ -610,7 +613,15 @@ public:
 					}
 				}
 				
-				gamePauseHandler();
+				//pause the game if not already paused
+				//TODO THIS is bad code change it
+				//PlayState should be a finite state machine
+				// where NONE <-> play, play <-> pause, none <-pause
+				//meaning when we set the playstate to pause it will not  pause when there is no game loaded
+				if (ecs.get<PlayState>() != PlayState::NONE) {
+					ecs.set<PlayState>(PlayState::PAUSE);
+				}
+
 			}
 		});
 	}
