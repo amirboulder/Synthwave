@@ -20,6 +20,51 @@
 
 #include "../AssetLibrary/AssetLibrary.hpp"
 
+struct GrowableGPUBuffer {
+	SDL_GPUBuffer* buffer = nullptr;
+	size_t capacity = 0;      // bytes currently allocated on GPU
+
+	// Uploads data, reallocating only if needed
+	void upload(SDL_GPUDevice* device, const void* data, size_t size, Uint32 usage) {
+		if (size > capacity) {
+			if (buffer) SDL_ReleaseGPUBuffer(device, buffer);
+
+			// Grow with headroom (e.g. 1.5x) to reduce future reallocations
+			capacity = size + size / 2;
+
+			SDL_GPUBufferCreateInfo info = {};
+			info.usage = usage;
+			info.size = (Uint32)capacity;
+			buffer = SDL_CreateGPUBuffer(device, &info);
+		}
+
+		// Reuse existing transfer buffer or create one per upload
+		// (see batched upload note below)
+		SDL_GPUTransferBufferCreateInfo transferInfo = {};
+		transferInfo.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
+		transferInfo.size = (Uint32)size;
+		SDL_GPUTransferBuffer* transferBuffer = SDL_CreateGPUTransferBuffer(device, &transferInfo);
+
+		void* mapped = SDL_MapGPUTransferBuffer(device, transferBuffer, false);
+		memcpy(mapped, data, size);
+		SDL_UnmapGPUTransferBuffer(device, transferBuffer);
+
+		SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(device);
+		SDL_GPUCopyPass* pass = SDL_BeginGPUCopyPass(cmd);
+		SDL_GPUTransferBufferLocation src = { transferBuffer, 0 };
+		SDL_GPUBufferRegion dst = { buffer, 0, (Uint32)size };
+		SDL_UploadToGPUBuffer(pass, &src, &dst, false);
+		SDL_EndGPUCopyPass(pass);
+		SDL_SubmitGPUCommandBuffer(cmd);
+		SDL_ReleaseGPUTransferBuffer(device, transferBuffer);
+	}
+
+	void release(SDL_GPUDevice* device) {
+		if (buffer) { SDL_ReleaseGPUBuffer(device, buffer); buffer = nullptr; capacity = 0; }
+	}
+};
+
+
 struct DrawBatch {
 
 	SDL_GPUBuffer* vertexBuffer = nullptr;
@@ -39,6 +84,44 @@ struct DrawBatch {
 struct PipelineBatch {
 	std::unordered_map<uint32_t, DrawBatch> meshBatches; // keyed by mesh asset index
 };
+
+
+struct LightDataUniform {
+	glm::vec3 ambientColor = glm::vec3(1.0f, 0.96f, 0.88f);
+	float ambientIntensity = 0.1f;
+
+	uint32_t numDirectionalLights;
+	uint32_t numPointLights;
+};
+
+struct LightBatch {
+	std::vector<DirectionalLight> directionalLights;
+	std::vector<PointLight>       pointLights;
+
+	GrowableGPUBuffer directionalBuffer;
+	GrowableGPUBuffer pointBuffer;
+
+	uint32_t numDirectional = 0;
+	uint32_t numPoint = 0;
+
+	GrowableGPUBuffer dummyBufferDir;
+	GrowableGPUBuffer dummyBufferPoint;
+
+	//This is needed because in  SDL_GPU you cannot bind a null buffer, it will error.
+	// You need something valid in the slot.
+	void initDummyBuffers(flecs::world& ecs) {
+
+		const RenderContext& renderContext = ecs.get<RenderContext>();
+
+		DirectionalLight directionalDummy{};
+		dummyBufferDir.upload(renderContext.device, &directionalDummy, sizeof(directionalDummy), SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ);
+
+		DirectionalLight pointDummy{};
+		dummyBufferPoint.upload(renderContext.device, &pointDummy, sizeof(pointDummy), SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ);
+	}
+};
+
+
 
 struct Renderer {
 
@@ -66,6 +149,8 @@ struct Renderer {
 	FrameDataUniforms uniforms;
 
 	std::unordered_map<uint32_t, PipelineBatch> pipelineBatches; // keyed by pipeline entity id
+
+	LightBatch lightBatch;
 
 	flecs::world& ecs;
 
@@ -105,6 +190,9 @@ struct Renderer {
 		registerSystems();
 
 		pipelineLib.init();
+
+		//needed so SLD_GPU don't complain about empty buffer being uploded
+		lightBatch.initDummyBuffers(ecs);
 
 		LogSuccess(LOG_RENDER, "Renderer Initialized");
 	}
@@ -475,7 +563,9 @@ struct Renderer {
 
 		beginRenderPass(renderContext, frameContext);
 
-		drawAllBatches();
+		//drawAllBatches();
+
+		drawLit(frameContext);
 
 		//Keeping this part of the main render Pass because they look/work better
 #if defined(JPH_DEBUG_RENDERER)
@@ -544,13 +634,16 @@ struct Renderer {
 			uniforms.viewProjection = cam.generateViewProj();
 			//Transpose because matrix layout in memory for Slang is is row-major
 			uniforms.viewProjection = glm::transpose(uniforms.viewProjection);
+			uniforms.cameraPos = cam.position;
 
 		});
 
+		//Sending the frame data uniforms to both vertex and fragment shaders
 		SDL_PushGPUVertexUniformData(frameContext.commandBuffer, 0, &uniforms, sizeof(uniforms));
+		SDL_PushGPUFragmentUniformData(frameContext.commandBuffer, 0, &uniforms, sizeof(uniforms));
 	}
 
-	
+	// TODO fix Buffer reallocation every frame
 	void createRenderBatchesSystem() {
 
 		buildRenderBatchesSys = ecs.system<Transform, MeshComponent, Renderable>("BuildRenderBatchesSys")
@@ -604,9 +697,7 @@ struct Renderer {
 						//Transpose because matrix layout in memory for Slang is is row-major
 						localMat = glm::transpose(localMat);
 
-						// batch key is a combination of pipelineEntity ID and index of meshComponent
 						DrawBatch& batch = pipelineBatch.meshBatches[index];
-
 						batch.vertexBuffer = asset.vertexBuffer;
 						batch.indexBuffer = asset.indexBuffer;
 						batch.numIndices = asset.numIndices;
@@ -622,9 +713,7 @@ struct Renderer {
 
 			//upload buffer data
 			for (auto& [pipelineId, pipelineBatch] : pipelineBatches) {
-
 				for (auto& [meshIndex, drawBatch] : pipelineBatch.meshBatches) {
-
 					if (drawBatch.transforms.empty()) continue;
 
 					// Release previous frame's transform buffer
@@ -638,7 +727,6 @@ struct Renderer {
 						drawBatch.normalMatricesBuffer = nullptr;
 					}
 
-					//TODO maybe one buffer for the entire transforms and
 					RenderUtil::uploadBufferData(
 						renderContext.device,
 						drawBatch.transformsBuffer,
@@ -655,11 +743,62 @@ struct Renderer {
 					);
 				}
 			}
+
+
+			createLightBatches();
+
 		});
 
-				}
+	}
+
+	/// <summary>
+	/// Creates a batch for each light type
+	/// </summary>
+	void createLightBatches() {
+
+		lightBatch.directionalLights.clear();
+		lightBatch.pointLights.clear();
+
+		const RenderContext& renderContext = ecs.get<RenderContext>();
+
+
+		queryLights.each([&](flecs::entity e, const Light& light, const Transform& transform) {
+
+
+			if (e.has<DirectionalLight>()) {
+
+				DirectionalLight& light = lightBatch.directionalLights.emplace_back();
+				light.direction = glm::normalize(light.direction); //quatToDirection(transform.rotation);
 			}
+
+
+			if (e.try_get<PointLight>()) {
+
+				lightBatch.pointLights.emplace_back();
+			} 
+
 		});
+
+		lightBatch.numDirectional = (uint32_t)lightBatch.directionalLights.size();
+		lightBatch.numPoint = (uint32_t)lightBatch.pointLights.size();
+
+		// Upload — no-ops if vectors are empty, no realloc if count didn't grow
+		if (lightBatch.numDirectional > 0) {
+			lightBatch.directionalBuffer.upload(
+				renderContext.device,
+				lightBatch.directionalLights.data(),
+				lightBatch.numDirectional * sizeof(DirectionalLight),
+				SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ
+			);
+		}
+		if (lightBatch.numPoint > 0) {
+			lightBatch.pointBuffer.upload(
+				renderContext.device,
+				lightBatch.pointLights.data(),
+				lightBatch.numPoint * sizeof(PointLight),
+				SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ
+			);
+		}
 
 	}
 
@@ -690,6 +829,76 @@ struct Renderer {
 				SDL_BindGPUVertexBuffers(activeRenderPass, 0, &vbBinding, 1);
 				SDL_BindGPUIndexBuffer(activeRenderPass, &ibBinding, SDL_GPU_INDEXELEMENTSIZE_32BIT);
 				SDL_BindGPUVertexStorageBuffers(activeRenderPass, 0, &batch.transformsBuffer, 1);
+
+				SDL_DrawGPUIndexedPrimitives(
+					activeRenderPass,
+					batch.numIndices,
+					batch.transforms.size(), // all instances of this mesh
+					0, 0, 0
+				);
+			}
+		}
+	}
+
+	
+
+	void drawLit(FrameContext& frameContext) {
+
+		//Push the ambient light data so there is always some light in the scene.
+		LightDataUniform lightDataUniform;
+
+		lightDataUniform.numDirectionalLights = lightBatch.numDirectional;
+		lightDataUniform.numPointLights = lightBatch.numPoint;
+
+		SDL_PushGPUFragmentUniformData(frameContext.commandBuffer, 1, &lightDataUniform, sizeof(lightDataUniform));
+
+		// Always bind something — dummy buffer when empty
+		if (lightBatch.numDirectional > 0) {
+			SDL_BindGPUFragmentStorageBuffers(activeRenderPass, 0, &lightBatch.directionalBuffer.buffer, 1);
+		}
+		else {
+			SDL_BindGPUFragmentStorageBuffers(activeRenderPass, 0, &lightBatch.dummyBufferDir.buffer, 1);
+
+		}
+		
+		if (lightBatch.numPoint > 0) {
+			SDL_BindGPUFragmentStorageBuffers(activeRenderPass, 1, &lightBatch.pointBuffer.buffer, 1);
+		}
+		else {
+			SDL_BindGPUFragmentStorageBuffers(activeRenderPass, 1, &lightBatch.dummyBufferPoint.buffer, 1);
+
+		}
+
+		// Bind pipeline ONCE
+		flecs::entity pipelineEntity = ecs.entity("pipelinePhong");
+		const Pipeline* pipeline = &pipelineEntity.get<Pipeline>();
+		SDL_BindGPUGraphicsPipeline(activeRenderPass, pipeline->pipelineMS);
+		SDL_BindGPUFragmentSamplers(activeRenderPass, 0, &defaultSamplerBinding, 1);
+
+
+		//TODO change batches to flat array so we can do gpu_driven rendering.
+		for (auto& [pipelineId, pipelineBatch] : pipelineBatches) {
+
+			for (auto& [meshIndex, batch] : pipelineBatch.meshBatches) {
+
+				//TODO add materials to the meshes/batches so we can remove this.
+				//If mesh has a texture then 
+				if (batch.diffuseTexture != nullptr) {
+					SDL_GPUTextureSamplerBinding sampler = { .texture = batch.diffuseTexture, .sampler = defaultSampler };
+					SDL_BindGPUFragmentSamplers(activeRenderPass, 0, &sampler, 1);
+				}
+				//else use the default texture
+				else {
+					SDL_BindGPUFragmentSamplers(activeRenderPass, 0, &defaultSamplerBinding, 1);
+				}
+
+				SDL_GPUBufferBinding vbBinding{ .buffer = batch.vertexBuffer, .offset = 0 };
+				SDL_GPUBufferBinding ibBinding{ .buffer = batch.indexBuffer,  .offset = 0 };
+				SDL_BindGPUVertexBuffers(activeRenderPass, 0, &vbBinding, 1);
+				SDL_BindGPUIndexBuffer(activeRenderPass, &ibBinding, SDL_GPU_INDEXELEMENTSIZE_32BIT);
+
+				SDL_BindGPUVertexStorageBuffers(activeRenderPass, 0, &batch.transformsBuffer, 1);
+				SDL_BindGPUVertexStorageBuffers(activeRenderPass, 1, &batch.normalMatricesBuffer, 1);
 
 				SDL_DrawGPUIndexedPrimitives(
 					activeRenderPass,
@@ -793,7 +1002,7 @@ struct Renderer {
 		SDL_BindGPUVertexBuffers(activeRenderPass, 0, &vbBinding, 1);
 		SDL_BindGPUIndexBuffer(activeRenderPass, &ibBinding, SDL_GPU_INDEXELEMENTSIZE_32BIT);
 
-		SDL_PushGPUFragmentUniformData(frameContext.commandBuffer, 0, &entID, sizeof(entID));
+		SDL_PushGPUFragmentUniformData(frameContext.commandBuffer, 1, &entID, sizeof(entID));
 
 		SDL_DrawGPUIndexedPrimitives(
 			activeRenderPass,

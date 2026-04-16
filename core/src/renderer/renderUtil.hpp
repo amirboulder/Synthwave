@@ -25,6 +25,8 @@ struct FrameDataUniforms {
     glm::mat4 view;
     glm::mat4 projection;
     glm::mat4 viewProjection;
+	glm::vec3 cameraPos;
+	float _pad;
 };
 
 struct PerModelUniforms {
