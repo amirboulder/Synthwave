@@ -201,6 +201,8 @@ enum class EntityType {
 };
 
 
+// This is only useful if it keeps different entity types on the same table
+// TODO verify this using flecs api
 struct EntityTypeComponent {
 	EntityType type;
 };

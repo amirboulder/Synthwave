@@ -352,7 +352,7 @@ public:
 						createCubeChild(ecs);
 						break;
 					case EntityType::Light:
-						createLightChild(ecs);
+						createDirLightChild(ecs);
 						break;
 					case EntityType::Camera:
 						SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, " Adding Camera not yet implemented");
@@ -507,15 +507,14 @@ public:
 	}
 
 
-	static void createLightChild(flecs::world& ecs) {
+	static void createDirLightChild(flecs::world& ecs) {
 
-		Light light;
 		DirectionalLight directionalLight;
 
 		Transform transform;
 		transform.position = glm::vec3(1.0f, 7.0f, 1.0f);
 		transform.rotation = glm::quat(0.707f, 0.707f, 0.0f, 0.0f);
-		EntityFactory::createDirectionalLightEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, light, directionalLight,transform);
+		EntityFactory::createDirectionalLightEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, directionalLight, transform);
 
 	}
 

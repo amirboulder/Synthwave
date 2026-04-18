@@ -717,9 +717,8 @@ public:
 
 		const flecs::entity entity = ecs.entity(name.c_str())
 			.set<Transform>(transform)
-			.set<Light>({ light })
-			.add<DirectionalLight>()
-			;
+			.add<Light>()
+			.set<DirectionalLight>({ directionalLight });
 
 		if (!validateEntityCreation(entity, name)) return false;
 
@@ -729,16 +728,15 @@ public:
 	/// <summary>
 	/// A point light radiates in all directions from a point, fades with distance
 	/// </summary>
-	static bool createPointLightEntity(flecs::world& ecs, flecs::entity parent, std::string name, const Light& light, const PointLight& pointLight, Transform& transform) {
+	static bool createPointLightEntity(flecs::world& ecs, flecs::entity parent, std::string name, const PointLight& pointLight, Transform& transform) {
 
 		if (!EntityFactory::validateName(ecs, parent, name)) return false;
 		if (!EntityFactory::validateTransform(transform, name.c_str())) return false;
 
 		const flecs::entity entity = ecs.entity(name.c_str())
 			.set<Transform>(transform)
-			.set<Light>({ light })
-			.set<PointLight>({ pointLight })
-			;
+			.add<Light>()
+			.set<PointLight>({ pointLight });
 
 		if (!validateEntityCreation(entity, name)) return false;
 
@@ -752,21 +750,6 @@ public:
 	static bool createAmbientLightEntity(flecs::world& ecs, flecs::entity parent, std::string name, const Light& light, const AmbientLight& ambientLight) {
 
 		if (!EntityFactory::validateName(ecs, parent, name)) return false;
-
-		const flecs::entity entity = ecs.entity(name.c_str())
-			.set<Light>({ light })
-			.set<AmbientLight>({ ambientLight })
-			;
-
-		if (!validateEntityCreation(entity, name)) return false;
-
-		return true;
-	}
-
-
-	static bool createAreaLightEntity(flecs::world& ecs, flecs::entity parent, std::string name, const Light& light, const PointLight& pointLight, Transform& transform) {
-
-		if (!EntityFactory::validateName(ecs, parent, name)) return false;
 		if (!EntityFactory::validateTransform(transform, name.c_str())) return false;
 
 		//Get the modelSource from Asset Library
@@ -776,10 +759,8 @@ public:
 
 		const flecs::entity entity = ecs.entity(name.c_str())
 			.set<Transform>(transform)
-
-			.set<Light>({ light })
-			.set<PointLight>({ pointLight })
-			;
+			.add<Light>()
+			.set<AreaLight>({ areaLight });
 
 		if (!validateEntityCreation(entity, name)) return false;
 
