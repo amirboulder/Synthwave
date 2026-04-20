@@ -103,7 +103,7 @@ public:
 
     }
 
-    static MeshSource createMesh(
+    static MeshStandalone createMesh(
         float fovY = glm::radians(39.6f),
         float aspect = 16.f / 9.f,
         float nearDist = 0.1f,
@@ -119,7 +119,7 @@ public:
             return { .position = {x, y, z} };
         };
 
-        MeshSource mesh;
+        MeshStandalone mesh;
 
         mesh.vertices.emplace_back(vert(-wn, hn, -nearDist)); // 0 near top-left
         mesh.vertices.emplace_back(vert(wn, hn, -nearDist)); // 1 near top-right

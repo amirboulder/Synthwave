@@ -171,12 +171,12 @@ public:
 			.add<EditorMesh>()
 			.set<LineVertices>({xyzLines})
 			.add<RenderPipeline>(ecs.lookup("pipelineLine"))
-			.set<MeshInstance>({})
+			.set<MeshStandalone>({})
 			.set<Transform>(xyzAxisTransform);
 
 		const RenderContext& renderContext = ecs.get<RenderContext>();
 
-		RenderUtil::uploadBufferData(renderContext.device, xyzAxis.get_mut<MeshInstance>().vertexBuffer, xyzLines.data(),
+		RenderUtil::uploadBufferData(renderContext.device, xyzAxis.get_mut<MeshStandalone>().vertexBuffer, xyzLines.data(),
 			xyzLines.size() * sizeof(LineVertex), SDL_GPU_BUFFERUSAGE_VERTEX);
 
 	}
@@ -190,36 +190,24 @@ public:
 		Transform transform;
 		transform.position = config.FreeCamPos;
 
-		MeshSource meshSrc = Camera::createMesh(config.freeCamFov);
+		MeshStandalone mesh = Camera::createMesh(config.freeCamFov);
 
 
+		RenderUtil::uploadBufferData(renderContext.device, mesh.vertexBuffer, mesh.vertices.data(),
+			mesh.vertices.size() * sizeof(Vertex), SDL_GPU_BUFFERUSAGE_VERTEX);
+		RenderUtil::uploadBufferData(renderContext.device, mesh.indexBuffer, mesh.indices.data(),
+			mesh.indices.size() * sizeof(unsigned int), SDL_GPU_BUFFERUSAGE_INDEX);
 
-		RenderUtil::uploadBufferData(renderContext.device, meshSrc.vertexBuffer, meshSrc.vertices.data(),
-			meshSrc.vertices.size() * sizeof(Vertex), SDL_GPU_BUFFERUSAGE_VERTEX);
-
-		RenderUtil::uploadBufferData(renderContext.device, meshSrc.indexBuffer, meshSrc.indices.data(),
-			meshSrc.indices.size() * sizeof(unsigned int), SDL_GPU_BUFFERUSAGE_INDEX);
-
-		meshSrc.size = meshSrc.indices.size();
-
-		MeshInstance instance;
-
-
-		instance.transform = meshSrc.transform;
-		instance.vertexBuffer = meshSrc.vertexBuffer;
-		instance.indexBuffer = meshSrc.indexBuffer;
-		instance.numIndices = meshSrc.size;
-
+		mesh.indexCount = mesh.indices.size();
 
 		freeCam = ecs.entity("FreeCam")
 			.emplace<Camera>(config)
 			.set<Transform>(transform)
 			.set<ModelSourceName>({ "camera" })
-			.set<MeshInstance>({ std::move(instance) })
+			.set<MeshStandalone>({ std::move(mesh) })
 			.add<RenderPipeline>(ecs.lookup("pipelineWireframe-non-instanced"))
 			.set<CameraMVMTState>({ false })
 			.add<EditorMesh>();
-
 	}
 
 	//Set selected entity based on mouse click position if editor is enabled

@@ -194,4 +194,56 @@ public:
 			return false;
 		}
 	}
+
+	// 1x1 white pixel — lets lighting still show correctly
+	// 0xFF000000 for black, or 0xFFFF00FF for obvious missing texture magenta.
+    static SDL_GPUTexture* createColorTexture(SDL_GPUDevice* device, uint32_t color) {
+       
+
+        SDL_GPUTextureCreateInfo texInfo = {};
+        texInfo.type = SDL_GPU_TEXTURETYPE_2D;
+        texInfo.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
+        texInfo.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER;
+        texInfo.width = 1;
+        texInfo.height = 1;
+        texInfo.layer_count_or_depth = 1;
+        texInfo.num_levels = 1;
+        SDL_GPUTexture* tex = SDL_CreateGPUTexture(device, &texInfo);
+
+        // Upload the pixel
+        SDL_GPUTransferBufferCreateInfo transferBufferInfo = {};
+		transferBufferInfo.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
+		transferBufferInfo.size = sizeof(uint32_t);
+        SDL_GPUTransferBuffer* transferBuffer = SDL_CreateGPUTransferBuffer(device, &transferBufferInfo);
+
+        void* mapped = SDL_MapGPUTransferBuffer(device, transferBuffer, false);
+        memcpy(mapped, &color, sizeof(color));
+        SDL_UnmapGPUTransferBuffer(device, transferBuffer);
+
+        SDL_GPUCommandBuffer* uploadCmdBuf = SDL_AcquireGPUCommandBuffer(device);
+        SDL_GPUCopyPass* copyPass = SDL_BeginGPUCopyPass(uploadCmdBuf);
+
+		SDL_GPUTextureTransferInfo textureTransferInfo = {
+			.transfer_buffer = transferBuffer,
+			.offset = 0,
+		};
+
+		SDL_GPUTextureRegion textureRegion = {
+			.texture = tex,
+			.w = 1,
+			.h = 1,
+			.d = 1
+
+		};
+
+
+		SDL_UploadToGPUTexture(copyPass, &textureTransferInfo, &textureRegion, false);
+		SDL_EndGPUCopyPass(copyPass);
+		SDL_SubmitGPUCommandBuffer(uploadCmdBuf);
+
+
+		SDL_ReleaseGPUTransferBuffer(device, transferBuffer);
+
+        return tex;
+    }
 };

@@ -1,16 +1,53 @@
 #pragma once
 
-#include "renderUtil.hpp"
- 
-struct MaterialSMPL {
-    SDL_GPUTexture* diffuseTexture;
+#include "../renderUtil.hpp"
+
+struct MaterialGroup {
+	uint32_t materialIndex;
+	uint32_t firstCommand;   // offset into drawCommandBuffer
+	uint32_t commandCount;
 };
 
-struct Material {
-	SDL_GPUTexture* diffuseTexture;
-	SDL_GPUTexture* specularTexture;
-	SDL_GPUTexture* normalTexture;
+ 
+struct MaterialSMPL {
+
+    SDL_GPUTexture* diffuseTexture;
+	//TODO
+	//SDL_GPUTexture* normalMap;
+	//SDL_GPUTexture* roughnessMap;
+	//SDL_GPUTexture* metallicMap;
+
+	uint32_t pipelineID; //ECS id of the pipeline that this materials is using
+
+	float shininess = 0.1;
+	float specStrength = 0.1;
 };
+
+
+struct Material {
+	// Pipeline state
+	//Pipeline pipeline;        // which shader/PSO to use
+
+	// Textures
+	SDL_GPUTexture* albedoMap;
+	SDL_GPUTexture* normalMap;
+	SDL_GPUTexture* roughnessMap;
+	SDL_GPUTexture* metallicMap;
+	SDL_GPUTexture* aoMap;
+
+	// Scalar/vector properties (PBR defaults if no texture)
+	glm::vec4 baseColor = { 1.0f, 1.0f, 1.0f, 1.0f };
+	float     roughness = 0.5f;
+	float     metallic = 0.0f;
+	float     emissive = 0.0f;
+
+	// Render state overrides
+	bool  castsShadows = true;
+	bool  receivesShadows = true;
+	bool  doubleSided = false;
+};
+
+
 
 class MaterialLoader {
 public:
@@ -67,7 +104,6 @@ public:
             }
         }
     }
-
 
     void loadEmbededTexture(aiTexture* textureImported, SDL_GPUTexture* & TextureSDL,const std::string textureName, SDL_GPUDevice* device) {
 

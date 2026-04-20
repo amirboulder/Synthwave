@@ -6,42 +6,19 @@ struct AssetLibRef {
     AssetLibrary * assetLib;
 };
 
+
+
 struct MeshAsset {
 
     Transform transform; //local transform relative to entity's position
     
-    SDL_GPUBuffer* transformsBuffer = nullptr;
+    uint32_t baseVertex = UINT32_MAX;
+    uint32_t firstIndex = UINT32_MAX;
+    uint32_t indexCount = 0;
+    uint32_t vertexCount = 0;
 
-    SDL_GPUBuffer* vertexBuffer = nullptr;
-    SDL_GPUBuffer* indexBuffer = nullptr;
-    
-    SDL_GPUTexture* diffuseTexture = nullptr;
 
-    uint32_t numIndices = 0;
-
-};
-
-/*
-Instead of having entities store MeshComponent they will have a Vector Mesh instances. That we don't have to
-get data from mesh registry every frame, instead we should just store a an ID with each mesh instance and use that
-to add it to each batch.
-*/
-
-//TODO put this in Mesh.hpp
-struct MeshInstance {
-
-    Transform transform; //local transform relative to entity's position
-
-    SDL_GPUBuffer* vertexBuffer = nullptr;
-    SDL_GPUBuffer* indexBuffer = nullptr;
-
-    uint32_t numIndices = 0;
-    uint32_t id = 0;
-};
-
-struct MaterialInstance {
-
-    SDL_GPUTexture* diffuseTexture = nullptr;
+    uint32_t materialID = 0;
 };
 
 
@@ -53,8 +30,13 @@ public:
     std::string assetsFolder;
 
     std::unordered_map<std::string, fs::path> modelPaths;
-    std::unordered_map<std::string, std::unique_ptr<ModelSource>> loadedModels;
+    std::unordered_map<std::string, std::unique_ptr<Model>> loadedModels;
+
     std::vector<MeshAsset> meshRegistry;
+    std::vector<MaterialSMPL>  materialRegistry;
+
+    SDL_GPUTexture* defaultTexture = nullptr; //white texture
+    SDL_GPUTexture* missingTexture = nullptr; //Magenta texture
 
     //maps ragdoll names to their paths
     std::map<std::string, std::string> ragdolls;
@@ -71,9 +53,19 @@ public:
         ecs.component<AssetLibRef>();
         ecs.set<AssetLibRef>({ this });
 
+        //Register Geometry Pool
+        ecs.component<GeometryPool>();
+        ecs.set<GeometryPool>({});
+        ecs.get_mut<GeometryPool>().init(ecs);
+
         meshRegistry.reserve(modelPaths.size());
 
         scanForRagdolls();
+
+        //Creating defaultTexture for meshes that don't have a texture
+        const RenderContext& renderContext = ecs.get<RenderContext>();
+        defaultTexture = RenderUtil::createColorTexture(renderContext.device, 0xFFFFFFFF);
+        missingTexture = RenderUtil::createColorTexture(renderContext.device, 0xFFFF00FF);
 
         LogSuccess(LOG_APP, "AssetLibrary Initialized");
     }
@@ -87,13 +79,13 @@ public:
         std::string modelName = "Grid";
         modelName.append(std::to_string(size));
 
-        loadedModels[modelName] = std::make_unique<ModelSource>(ecs, size);
+        loadedModels[modelName] = std::make_unique<Model>(ecs, size);
 
         auto itr = loadedModels.find(modelName);
 
-        ModelSource* modelSource = itr->second.get();
+        Model* model = itr->second.get();
 
-        createMeshAssets(modelSource);
+        createMeshAssets(model);
 
         return modelName;
     }
@@ -104,20 +96,22 @@ public:
     /// Also setting the meshRegistryIndex in each mesh which is used entities requestMeshComponent.
     /// Note we could also just store a vector of MeshAssetIndices in the model and copy it when needed
     /// </summary>
-    void createMeshAssets(ModelSource* modelSource) {
+    void createMeshAssets(Model* modelSource) {
 
         //For each mesh create a entry in mesh registry
-        for (MeshSource& mesh : modelSource->meshes) {
+        for (Mesh& mesh : modelSource->meshes) {
 
             MeshAsset meshAsset;
 
             meshAsset.transform = mesh.transform;
 
-            meshAsset.vertexBuffer = mesh.vertexBuffer;
-            meshAsset.indexBuffer = mesh.indexBuffer;
-            meshAsset.numIndices = mesh.size;
+            meshAsset.baseVertex = mesh.baseVertex;
+            meshAsset.firstIndex = mesh.firstIndex;
+            meshAsset.indexCount = mesh.indexCount;
+            meshAsset.vertexCount = mesh.vertexCount;
 
-            meshAsset.diffuseTexture = mesh.diffuseTexture;
+
+            meshAsset.materialID = mesh.materialID;
 
             meshRegistry.push_back(meshAsset);
 
@@ -134,11 +128,11 @@ public:
     /// We fill the vector with meshRegistryIndex from each mesh.
     /// Note we could also just store a vector of MeshAssetIndices in the model and copy it when needed.
     /// </summary>
-    void fillMeshComponent(ModelSource* modelSource, MeshComponent& meshComponent) {
+    void fillMeshComponent(Model* modelSource, MeshComponent& meshComponent) {
 
         meshComponent.MeshAssetIndices.reserve(modelSource->meshes.size());
 
-        for (MeshSource& mesh : modelSource->meshes) {
+        for (Mesh& mesh : modelSource->meshes) {
 
             meshComponent.MeshAssetIndices.push_back(mesh.meshRegistryIndex);
         }
@@ -150,7 +144,7 @@ public:
     /// It first checks if the model is already loaded if not it will attempt to load it.
     /// If it cannot fine the source file it will return null
     /// </summary>
-    const ModelSource* getModel(const std::string& modelName) {
+    const Model* getModel(const std::string& modelName) {
 
         auto itr = loadedModels.find(modelName);
         if (itr != loadedModels.end()) {
@@ -164,20 +158,20 @@ public:
     }
 
 
-    ModelSource* loadModel(const std::string& modelName, const std::string & filepath) {
+    Model* loadModel(const std::string& modelName, const std::string & filepath) {
 
         auto pathIt = modelPaths.find(modelName);
 
-        loadedModels[modelName] = std::make_unique<ModelSource>(ecs, filepath.c_str());
+        loadedModels[modelName] = std::make_unique<Model>(ecs, materialRegistry, defaultTexture, filepath.c_str());
 
         auto itr = loadedModels.find(modelName);
 
-        ModelSource* modelSource = itr->second.get();
+        Model* model = itr->second.get();
 
         //creates an entry for in mesh registry for each mesh in this model
-        createMeshAssets(modelSource);
+        createMeshAssets(model);
 
-        return modelSource;
+        return model;
     }
 
     /// <summary>
@@ -194,7 +188,7 @@ public:
         auto itr = loadedModels.find(modelName);
         if (itr != loadedModels.end()) {
 
-            ModelSource* modelSource = itr->second.get();
+            Model* modelSource = itr->second.get();
 
             fillMeshComponent(modelSource, meshComponent);
 
@@ -209,7 +203,7 @@ public:
             return meshComponent;
         }
 
-        ModelSource* modelSource = loadModel(modelName, pathItr->second.string());
+        Model* modelSource = loadModel(modelName, pathItr->second.string());
 
         fillMeshComponent(modelSource, meshComponent);
         return meshComponent;

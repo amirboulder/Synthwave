@@ -4,26 +4,38 @@
 #include "Grid.hpp"
 
 
+struct SubMesh {
 
-class MeshSource {
+	Transform localTransform;
+
+	uint32_t baseVertex = UINT32_MAX;
+	uint32_t firstIndex = UINT32_MAX;
+	uint32_t indexCount = 0;
+	uint32_t vertexCount = 0;
+
+	uint32_t materialID = 0;
+
+};
+
+
+class Mesh {
 
 public:
 
 	std::vector<Vertex> vertices;
 	std::vector <unsigned int> indices;
-
 	Transform transform;
 
-	SDL_GPUBuffer* vertexBuffer = NULL;
-	SDL_GPUBuffer* indexBuffer = NULL;
-
-	uint32_t size = 0;
+	uint32_t baseVertex = UINT32_MAX;  // offset into megaVertexBuffer
+	uint32_t firstIndex = UINT32_MAX;  // offset into megaIndexBuffer
+	uint32_t indexCount = 0;
+	uint32_t vertexCount = 0;
 
 	//Used to map A mesh to its corresponding MeshAsset in AssetLibrary
 	uint32_t meshRegistryIndex = UINT32_MAX;
 
-	SDL_GPUTexture* diffuseTexture;
 
+	uint32_t materialID;
 
 	bool processMesh(aiMesh* importedMesh, std::string filename) {
 
@@ -77,14 +89,15 @@ public:
 
 		}
 
-		size = indices.size();
+		indexCount = indices.size();
+		vertexCount = vertices.size();
 
 		return true;
 
 	}
 
 
-	static void calculateMeshSize(const MeshSource& mesh, float& x, float& y, float& z) {
+	static void calculateMeshSize(const Mesh& mesh, float& x, float& y, float& z) {
 		if (mesh.vertices.empty()) {
 			//width = 0.0f;
 			//height = 0.0f;
@@ -112,9 +125,21 @@ public:
 		y = maxY - minY;
 		z = maxZ - minZ;
 	}
-
-
 };
 
+/// <summary>
+/// A standalone mesh, not a part of the mesh registry or mega buffers
+/// </summary>
+struct MeshStandalone {
 
 
+	std::vector<Vertex> vertices;
+	std::vector <unsigned int> indices;
+
+	Transform transform; //local transform relative to entity's position
+
+	SDL_GPUBuffer* vertexBuffer = nullptr;
+	SDL_GPUBuffer* indexBuffer = nullptr;
+
+	uint32_t indexCount = 0;
+};

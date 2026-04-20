@@ -29,13 +29,13 @@ public:
 
 		//Get the modelSource from Asset Library
 		AssetLibrary * assetLib = ecs.get<AssetLibRef>().assetLib;
-		const ModelSource* modelSource = assetLib->getModel(ModelSrcName);
+		const Model* modelSource = assetLib->getModel(ModelSrcName);
 		if (!validateModelSource(modelSource, ModelSrcName)) return false;
 
 		float meshX, meshY, meshZ;
 
 		// Assuming modelSource has only 1 mesh
-		MeshSource::calculateMeshSize(modelSource->meshes[0], meshX, meshY, meshZ);
+		Mesh::calculateMeshSize(modelSource->meshes[0], meshX, meshY, meshZ);
 
 		Vec3 boxHalfExtents(meshX * 0.5, meshY * 0.5, meshZ * 0.5);
 
@@ -104,7 +104,7 @@ public:
 
 		//Get the modelSource from Asset Library
 		AssetLibrary* assetLib = ecs.get<AssetLibRef>().assetLib;
-		const ModelSource* modelSource = assetLib->getModel(ModelSrcName);
+		const Model* modelSource = assetLib->getModel(ModelSrcName);
 		if (!validateModelSource(modelSource, ModelSrcName)) return false;
 
 		JPH::BodyInterface& bodyInterface = ecs.get<PhysicsSystemRef>().physicsSystem.GetBodyInterface();
@@ -128,12 +128,12 @@ public:
 
 		StaticCompoundShapeSettings settings;
 
-		for (const MeshSource& mesh : modelSource->meshes) {
+		for (const Mesh& mesh : modelSource->meshes) {
 
 			float meshX, meshY, meshZ;
 
 			// Assuming modelSource has only 1 mesh
-			MeshSource::calculateMeshSize(mesh, meshX, meshY, meshZ);
+			Mesh::calculateMeshSize(mesh, meshX, meshY, meshZ);
 
 			Vec3 boxHalfExtents(meshX * 0.5, meshY * 0.5, meshZ * 0.5);
 			
@@ -552,7 +552,7 @@ public:
 
 		//Get the modelSource from Asset Library
 		AssetLibrary* assetLib = ecs.get<AssetLibRef>().assetLib;
-		const ModelSource* modelSource = assetLib->getModel(ModelSrcName);
+		const Model* modelSource = assetLib->getModel(ModelSrcName);
 		if (!validateModelSource(modelSource, ModelSrcName)) return false;
 
 		float meshX;
@@ -560,7 +560,7 @@ public:
 		float meshZ;
 
 		// Assuming modelSource has only 1 mesh
-		MeshSource::calculateMeshSize(modelSource->meshes[0], meshX, meshY, meshZ);
+		Mesh::calculateMeshSize(modelSource->meshes[0], meshX, meshY, meshZ);
 
 		// Compute capsule dimensions
 		float modelRadius = meshX / 2.0f; // Unscaled model radius
@@ -601,7 +601,7 @@ public:
 		if (!validatePhysicsBodyCreation(physicsID, name)) return false;
 
 
-		const flecs::entity entity = ecs.entity(name.c_str())
+			flecs::entity entity = ecs.entity(name.c_str())
 			.set<EntityTypeComponent>({ EntityType::Capsule })
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
@@ -631,7 +631,7 @@ public:
 
 		//Get the modelSource from Asset Library
 		AssetLibrary* assetLib = ecs.get<AssetLibRef>().assetLib;
-		const ModelSource* modelSource = assetLib->getModel(ModelSrcName);
+		const Model* modelSource = assetLib->getModel(ModelSrcName);
 		if (!validateModelSource(modelSource, ModelSrcName));
 
 		// Convert GLM to Jolt types
@@ -686,7 +686,7 @@ public:
 
 		//Get the modelSource from Asset Library
 		AssetLibrary* assetLib = ecs.get<AssetLibRef>().assetLib;
-		const ModelSource* modelSource = assetLib->getModel(ModelSrcName);
+		const Model* modelSource = assetLib->getModel(ModelSrcName);
 		if (!validateModelSource(modelSource, ModelSrcName));
 
 		const flecs::entity entity = ecs.entity(name.c_str())
@@ -710,7 +710,7 @@ public:
 	/// <summary>
 	/// Infinitely far away, parallel rays — sun, moon .Has no position, only direction.
 	/// </summary>
-	static bool createDirectionalLightEntity(flecs::world& ecs, flecs::entity parent, std::string name, const Light& light, const DirectionalLight& directionalLight, Transform& transform) {
+	static bool createDirectionalLightEntity(flecs::world& ecs, flecs::entity parent, std::string name, const DirectionalLight& directionalLight, Transform& transform) {
 
 		if (!EntityFactory::validateName(ecs, parent, name)) return false;
 		if (!EntityFactory::validateTransform(transform, name.c_str())) return false;
@@ -744,18 +744,10 @@ public:
 	}
 
 
-	/// <summary>
-	/// Global constant light — no position, no direction, hits everything equally
-	/// </summary>
-	static bool createAmbientLightEntity(flecs::world& ecs, flecs::entity parent, std::string name, const Light& light, const AmbientLight& ambientLight) {
+	static bool createAreaLightEntity(flecs::world& ecs, flecs::entity parent, std::string name, const AreaLight& areaLight, Transform& transform) {
 
 		if (!EntityFactory::validateName(ecs, parent, name)) return false;
 		if (!EntityFactory::validateTransform(transform, name.c_str())) return false;
-
-		//Get the modelSource from Asset Library
-		//AssetLibrary* assetLib = ecs.get<AssetLibRef>().assetLib;
-		//const ModelSource* modelSource = assetLib->getModel(ModelSrcName);
-		//if (!validateModelSource(modelSource, ModelSrcName));
 
 		const flecs::entity entity = ecs.entity(name.c_str())
 			.set<Transform>(transform)
@@ -778,7 +770,7 @@ public:
 
 		//Get the modelSource from Asset Library
 		AssetLibrary* assetLib = ecs.get<AssetLibRef>().assetLib;
-		const ModelSource* modelSource = assetLib->getModel(ModelSrcName);
+		const Model* modelSource = assetLib->getModel(ModelSrcName);
 		if (!validateModelSource(modelSource, ModelSrcName));
 
 		// Scale vertices
@@ -1001,11 +993,11 @@ public:
 		return entity;
 	}
 
-	static const ModelSource* getModelSource(flecs::world& ecs, std::string ModelSrcName) {
+	static const Model* getModelSource(flecs::world& ecs, std::string ModelSrcName) {
 
 		//Get the modelSource from Asset Library
 		AssetLibrary* assetLib = ecs.get<AssetLibRef>().assetLib;
-		const ModelSource* modelSource = assetLib->getModel(ModelSrcName);
+		const Model* modelSource = assetLib->getModel(ModelSrcName);
 		if (!validateModelSource(modelSource, ModelSrcName)) return nullptr;
 
 		return modelSource;
@@ -1118,7 +1110,7 @@ public:
 		return true;
 	}
 
-	static bool validateModelSrcExistence(ModelSource* model,const std::string modelName) {
+	static bool validateModelSrcExistence(Model* model,const std::string modelName) {
 
 		if (!model) {
 			LogError(LOG_ECS, "EntityFactory Error ModelSource does not exist! : %s", modelName.c_str());
@@ -1128,7 +1120,7 @@ public:
 
 	}
 
-	static bool validateModelSource(const ModelSource * src, const std::string modelName) {
+	static bool validateModelSource(const Model * src, const std::string modelName) {
 
 		if (!src) {
 			LogError(LOG_ECS, "EntityFactory ModelSource %s does not exist", modelName.c_str());

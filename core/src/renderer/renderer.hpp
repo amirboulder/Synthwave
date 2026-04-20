@@ -65,27 +65,6 @@ struct GrowableGPUBuffer {
 };
 
 
-struct DrawBatch {
-
-	SDL_GPUBuffer* vertexBuffer = nullptr;
-	SDL_GPUBuffer* indexBuffer = nullptr;
-
-	SDL_GPUBuffer* transformsBuffer = nullptr;
-	SDL_GPUBuffer* normalMatricesBuffer = nullptr;
-
-	std::vector<glm::mat4> transforms;
-	std::vector<glm::mat4> normalMatrices;
-
-	SDL_GPUTexture* diffuseTexture = nullptr;
-
-	uint32_t              numIndices = 0;
-};
-
-struct PipelineBatch {
-	std::unordered_map<uint32_t, DrawBatch> meshBatches; // keyed by mesh asset index
-};
-
-
 struct LightDataUniform {
 	glm::vec3 ambientColor = glm::vec3(1.0f, 0.96f, 0.88f);
 	float ambientIntensity = 0.1f;
@@ -107,6 +86,7 @@ struct LightBatch {
 	GrowableGPUBuffer dummyBufferDir;
 	GrowableGPUBuffer dummyBufferPoint;
 
+
 	//This is needed because in  SDL_GPU you cannot bind a null buffer, it will error.
 	// You need something valid in the slot.
 	void initDummyBuffers(flecs::world& ecs) {
@@ -127,6 +107,7 @@ struct Renderer {
 
 	Uint32 swapchainWidth, swapchainHeight;
 
+	//TODO remove defaultTexture
 	SDL_GPUTexture* defaultTexture = nullptr;
 	SDL_GPUSampler* defaultSampler = nullptr;
 	SDL_GPUTextureSamplerBinding defaultSamplerBinding;
@@ -148,18 +129,25 @@ struct Renderer {
 
 	FrameDataUniforms uniforms;
 
-	std::unordered_map<uint32_t, PipelineBatch> pipelineBatches; // keyed by pipeline entity id
+	std::vector<glm::mat4> allTransforms;
+	std::vector<glm::mat4>  allNormalMatrices;
+	std::vector<SDL_GPUIndexedIndirectDrawCommand > drawCommands;
+
+	GrowableGPUBuffer allTransformsBuffer;
+	GrowableGPUBuffer allNormalMatricesBuffer;
+	GrowableGPUBuffer drawCommandBuffer;
+	uint32_t numDrawCalls = 0 ;
 
 	LightBatch lightBatch;
 
 	flecs::world& ecs;
 
-	flecs::system buildRenderBatchesSys;
+	flecs::system createRenderBuffersSys;
 
 	flecs::entity renderPhase;
 
 	flecs::query<Transform, MeshComponent>queryEntID;
-	flecs::query<const Light, const Transform>queryLights;
+	flecs::query<Light, Transform>queryLights;
 	flecs::query<EditorMesh>editorVisualsQuery;
 
 	flecs::system drawPhysicsBodiesSys;
@@ -191,7 +179,7 @@ struct Renderer {
 
 		pipelineLib.init();
 
-		//needed so SLD_GPU don't complain about empty buffer being uploded
+		//needed so SLD_GPU don't complain about empty buffer being uploaded
 		lightBatch.initDummyBuffers(ecs);
 
 		LogSuccess(LOG_RENDER, "Renderer Initialized");
@@ -544,7 +532,7 @@ struct Renderer {
 		queryEntID = ecs.query_builder<Transform, MeshComponent>()
 		.build();
 
-		queryLights =  ecs.query_builder<const Light, const Transform>()
+		queryLights = ecs.query_builder<Light, Transform>()
 			.build();
 
 		editorVisualsQuery = ecs.query_builder<EditorMesh>()
@@ -643,10 +631,10 @@ struct Renderer {
 		SDL_PushGPUFragmentUniformData(frameContext.commandBuffer, 0, &uniforms, sizeof(uniforms));
 	}
 
-	// TODO fix Buffer reallocation every frame
+	
 	void createRenderBatchesSystem() {
 
-		buildRenderBatchesSys = ecs.system<Transform, MeshComponent, Renderable>("BuildRenderBatchesSys")
+		createRenderBuffersSys = ecs.system<Transform, MeshComponent, Renderable>("CreateRenderBuffersSys")
 			.with(ecs.id<RenderPipeline>(), flecs::Wildcard)
 			.group_by<RenderPipeline>()
 			.kind(renderPhase)
@@ -656,28 +644,22 @@ struct Renderer {
 			const RenderContext& renderContext = ecs.get<RenderContext>();
 
 			//clear previous batch
-			for (auto& [pipelineId, pipelineBatch] : pipelineBatches) {
-				for (auto& [meshIndex, drawBatch] : pipelineBatch.meshBatches) {
-					drawBatch.transforms.clear();
-					drawBatch.normalMatrices.clear();
-					drawBatch.numIndices = 0;
-				}
-			}
+			allTransforms.clear();
+			allNormalMatrices.clear();
+			drawCommands.clear();
+			numDrawCalls = 0;
 
 			while (it.next()) {
 
 				auto transforms = it.field<Transform>(0);
 				auto meshComponents = it.field<MeshComponent>(1);
-				flecs::entity pipelineEntity = flecs::entity(it.world(), it.group_id());
-
+				//TODO instancing
 				//For each entity put all of it meshes in a batch
 				for (auto i : it) {
 
 					//calculate Ent model matrix
 					glm::mat4 modelMat = createModelMatrix(transforms[i]);
 
-					//put this outside of this loop
-					PipelineBatch& pipelineBatch = pipelineBatches[(uint32_t)pipelineEntity.id()];
 
 					for (uint32_t index : meshComponents[i].MeshAssetIndices) {
 
@@ -697,53 +679,46 @@ struct Renderer {
 						//Transpose because matrix layout in memory for Slang is is row-major
 						localMat = glm::transpose(localMat);
 
-						DrawBatch& batch = pipelineBatch.meshBatches[index];
-						batch.vertexBuffer = asset.vertexBuffer;
-						batch.indexBuffer = asset.indexBuffer;
-						batch.numIndices = asset.numIndices;
-
-						batch.diffuseTexture = asset.diffuseTexture;
-
 						// Accumulate transforms and normalMatrices across all entities
-						batch.transforms.push_back(localMat);
-						batch.normalMatrices.push_back(normalMat4);
+						allTransforms.push_back(localMat);
+						allNormalMatrices.push_back(normalMat4);
+
+				
+						// Fill draw command 
+						SDL_GPUIndexedIndirectDrawCommand cmd{};
+						cmd.num_indices = asset.indexCount;
+						cmd.num_instances = 1; 
+						cmd.first_index = asset.firstIndex;    // from GeometryPool slot
+						cmd.vertex_offset = (Sint32)asset.baseVertex;
+						cmd.first_instance = 0;
+						drawCommands.push_back(cmd);
+
+						numDrawCalls++;
 					}
 				}
 			}
 
 			//upload buffer data
-			for (auto& [pipelineId, pipelineBatch] : pipelineBatches) {
-				for (auto& [meshIndex, drawBatch] : pipelineBatch.meshBatches) {
-					if (drawBatch.transforms.empty()) continue;
+			//TODO use growable buffer
+			if (!allTransforms.empty())
+			{
+			
+				allTransformsBuffer.upload(renderContext.device,
+					allTransforms.data(),
+					allTransforms.size() * sizeof(glm::mat4),
+					SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ);
 
-					// Release previous frame's transform buffer
-					if (drawBatch.transformsBuffer != nullptr) {
-						SDL_ReleaseGPUBuffer(renderContext.device, drawBatch.transformsBuffer);
-						drawBatch.transformsBuffer = nullptr;
-					}
-					// Release previous frame's normal matrix buffer
-					if (drawBatch.normalMatricesBuffer != nullptr) {
-						SDL_ReleaseGPUBuffer(renderContext.device, drawBatch.normalMatricesBuffer);
-						drawBatch.normalMatricesBuffer = nullptr;
-					}
+				allNormalMatricesBuffer.upload(renderContext.device,
+					allNormalMatrices.data(),
+					allNormalMatrices.size() * sizeof(glm::mat4),
+					SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ);
 
-					RenderUtil::uploadBufferData(
-						renderContext.device,
-						drawBatch.transformsBuffer,
-						drawBatch.transforms.data(),
-						drawBatch.transforms.size() * sizeof(glm::mat4),
-						SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ
-					);
-					RenderUtil::uploadBufferData(
-						renderContext.device,
-						drawBatch.normalMatricesBuffer,
-						drawBatch.normalMatrices.data(),
-						drawBatch.normalMatrices.size() * sizeof(glm::mat4),
-						SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ
-					);
-				}
+				drawCommandBuffer.upload(renderContext.device,
+					drawCommands.data(),
+					drawCommands.size() * sizeof(glm::mat4),
+					SDL_GPU_BUFFERUSAGE_INDIRECT);
+
 			}
-
 
 			createLightBatches();
 
@@ -802,54 +777,39 @@ struct Renderer {
 
 	}
 
-	void drawAllBatches() {
-		for (auto& [pipelineId, pipelineBatch] : pipelineBatches) {
-
-			// Bind pipeline ONCE
-			flecs::entity pipelineEntity = ecs.entity(pipelineId);
-			const Pipeline* pipeline = &pipelineEntity.get<Pipeline>();
-			SDL_BindGPUGraphicsPipeline(activeRenderPass, pipeline->pipelineMS);
-			SDL_BindGPUFragmentSamplers(activeRenderPass, 0, &defaultSamplerBinding, 1);
-
-			// Draw each mesh batch under this pipeline
-			for (auto& [meshIndex, batch] : pipelineBatch.meshBatches) {
-
-				//If mesh has a texture then 
-				if (batch.diffuseTexture != nullptr) {
-					SDL_GPUTextureSamplerBinding sampler = { .texture = batch.diffuseTexture, .sampler = defaultSampler };
-					SDL_BindGPUFragmentSamplers(activeRenderPass, 0, &sampler, 1);
-				}
-				//else use the default texture
-				else {
-					SDL_BindGPUFragmentSamplers(activeRenderPass, 0, &defaultSamplerBinding, 1);
-				}
-
-				SDL_GPUBufferBinding vbBinding{ .buffer = batch.vertexBuffer, .offset = 0 };
-				SDL_GPUBufferBinding ibBinding{ .buffer = batch.indexBuffer,  .offset = 0 };
-				SDL_BindGPUVertexBuffers(activeRenderPass, 0, &vbBinding, 1);
-				SDL_BindGPUIndexBuffer(activeRenderPass, &ibBinding, SDL_GPU_INDEXELEMENTSIZE_32BIT);
-				SDL_BindGPUVertexStorageBuffers(activeRenderPass, 0, &batch.transformsBuffer, 1);
-
-				SDL_DrawGPUIndexedPrimitives(
-					activeRenderPass,
-					batch.numIndices,
-					batch.transforms.size(), // all instances of this mesh
-					0, 0, 0
-				);
-			}
-		}
-	}
-
 	
-
+	/// <summary>
+	/// Draw the scene with lighting 
+	/// </summary>
+	/// <param name="frameContext"></param>
 	void drawLit(FrameContext& frameContext) {
+
+		const GeometryPool& geometryPool = ecs.get<GeometryPool>();
+
+		// Bind pipeline ONCE
+		flecs::entity pipelineEntity = ecs.entity("pipelinePhong");
+		const Pipeline* pipeline = &pipelineEntity.get<Pipeline>();
+		SDL_BindGPUGraphicsPipeline(activeRenderPass, pipeline->pipelineMS);
+		SDL_BindGPUFragmentSamplers(activeRenderPass, 0, &defaultSamplerBinding, 1);
+
+		if (geometryPool.size < 1) {
+			return;
+		}
+
+		// Geometry mega buffers, bind once
+		SDL_GPUBufferBinding vbBinding{ .buffer = geometryPool.megaVertexBuffer, .offset = 0 };
+		SDL_GPUBufferBinding ibBinding{ .buffer = geometryPool.megaIndexBuffer,  .offset = 0 };
+		SDL_BindGPUVertexBuffers(activeRenderPass, 0, &vbBinding, 1);
+		SDL_BindGPUIndexBuffer(activeRenderPass, &ibBinding, SDL_GPU_INDEXELEMENTSIZE_32BIT);
+
+		// Bind all transforms and NormalMatrices
+		SDL_BindGPUVertexStorageBuffers(activeRenderPass, 0, &allTransformsBuffer.buffer, 1);
+		SDL_BindGPUVertexStorageBuffers(activeRenderPass, 1, &allNormalMatricesBuffer.buffer, 1);
 
 		//Push the ambient light data so there is always some light in the scene.
 		LightDataUniform lightDataUniform;
-
 		lightDataUniform.numDirectionalLights = lightBatch.numDirectional;
 		lightDataUniform.numPointLights = lightBatch.numPoint;
-
 		SDL_PushGPUFragmentUniformData(frameContext.commandBuffer, 1, &lightDataUniform, sizeof(lightDataUniform));
 
 		// Always bind something — dummy buffer when empty
@@ -868,46 +828,18 @@ struct Renderer {
 			SDL_BindGPUFragmentStorageBuffers(activeRenderPass, 1, &lightBatch.dummyBufferPoint.buffer, 1);
 
 		}
+		
+		//TODO rest of the lights
 
-		// Bind pipeline ONCE
-		flecs::entity pipelineEntity = ecs.entity("pipelinePhong");
-		const Pipeline* pipeline = &pipelineEntity.get<Pipeline>();
-		SDL_BindGPUGraphicsPipeline(activeRenderPass, pipeline->pipelineMS);
+		// Texture/sampler 
 		SDL_BindGPUFragmentSamplers(activeRenderPass, 0, &defaultSamplerBinding, 1);
 
+		// Draw
+		SDL_DrawGPUIndexedPrimitivesIndirect(activeRenderPass, drawCommandBuffer.buffer, 0, numDrawCalls);
 
-		//TODO change batches to flat array so we can do gpu_driven rendering.
-		for (auto& [pipelineId, pipelineBatch] : pipelineBatches) {
+		//TODO materials
+		
 
-			for (auto& [meshIndex, batch] : pipelineBatch.meshBatches) {
-
-				//TODO add materials to the meshes/batches so we can remove this.
-				//If mesh has a texture then 
-				if (batch.diffuseTexture != nullptr) {
-					SDL_GPUTextureSamplerBinding sampler = { .texture = batch.diffuseTexture, .sampler = defaultSampler };
-					SDL_BindGPUFragmentSamplers(activeRenderPass, 0, &sampler, 1);
-				}
-				//else use the default texture
-				else {
-					SDL_BindGPUFragmentSamplers(activeRenderPass, 0, &defaultSamplerBinding, 1);
-				}
-
-				SDL_GPUBufferBinding vbBinding{ .buffer = batch.vertexBuffer, .offset = 0 };
-				SDL_GPUBufferBinding ibBinding{ .buffer = batch.indexBuffer,  .offset = 0 };
-				SDL_BindGPUVertexBuffers(activeRenderPass, 0, &vbBinding, 1);
-				SDL_BindGPUIndexBuffer(activeRenderPass, &ibBinding, SDL_GPU_INDEXELEMENTSIZE_32BIT);
-
-				SDL_BindGPUVertexStorageBuffers(activeRenderPass, 0, &batch.transformsBuffer, 1);
-				SDL_BindGPUVertexStorageBuffers(activeRenderPass, 1, &batch.normalMatricesBuffer, 1);
-
-				SDL_DrawGPUIndexedPrimitives(
-					activeRenderPass,
-					batch.numIndices,
-					batch.transforms.size(), // all instances of this mesh
-					0, 0, 0
-				);
-			}
-		}
 	}
 
 	
@@ -983,36 +915,45 @@ struct Renderer {
 #endif
 
 	}
+	
 
-	void drawMeshWithID(const FrameContext& frameContext, MeshAsset& mesh, uint32_t entID, glm::mat4& modelMat) {
+	/// <summary>
+	/// Draws entity ID, assumes entity is in the GeometryPool.
+	/// </summary>
+	void drawMeshWithID(const FrameContext& frameContext, const GeometryPool& geometryPool,  MeshAsset& mesh, uint32_t entID, glm::mat4& modelMat) {
+
+		//TODO change this later once the shader is updated to take in transforms and inverseMatrices buffer
+		//SDL_BindGPUVertexStorageBuffers(activeRenderPass, 0, &allTransformsBuffer.buffer, 1);
 
 		glm::mat4 localMat = createModelMatrix(mesh.transform);
-
 		localMat = modelMat * localMat;
 		localMat = glm::transpose(localMat);
-
 		// Reversed multiplication order (Mᵀ × VPᵀ) because both matrices are pre-transposed for Slang's row-major layout.
 		// This is equivalent to (VP × M)ᵀ, which the GPU interprets correctly as model transform followed by view-projection.
 		glm::mat4 mvp = localMat * uniforms.viewProjection;
 
-		SDL_PushGPUVertexUniformData(frameContext.commandBuffer, 1, &mvp, sizeof(mvp));
 
-		SDL_GPUBufferBinding vbBinding{ .buffer = mesh.vertexBuffer, .offset = 0 };
-		SDL_GPUBufferBinding ibBinding{ .buffer = mesh.indexBuffer,  .offset = 0 };
+		SDL_GPUBufferBinding vbBinding{ .buffer = geometryPool.megaVertexBuffer, .offset = 0 };
+		SDL_GPUBufferBinding ibBinding{ .buffer = geometryPool.megaIndexBuffer,  .offset = 0 };
 		SDL_BindGPUVertexBuffers(activeRenderPass, 0, &vbBinding, 1);
 		SDL_BindGPUIndexBuffer(activeRenderPass, &ibBinding, SDL_GPU_INDEXELEMENTSIZE_32BIT);
 
+		SDL_PushGPUVertexUniformData(frameContext.commandBuffer, 1, &mvp, sizeof(mvp));
 		SDL_PushGPUFragmentUniformData(frameContext.commandBuffer, 1, &entID, sizeof(entID));
 
 		SDL_DrawGPUIndexedPrimitives(
 			activeRenderPass,
-			mesh.numIndices,
-			1, // all instances of this mesh
-			0, 0, 0
+			mesh.indexCount,   // indexCount
+			1,                 // instanceCount
+			mesh.firstIndex,   // firstIndex  — element index into megaIndexBuffer
+			mesh.baseVertex,   // vertexOffset — element index into megaVertexBuffer
+			0                  // firstInstance
 		);
-
 	}
 
+	/// <summary>
+	/// Draws entity ids to entIdColorTarget.
+	/// </summary>
 	void drawEntID(const FrameContext& frameContext,
 		const RenderContext& renderContext,
 		const RenderConfig& config) {
@@ -1037,6 +978,7 @@ struct Renderer {
 			&depthStencilTargetInfo
 		);
 
+		const GeometryPool& geometryPool = ecs.get<GeometryPool>();
 		
 		flecs::entity pipelineEnt = ecs.lookup("pipelineEntID");
 		const Pipeline& pipeline = pipelineEnt.get<Pipeline>();
@@ -1045,6 +987,9 @@ struct Renderer {
 
 		SDL_BindGPUGraphicsPipeline(activeRenderPass, pipeline.pipeline);
 
+		//This function should be updated to use the megabuffer but it also needs to render all the
+		// non (game) renderable meshes (camera, physics triggers etc.) to the entIdColorTarget but those are not in the mega buffer.
+		//TODO create a second megabuffer for all of those
 		queryEntID.each([&](flecs::entity entity, Transform & transform, MeshComponent & meshComponent) {
 
 			uint32_t entID = (uint32_t)entity.id();
@@ -1056,7 +1001,7 @@ struct Renderer {
 
 				MeshAsset& mesh = assetLib->meshRegistry[index];
 
-				drawMeshWithID(frameContext, mesh, entID, modelMat);
+				drawMeshWithID(frameContext, geometryPool, mesh, entID, modelMat);
 			}
 
 		});
@@ -1064,7 +1009,11 @@ struct Renderer {
 		SDL_EndGPURenderPass(activeRenderPass);
 	}
 
-	//A draw selected ent to selectedEntColorTarget and call applyOutlineComputePass
+	
+	/// <summary>
+	/// Draws selected Entity to selectedEntColorTarget an calls applyOutlineComputePass.
+	/// </summary> 
+	/// TODO handle multiple selected entities
 	void drawSelectedEnt(const FrameContext& frameContext,
 		const RenderContext& renderContext,
 		const RenderConfig& config) {
@@ -1093,6 +1042,8 @@ struct Renderer {
 			&depthStencilTargetInfo
 		);
 
+		const GeometryPool& geometryPool = ecs.get<GeometryPool>();
+
 		flecs::entity pipelineEnt = ecs.lookup("pipelineEntID"); //TODO maybe use a different pipeline
 		const Pipeline& pipeline = pipelineEnt.get<Pipeline>();
 
@@ -1111,11 +1062,11 @@ struct Renderer {
 
 			MeshAsset& mesh = assetLib->meshRegistry[meshIndex];
 
-			drawMeshWithID(frameContext, mesh, entID, modelMat);
-
-			SDL_EndGPURenderPass(activeRenderPass);
+			drawMeshWithID(frameContext, geometryPool, mesh, entID, modelMat);
 		}
 		
+		SDL_EndGPURenderPass(activeRenderPass);
+
 		applyOutlineComputePass(frameContext, renderContext, config);
 	}
 
@@ -1231,7 +1182,7 @@ struct Renderer {
 
 			SDL_BindGPUGraphicsPipeline(activeRenderPass, pipeline.pipeline);
 
-			const MeshInstance & meshInstance  = e.get<MeshInstance>();
+			const MeshStandalone & meshInstance  = e.get<MeshStandalone>();
 			
 			SDL_GPUBufferBinding vbBinding{ .buffer = meshInstance.vertexBuffer, .offset = 0 };
 			SDL_BindGPUVertexBuffers(activeRenderPass, 0, &vbBinding, 1);
@@ -1260,7 +1211,7 @@ struct Renderer {
 				SDL_GPUBufferBinding ibBinding{ .buffer = meshInstance.indexBuffer,  .offset = 0 };
 				SDL_BindGPUIndexBuffer(activeRenderPass, &ibBinding, SDL_GPU_INDEXELEMENTSIZE_32BIT);
 
-				SDL_DrawGPUIndexedPrimitives(activeRenderPass, meshInstance.numIndices, 1, 0, 0, 0);
+				SDL_DrawGPUIndexedPrimitives(activeRenderPass, meshInstance.indexCount, 1, 0, 0, 0);
 
 			}
 
@@ -1372,4 +1323,38 @@ struct Renderer {
 		return modelTranslation * modelRotation * modelScale;
 	}
 
+
+	void PrintGPUDeviceInfo(SDL_GPUDevice* device)
+	{
+		//
+		SDL_SetLogPriority(LOG_RENDER, SDL_LOG_PRIORITY_INFO);
+
+		if (!device) {
+			LogError(LOG_RENDER, "Cannot print GPU info: device is null");
+			return;
+		}
+
+		SDL_PropertiesID props = SDL_GetGPUDeviceProperties(device);
+		if (!props) {
+			LogError(LOG_RENDER, "SDL_GetGPUDeviceProperties failed: %s", SDL_GetError());
+			return;
+		}
+
+		const char* deviceName = SDL_GetStringProperty(props, SDL_PROP_GPU_DEVICE_NAME_STRING, "Unknown");
+		const char* driverName = SDL_GetStringProperty(props, SDL_PROP_GPU_DEVICE_DRIVER_NAME_STRING, "Unknown");
+		const char* driverVersion = SDL_GetStringProperty(props, SDL_PROP_GPU_DEVICE_DRIVER_VERSION_STRING, "Unknown");
+		const char* driverInfo = SDL_GetStringProperty(props, SDL_PROP_GPU_DEVICE_DRIVER_INFO_STRING, "");
+
+		LogInfo(LOG_RENDER, "=== GPU Device Information ===");
+		LogInfo(LOG_RENDER, "Device Name      : %s", deviceName);
+		LogInfo(LOG_RENDER, "Driver           : %s", driverName);
+		LogInfo(LOG_RENDER, "Driver Version   : %s", driverVersion);
+
+		if (driverInfo && driverInfo[0] != '\0') {
+			LogInfo(LOG_RENDER, "Driver Info      : %s", driverInfo);
+		}
+
+
+		SDL_SetLogPriority(LOG_RENDER, SDL_LOG_PRIORITY_WARN);
+	}
 };

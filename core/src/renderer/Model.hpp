@@ -1,22 +1,25 @@
 #pragma once
 
 #include "Mesh.hpp"
-#include "Material.hpp"
+#include "Materials/Material.hpp"
 #include "renderUtil.hpp"
 
+#include "GeometryPool.hpp"
 
-class ModelSource {
+
+
+class Model {
 
 public:
 
-	vector <MeshSource> meshes;
+	vector <Mesh> meshes;
 	vector<aiMatrix4x4> aiMeshTransforms;
 	vector<MaterialSMPL> materials;
 
-	ModelSource(flecs::world& ecs,const char * filePath)
+	Model(flecs::world& ecs, std::vector<MaterialSMPL>& materialRegistry, SDL_GPUTexture* defaultTexture, const char* filePath)
 	{
 		if (!validateFile(filePath)) return;
-		
+
 		Assimp::Importer importer;
 		const aiScene* scene = nullptr;
 
@@ -46,7 +49,7 @@ public:
 		}
 
 		//TODO maybe change to debug priority eventually
-		LogInfo(LOG_RENDER, "processing model : %s", filePath);
+		LogDebug(LOG_RENDER, "processing model : %s", filePath);
 
 		// using resize instead of reserve to set the transforms to identity matrix 
 		aiMeshTransforms.resize(scene->mNumMeshes);
@@ -56,17 +59,18 @@ public:
 		meshes.reserve(scene->mNumMeshes);
 
 		const RenderContext& renderContext = ecs.get<RenderContext>();
+		GeometryPool& geometryPool = ecs.get_mut<GeometryPool>();
 
 		MaterialLoader matLoader;
-		matLoader.loadMaterials(scene, materials,filePath, renderContext.device);
-		
+		matLoader.loadMaterials(scene, materials, filePath, renderContext.device);
 
+		std::unordered_map<uint32_t, uint32_t> aiMatIndexToRegistryIndex;
 		for (int i = 0; i < scene->mNumMeshes; i++) {
 
 			aiMesh* importedMeshCurrent = scene->mMeshes[i];
 
 			meshes.emplace_back();
-			MeshSource& currentMesh = meshes.back();
+			Mesh& currentMesh = meshes.back();
 
 			currentMesh.processMesh(importedMeshCurrent, filePath);
 
@@ -76,17 +80,34 @@ public:
 
 			currentMesh.transform = temp;
 
-			RenderUtil::uploadBufferData(renderContext.device, currentMesh.vertexBuffer, currentMesh.vertices.data(),
-				currentMesh.vertices.size() * sizeof(Vertex), SDL_GPU_BUFFERUSAGE_VERTEX);
-			RenderUtil::uploadBufferData(renderContext.device, currentMesh.indexBuffer, currentMesh.indices.data(),
-				currentMesh.indices.size() * sizeof(unsigned int), SDL_GPU_BUFFERUSAGE_INDEX);
-	
+			geometryPool.upload(renderContext.device, currentMesh);
+
 			//get the first diffuse texture of the material which this mesh uses
 			// the string str only contains the index to the texture
-			aiString str;
-			if (scene->mMaterials[importedMeshCurrent->mMaterialIndex]->GetTexture(aiTextureType_DIFFUSE, 0, &str) == aiReturn_SUCCESS) {
 
-				currentMesh.diffuseTexture = materials[importedMeshCurrent->mMaterialIndex].diffuseTexture;
+			MaterialSMPL mat = {};
+			uint32_t aiMatIdx = importedMeshCurrent->mMaterialIndex;
+			aiString str;
+			if (scene->mMaterials[aiMatIdx]->GetTexture(aiTextureType_DIFFUSE, 0, &str) == aiReturn_SUCCESS) {
+				mat = materials[aiMatIdx];  // has a real texture
+			}
+			else 
+			{
+				mat.diffuseTexture = defaultTexture;  // fallback
+			}
+
+
+			auto it = aiMatIndexToRegistryIndex.find(aiMatIdx);
+			if (it != aiMatIndexToRegistryIndex.end()) {
+				// Already registered — reuse
+				currentMesh.materialID = it->second;
+			}
+			else {
+				// New material — register it
+				uint32_t newIndex = (uint32_t)materialRegistry.size();
+				materialRegistry.push_back(materials[aiMatIdx]);
+				aiMatIndexToRegistryIndex[aiMatIdx] = newIndex;
+				currentMesh.materialID = newIndex;
 			}
 		}
 
@@ -94,45 +115,42 @@ public:
 
 	// for GRID
 	// for generated meshes
-	ModelSource(flecs::world& ecs,uint32_t size) {
+	Model(flecs::world& ecs, uint32_t size) {
 
 		const RenderContext& renderContext = ecs.get<RenderContext>();
+		GeometryPool& geometryPool = ecs.get_mut<GeometryPool>();
 
 		meshes.emplace_back();
 
-		MeshSource& mesh = meshes.back();
+		Mesh& mesh = meshes.back();
 
 		GridGenerator::generateGrid(size, mesh.vertices, mesh.indices);
 
-		RenderUtil::uploadBufferData(renderContext.device, mesh.vertexBuffer, mesh.vertices.data(),
-			mesh.vertices.size() * sizeof(Vertex), SDL_GPU_BUFFERUSAGE_VERTEX);
+		mesh.indexCount = mesh.indices.size();
+		mesh.vertexCount = mesh.vertices.size();
 
-		RenderUtil::uploadBufferData(renderContext.device, mesh.indexBuffer, mesh.indices.data(),
-			mesh.indices.size() * sizeof(unsigned int), SDL_GPU_BUFFERUSAGE_INDEX);
+		geometryPool.upload(renderContext.device, mesh);
 
-		mesh.size = mesh.indices.size();
 	}
 
-	
+
 	/// <summary>
 	/// Used for any arbitrary generated single mesh model
 	/// </summary>
-	ModelSource(flecs::world& ecs, MeshSource& mesh) {
+	Model(flecs::world& ecs, Mesh& mesh) {
 
 		const RenderContext& renderContext = ecs.get<RenderContext>();
+		GeometryPool& geometryPool = ecs.get_mut<GeometryPool>();
 
-		RenderUtil::uploadBufferData(renderContext.device, mesh.vertexBuffer, mesh.vertices.data(),
-			mesh.vertices.size() * sizeof(Vertex), SDL_GPU_BUFFERUSAGE_VERTEX);
+		mesh.indexCount = mesh.indices.size();
+		mesh.vertexCount = mesh.vertices.size();
 
-		RenderUtil::uploadBufferData(renderContext.device, mesh.indexBuffer, mesh.indices.data(),
-			mesh.indices.size() * sizeof(unsigned int), SDL_GPU_BUFFERUSAGE_INDEX);
-
-		mesh.size = mesh.indices.size();
+		geometryPool.upload(renderContext.device, mesh);
 
 	}
 
 	// Copy constructor
-	ModelSource(const ModelSource& other)
+	Model(const Model& other)
 	{
 		LogWarn(LOG_RENDER, "Model copy constructor called!");
 	}
@@ -181,15 +199,14 @@ public:
 	}
 
 	bool decomposeModelMatrix(
-		const glm::mat4& matrix,Transform & tranfrom){
-		
+		const glm::mat4& matrix, Transform& tranform) {
+
 		glm::vec3 skew;
 		glm::vec4 perspective;
-		return glm::decompose(matrix, tranfrom.scale, tranfrom.rotation, tranfrom.position, skew, perspective);
+		return glm::decompose(matrix, tranform.scale, tranform.rotation, tranform.position, skew, perspective);
 	}
 
-	
+
 
 };
-
 
