@@ -59,6 +59,7 @@ public:
 		if (type == EntityType::StaticMesh) return "⛰️";
 		if (type == EntityType::Actor) return "🎭";
 		if (type == EntityType::Sensor) return "📡";
+		if (type == EntityType::Light) return "💡";
 
 		return "  ";
 	}
