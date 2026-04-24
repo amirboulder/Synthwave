@@ -716,9 +716,11 @@ public:
 		if (!EntityFactory::validateTransform(transform, name.c_str())) return false;
 
 		const flecs::entity entity = ecs.entity(name.c_str())
+			.set<EntityTypeComponent>({ EntityType::Light })
 			.set<Transform>(transform)
 			.add<Light>()
-			.set<DirectionalLight>({ directionalLight });
+			.set<DirectionalLight>({ directionalLight })
+			.child_of(parent);
 
 		if (!validateEntityCreation(entity, name)) return false;
 
@@ -734,9 +736,11 @@ public:
 		if (!EntityFactory::validateTransform(transform, name.c_str())) return false;
 
 		const flecs::entity entity = ecs.entity(name.c_str())
+			.set<EntityTypeComponent>({ EntityType::Light })
 			.set<Transform>(transform)
 			.add<Light>()
-			.set<PointLight>({ pointLight });
+			.set<PointLight>({ pointLight })
+			.child_of(parent);
 
 		if (!validateEntityCreation(entity, name)) return false;
 
