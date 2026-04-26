@@ -956,24 +956,45 @@ public:
 
 	void printSystems() {
 
-		cout << "Print systems in pipeline execution order\n";
-		// Query systems in pipeline execution order
-		auto pipeline_query = ecs.query_builder<>()
+		
+		// Query phase dependent systems in pipeline execution order
+		auto dependentSystemsQuery = ecs.query_builder<>()
 			.with(flecs::System)
 			.with(flecs::Phase).cascade(flecs::DependsOn)
 			.without(flecs::Disabled).up(flecs::DependsOn)
 			.without(flecs::Disabled).up(flecs::ChildOf)
 			.build();
 
+		// Query phase dependent systems in pipeline execution order
+		auto independentSystemsQuery = ecs.query_builder<>()
+			.with(flecs::System)
+			.without(flecs::Phase)
+			.without(flecs::Disabled).up(flecs::DependsOn)
+			.without(flecs::Disabled).up(flecs::ChildOf)
+			.build();
 
-		pipeline_query.each([&](flecs::entity system) {
-			cout << "  System: " << system.name() << "\n";
+		LogInfo(LOG_APP, "Printing systems that depend on a phase in pipeline execution order");
+		dependentSystemsQuery.each([&](flecs::entity system) {
+			LogInfo(LOG_APP, "  System: %s", system.name().c_str());
 		});
+
+		LogInfo(LOG_APP, " ");
+		LogInfo(LOG_APP, " ");
+		LogInfo(LOG_APP, " ");
+
+		LogInfo(LOG_APP, "Printing independent systems ");
+		independentSystemsQuery.each([&](flecs::entity system) {
+			LogInfo(LOG_APP, "  System: %s", system.name().c_str());
+		});
+
+		LogInfo(LOG_APP, " ");
+		LogInfo(LOG_APP, " ");
+		LogInfo(LOG_APP, " ");
 	}
 
 	void printPhases() {
 
-		cout << "Print phases in pipeline execution order\n";
+		LogInfo(LOG_APP, "Print phases in pipeline execution order");
 		// Query systems in pipeline execution order
 		auto pipeline_query = ecs.query_builder<>()
 			.with(flecs::Phase)
@@ -985,8 +1006,7 @@ public:
 		pipeline_query.each([&](flecs::iter& it, size_t i) {
 
 			flecs::entity phase = it.entity(i);
-
-			cout << "  Phase: " << phase.name() << std::endl;
+			LogInfo(LOG_APP, " Phase: %s ", phase.name().c_str());
 
 		});
 	}
