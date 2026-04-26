@@ -92,6 +92,8 @@ public:
         io.Fonts->Build();
 
         registerSystems();
+
+        LogSuccess(LOG_RENDER, "UI initialized");
     }
 
     // manually called 

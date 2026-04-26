@@ -37,6 +37,13 @@ JPH::Quat GLMQuatToJPH(const glm::quat quat) {
     return JPH::Quat(quat.x, quat.y, quat.z, quat.w); // x, y, z, w order
 }
 
+// Converts a quaternion rotation to a forward direction vector (0, 0, -1) rotated by the quaternion
+glm::vec3 quatToDirection(const glm::quat& q)
+{
+	// Rotate the default forward vector (-Z in OpenGL/GLM convention)
+	return glm::normalize(q * glm::vec3(0.0f, 0.0f, -1.0f));
+}
+
 
 namespace util {
 

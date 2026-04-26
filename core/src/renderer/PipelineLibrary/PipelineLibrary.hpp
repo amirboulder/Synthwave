@@ -31,6 +31,8 @@ public:
 	void init() {
 
 		syncShaders();
+
+		LogSuccess(LOG_RENDER, "PipelineLibrary Initialized");
 	}
 
 	void syncShaders() {
@@ -66,6 +68,8 @@ public:
 				LogError(LOG_RENDER, "Pipeline entity creation failed  for %s ", path.c_str());
 			}
 		}
+
+		LogSuccess(LOG_RENDER, "PipelineLibrary shaders synched");
 	}
 
 	//Put all the shader source paths found in shaderSourceDir into a vector
@@ -82,12 +86,14 @@ public:
 
 			shaderSrcPaths.push_back(entry);
 		}
+
+		LogVerbose(LOG_RENDER, "PipelineLibrary created Src List");
 	}
 
 	void createMetadataList() {
 
 		if (!fs::exists(shaderCompiledDir)) {
-			LogDebug(LOG_RENDER, "Compiled shader directory %s does not exist, creating it");
+			LogDebug(LOG_RENDER, "PipelineLibraryCompiled shader directory %s does not exist, creating it", shaderCompiledDir.string().c_str());
 			fs::create_directory(shaderCompiledDir);
 		}
 
@@ -98,6 +104,7 @@ public:
 			shaderMetaDataPaths.push_back(entry);
 		}
 
+		LogVerbose(LOG_RENDER, "PipelineLibrary created Metadata List");
 	}
 
 	/// <summary>
@@ -138,6 +145,8 @@ public:
 				needsRecompilePaths.push_back(src);
 			}
 		}
+
+		LogVerbose(LOG_RENDER, "PipelineLibrary created Needs Compile List");
 	}
 
 
@@ -210,6 +219,8 @@ public:
 			LogError(LOG_RENDER, "Could not determine shader type for: %s unable to create Pipeline Entity", filename.c_str());
 			return false;
 		}
+
+		LogVerbose(LOG_RENDER, "PipelineLibrary pipeline entity created %s", entityName.c_str());
 
 		return true;
 	}

@@ -7,16 +7,17 @@ struct AssetLibRef {
 };
 
 
-
+//TODO turn into submesh once we get rid of assimp
 struct MeshAsset {
 
     Transform transform; //local transform relative to entity's position
     
-    uint32_t baseVertex = UINT32_MAX;
+    uint32_t vertexOffset = UINT32_MAX;
     uint32_t firstIndex = UINT32_MAX;
     uint32_t indexCount = 0;
     uint32_t vertexCount = 0;
 
+    uint32_t meshID = 0;
 
     uint32_t materialID = 0;
 };
@@ -105,7 +106,7 @@ public:
 
             meshAsset.transform = mesh.transform;
 
-            meshAsset.baseVertex = mesh.baseVertex;
+            meshAsset.vertexOffset = mesh.vertexOffset;
             meshAsset.firstIndex = mesh.firstIndex;
             meshAsset.indexCount = mesh.indexCount;
             meshAsset.vertexCount = mesh.vertexCount;
