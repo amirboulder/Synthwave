@@ -55,8 +55,6 @@ struct Draw {
 };
 
 
-
-
 //TODO rename CallbackComponent
 struct Callback {
 	std::function<void()> callbackFunction;
@@ -88,8 +86,6 @@ struct UICommand {
 struct DynamicEnt {};
 struct StaticEnt {};
 struct Sensor {};
-
-
 
 struct MenuComponent {};
 struct HudComponent {};
@@ -156,9 +152,6 @@ struct PlayerRef { flecs::entity value = flecs::entity::null(); };
 struct PlayerCamRef { flecs::entity value = flecs::entity::null(); };
 
 
-struct ModelSourceName {
-	std::string name;
-};
 
 /// <summary>
 /// Used for locking the camera
@@ -201,8 +194,9 @@ enum class EntityType {
 };
 
 
-// This is only useful if it keeps different entity types on the same table
-// TODO verify this using flecs api
+// This exists to keep entities of different EntityType in the same table ie prevent fragmentation,
+// but is that even desirable ???
+// TODO verify this behaves as expected using flecs api
 struct EntityTypeComponent {
 	EntityType type;
 };

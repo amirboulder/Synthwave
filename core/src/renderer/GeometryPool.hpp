@@ -35,7 +35,7 @@ public:
         assert(vertexHead + mesh.vertices.size() <= maxVertices);
         assert(indexHead + mesh.indices.size() <= maxIndices);
 
-        mesh.baseVertex = vertexHead;
+        mesh.vertexOffset = vertexHead;
         mesh.firstIndex = indexHead;
         mesh.vertexCount = (uint32_t)mesh.vertices.size();
         mesh.indexCount = (uint32_t)mesh.indices.size();

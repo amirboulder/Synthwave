@@ -42,6 +42,9 @@ struct PipelineRef {
 };
 
 
+struct ModelSourceName {
+	std::string name;
+};
 
 struct RenderPipeline {};
 
@@ -94,5 +97,9 @@ struct AreaLight {
 	glm::vec2 size = glm::vec2(1.0f); // width and height of the emitting surface
 };
 
-// Global constant light — no position, no direction, hits everything equally
-struct AmbientLight {};
+
+//The following is Used as relationship tag between entities and meshes.
+//Having multiple tag allows 
+struct BaseMesh {};
+struct SecondaryMesh {};
+

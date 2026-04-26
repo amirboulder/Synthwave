@@ -63,7 +63,7 @@ public:
 
 			//If unable to create shaders than we can't really run the program
 			if (!createPipelineEnt(path)) {
-				std::exit(EXIT_FAILURE);
+				LogError(LOG_RENDER, "Pipeline entity creation failed  for %s ", path.c_str());
 			}
 		}
 	}
@@ -207,7 +207,7 @@ public:
 		}
 
 		case ShaderType::Unknown:
-			LogError(LOG_RENDER, "Could not determine shader type for: %s", filename.c_str());
+			LogError(LOG_RENDER, "Could not determine shader type for: %s unable to create Pipeline Entity", filename.c_str());
 			return false;
 		}
 

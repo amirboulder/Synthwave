@@ -3,10 +3,13 @@
 #include "../ecs/components.hpp"
 #include "Grid.hpp"
 
+//TODO make this part of an engine config file
+constexpr uint32_t MAX_SUBMESHES = 8;
 
+
+//TODO use these once we switch from assimp
+//Note assimp has a 1 material per mesh rule so vertex/index data gets duplicated but it eliminated the need for sub mesh
 struct SubMesh {
-
-	Transform localTransform;
 
 	uint32_t baseVertex = UINT32_MAX;
 	uint32_t firstIndex = UINT32_MAX;
@@ -17,6 +20,15 @@ struct SubMesh {
 
 };
 
+//Rename to Mesh asset
+struct MeshAsset2 {
+
+	Transform transform;
+
+	uint32_t meshID = 0;
+
+	SubMesh   subMeshes[MAX_SUBMESHES]; // inline, no heap
+};
 
 class Mesh {
 
@@ -26,7 +38,7 @@ public:
 	std::vector <unsigned int> indices;
 	Transform transform;
 
-	uint32_t baseVertex = UINT32_MAX;  // offset into megaVertexBuffer
+	uint32_t vertexOffset = UINT32_MAX;  // offset into megaVertexBuffer
 	uint32_t firstIndex = UINT32_MAX;  // offset into megaIndexBuffer
 	uint32_t indexCount = 0;
 	uint32_t vertexCount = 0;
