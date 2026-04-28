@@ -81,6 +81,22 @@ public:
 
 	void handleEvents(SDL_Event& event) {
 
+		//Events only get passed down if IMGUI is not using them
+		ImGui_ImplSDL3_ProcessEvent(&event);
+
+		//This can also be handled in inputManager
+		ImGuiIO& io = ImGui::GetIO();
+
+		// Skip viewport input if ImGui is using the mouse or keyboard
+		if (io.WantTextInput) {
+			return;
+		}
+		if (io.WantCaptureMouse)
+		{
+			return;
+		}
+
+
 		if (event.type == SDL_EVENT_QUIT) {
 
 			ecs.set<ExitEvent>({ true });

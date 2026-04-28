@@ -568,14 +568,6 @@ public:
 		ecs.component<MouseClickLeftEvent>()
 			.on_set([&](MouseClickLeftEvent& event) {
 
-			//This can also be handled in inputManager
-			ImGuiIO& io = ImGui::GetIO();
-
-			// Skip viewport input if ImGui is using the mouse
-			if (io.WantCaptureMouse) {
-				return;
-			}
-
 			uint32_t entID = renderer.readFromTexture(event.x, event.y);
 			flecs::entity ent = ecs.entity(entID);
 			
