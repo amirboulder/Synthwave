@@ -37,8 +37,6 @@ int main(int argc, char* argv[])
 		while (SDL_PollEvent(&event)) {
 
 			inputManager.handleEvents(event);
-
-			ImGui_ImplSDL3_ProcessEvent(&event);
 		}
 
 		time.tick();

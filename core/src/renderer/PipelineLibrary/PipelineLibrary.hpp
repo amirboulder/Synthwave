@@ -75,14 +75,11 @@ public:
 	//Put all the shader source paths found in shaderSourceDir into a vector
 	void createSrcList() {
 
-		for (const auto& entry : fs::recursive_directory_iterator(shaderSourceDir)) {
+		for (const auto& entry : fs::directory_iterator(shaderSourceDir)) {
 			if (!entry.is_regular_file()) continue;
 
 			auto& p = entry.path();
 			if (p.extension() != ".slang") continue;
-
-			// skip Shader_Types.config.slang etc.
-			if (p.stem().extension() == ".config") continue; 
 
 			shaderSrcPaths.push_back(entry);
 		}
@@ -97,7 +94,7 @@ public:
 			fs::create_directory(shaderCompiledDir);
 		}
 
-		for (const auto& entry : fs::recursive_directory_iterator(shaderCompiledDir)) {
+		for (const auto& entry : fs::directory_iterator(shaderCompiledDir)) {
 			if (!entry.is_regular_file()) continue;
 			if (entry.path().extension() != ".json") continue;
 

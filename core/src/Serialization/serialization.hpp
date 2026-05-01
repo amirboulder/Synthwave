@@ -332,7 +332,7 @@ public:
 		settings.mLayer = Layers::MOVING;
 		settings.mGravityFactor = 1;
 
-		if (!EntityFactory::createActorEntity(ecs, parentEnt, name, "enemy1", transform, settings, actor1Update,"pipelineUnlit")) {
+		if (!EntityFactory::createActorEntity(ecs, parentEnt, name, "enemy1", transform, settings, actor1Update,"pipelinePhong")) {
 			return false;
 		}
 

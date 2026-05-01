@@ -1,4 +1,5 @@
-#include "Shader_Types.config.slang"
+#include "include/Shader_Types.slang"
+#include "include/Frame_data.slang"
 
 [FillMode("FILL")]
 [CullMode("BACK")]
@@ -13,10 +14,8 @@
 [MsaaCapable("TRUE")]
 [StencilTest("FALSE")]
 
-layout(set = 1, binding = 0) cbuffer FrameData {
-    float4x4 view;
-    float4x4 projection;
-    float4x4 viewProjection;
+layout(set = 1, binding = 0) cbuffer VertexFrameData {
+    FrameData vertexFrameData;
 };
 
 layout(set = 0, binding = 0) StructuredBuffer<float4x4> transforms;
@@ -41,7 +40,7 @@ struct VertexOutput
 VertexOutput vertexMain(VertexInput input, uint vertexID: SV_VertexID, uint instanceIndex: SV_InstanceID)
 {
     float4x4 model = transforms[instanceIndex];
-    float4x4 mvp = mul(viewProjection, model);
+    float4x4 mvp = mul(vertexFrameData.viewProjection, model);
 
     // Derive barycentric from vertex index within triangle
     uint localID = vertexID % 3;

@@ -85,7 +85,6 @@ public:
 			;
 
 
-
 		// Store the entity ID in the physics body which gives us a two way mapping between entity and bodyId
 		bodyInterface.SetUserData(physicsID, entity.id());
 
@@ -653,12 +652,15 @@ public:
 			return false;
 		}
 
+		MeshAsset asset = assetLib->meshRegistry[assetLib->requestMeshComponent(ModelSrcName.c_str()).MeshAssetIndices[0]] ;
+
 		flecs::entity actorEnt = ecs.entity(name.c_str())
 			.set<EntityTypeComponent>({ EntityType::Actor})
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
 			.set<ModelSourceName>({ ModelSrcName.c_str() })
 			.set<MeshComponent>({ assetLib->requestMeshComponent(ModelSrcName.c_str()) })
+			.set<MeshAsset, BaseMesh>({ std::move(asset) })
 			.add<Renderable>()
 			.set<JoltCharacter>({ joltCharacter })
 			.set<JPH::BodyID>(joltCharacter->GetBodyID())
@@ -666,6 +668,19 @@ public:
 			.add<RenderPipeline>(ecs.lookup(pipelineName.c_str()))
 			.child_of(parent);
 
+
+		//The new query example
+		/*ecs.query_builder()
+			.with<MeshComponent>(flecs::Wildcard)
+			.build()
+			.each([](flecs::iter& it, size_t i) {
+			
+			flecs::entity e = it.entity(i);
+			cout << e.type().str() << std::endl;
+			cout << e.name().c_str() << std::endl;
+			cout << " " << std::endl;
+		});*/
+			
 		if (!validateEntityCreation(actorEnt, name)) {
 			delete joltCharacter;
 			return false;

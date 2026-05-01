@@ -121,9 +121,7 @@ public:
 				* This is not entirely accurate as a shader file may just contain a fragment or a vertex shader,
 				*  but we don't support that!!!
 				*/
-				LogError(LOG_RENDER, "findEntryPointByName failed for vertexMain in file : %s ", srcPath.string().c_str());
-				LogError(LOG_RENDER, "findEntryPointByName failed for fragmentMain in file : %s ", srcPath.string().c_str());
-				LogError(LOG_RENDER, "findEntryPointByName failed for computeMain in file : %s ", srcPath.string().c_str());
+				LogError(LOG_RENDER, "findEntryPointByName failed for vertexMain && fragmentMain, and computeMain in file : %s ", srcPath.string().c_str());
 			}
 		}
 

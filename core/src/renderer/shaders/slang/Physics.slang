@@ -1,4 +1,5 @@
-#include "Shader_Types.config.slang"
+#include "include/Shader_Types.slang"
+#include "include/Frame_data.slang"
 
 [FillMode("LINE")]
 [CullMode("BACK")]
@@ -13,17 +14,15 @@
 [MsaaCapable("TRUE")]
 [StencilTest("FALSE")]
 
-
-layout(set = 1, binding = 0) cbuffer FrameData {
-    float4x4 view;
-    float4x4 projection;
-    float4x4 viewProjection;
+layout(set = 1, binding = 0) cbuffer VertexFrameData {
+    FrameData vertexFrameData;
 };
 
 layout(set = 1, binding = 1) cbuffer PerModel {
     float4x4 model;
     float4x4 mvp;
 };
+
 
 struct VertexInput
 {

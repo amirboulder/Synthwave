@@ -1,5 +1,5 @@
-#include "Shader_Types.config.slang"
-#include "Structs.config.slang"
+#include "include/Shader_Types.slang"
+#include "include/Frame_data.slang"
 
 [FillMode("FILL")]
 [CullMode("BACK")]
@@ -38,13 +38,11 @@ struct VertexOutput
     float2 texCoords : TextureCoords;
 };
 
-
-
 [shader("vertex")]
-VertexOutput vertexMain(VertexInput input, uint instanceIndex: SV_InstanceID)
+VertexOutput vertexMain(VertexInput input, uint instanceIndex: SV_StartInstanceLocation, uint drawIndex: SV_DrawIndex)
 {
-    float4x4 modelMatrix = transforms[instanceIndex];
-    float3x3 normalMat = (float3x3)normalMatrices[instanceIndex];
+    float4x4 modelMatrix = transforms[drawIndex];
+    float3x3 normalMat = (float3x3)normalMatrices[drawIndex];
 
     VertexOutput output;
 

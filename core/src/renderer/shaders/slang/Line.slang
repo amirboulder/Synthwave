@@ -1,4 +1,5 @@
-#include "Shader_Types.config.slang"
+#include "include/Shader_Types.slang"
+#include "include/Frame_data.slang"
 
 [FillMode("FILL")]
 [CullMode("BACK")]
@@ -13,11 +14,8 @@
 [MsaaCapable("TRUE")]
 [StencilTest("FALSE")]
 
-
-layout(set = 1, binding = 0) cbuffer FrameData {
-    float4x4 view;
-    float4x4 projection;
-    float4x4 viewProjection;
+layout(set = 1, binding = 0) cbuffer VertexFrameData {
+    FrameData vertexFrameData;
 };
 
 struct VertexInput
@@ -38,7 +36,7 @@ VertexOutput vertexMain(VertexInput input)
 {
     VertexOutput output;
 
-    output.position = mul(viewProjection, float4(input.position, 1.0));
+    output.position = mul(vertexFrameData.viewProjection, float4(input.position, 1.0));
     output.color = input.color;
 
     

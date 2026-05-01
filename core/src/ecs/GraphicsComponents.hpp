@@ -23,6 +23,7 @@ struct Transform {
 	glm::vec3 scale = glm::vec3(1);
 };
 
+//TODO remove this 
 struct MeshComponent {
 	std::vector<uint32_t> MeshAssetIndices;
 };

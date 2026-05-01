@@ -1,4 +1,5 @@
-#include "Shader_Types.config.slang"
+#include "include/Shader_Types.slang"
+#include "include/Frame_data.slang"
 
 [FillMode("FILL")]
 [CullMode("BACK")]
@@ -13,11 +14,8 @@
 [MsaaCapable("FALSE")]
 [StencilTest("FALSE")]
 
-
-layout(set = 1, binding = 0) cbuffer FrameData {
-    float4x4 view;
-    float4x4 projection;
-    float4x4 viewProjection;
+layout(set = 1, binding = 0) cbuffer VertexFrameData {
+    FrameData vertexFrameData;
 };
 
 layout(set = 1, binding = 1) cbuffer PerModel {
@@ -49,7 +47,12 @@ VertexOutput vertexMain(VertexInput input)
     return output;
 }
 
-layout(set = 3, binding = 0) cbuffer EntID {
+
+layout(set = 3, binding = 0) cbuffer FragmentFrameData : register(b0, space3) {
+    FrameData fragData;
+};
+
+layout(set = 3, binding = 1) cbuffer EntID {
     uint32_t id;
 };
 

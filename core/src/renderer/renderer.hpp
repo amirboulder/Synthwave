@@ -20,6 +20,21 @@
 
 #include "../AssetLibrary/AssetLibrary.hpp"
 
+
+struct DrawItem {
+
+	uint32_t vertexOffset = UINT32_MAX;
+	uint32_t firstIndex = UINT32_MAX;
+	uint32_t indexCount = 0;
+	uint32_t vertexCount = 0;
+	uint32_t meshID = 0;
+	uint32_t materialID = 0;
+
+	glm::mat4 transform;
+	glm::mat4 normalMatrix;
+};
+
+//TODO move to its own file
 struct GrowableGPUBuffer {
 	SDL_GPUBuffer* buffer = nullptr;
 	size_t capacity = 0;      // bytes currently allocated on GPU
@@ -31,6 +46,7 @@ struct GrowableGPUBuffer {
 
 			// Grow with headroom (e.g. 1.5x) to reduce future reallocations
 			capacity = size + size / 2;
+			LogWarn(LOG_RENDER, "GrowableGPUBuffer has grown to new capacity %d", capacity);
 
 			SDL_GPUBufferCreateInfo info = {};
 			info.usage = usage;
@@ -86,7 +102,6 @@ struct LightBatch {
 	GrowableGPUBuffer dummyBufferDir;
 	GrowableGPUBuffer dummyBufferPoint;
 
-
 	//This is needed because in  SDL_GPU you cannot bind a null buffer, it will error.
 	// You need something valid in the slot.
 	void initDummyBuffers(flecs::world& ecs) {
@@ -131,7 +146,12 @@ struct Renderer {
 
 	std::vector<glm::mat4> allTransforms;
 	std::vector<glm::mat4>  allNormalMatrices;
-	std::vector<SDL_GPUIndexedIndirectDrawCommand > drawCommands;
+
+	//List of DrawItems after culling before duplicates are instanced
+	std::vector<DrawItem> drawItems;
+
+	//Instanced list of drawCommands
+	std::vector<SDL_GPUIndexedIndirectDrawCommand> drawCommands;
 
 	GrowableGPUBuffer allTransformsBuffer;
 	GrowableGPUBuffer allNormalMatricesBuffer;
@@ -142,7 +162,7 @@ struct Renderer {
 
 	flecs::world& ecs;
 
-	flecs::system createRenderBuffersSys;
+	flecs::system createDrawBatchesSys;
 
 	flecs::entity renderPhase;
 
@@ -165,7 +185,7 @@ struct Renderer {
 		loadConfig();
 
 		createWindow();
-		createAndClaimGPU();
+		createAndClaimGPUVulkan();
 		createRenderTargets();
 
 		createSamplerAndDefaultTexture();
@@ -179,8 +199,6 @@ struct Renderer {
 
 		pipelineLib.init();
 
-		//needed so SLD_GPU don't complain about empty buffer being uploaded
-		lightBatch.initDummyBuffers(ecs);
 
 		LogSuccess(LOG_RENDER, "Renderer Initialized");
 	}
@@ -191,6 +209,9 @@ struct Renderer {
 		initPhysicsRenderer();
 
 		overlay.init();
+
+		//needed so SLD_GPU don't complain about empty buffer being uploaded
+		lightBatch.initDummyBuffers(ecs);
 
 		LogSuccess(LOG_RENDER, "Renderer SubSystems Initialized");
 
@@ -257,7 +278,7 @@ struct Renderer {
 	}
 
 
-	bool createAndClaimGPU() {
+	bool createAndClaimGPUVulkan() {
 
 		//TODO debug mode should come from a config file
 		bool debugMode = true;
@@ -312,6 +333,8 @@ struct Renderer {
 		SDL_SetGPUSwapchainParameters(renderContext.device, renderContext.window,
 			SDL_GPU_SWAPCHAINCOMPOSITION_SDR, SDL_GPU_PRESENTMODE_IMMEDIATE);
 
+		LogInfo(LOG_RENDER, "created AndClaimed GPU Vulkan");
+
 		return true;
 	}
 
@@ -332,12 +355,15 @@ struct Renderer {
 
 	void registerSystems() {
 
-		createRenderBatchesSystem();
+		createDrawBatchesSystem();
 		createPhysicsBatchesSystem();
 		renderPhysicsSystem();
 
+		LogInfo(LOG_RENDER, "registered Rendering Systems");
+
 	}
 
+	//TODO remove default texture from here it should be a part of assetLib
 	bool createSamplerAndDefaultTexture() {
 
 		const RenderContext& renderContext = ecs.get<RenderContext>();
@@ -384,6 +410,8 @@ struct Renderer {
 
 		MaterialLoader::createGPUTexture(imageData1, defaultTexture, "defaultTexture", renderContext.device);
 
+
+		LogInfo(LOG_RENDER, "created Sampler And Default Texture");
 
 		return true;
 	}
@@ -523,6 +551,8 @@ struct Renderer {
 			return false;
 		}
 
+		LogInfo(LOG_RENDER, "created Render Targets");
+
 		return true;
 	}
 
@@ -550,8 +580,6 @@ struct Renderer {
 		const RenderConfig& config = ecs.get<RenderConfig>();
 
 		beginRenderPass(renderContext, frameContext);
-
-		//drawAllBatches();
 
 		drawLit(frameContext);
 
@@ -631,78 +659,87 @@ struct Renderer {
 		SDL_PushGPUFragmentUniformData(frameContext.commandBuffer, 0, &uniforms, sizeof(uniforms));
 	}
 
-	
-	void createRenderBatchesSystem() {
 
-		createRenderBuffersSys = ecs.system<Transform, MeshComponent, Renderable>("CreateRenderBuffersSys")
-			.with(ecs.id<RenderPipeline>(), flecs::Wildcard)
-			.group_by<RenderPipeline>()
+
+	/// <summary>
+	/// This system creates all the buffer and batches needed for rendering every frame.
+	/// It performs culling first (TODO).
+	/// Then all each surviving mesh will be place in a drawItem (There are duplicates at this point)
+	/// it then calls createDrawCommands() to sort and place all meshes buckets based on meshID (instancing)
+	/// Then light batches are created
+	/// </summary>
+	void createDrawBatchesSystem() {
+
+		createDrawBatchesSys = ecs.system<Transform , Renderable>("CreateDrawBatchesSys")
 			.kind(renderPhase)
+			.with<MeshAsset>(flecs::Wildcard)
 			.run([&](flecs::iter& it) {
 
-			AssetLibrary* assetLib = ecs.get<AssetLibRef>().assetLib;
 			const RenderContext& renderContext = ecs.get<RenderContext>();
 
 			//clear previous batch
 			allTransforms.clear();
 			allNormalMatrices.clear();
 			drawCommands.clear();
+			drawItems.clear();
 			numDrawCalls = 0;
 
 			while (it.next()) {
 
-				auto transforms = it.field<Transform>(0);
-				auto meshComponents = it.field<MeshComponent>(1);
-				//TODO instancing
-				//For each entity put all of it meshes in a batch
+				auto transforms = it.field<const Transform>(0);
+				auto meshAssets = it.field<const MeshAsset>(2);
+
+
 				for (auto i : it) {
 
+					//TODO culling
+					//if meshAsset survives culling then add to the list
+					//TODO pick the appropriate LOD once we have LODs
+
+					const Transform& transform = transforms[i];
+					const MeshAsset& meshAsset = meshAssets[i];
+
 					//calculate Ent model matrix
-					glm::mat4 modelMat = createModelMatrix(transforms[i]);
+					glm::mat4 entityTransform = createModelMatrix(transform);
+					glm::mat4 modelTransform = entityTransform * createModelMatrix(meshAsset.transform);
+
+					// Compute normal matrix BEFORE transposing localMat for Slang.
+					// Normal matrix = inverse transpose of the upper 3x3 of the model matrix.
+					// Stored as glm::mat4 with 4th column zeroed to satisfy GPU 16-byte row alignment.
+					glm::mat3 normalMat3 = glm::mat3(glm::transpose(glm::inverse(modelTransform)));
+					glm::mat4 normalMat4 = glm::mat4(normalMat3); // expands to mat4, 4th col = (0,0,0,1)
+					normalMat4[3] = glm::vec4(0.0f);       // zero out 4th column explicitly
+
+					// transpose matrices to row-major for Slang
+					normalMat4 = glm::transpose(normalMat4);
+					modelTransform = glm::transpose(modelTransform);
 
 
-					for (uint32_t index : meshComponents[i].MeshAssetIndices) {
+					DrawItem drawItem;
 
-						MeshAsset& asset = assetLib->meshRegistry[index];
+					drawItem.vertexOffset = meshAsset.vertexOffset;
+					drawItem.firstIndex = meshAsset.firstIndex;
+					drawItem.indexCount = meshAsset.indexCount;
+					drawItem.vertexCount = meshAsset.vertexCount;
+					drawItem.meshID = meshAsset.meshID;
+					drawItem.materialID = meshAsset.materialID;
 
-						glm::mat4 localMat = createModelMatrix(asset.transform);
-						localMat = modelMat * localMat;
+					drawItem.transform = modelTransform;
+					drawItem.normalMatrix = normalMat4;
 
-						// Compute normal matrix BEFORE transposing localMat for Slang.
-						// Normal matrix = inverse transpose of the upper 3x3 of the model matrix.
-						// Stored as glm::mat4 with 4th column zeroed to satisfy GPU 16-byte row alignment.
-						glm::mat3 normalMat3 = glm::mat3(glm::transpose(glm::inverse(localMat)));
-						glm::mat4 normalMat4 = glm::mat4(normalMat3); // expands to mat4, 4th col = (0,0,0,1)
-						normalMat4[3] = glm::vec4(0.0f);       // zero out 4th column explicitly
-						normalMat4 = glm::transpose(normalMat4); // transpose for Slang row-major
+					drawItems.push_back(std::move(drawItem));
 
-						//Transpose because matrix layout in memory for Slang is is row-major
-						localMat = glm::transpose(localMat);
-
-						// Accumulate transforms and normalMatrices across all entities
-						allTransforms.push_back(localMat);
-						allNormalMatrices.push_back(normalMat4);
-
-				
-						// Fill draw command 
-						SDL_GPUIndexedIndirectDrawCommand cmd{};
-						cmd.num_indices = asset.indexCount;
-						cmd.num_instances = 1; 
-						cmd.first_index = asset.firstIndex;    // from GeometryPool slot
-						cmd.vertex_offset = (Sint32)asset.baseVertex;
-						cmd.first_instance = 0;
-						drawCommands.push_back(cmd);
-
-						numDrawCalls++;
-					}
 				}
 			}
 
-			//upload buffer data
-			//TODO use growable buffer
+			//TODO These two can be run in parallel
+			createDrawCommands();
+			createLightBatches();
+
+			//upload everything to gpu
 			if (!allTransforms.empty())
 			{
-			
+
 				allTransformsBuffer.upload(renderContext.device,
 					allTransforms.data(),
 					allTransforms.size() * sizeof(glm::mat4),
@@ -715,20 +752,59 @@ struct Renderer {
 
 				drawCommandBuffer.upload(renderContext.device,
 					drawCommands.data(),
-					drawCommands.size() * sizeof(glm::mat4),
+					drawCommands.size() * sizeof(SDL_GPUIndexedIndirectDrawCommand),
 					SDL_GPU_BUFFERUSAGE_INDIRECT);
-
 			}
-
-			createLightBatches();
-
 		});
 
+	}
+
+
+	void createDrawCommands() {
+
+		// Sort by meshID — radix sort 
+		std::sort(drawItems.begin(), drawItems.end(),
+			[](const DrawItem& a, const DrawItem& b) {
+			return a.meshID < b.meshID;
+		});
+
+
+		//once sorted push all Transforms and normalMatrices to their respective vectors
+		//We nee to do this step after sort
+		for (const DrawItem& item : drawItems) {
+			allTransforms.push_back(item.transform);
+			allNormalMatrices.push_back(item.normalMatrix);
+		}
+
+		uint32_t batchStart = 0;
+		for (uint32_t i = 1; i <= drawItems.size(); i++) {
+			bool lastElement = i == drawItems.size();
+			bool meshIDChange = !lastElement &&
+				drawItems[i].meshID != drawItems[batchStart].meshID;
+
+			//New batch push another drawCommand
+			if (lastElement || meshIDChange) {
+				
+			///Fill draw command 
+			SDL_GPUIndexedIndirectDrawCommand cmd{};
+			cmd.num_indices = drawItems[batchStart].indexCount;
+			cmd.num_instances = i - batchStart;
+			cmd.first_index = drawItems[batchStart].firstIndex;    // from GeometryPool slot
+			cmd.vertex_offset = (Sint32)drawItems[batchStart].vertexOffset;
+			cmd.first_instance = batchStart;
+
+			drawCommands.push_back(cmd);
+			batchStart = i;
+			numDrawCalls++;
+			}
+			
+		}
 	}
 
 	/// <summary>
 	/// Creates a batch for each light type
 	/// </summary>
+	/// TODO see if there is a benefit to making this a system
 	void createLightBatches() {
 
 		lightBatch.directionalLights.clear();
@@ -792,7 +868,7 @@ struct Renderer {
 		SDL_BindGPUGraphicsPipeline(activeRenderPass, pipeline->pipelineMS);
 		SDL_BindGPUFragmentSamplers(activeRenderPass, 0, &defaultSamplerBinding, 1);
 
-		if (geometryPool.size < 1) {
+		if (geometryPool.size < 1 || allTransforms.size() < 1) {
 			return;
 		}
 
@@ -878,9 +954,9 @@ struct Renderer {
 			// Does not actually draw it just puts all render batches in vector so they can be drawn during a render pass
 			physicsSystem.DrawBodies(fisiksRenderer.drawSettings, &fisiksRenderer);
 
-			physicsSystem.DrawConstraints(&fisiksRenderer);
+			//physicsSystem.DrawConstraints(&fisiksRenderer);
 
-			physicsSystem.DrawConstraintLimits(&fisiksRenderer);
+			//physicsSystem.DrawConstraintLimits(&fisiksRenderer);
 			//physicsSystem.DrawConstraintReferenceFrame(&fisiksRenderer);
 
 		});
@@ -946,7 +1022,7 @@ struct Renderer {
 			mesh.indexCount,   // indexCount
 			1,                 // instanceCount
 			mesh.firstIndex,   // firstIndex  — element index into megaIndexBuffer
-			mesh.baseVertex,   // vertexOffset — element index into megaVertexBuffer
+			mesh.vertexOffset,   // vertexOffset — element index into megaVertexBuffer
 			0                  // firstInstance
 		);
 	}
@@ -990,6 +1066,7 @@ struct Renderer {
 		//This function should be updated to use the megabuffer but it also needs to render all the
 		// non (game) renderable meshes (camera, physics triggers etc.) to the entIdColorTarget but those are not in the mega buffer.
 		//TODO create a second megabuffer for all of those
+		//TODO replace MeshComponent with MeshAsset
 		queryEntID.each([&](flecs::entity entity, Transform & transform, MeshComponent & meshComponent) {
 
 			uint32_t entID = (uint32_t)entity.id();
@@ -1052,6 +1129,7 @@ struct Renderer {
 		AssetLibrary * assetLib = ecs.get<AssetLibRef>().assetLib;
 
 		const Transform& transform = selectedEnt.get<Transform>();
+		//replace MeshComponent with MeshAsset
 		const MeshComponent& meshcomponent = selectedEnt.get<MeshComponent>();
 
 		glm::mat4 modelMat = createModelMatrix(transform);
