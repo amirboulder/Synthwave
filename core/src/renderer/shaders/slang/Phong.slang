@@ -20,6 +20,7 @@ layout(set = 1, binding = 0) cbuffer VertexFrameData {
 
 layout(set = 0, binding = 0) StructuredBuffer<float4x4> transforms;
 layout(set = 0, binding = 1) StructuredBuffer<float4x4> normalMatrices;
+layout(set = 0, binding = 2) StructuredBuffer<uint32_t> materialData;
 
 
 struct VertexInput
@@ -36,13 +37,14 @@ struct VertexOutput
     float3 worldPos : WORLD_Position;
     float3 normal : NORMAL;
     float2 texCoords : TextureCoords;
+    uint  materialIndex;
 };
 
 [shader("vertex")]
-VertexOutput vertexMain(VertexInput input, uint instanceIndex: SV_StartInstanceLocation, uint drawIndex: SV_DrawIndex)
+VertexOutput vertexMain(VertexInput input, uint instanceID: SV_InstanceID, uint drawIndex: SV_DrawIndex)
 {
-    float4x4 modelMatrix = transforms[drawIndex];
-    float3x3 normalMat = (float3x3)normalMatrices[drawIndex];
+    float4x4 modelMatrix = transforms[drawIndex + instanceID];
+    float3x3 normalMat = (float3x3)normalMatrices[drawIndex + instanceID];
 
     VertexOutput output;
 
@@ -54,6 +56,7 @@ VertexOutput vertexMain(VertexInput input, uint instanceIndex: SV_StartInstanceL
     output.normal = normalize(mul(normalMat, input.normal));
 
     output.texCoords = input.texCoords;
+    output.materialIndex = materialData[drawIndex];
 
     
     return output;
@@ -61,7 +64,7 @@ VertexOutput vertexMain(VertexInput input, uint instanceIndex: SV_StartInstanceL
 
 // Using Combined Image Sampler,
 layout(set = 2, binding = 0) SamplerState sampler;
-layout(set = 2, binding = 0) Texture2D<float4> diffuseTexture;
+layout(set = 2, binding = 0) Texture2DArray<float4> diffuseTextures;
 
 
 layout(set = 3, binding = 0) cbuffer FragmentFrameData : register(b0, space3) {
@@ -127,7 +130,7 @@ float4 fragmentMain(VertexOutput fragInput)
 
     //TODO point light loop
 
-    float4 textureColor = diffuseTexture.Sample(sampler, fragInput.texCoords);
+    float4 textureColor = diffuseTextures.Sample(sampler, float3(fragInput.texCoords, float(fragInput.materialIndex)));
 
     // Combine: texture color is scaled by the lighting result
     float3 lighting = ambient + totalDiffuse + totalSpecular;

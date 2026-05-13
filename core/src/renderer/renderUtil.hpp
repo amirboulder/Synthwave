@@ -34,6 +34,26 @@ struct PerModelUniforms {
     glm::mat4 mvp;
 };
 
+struct TextureArray {
+
+	SDL_GPUTexture* textureArray = nullptr;
+	uint32_t usedLayers = 0;
+
+	void init(SDL_GPUDevice* device) {
+
+		SDL_GPUTextureCreateInfo info{};
+		info.type = SDL_GPU_TEXTURETYPE_2D_ARRAY;
+		info.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
+		info.width = 1024;  // all layers MUST match
+		info.height = 1024;  // all layers MUST match
+		info.layer_count_or_depth = 512;  // max number of textures
+		info.num_levels = 1;
+		info.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER;
+
+		textureArray =  SDL_CreateGPUTexture(device, &info);
+	}
+};
+
 class RenderUtil {
 
 
@@ -246,4 +266,64 @@ public:
 
         return tex;
     }
+
+
+	static bool uploadToTextureArray(SDL_GPUDevice* device, TextureArray & textureArray, SDL_Surface* imageData) {
+
+		// Set up texture data
+		const Uint32 imageSizeInBytes = imageData->w * imageData->h * 4;
+
+		if (imageData->w != 1024 || imageData->h != 1024) {
+			SDL_Log("Texture must be 1024x1024, got %dx%d scaling the image", imageData->w, imageData->h);
+			SDL_Surface* scaled = SDL_ScaleSurface(imageData, 1024, 1024, SDL_SCALEMODE_LINEAR);
+		}
+
+		if (textureArray.usedLayers >= 512) {
+			SDL_Log("TextureArray full!");
+			return false;
+		}
+		
+		SDL_GPUTextureRegion region{};
+		region.texture = textureArray.textureArray;
+		region.layer = textureArray.usedLayers ;  // which slot this texture occupies
+		region.w = 1024;
+		region.h = 1024;
+		region.d = 1;
+
+		// Set up buffer data
+		SDL_GPUTransferBufferCreateInfo transferBufferInfo = {
+			.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
+			.size = imageSizeInBytes
+		};
+		SDL_GPUTransferBuffer* textureTransferBuffer = SDL_CreateGPUTransferBuffer(device, &transferBufferInfo);
+
+		void* textureTransferPtr = SDL_MapGPUTransferBuffer(device, textureTransferBuffer, false);
+
+		SDL_memcpy(textureTransferPtr, imageData->pixels, imageSizeInBytes);
+
+		SDL_UnmapGPUTransferBuffer(device, textureTransferBuffer);
+
+		// Upload the transfer data to the GPU resources
+		SDL_GPUCommandBuffer* uploadCmdBuf = SDL_AcquireGPUCommandBuffer(device);
+		SDL_GPUCopyPass* copyPass = SDL_BeginGPUCopyPass(uploadCmdBuf);
+
+
+
+		SDL_GPUTextureTransferInfo textureTransferInfo = {
+			.transfer_buffer = textureTransferBuffer,
+			.offset = 0,
+		};
+
+
+		SDL_UploadToGPUTexture(copyPass, &textureTransferInfo, &region, false);
+		SDL_EndGPUCopyPass(copyPass);
+		SDL_SubmitGPUCommandBuffer(uploadCmdBuf);
+	
+		SDL_ReleaseGPUTransferBuffer(device, textureTransferBuffer);
+
+		textureArray.usedLayers++;
+
+		return true;
+
+	}
 };

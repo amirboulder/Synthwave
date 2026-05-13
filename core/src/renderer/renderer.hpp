@@ -152,9 +152,11 @@ struct Renderer {
 
 	//Instanced list of drawCommands
 	std::vector<SDL_GPUIndexedIndirectDrawCommand> drawCommands;
+	std::vector<uint32_t> materialData;
 
 	GrowableGPUBuffer allTransformsBuffer;
 	GrowableGPUBuffer allNormalMatricesBuffer;
+	GrowableGPUBuffer allMaterialsBuffer;
 	GrowableGPUBuffer drawCommandBuffer;
 	uint32_t numDrawCalls = 0 ;
 
@@ -212,6 +214,7 @@ struct Renderer {
 
 		//needed so SLD_GPU don't complain about empty buffer being uploaded
 		lightBatch.initDummyBuffers(ecs);
+
 
 		LogSuccess(LOG_RENDER, "Renderer SubSystems Initialized");
 
@@ -331,7 +334,7 @@ struct Renderer {
 		// SDL_GPU_PRESENTMODE_IMMEDIATE for uncapped fps
 		// SDL_GPU_PRESENTMODE_VSYNC for VSYNC
 		SDL_SetGPUSwapchainParameters(renderContext.device, renderContext.window,
-			SDL_GPU_SWAPCHAINCOMPOSITION_SDR, SDL_GPU_PRESENTMODE_IMMEDIATE);
+			SDL_GPU_SWAPCHAINCOMPOSITION_SDR, SDL_GPU_PRESENTMODE_VSYNC);
 
 		LogInfo(LOG_RENDER, "created AndClaimed GPU Vulkan");
 
@@ -670,9 +673,8 @@ struct Renderer {
 	/// </summary>
 	void createDrawBatchesSystem() {
 
-		createDrawBatchesSys = ecs.system<Transform , Renderable>("CreateDrawBatchesSys")
+		createDrawBatchesSys = ecs.system<Transform , Renderable, MeshAsset>("CreateDrawBatchesSys")
 			.kind(renderPhase)
-			.with<MeshAsset>(flecs::Wildcard)
 			.run([&](flecs::iter& it) {
 
 			const RenderContext& renderContext = ecs.get<RenderContext>();
@@ -682,6 +684,7 @@ struct Renderer {
 			allNormalMatrices.clear();
 			drawCommands.clear();
 			drawItems.clear();
+			materialData.clear();
 			numDrawCalls = 0;
 
 			while (it.next()) {
@@ -750,6 +753,11 @@ struct Renderer {
 					allNormalMatrices.size() * sizeof(glm::mat4),
 					SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ);
 
+				allMaterialsBuffer.upload(renderContext.device,
+					materialData.data(),
+					materialData.size() * sizeof(uint32_t),
+					SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ);
+
 				drawCommandBuffer.upload(renderContext.device,
 					drawCommands.data(),
 					drawCommands.size() * sizeof(SDL_GPUIndexedIndirectDrawCommand),
@@ -791,13 +799,16 @@ struct Renderer {
 			cmd.num_instances = i - batchStart;
 			cmd.first_index = drawItems[batchStart].firstIndex;    // from GeometryPool slot
 			cmd.vertex_offset = (Sint32)drawItems[batchStart].vertexOffset;
-			cmd.first_instance = batchStart;
+			cmd.first_instance = 0;
+			
+			//fill MaterialData, we do this here because we have 1 material per batch
+			materialData.push_back(drawItems[batchStart].materialID);
 
 			drawCommands.push_back(cmd);
 			batchStart = i;
 			numDrawCalls++;
-			}
-			
+
+			}			
 		}
 	}
 
@@ -811,7 +822,6 @@ struct Renderer {
 		lightBatch.pointLights.clear();
 
 		const RenderContext& renderContext = ecs.get<RenderContext>();
-
 
 		queryLights.each([&](flecs::entity e, const Light& light, const Transform& transform) {
 
@@ -857,7 +867,6 @@ struct Renderer {
 	/// <summary>
 	/// Draw the scene with lighting 
 	/// </summary>
-	/// <param name="frameContext"></param>
 	void drawLit(FrameContext& frameContext) {
 
 		const GeometryPool& geometryPool = ecs.get<GeometryPool>();
@@ -866,7 +875,8 @@ struct Renderer {
 		flecs::entity pipelineEntity = ecs.entity("pipelinePhong");
 		const Pipeline* pipeline = &pipelineEntity.get<Pipeline>();
 		SDL_BindGPUGraphicsPipeline(activeRenderPass, pipeline->pipelineMS);
-		SDL_BindGPUFragmentSamplers(activeRenderPass, 0, &defaultSamplerBinding, 1);
+
+		//SDL_BindGPUFragmentSamplers(activeRenderPass, 0, &defaultSamplerBinding, 1);
 
 		if (geometryPool.size < 1 || allTransforms.size() < 1) {
 			return;
@@ -878,9 +888,10 @@ struct Renderer {
 		SDL_BindGPUVertexBuffers(activeRenderPass, 0, &vbBinding, 1);
 		SDL_BindGPUIndexBuffer(activeRenderPass, &ibBinding, SDL_GPU_INDEXELEMENTSIZE_32BIT);
 
-		// Bind all transforms and NormalMatrices
+		// Bind all transforms, NormalMatrices, and MaterialData
 		SDL_BindGPUVertexStorageBuffers(activeRenderPass, 0, &allTransformsBuffer.buffer, 1);
 		SDL_BindGPUVertexStorageBuffers(activeRenderPass, 1, &allNormalMatricesBuffer.buffer, 1);
+		SDL_BindGPUVertexStorageBuffers(activeRenderPass, 2, &allMaterialsBuffer.buffer, 1);
 
 		//Push the ambient light data so there is always some light in the scene.
 		LightDataUniform lightDataUniform;
@@ -907,15 +918,18 @@ struct Renderer {
 		
 		//TODO rest of the lights
 
-		// Texture/sampler 
-		SDL_BindGPUFragmentSamplers(activeRenderPass, 0, &defaultSamplerBinding, 1);
+
+		//TODO
+		AssetLibrary* assetLib = ecs.get<AssetLibRef>().assetLib;
+		assetLib->materialRegistry.size();
+
+		SDL_GPUTextureSamplerBinding binding = { assetLib->diffuseTextures.textureArray, defaultSampler };
+		SDL_BindGPUFragmentSamplers(activeRenderPass, 0, &binding, 1);
 
 		// Draw
 		SDL_DrawGPUIndexedPrimitivesIndirect(activeRenderPass, drawCommandBuffer.buffer, 0, numDrawCalls);
 
-		//TODO materials
 		
-
 	}
 
 	

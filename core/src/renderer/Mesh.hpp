@@ -27,7 +27,7 @@ struct MeshAsset2 {
 
 	uint32_t meshID = 0;
 
-	SubMesh   subMeshes[MAX_SUBMESHES]; // inline, no heap
+	SubMesh  subMeshes[MAX_SUBMESHES]; // inline, no heap
 };
 
 class Mesh {
