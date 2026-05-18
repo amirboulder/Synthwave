@@ -105,19 +105,35 @@ namespace util {
 
 		std::ofstream file(filePath, std::ios::binary);
 		if (!file.is_open()) {
-			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, ERROR "Cannot open output file : %s" RESET, filePath.c_str());
+			LogError(LOG_ERR, "Cannot open output file : %s", filePath.c_str());
 			return false;
 		}
 
 		file << dataOut.str();
 
 		if (file.fail()) {
-			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, ERROR "Writing to file: %s" RESET, filePath.c_str());
+			LogError(LOG_ERR, "Writing to file: %s", filePath.c_str());
 			return false;
 		}
 
 		return true;
 	}
 
+	//Generates a DETERMINISTIC 64bit ID
+	//God does not play dice with the universe
+	uint64_t generateAssetID(std::string_view assetName, uint64_t seed = 0) {
+
+		return XXH64(assetName.data(), assetName.size(), seed);
+	}
+
+	uint64_t generateRandomAssetID(std::string_view assetName) {
+
+		//generate a good random number, Thanks CHERNO!
+		static std::random_device s_randomDevice;
+		static std::mt19937_64 s_engine(s_randomDevice());
+		static std::uniform_int_distribution<uint64_t> s_uniformDistribution;
+
+		return XXH64(assetName.data(), assetName.size(), s_uniformDistribution(s_engine));
+	}
 }
 

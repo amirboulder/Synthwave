@@ -68,13 +68,21 @@ namespace fs = std::filesystem;
 #include <Jolt/Physics/Collision/RayCast.h>
 #include <Jolt/Physics/Collision/CastResult.h>
 
-//Assimp
-#include <assimp/Importer.hpp>
-#include <assimp/scene.h>
-#include <assimp/postprocess.h>
+//fastgltf
+
+#include "fastgltf/core.hpp"
+#include "fastgltf/util.hpp"
+#include "fastgltf/math.hpp"
+#include "fastgltf/glm_element_traits.hpp"
+#include "fastgltf/tools.hpp"
+
+//stb_image
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
 
 
 //GLM
+#define GLM_ENABLE_EXPERIMENTAL
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtx/quaternion.hpp>
@@ -95,6 +103,9 @@ namespace fs = std::filesystem;
 #include "rapidjson/stringbuffer.h"
 #include "rapidjson/prettywriter.h"
 #include "rapidjson/istreamwrapper.h"
+
+//xxhash
+#include <xxhash.h>
 
 //INIReader
 #include "INIReader.h"

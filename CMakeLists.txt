@@ -187,32 +187,38 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(SDL_ttf)
 
 #=============================================
-#assimp for importing assets
+#stb_image
+#=============================================
+
+FetchContent_Declare(
+    stb
+    GIT_REPOSITORY https://github.com/nothings/stb.git
+    GIT_TAG        31c1ad3  
+)
+FetchContent_MakeAvailable(stb)
+
+# Create an INTERFACE library so you can link against it like any other target
+add_library(stb_image INTERFACE)
+target_include_directories(stb_image INTERFACE ${stb_SOURCE_DIR})
+
+#=============================================
+#fastgltf - importing 3d models that are in gltf format
 #=============================================
 FetchContent_Declare(
-  assimp 
-  GIT_REPOSITORY https://github.com/assimp/assimp.git
-  GIT_TAG v5.4.0
-
+	fastgltf
+	GIT_REPOSITORY	https://github.com/spnda/fastgltf.git
+	GIT_TAG 	v0.9.0
+    GIT_SHALLOW TRUE
 )
-    
-set(ASSIMP_NO_CHARSET ON CACHE BOOL "" FORCE)   
 
-set(ASSIMP_NO_EXPORT            ON  CACHE BOOL "" FORCE)  
-set(ASSIMP_BUILD_ASSIMP_TOOLS   OFF CACHE BOOL "" FORCE)  
-set(ASSIMP_BUILD_SAMPLES        OFF CACHE BOOL "" FORCE)
-set(ASSIMP_BUILD_TESTS          OFF CACHE BOOL "" FORCE)
+set(FASTGLTF_ENABLE_CPP_MODULES YES)
+set(BUILD_SHARED_LIBS OFF)
 
-# Disable all importers except obj and gltf
-set(ASSIMP_BUILD_ALL_IMPORTERS_BY_DEFAULT OFF CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(fastgltf)
 
-set(ASSIMP_BUILD_OBJ_IMPORTER  ON  CACHE BOOL "" FORCE)
-set(ASSIMP_BUILD_GLTF_IMPORTER ON  CACHE BOOL "" FORCE)
 
-set(ASSIMP_BUILD_ZLIB          ON CACHE BOOL "" FORCE) 
-set(ASSIMP_INSTALL             OFF CACHE BOOL "" FORCE)
-
-FetchContent_MakeAvailable(assimp)
+get_property(all_targets DIRECTORY ${fastgltf_SOURCE_DIR} PROPERTY BUILDSYSTEM_TARGETS)
+message(STATUS "fastgltf targets: ${all_targets}")
 
 #=============================================
 #glm
@@ -220,7 +226,7 @@ FetchContent_MakeAvailable(assimp)
 FetchContent_Declare(
 	glm
 	GIT_REPOSITORY	https://github.com/g-truc/glm.git
-	GIT_TAG 	bf71a834948186f4097caa076cd2663c69a10e1e 
+	GIT_TAG 	1.0.3 
     GIT_SHALLOW TRUE
 )
 
@@ -323,7 +329,7 @@ set(FLECS_DOC OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(flecs)
 
 #=============================================
-#rapidjson JSON
+#rapidjson JSON serialization/deserialization
 #=============================================
 
 FetchContent_Declare(
@@ -340,6 +346,23 @@ set(RAPIDJSON_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(rapidjson)
 
 target_include_directories(Synthwave PRIVATE ${rapidjson_SOURCE_DIR}/include)
+
+#=============================================
+#xxhash for hashing 
+#=============================================
+
+FetchContent_Declare( 
+    xxhash
+  GIT_REPOSITORY https://github.com/Cyan4973/xxHash.git
+  GIT_TAG        v0.8.3
+  GIT_SHALLOW TRUE
+)
+
+set(XXHASH_BUILD_XXHSUM OFF) 
+
+FetchContent_MakeAvailable(xxhash)
+
+target_include_directories(Synthwave PRIVATE ${xxhash_SOURCE_DIR})
 
 #=============================================
 # IMGUI for GUI
@@ -399,12 +422,14 @@ SDL3::SDL3
 Slang::slang
 SDL3_image::SDL3_image
 SDL3_ttf::SDL3_ttf
-assimp 
+stb_image
+fastgltf::fastgltf 
 glm::glm 
 Jolt
 OptickCore
 inih
 flecs::flecs
+xxHash
 )
 
 
