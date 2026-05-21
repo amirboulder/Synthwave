@@ -23,9 +23,18 @@ struct Transform {
 	glm::vec3 scale = glm::vec3(1);
 };
 
-//TODO remove this 
 struct MeshComponent {
-	std::vector<uint32_t> MeshAssetIndices;
+
+	Transform transform; //local transform relative to entity's position
+
+	uint32_t vertexOffset = UINT32_MAX;
+	uint32_t firstIndex = UINT32_MAX;
+	uint32_t indexCount = 0;
+	uint32_t vertexCount = 0;
+
+	uint32_t index = 0; // relative to the geometry buffer
+
+	uint32_t materialID = 0;
 };
 
 

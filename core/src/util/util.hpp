@@ -44,7 +44,6 @@ glm::vec3 quatToDirection(const glm::quat& q)
 	return glm::normalize(q * glm::vec3(0.0f, 0.0f, -1.0f));
 }
 
-
 namespace util {
 
 
@@ -98,6 +97,15 @@ namespace util {
 	}
 
 
+	uint64_t Now() {
+		return static_cast<uint64_t>(
+			std::chrono::duration_cast<std::chrono::seconds>(
+				std::chrono::system_clock::now().time_since_epoch()
+			).count()
+			);
+	}
+
+
 	bool saveDataToFile(std::stringstream& dataOut, const std::filesystem::path& filePath) {
 
 		// Create parent directories if they don't exist
@@ -134,6 +142,32 @@ namespace util {
 		static std::uniform_int_distribution<uint64_t> s_uniformDistribution;
 
 		return XXH64(assetName.data(), assetName.size(), s_uniformDistribution(s_engine));
+	}
+
+	uint64_t generateContentHash(const fs::path& filePath) {
+
+		if (!fs::exists(filePath)) {
+			LogError(LOG_RENDER, "File: %s does not exist, cannot create content hash", filePath.string().c_str());
+			return 0;
+		}
+
+		std::ifstream file(filePath, std::ios::binary);
+		if (!file.is_open()) {
+			LogError(LOG_RENDER, "Cannot open file: %s for creating content hash", filePath.string().c_str());
+			return 0;
+		}
+
+		file.seekg(0, std::ios::end);
+		std::streamsize size = file.tellg();
+		file.seekg(0, std::ios::beg);
+
+		std::vector<char> buffer(size);
+		if (!file.read(buffer.data(), size)) {
+			LogError(LOG_RENDER, "Failed to read file: %s for content hash", filePath.string().c_str());
+			return 0;
+		}
+
+		return XXH64(buffer.data(), buffer.size(), 0);
 	}
 }
 

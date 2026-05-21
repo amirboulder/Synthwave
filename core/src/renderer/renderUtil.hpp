@@ -34,19 +34,22 @@ struct PerModelUniforms {
     glm::mat4 mvp;
 };
 
+
+
+
 struct TextureArray {
 
 	SDL_GPUTexture* textureArray = nullptr;
 	uint32_t usedLayers = 0;
 
-	void init(SDL_GPUDevice* device) {
+	void init(SDL_GPUDevice* device, uint32_t numLayers = 32) {
 
 		SDL_GPUTextureCreateInfo info{};
 		info.type = SDL_GPU_TEXTURETYPE_2D_ARRAY;
 		info.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
 		info.width = 1024;  // all layers MUST match
 		info.height = 1024;  // all layers MUST match
-		info.layer_count_or_depth = 512;  // max number of textures
+		info.layer_count_or_depth = numLayers;  // max number of textures
 		info.num_levels = 1;
 		info.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER;
 
@@ -325,5 +328,143 @@ public:
 
 		return true;
 
+	}
+
+
+	static bool saveSDLSurfaceToFile(fs::path filePath, TexHeader& header, SDL_Surface* imageData) {
+
+		if (!imageData) {
+			LogError(LOG_RENDER, "imageData for file %s is nullptr", filePath.c_str());
+			return false;
+		}
+
+		std::filesystem::create_directories(filePath.parent_path());
+
+		std::ofstream file(filePath, std::ios::binary);
+		if (!file.is_open()) {
+			LogError(LOG_RENDER, "Cannot open output file: %s", filePath.c_str());
+			return false;
+		}
+
+		file.write(reinterpret_cast<const char*>(&header), sizeof(TexHeader));
+		if (file.fail()) {
+			LogError(LOG_RENDER, "Failed writing header to file: %s", filePath.c_str());
+			return false;
+		}
+
+		if (SDL_MUSTLOCK(imageData)) SDL_LockSurface(imageData);
+
+		file.write(reinterpret_cast<const char*>(imageData->pixels), header.pixelDataSize);
+		if (file.fail()) {
+			if (SDL_MUSTLOCK(imageData)) SDL_UnlockSurface(imageData);
+			LogError(LOG_RENDER, "Failed writing pixel data to file: %s", filePath.c_str());
+			return false;
+		}
+
+		if (SDL_MUSTLOCK(imageData)) SDL_UnlockSurface(imageData);
+
+		return true;
+	}
+
+	static bool saveSTBImageToFile(fs::path destFilePath, TexHeader& header, stbi_uc* pixels) {
+
+		if (!pixels) {
+			LogError(LOG_RENDER, "pixels for file %s is nullptr", destFilePath.c_str());
+			return false;
+		}
+
+		std::filesystem::create_directories(destFilePath.parent_path());
+		std::ofstream file(destFilePath, std::ios::binary);
+		if (!file.is_open()) {
+			LogError(LOG_RENDER, "Cannot open output file: %s", destFilePath.c_str());
+			return false;
+		}
+
+		file.write(reinterpret_cast<const char*>(&header), sizeof(TexHeader));
+		if (file.fail()) {
+			LogError(LOG_RENDER, "Failed writing header to file: %s", destFilePath.c_str());
+			return false;
+		}
+
+		file.write(reinterpret_cast<const char*>(pixels), header.pixelDataSize);
+		if (file.fail()) {
+			LogError(LOG_RENDER, "Failed writing pixel data to file: %s", destFilePath.c_str());
+			return false;
+		}
+		return true;
+	}
+
+	static bool saveMaterialDataToFile(fs::path destFilePath, MaterialData & materialData) {
+
+		
+		std::filesystem::create_directories(destFilePath.parent_path());
+		std::ofstream file(destFilePath, std::ios::binary);
+		if (!file.is_open()) {
+			LogError(LOG_RENDER, "Cannot open output file: %s", destFilePath.c_str());
+			return false;
+		}
+
+		file.write(reinterpret_cast<const char*>(&materialData), sizeof(materialData)); 
+		if (file.fail()) {
+			LogError(LOG_RENDER, "Failed materialD ata to file: %s", destFilePath.c_str());
+			return false;
+		}
+
+		return true;
+	}
+
+	static bool saveMeshToFile(const fs::path& destFilePath, const Mesh& mesh ,const MeshHeader & header)
+	{
+		if (mesh.vertices.empty()) {
+			LogError(LOG_RENDER, "Mesh has no vertices for file %s", destFilePath.c_str());
+			return false;
+		}
+
+		std::filesystem::create_directories(destFilePath.parent_path());
+		std::ofstream file(destFilePath, std::ios::binary);
+		if (!file.is_open()) {
+			LogError(LOG_RENDER, "Cannot open output file: %s", destFilePath.c_str());
+			return false;
+		}
+
+
+
+		// --- Write header ---
+		file.write(reinterpret_cast<const char*>(&header), sizeof(MeshHeader));
+		if (file.fail()) {
+			LogError(LOG_RENDER, "Failed writing mesh header to: %s", destFilePath.c_str());
+			return false;
+		}
+
+		// --- Write submesh descriptors (only valid ones) ---
+		for (int i = 0; i < mesh.subMeshCount; i++) {
+
+			const SubMesh& sub = mesh.subMeshes[i];
+			file.write(reinterpret_cast<const char*>(&sub), sizeof(SubMesh));
+			if (file.fail()) {
+				LogError(LOG_RENDER, "Failed writing submesh data to: %s", destFilePath.c_str());
+				return false;
+			}
+		}
+
+		// --- Write vertex buffer ---
+		const size_t vertexDataSize = mesh.vertices.size() * sizeof(Vertex);
+		file.write(reinterpret_cast<const char*>(mesh.vertices.data()), vertexDataSize);
+		if (file.fail()) {
+			LogError(LOG_RENDER, "Failed writing vertex data to: %s", destFilePath.c_str());
+			return false;
+		}
+
+		// --- Write index buffer ---
+		if (!mesh.indices.empty()) {
+			const size_t indexDataSize = mesh.indices.size() * sizeof(uint32_t);
+			file.write(reinterpret_cast<const char*>(mesh.indices.data()), indexDataSize);
+			if (file.fail()) {
+				LogError(LOG_RENDER, "Failed writing index data to: %s", destFilePath.c_str());
+				return false;
+			}
+		}
+
+		return true;
 	}
 };
