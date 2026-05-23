@@ -1,7 +1,9 @@
 ﻿#pragma once
 
 class GeometryPool {
+
 public:
+
     SDL_GPUBuffer* megaVertexBuffer = nullptr;
     SDL_GPUBuffer* megaIndexBuffer = nullptr;
     uint32_t vertexHead = 0;
@@ -10,44 +12,72 @@ public:
     uint32_t maxIndices = 1 << 22;
     uint32_t size = 0;
 
-    void init(flecs::world & ecs) {
-
-        const RenderContext& renderContext = ecs.get<RenderContext>();
+    void init(SDL_GPUDevice* device) {
 
         SDL_GPUBufferCreateInfo vbInfo = {};
         vbInfo.usage = SDL_GPU_BUFFERUSAGE_VERTEX;
         vbInfo.size = maxVertices * sizeof(Vertex);
-        megaVertexBuffer = SDL_CreateGPUBuffer(renderContext.device, &vbInfo);
+        megaVertexBuffer = SDL_CreateGPUBuffer(device, &vbInfo);
 
         SDL_GPUBufferCreateInfo ibInfo = {};
         ibInfo.usage = SDL_GPU_BUFFERUSAGE_INDEX;
         ibInfo.size = maxIndices * sizeof(uint32_t);
-        megaIndexBuffer = SDL_CreateGPUBuffer(renderContext.device, &ibInfo);
+        megaIndexBuffer = SDL_CreateGPUBuffer(device, &ibInfo);
     }
 
     bool isEmpty() const { return size == 0; }
 
-    void upload(SDL_GPUDevice* device, Mesh& mesh) {
+
+    //Appends mesh data to buffer and sets the correct offsets for MeshComponent
+    bool addMeshCompToBuffer(SDL_GPUDevice* device, const Mesh& mesh, MeshComponent & meshComp) {
         size_t vSize = mesh.vertices.size() * sizeof(Vertex);
         size_t iSize = mesh.indices.size() * sizeof(uint32_t);
 
-        assert(megaVertexBuffer && megaIndexBuffer && "GeometryPool not initialized");
-        assert(vertexHead + mesh.vertices.size() <= maxVertices);
-        assert(indexHead + mesh.indices.size() <= maxIndices);
+        if (!megaVertexBuffer || !megaIndexBuffer) {
 
-        mesh.vertexOffset = vertexHead;
-        mesh.firstIndex = indexHead;
-        mesh.vertexCount = (uint32_t)mesh.vertices.size();
-        mesh.indexCount = (uint32_t)mesh.indices.size();
+            LogError(LOG_APP, "GeometryPool not initialized !");
+            return false;
+        }
 
+        if (vertexHead + mesh.vertices.size() >= maxVertices) {
+
+            LogError(LOG_APP, "GeometryPool has reached its max vertex size");
+            return false;
+        }
+
+        if (indexHead + mesh.indices.size() >= maxIndices) {
+
+            LogError(LOG_APP, "GeometryPool has reached its max index size");
+            return false;
+        }
+
+        uint32_t vertexOffset = vertexHead;
+        uint32_t indexOffset = indexHead;
+
+        meshComp.index = size; // Not sure about this
+       
+        for (size_t i = 0; i < mesh.subMeshCount; i++) {
+
+            const SubMesh& srcSubMesh = mesh.subMeshes[i];
+
+            SubMesh& destSubMesh = meshComp.subMeshes[i];
+
+            destSubMesh.baseVertex = vertexHead;
+            destSubMesh.firstIndex = indexHead;
+          
+            vertexHead += srcSubMesh.vertexCount;
+            indexHead += srcSubMesh.indexCount;
+        }
+
+       
         appendToBuffer(device, megaVertexBuffer, mesh.vertices.data(), vSize,
-            vertexHead * sizeof(Vertex));
+            vertexOffset * sizeof(Vertex));
         appendToBuffer(device, megaIndexBuffer, mesh.indices.data(), iSize,
-            indexHead * sizeof(uint32_t));
+            indexOffset * sizeof(uint32_t));
 
-        vertexHead += mesh.vertexCount;
-        indexHead += mesh.indexCount;
         size++;
+
+        return true;
     }
 
     void release(SDL_GPUDevice* device) {

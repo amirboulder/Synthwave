@@ -17,7 +17,8 @@ import ShaderCompiler;
 
 #include "core/src/MenuSystem/MenuSystem.hpp"
 
-#include "core/src/AssetLibrary/AssetLibrary.hpp"
+#include "core/src/AssetSystems/AssetLibrary.hpp"
+#include "core/src/AssetSystems/AssetManager.hpp"
 
 #include "Editor/src/editor.hpp"
 

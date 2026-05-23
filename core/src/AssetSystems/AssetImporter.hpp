@@ -19,7 +19,12 @@ namespace AssetImporter {
 		std::unordered_map<uint32_t, uint64_t> localToMaterialId;
 		std::unordered_map<uint32_t, uint64_t> localToTextureId;
 
-		const std::string filePathStr = filePath.string().c_str();
+		const std::string filePathStr = filePath.generic_string().c_str();
+
+		// Ensure the directory exists before trying to write files
+		if (destFolder.has_parent_path()) {
+			fs::create_directories(destFolder.parent_path());
+		}
 
 		// Create the parser
 		fastgltf::Parser parser;
@@ -45,7 +50,7 @@ namespace AssetImporter {
 
 		fastgltf::Asset& gltf = asset.get();
 
-		LogDebug(LOG_RENDER, "Info for 3D Asset file %s", filePath.string().c_str());
+		LogDebug(LOG_RENDER, "Info for 3D Asset file %s", filePath.generic_string().c_str());
 		LogDebug(LOG_RENDER, "Number of meshes : %d", gltf.meshes.size());
 		LogDebug(LOG_RENDER, "Number of Materials : %d", gltf.materials.size());
 		LogDebug(LOG_RENDER, "Number of Textures : %d", gltf.textures.size());
@@ -94,19 +99,19 @@ namespace AssetImporter {
 
 			TexHeader header = {
 
-					.corruptionCheck = 0x54455831, // 'TEX1' corruptionCheck,
+					.magic = 0x54455820, // 'TEX' for corruptionCheck,
 					.width = width,
 					.height = height,
 					.pitch = width * channels,
 					.format = SDL_PIXELFORMAT_ABGR8888,
-					.pixelDataSize = width * channels * height,
+					.pixelDataSize = static_cast<uint32_t> (width * channels * height),
 					.AssetID = assetID,
 			};
 
 			fs::path textureDest = destFolder / std::format("{:016x}.tex", assetID);
 
 			//save image to file
-			if (!RenderUtil::saveSTBImageToFile(textureDest, header, pixels)) {
+			if (!RenderUtil::saveTexToFile(textureDest, header, pixels)) {
 				//saveSTBImageToFile aleady logs
 				stbi_image_free(pixels);
 				continue;
@@ -125,7 +130,7 @@ namespace AssetImporter {
 
 			AssetMetadata assetMetaData;
 			assetMetaData.contentHash = contentHash;
-			assetMetaData.cookedPath = textureDest.string();
+			assetMetaData.cookedPath = textureDest.generic_string();
 			assetMetaData.id = assetID;
 			assetMetaData.importedAt = util::Now();
 			assetMetaData.type = AssetType::Texture2D;
@@ -182,7 +187,7 @@ namespace AssetImporter {
 
 			AssetMetadata assetMetaData;
 			assetMetaData.contentHash = contentHash;
-			assetMetaData.cookedPath = materialDest.string();
+			assetMetaData.cookedPath = materialDest.generic_string();
 			assetMetaData.id = assetID;
 			assetMetaData.importedAt = util::Now();
 			assetMetaData.type = AssetType::Material;
@@ -263,7 +268,7 @@ namespace AssetImporter {
 							fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(gltf, accessor,
 								[&](fastgltf::math::fvec3 pos, size_t i) {
 								Vertex& v = currentMesh.vertices[sub.baseVertex + i];
-								v.position = glm::vec3(pos.x(), -pos.y(), pos.z());
+								v.position = glm::vec3(pos.x(), pos.y(), pos.z());
 								v.normal = { 0, 1, 0 };
 								v.texCoord = { 0, 0 };
 							});
@@ -276,7 +281,7 @@ namespace AssetImporter {
 								fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(gltf, accessor,
 									[&](fastgltf::math::fvec3 normal, size_t i) {
 									currentMesh.vertices[sub.baseVertex + i].normal =
-										glm::vec3(normal.x(), -normal.y(), normal.z());
+										glm::vec3(normal.x(), normal.y(), normal.z());
 								});
 							}
 						}
@@ -297,7 +302,7 @@ namespace AssetImporter {
 
 					//process the meshes transform
 					//we only care about a nodes transform if it has a mesh
-					//Do we always care about the transfrom ???
+					//Do we always care about the transform ???
 					auto transformVarient = node.transform;
 					if (std::holds_alternative<fastgltf::TRS>(transformVarient)) {
 
@@ -321,6 +326,9 @@ namespace AssetImporter {
 						cout << "TODO handle mat4 case " << '\n';
 					}
 
+					//calculate Mesh size
+					currentMesh.size = Mesh::calculateMeshSize(currentMesh.vertices);
+
 					//todo make sure name is not null
 					uint64_t assetID = util::generateAssetID(filePathStr + mesh.name.c_str());
 
@@ -330,6 +338,7 @@ namespace AssetImporter {
 					header.indexCount = (uint32_t)currentMesh.indices.size();
 					header.subMeshCount = currentMesh.subMeshCount;
 					header.AssetID = assetID;
+					header.size = currentMesh.size;
 
 					fs::path meshDest = destFolder / std::format("{:016x}.mesh", assetID);
 
@@ -344,7 +353,7 @@ namespace AssetImporter {
 
 					AssetMetadata assetMetaData;
 					assetMetaData.contentHash = contentHash;
-					assetMetaData.cookedPath = meshDest.string();
+					assetMetaData.cookedPath = meshDest.generic_string();
 					assetMetaData.id = assetID;
 					assetMetaData.importedAt = util::Now();
 					assetMetaData.type = AssetType::Mesh;
@@ -368,7 +377,7 @@ namespace AssetImporter {
 	//TODO
 	static bool reImportGLTF(const fs::path& filePath, const fs::path& destFolder, Manifest& manifest)
 	{
-
+		return true;
 	}
 
 }

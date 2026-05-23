@@ -1,7 +1,8 @@
 #pragma once
 
-#include "../../core/src/AssetLibrary/AssetLibrary.hpp"
+#include "../../core/src/AssetSystems/AssetLibrary.hpp"
 
+//Maybe Use this everywhere
 using entUpdateFn = std::function<void(flecs::world&, flecs::entity)>;
 
 
@@ -20,24 +21,20 @@ private:
 
 public:
 
-	static bool createCubeEntity(flecs::world& ecs, const flecs::entity parent, const std::string name,
-		const std::string ModelSrcName, const Transform transform, const std::string pipelineName) {
+	static bool createCubeEntity(flecs::world& ecs, const flecs::entity parent, const std::string name, 
+		const Transform transform, uint64_t meshID) {
 
 		if (!validateName(ecs, parent, name)) return false;
 		if (!validateTransform(transform, name.c_str())) return false;
-		if (!validatePipelineExistence(ecs, pipelineName)) return false;
 
-		//Get the modelSource from Asset Library
-		AssetLibrary * assetLib = ecs.get<AssetLibRef>().assetLib;
-		const Model* modelSource = assetLib->getModel(ModelSrcName);
-		if (!validateModelSource(modelSource, ModelSrcName)) return false;
+		//Get MeshComponent from AssetManager
+		AssetManager* assetManger = ecs.get<AssetManagerRef>().assetManager;
+		
+		MeshComponent meshComp = assetManger->requestMeshComponent(meshID);
 
-		float meshX, meshY, meshZ;
+		glm::vec3 scaledSize = meshComp.size * transform.scale;
 
-		// Assuming modelSource has only 1 mesh
-		Mesh::calculateMeshSize(modelSource->meshes[0], meshX, meshY, meshZ);
-
-		Vec3 boxHalfExtents(meshX * 0.5, meshY * 0.5, meshZ * 0.5);
+		Vec3 boxHalfExtents(scaledSize.x * 0.5, scaledSize.y * 0.5, scaledSize.z * 0.5);
 
 		// Ref<> manages reference counting - no manual cleanup needed
 		Ref<Shape> boxShape = new BoxShape(boxHalfExtents);
@@ -76,9 +73,7 @@ public:
 			.set<EntityTypeComponent>({ EntityType::Cube })
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
-			.set<ModelSourceName>({ ModelSrcName.c_str() })
-			.set<MeshComponent>({ assetLib->requestMeshComponent(ModelSrcName.c_str()) })
-			.add<RenderPipeline>(ecs.lookup(pipelineName.c_str()))
+			.set<MeshComponent>({ std::move(meshComp)})
 			.add<Renderable>()
 			.set<JPH::BodyID>(physicsID)
 			.child_of(parent)
@@ -94,31 +89,28 @@ public:
 
 	}
 
+	//TODO We need to rethink how to create entities with multiple meshes
+	// Perhaps a prefab with each child ent holding one mesh
 	static bool createCarEntity(flecs::world& ecs, const flecs::entity parent, const std::string name,
-		const std::string ModelSrcName, const Transform transform, const std::string pipelineName) {
+		const Transform transform) {
 
 		if (!validateName(ecs, parent, name)) return false;
 		if (!validateTransform(transform, name.c_str())) return false;
-		if (!validatePipelineExistence(ecs, pipelineName)) return false;
 
 		//Get the modelSource from Asset Library
-		AssetLibrary* assetLib = ecs.get<AssetLibRef>().assetLib;
-		const Model* modelSource = assetLib->getModel(ModelSrcName);
-		if (!validateModelSource(modelSource, ModelSrcName)) return false;
+		AssetManager* assetManger = ecs.get<AssetManagerRef>().assetManager;
+	
 
 		JPH::BodyInterface& bodyInterface = ecs.get<PhysicsSystemRef>().physicsSystem.GetBodyInterface();
 
-		MeshComponent meshComp = assetLib->requestMeshComponent(ModelSrcName.c_str());
+		MeshComponent meshComp = assetManger->requestMeshComponent(0212121212);
 
 		flecs::entity entity = ecs.entity(name.c_str())
 			.set<EntityTypeComponent>({ EntityType::Car })
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
-			.set<ModelSourceName>({ ModelSrcName.c_str() })
 			.set<MeshComponent>({ std::move(meshComp) })
 			.add<Renderable>()
-			//.set<PhysicsBody>(std::move(physicsBodyIDs))
-			.add<RenderPipeline>(ecs.lookup(pipelineName.c_str()))
 			.child_of(parent)
 			;
 
@@ -127,12 +119,10 @@ public:
 
 		StaticCompoundShapeSettings settings;
 
+		/*
 		for (const Mesh& mesh : modelSource->meshes) {
 
-			float meshX, meshY, meshZ;
-
-			// Assuming modelSource has only 1 mesh
-			Mesh::calculateMeshSize(mesh, meshX, meshY, meshZ);
+			Mesh::calculateMeshSize(mesh.vertices);
 
 			Vec3 boxHalfExtents(meshX * 0.5, meshY * 0.5, meshZ * 0.5);
 			
@@ -148,6 +138,8 @@ public:
 			settings.AddShape(joltPos, joltRot, boxShapeSettings, (uint32_t)entity.id());
 
 		}
+		*/
+
 
 		Result<Ref<Shape>> shapeResult = settings.Create();
 
@@ -174,11 +166,10 @@ public:
 	}
 
 	static bool createHumanRagdollEntity(flecs::world& ecs, const flecs::entity parent, const std::string name,
-		const std::string ModelSrcName, const Transform transform, entUpdateFn updateFunction, const std::string pipelineName) {
+	const Transform transform, entUpdateFn updateFunction) {
 
 		if (!validateName(ecs, parent, name)) return false;
 		if (!validateTransform(transform, name.c_str())) return false;
-		if (!validatePipelineExistence(ecs, pipelineName)) return false;
 
 		////Get the modelSource from Asset Library
 		//AssetLibRef ref = ecs.get<AssetLibRef>();
@@ -200,7 +191,6 @@ public:
 			.set<Transform>(transform)
 			//.set<ModelInstance>(modelSource->createInstance())
 			.set<AnimationTime>({})
-			.add<RenderPipeline>(ecs.lookup(pipelineName.c_str()))
 			//.emplace<ActorBehavior>(updateFunction)
 			.child_of(parent);
 
@@ -302,11 +292,10 @@ public:
 
 
 	static bool createRagdollEntity(flecs::world& ecs, const flecs::entity parent, const std::string name,
-		const std::string ModelSrcName, const Transform transform, const std::string ragdollFilename, entUpdateFn updateFunction, const std::string pipelineName) {
+		 const Transform transform, const std::string ragdollFilename, entUpdateFn updateFunction) {
 
 		if (!validateName(ecs, parent, name)) return false;
 		if (!validateTransform(transform, name.c_str())) return false;
-		if (!validatePipelineExistence(ecs, pipelineName)) return false;
 
 		JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
 
@@ -351,7 +340,6 @@ public:
 			.set<Transform>(transform)
 			//.set<ModelInstance>(modelSource->createInstance())
 			.set<AnimationTime>({})
-			.add<RenderPipeline>(ecs.lookup(pipelineName.c_str()))
 			//emplace<ActorBehavior>(updateFunction)
 			.child_of(parent);
 
@@ -543,27 +531,21 @@ public:
 
 
 	//Creates a capsule shaped entity
-	static bool createCapsuleEntity(flecs::world& ecs,const flecs::entity parent ,const std::string name,const std::string ModelSrcName, const Transform transform, const std::string pipelineName) {
+	static bool createCapsuleEntity(flecs::world& ecs,const flecs::entity parent,
+		std::string_view name, const Transform transform, uint64_t meshID) {
 
-		if (!validateName(ecs,parent,name)) return false;
-		if (!validateTransform(transform, name.c_str())) return false;
-		if(!validatePipelineExistence(ecs,pipelineName)) return false;
+		if (!validateName(ecs,parent,name.data())) return false;
+		if (!validateTransform(transform, name.data())) return false;
 
-		//Get the modelSource from Asset Library
-		AssetLibrary* assetLib = ecs.get<AssetLibRef>().assetLib;
-		const Model* modelSource = assetLib->getModel(ModelSrcName);
-		if (!validateModelSource(modelSource, ModelSrcName)) return false;
+		//Get MeshComponent from AssetManager
+		AssetManager* assetManger = ecs.get<AssetManagerRef>().assetManager;
 
-		float meshX;
-		float meshY;
-		float meshZ;
-
-		// Assuming modelSource has only 1 mesh
-		Mesh::calculateMeshSize(modelSource->meshes[0], meshX, meshY, meshZ);
+		MeshComponent meshComp = assetManger->requestMeshComponent(meshID);
+		glm::vec3 scaledSize = meshComp.size * transform.scale;
 
 		// Compute capsule dimensions
-		float modelRadius = meshX / 2.0f; // Unscaled model radius
-		float modelHeight = meshY; // Unscaled model total height
+		float modelRadius = scaledSize.x / 2.0f; // Unscaled model radius
+		float modelHeight = scaledSize.y; // Unscaled model total height
 		float physicsRadius = modelRadius * transform.scale.x; // Scale radius (x-axis)
 		float physicsHalfHeight = (modelHeight / 2.0f - modelRadius) * transform.scale.y; // Scale height (y-axis)
 
@@ -597,41 +579,39 @@ public:
 		// Create and add body
 		const BodyID physicsID = bodyInterface.CreateAndAddBody(pillSettings, JPH::EActivation::Activate);
 
-		if (!validatePhysicsBodyCreation(physicsID, name)) return false;
+		if (!validatePhysicsBodyCreation(physicsID, name.data())) return false;
 
-
-			flecs::entity entity = ecs.entity(name.c_str())
+			flecs::entity entity = ecs.entity(name.data())
 			.set<EntityTypeComponent>({ EntityType::Capsule })
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
-			.set<ModelSourceName>({ ModelSrcName.c_str() })
-			.set<MeshComponent>({ assetLib->requestMeshComponent(ModelSrcName.c_str()) })
+			.set<MeshComponent>({ std::move(meshComp) })
 			.add<Renderable>()
 			.set<JPH::BodyID>(physicsID)
-			.add<RenderPipeline>(ecs.lookup(pipelineName.c_str()))
 			.child_of(parent)
 			;
 
 		// Store the entity ID in the physics body which gives us a two way mapping between entity and bodyId
 		bodyInterface.SetUserData(physicsID, entity.id());
 
-		if (!validateEntityCreation(entity, name))  return false;
+		if (!validateEntityCreation(entity, name.data()))  return false;
 
 		return true;
 	}
 
 	
-	static bool createActorEntity(flecs::world& ecs, flecs::entity parent, const std::string name, const std::string ModelSrcName, Transform transform, JPH::CharacterSettings settings,
-		std::function<void(flecs::world& ecs, flecs::entity self)> actorUpdate, const std::string pipelineName) {
+	static bool createActorEntity(flecs::world& ecs, flecs::entity parent, const std::string name,
+		Transform transform, JPH::CharacterSettings settings,
+		entUpdateFn actorUpdate, uint64_t meshID) {
 
 		if (!validateName(ecs, parent, name)) return false;
 		if (!validateTransform(transform, name.c_str())) return false;
-		if (!validatePipelineExistence(ecs, pipelineName)) return false;
 
-		//Get the modelSource from Asset Library
-		AssetLibrary* assetLib = ecs.get<AssetLibRef>().assetLib;
-		const Model* modelSource = assetLib->getModel(ModelSrcName);
-		if (!validateModelSource(modelSource, ModelSrcName));
+		//Get MeshComponent from AssetManager
+		AssetManager* assetManger = ecs.get<AssetManagerRef>().assetManager;
+
+		MeshComponent meshComp = assetManger->requestMeshComponent(meshID);
+		glm::vec3 scaledSize = meshComp.size * transform.scale;
 
 		// Convert GLM to Jolt types
 		JPH::Vec3 joltPosition(transform.position.x, transform.position.y, transform.position.z);
@@ -652,35 +632,19 @@ public:
 			return false;
 		}
 
-		MeshAsset asset = assetLib->meshRegistry[assetLib->requestMeshComponent(ModelSrcName.c_str()).MeshAssetIndices[0]] ;
 
 		flecs::entity actorEnt = ecs.entity(name.c_str())
 			.set<EntityTypeComponent>({ EntityType::Actor})
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
-			.set<ModelSourceName>({ ModelSrcName.c_str() })
-			.set<MeshComponent>({ assetLib->requestMeshComponent(ModelSrcName.c_str()) })
-			.set<MeshAsset, BaseMesh>({ std::move(asset) })
+			.set<MeshComponent>({ std::move(meshComp) })
 			.add<Renderable>()
 			.set<JoltCharacter>({ joltCharacter })
 			.set<JPH::BodyID>(joltCharacter->GetBodyID())
 			.emplace<ActorBehavior>(actorUpdate)
-			.add<RenderPipeline>(ecs.lookup(pipelineName.c_str()))
 			.child_of(parent);
 
-
-		//The new query example
-		/*ecs.query_builder()
-			.with<MeshComponent>(flecs::Wildcard)
-			.build()
-			.each([](flecs::iter& it, size_t i) {
-			
-			flecs::entity e = it.entity(i);
-			cout << e.type().str() << std::endl;
-			cout << e.name().c_str() << std::endl;
-			cout << " " << std::endl;
-		});*/
-			
+	
 		if (!validateEntityCreation(actorEnt, name)) {
 			delete joltCharacter;
 			return false;
@@ -693,28 +657,22 @@ public:
 	}
 
 	// A Renderable is just a model and a transform no physics body
-	//TODO Update
-	static bool createRenderableEntity(flecs::world& ecs, flecs::entity parent, std::string name, const std::string ModelSrcName, Transform transform, const char* pipelineName = NULL) {
+	static bool createRenderableEntity(flecs::world& ecs, flecs::entity parent,
+		std::string name, Transform transform, const uint64_t& meshID) {
 
 		if (!EntityFactory::validateName(ecs, parent, name)) return false;
 		if (!EntityFactory::validateTransform(transform, name.c_str())) return false;
 
-		//Get the modelSource from Asset Library
-		AssetLibrary* assetLib = ecs.get<AssetLibRef>().assetLib;
-		const Model* modelSource = assetLib->getModel(ModelSrcName);
-		if (!validateModelSource(modelSource, ModelSrcName));
+		//Get MeshComponent from AssetManager
+		AssetManager* assetManger = ecs.get<AssetManagerRef>().assetManager;
+
+		MeshComponent meshComp = assetManger->requestMeshComponent(meshID);
 
 		const flecs::entity entity = ecs.entity(name.c_str())
 			.set<Transform>(transform)
-			.set<ModelSourceName>({ ModelSrcName.c_str() })
-			.set<MeshComponent>({ assetLib->requestMeshComponent(ModelSrcName.c_str()) })
+			.set<MeshComponent>({ std::move(meshComp)})
 			.add<Renderable>()
 			;
-
-		if (pipelineName) {
-			entity.add<RenderPipeline>(ecs.lookup(pipelineName));
-
-		}
 
 		if (!validateEntityCreation(entity, name)) return false;
 
@@ -779,36 +737,36 @@ public:
 
 	}
 
-	static bool createStaticMeshEntity(flecs::world& ecs, const flecs::entity parent, const std::string name, const std::string ModelSrcName, Transform transform, const std::string pipelineName) {
+	static bool createStaticMeshEntity(flecs::world& ecs, const flecs::entity parent, 
+		const std::string name, Transform transform, uint64_t meshID) {
 
 		if (!validateName(ecs, parent, name)) return false;
 		if (!validateTransform(transform, name.c_str())) return false;
-		if (!validatePipelineExistence(ecs, pipelineName)) return false;
-
+	
 		float scaleFactor = 1.0f;
 
-		//Get the modelSource from Asset Library
-		AssetLibrary* assetLib = ecs.get<AssetLibRef>().assetLib;
-		const Model* modelSource = assetLib->getModel(ModelSrcName);
-		if (!validateModelSource(modelSource, ModelSrcName));
+		//Get MeshComponent from AssetManager
+		AssetManager* assetManger = ecs.get<AssetManagerRef>().assetManager;
 
+
+		MeshComponent meshComp = assetManger->requestMeshComponent(meshID);
+		Mesh meshSrc = assetManger->requestMesh(meshID);
+
+		//Create physics body from mesh data
 		// Scale vertices
-		//ASSUMING the model only has one mesh
 		VertexList scaledVertexList;
-		for (const Vertex& vertexData : modelSource->meshes[0].vertices) {
+		for (const Vertex& vertexData : meshSrc.vertices) {
 			glm::vec3 scaledVertex = vertexData.position * scaleFactor; // Apply scale
 			scaledVertexList.push_back(Float3(scaledVertex.x, scaledVertex.y, scaledVertex.z));
 		}
 
-
 		// Create triangle list
-		//ASSUMING the model only has one mesh
 		IndexedTriangleList triangleList;
-		for (size_t i = 0; i < modelSource->meshes[0].indices.size(); i += 3) {
+		for (size_t i = 0; i < meshSrc.indices.size(); i += 3) {
 			triangleList.push_back(IndexedTriangle(
-				modelSource->meshes[0].indices[i],
-				modelSource->meshes[0].indices[i + 1],
-				modelSource->meshes[0].indices[i + 2]
+				meshSrc.indices[i],
+				meshSrc.indices[i + 1],
+				meshSrc.indices[i + 2]
 			));
 		}
 
@@ -849,11 +807,11 @@ public:
 			.set<EntityTypeComponent>({ EntityType::StaticMesh })
 			.add<StaticEnt>()
 			.set<Transform>(transform)
-			.set<ModelSourceName>({ ModelSrcName.c_str() })
-			.set<MeshComponent>({ assetLib->requestMeshComponent(ModelSrcName.c_str()) })
+			.set<MeshComponent>({ std::move(meshComp)})
 			.add<Renderable>()
 			.set<JPH::BodyID>(physicsID)
-			.add<RenderPipeline>( ecs.lookup(pipelineName.c_str()))
+			//for secondary pipelines create a tag which will be used in the query for that renderQuery
+			//.add<RenderPipeline>( ecs.lookup(pipelineName.c_str())) 
 			.child_of(parent);
 
 
@@ -866,21 +824,33 @@ public:
 	}
 
 	
-	static bool createGridEntity(flecs::world& ecs, const flecs::entity parent, const std::string name, Transform transform, const std::string pipelineName, uint32_t size) {
+	static bool createGridEntity(flecs::world& ecs, const flecs::entity parent, const std::string name, Transform transform, uint32_t size) {
 
 		if (!validateName(ecs, parent, name)) return false;
 		if (!validateTransform(transform, name.c_str())) return false;
-		if (!validatePipelineExistence(ecs, pipelineName)) return false;
 
 
 		//Get the modelSource from Asset Library
-		AssetLibrary* assetLib = ecs.get<AssetLibRef>().assetLib;
+		AssetManager* assetManger = ecs.get<AssetManagerRef>().assetManager;
 
-		//Grid is generated so generate then get the model
-		std::string modelName = assetLib->generateGridModel(size);
+		std::string assetName = std::format("Grid{}", size);
 
-		//const ModelSource* modelSource = assetLib->getModel(modelName);
-		//if (!validateModelSource(modelSource, modelName));
+		MeshComponent meshComp;
+
+		uint64_t id =  util::generateAssetID(assetName);
+
+		//If a grid chunk of this size has been generated before then use it,
+		//If not then generate and send it to asetManager
+		if (assetManger->isMeshCompLoaded(id)) {
+
+			meshComp = assetManger->requestMeshComponent(id);
+		}
+		else {
+
+			Mesh gridMesh = createGridMesh(size);
+			assetManger->fillMeshComp(gridMesh, meshComp, id);
+		}
+
 
 		// any thickness less than 0.01 will break jolt!
 		float boxThickness = 1;
@@ -890,7 +860,7 @@ public:
 
 		// - 0.5 is needed to visually align the grid render with the physics body #MAGICNUMBER
 		//TODO find out why the grid render slightly below its physics body by default
-		Vec3 joltPosition(transform.position.x, transform.position.y - boxThickness - 0.5, transform.position.z);
+		Vec3 joltPosition(transform.position.x, transform.position.y - boxThickness * 0.5, transform.position.z);
 		Quat joltRotation(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
 		if (!joltRotation.IsNormalized()) {
 			joltRotation = joltRotation.Normalized();
@@ -917,16 +887,13 @@ public:
 
 		if (!validatePhysicsBodyCreation(physicsID, name)) return false;
 
-
 		const flecs::entity entity = ecs.entity(name.c_str())
 			.set<EntityTypeComponent>({ EntityType::Grid })
 			.add<StaticEnt>()
 			.set<Transform>(transform)
-			.set<ModelSourceName>({ modelName.c_str() })
-			.set<MeshComponent>({ assetLib->requestMeshComponent(modelName.c_str()) })
+			.set<MeshComponent>({ std::move(meshComp) })
 			.add<Renderable>()
 			.set<JPH::BodyID>(physicsID)
-			.add<RenderPipeline>(ecs.lookup(pipelineName.c_str()))
 			.child_of(parent);
 
 		// Store the entity ID in the physics body which gives us a two way mapping between entity and bodyId
@@ -1012,24 +979,14 @@ public:
 		return entity;
 	}
 
-	static const Model* getModelSource(flecs::world& ecs, std::string ModelSrcName) {
 
-		//Get the modelSource from Asset Library
-		AssetLibrary* assetLib = ecs.get<AssetLibRef>().assetLib;
-		const Model* modelSource = assetLib->getModel(ModelSrcName);
-		if (!validateModelSource(modelSource, ModelSrcName)) return nullptr;
-
-		return modelSource;
-	}
-
-
-	static bool validateName(flecs::world& ecs, flecs::entity parent, std::string name) {
+	static bool validateName(flecs::world& ecs, flecs::entity parent, std::string_view name) {
 		if (name.empty()) {
 			LogError(LOG_APP, "Entity name cannot be empty, unable to create child entity for %s", parent.name());
 			return false;
 		}
 		if (name.length() > 256) {
-			LogError(LOG_APP, "Error Entity name '%s' exceeds 256 characters", name.c_str());
+			LogError(LOG_APP, "Error Entity name '%s' exceeds 256 characters", name.data());
 			return false;
 		}
 
@@ -1038,12 +995,12 @@ public:
 
 		if (parent.is_valid()) {
 			// Look up the entity within the parent's scope
-			existing = parent.lookup(name.c_str());
+			existing = parent.lookup(name.data());
 		}
 		
 		if (existing.is_valid()) {
 			LogError(LOG_ECS, "EntityFactory Error: Entity with name '%s' already exists under parent '%s'",
-				name.c_str(),
+				name.data(),
 				parent.name().c_str());
 			return false;
 		}
@@ -1127,26 +1084,6 @@ public:
 			return false;
 		}
 		return true;
-	}
-
-	static bool validateModelSrcExistence(Model* model,const std::string modelName) {
-
-		if (!model) {
-			LogError(LOG_ECS, "EntityFactory Error ModelSource does not exist! : %s", modelName.c_str());
-			return false;
-		}
-		return true;
-
-	}
-
-	static bool validateModelSource(const Model * src, const std::string modelName) {
-
-		if (!src) {
-			LogError(LOG_ECS, "EntityFactory ModelSource %s does not exist", modelName.c_str());
-			return false;
-		}
-		return true;
-
 	}
 
 	static bool validateRagdollExistence(const std::string key, const std::map<std::string, std::string>& ragdolls) {

@@ -9,6 +9,7 @@
 #include <fstream>
 #include <filesystem>
 #include <queue>
+#include <chrono>
 
 using std::vector;
 using std::cout;
@@ -24,7 +25,7 @@ namespace fs = std::filesystem;
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_gpu.h>
 #include <SDL3_image/SDL_image.h>
-#include <SDL3_ttf/SDL_ttf.h>
+//#include <SDL3_ttf/SDL_ttf.h>
 
 #include "SDL3/SDL_keyboard.h"
 #include "SDL3/SDL_mouse.h"
@@ -77,7 +78,7 @@ namespace fs = std::filesystem;
 #include "fastgltf/tools.hpp"
 
 //stb_image
-#define STB_IMAGE_IMPLEMENTATION
+//#define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
 

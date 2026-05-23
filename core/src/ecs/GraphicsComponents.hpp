@@ -16,26 +16,14 @@ struct EntIdVertex {
 	glm::uint32 entID;
 };
 
-//TODO maybe stop using his as a component use it only for serialization
+
 struct Transform {
-	glm::vec3 position = glm::vec3(1);
+	glm::vec3 position = glm::vec3(0);
 	glm::quat rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
 	glm::vec3 scale = glm::vec3(1);
 };
 
-struct MeshComponent {
 
-	Transform transform; //local transform relative to entity's position
-
-	uint32_t vertexOffset = UINT32_MAX;
-	uint32_t firstIndex = UINT32_MAX;
-	uint32_t indexCount = 0;
-	uint32_t vertexCount = 0;
-
-	uint32_t index = 0; // relative to the geometry buffer
-
-	uint32_t materialID = 0;
-};
 
 
 struct LineVertices {

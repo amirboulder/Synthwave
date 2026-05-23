@@ -296,7 +296,7 @@ public:
 		parentName = item["parent"].GetString();
 		flecs::entity parentEnt = ecs.lookup(parentName.c_str(), ".");
 
-		if (!EntityFactory::createCapsuleEntity(ecs, parentEnt, name, "capsule4", transform, "pipelineUnlit")) {
+		if (!EntityFactory::createCapsuleEntity(ecs, parentEnt, name, transform, 5895531305822256830)) {
 			return false;
 		}
 
@@ -332,7 +332,7 @@ public:
 		settings.mLayer = Layers::MOVING;
 		settings.mGravityFactor = 1;
 
-		if (!EntityFactory::createActorEntity(ecs, parentEnt, name, "enemy1", transform, settings, actor1Update,"pipelinePhong")) {
+		if (!EntityFactory::createActorEntity(ecs, parentEnt, name, transform, settings, actor1Update, 15780229385423134329)) {
 			return false;
 		}
 
@@ -389,7 +389,7 @@ public:
 		transform = optTransform.value();
 
 		flecs::entity parentEnt = ecs.lookup(parentName.c_str(), ".");
-		if (!EntityFactory::createGridEntity(ecs, parentEnt, name, transform, "pipelineGrid-Wireframe", 256)) {
+		if (!EntityFactory::createGridEntity(ecs, parentEnt, name, transform, 256)) {
 			return false;
 		}
 
@@ -420,7 +420,7 @@ public:
 		transform = optTransform.value();
 
 		flecs::entity parentEnt = ecs.lookup(parentName.c_str(), ".");
-		if (!EntityFactory::createStaticMeshEntity(ecs, parentEnt, name, modelSrcName, transform, "pipelineSolid-Wireframe")) {
+		if (!EntityFactory::createStaticMeshEntity(ecs, parentEnt, name, transform, 12180758562205882676)) {
 			return false;
 		}
 

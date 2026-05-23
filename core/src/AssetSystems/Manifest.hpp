@@ -1,5 +1,15 @@
 ﻿#pragma once
 
+enum class AssetType {
+    Unknown,
+    Mesh,
+    Texture2D,
+    Audio,
+    Shader,
+    Material,
+    Scene,
+};
+
 struct AssetMetadata {
     uint64_t     id = 0;
     std::string     cookedPath;
@@ -11,16 +21,6 @@ struct AssetMetadata {
     AssetType       type;
 };
 
-
-enum class AssetType {
-    Unknown,
-    Mesh,
-    Texture2D,
-    Audio,
-    Shader,
-    Material,
-    Scene,
-};
 
 inline AssetType AssetTypeFromString(const std::string& str) {
     if (str == "Mesh")      return AssetType::Mesh;
@@ -67,7 +67,7 @@ public:
     bool Load() { return Load(path); }
 
     bool Load(const fs::path& filePath) {
-        path = path;
+        path = filePath;
         assetsMap.clear();
         isDirty = false;
 
@@ -94,9 +94,10 @@ public:
 
         for (auto it = assets.MemberBegin(); it != assets.MemberEnd(); ++it) {
             const auto& v = it->value;
+            const auto& key = it->name;
             AssetMetadata meta;
 
-            meta.id = it->name.GetInt();
+            meta.id = std::stoull(key.GetString());
             meta.cookedPath = SafeStr(v, "cookedPath");
             meta.sourcePath = SafeStr(v, "sourcePath");
             meta.contentHash = v.HasMember("contentHash") && v["contentHash"].IsUint64();
@@ -117,9 +118,13 @@ public:
         return true;
     }
 
-    bool Save() const { return Save(path.string()); }
+    bool create() {
 
-    bool Save(std::string_view path) const {
+
+    }
+
+    bool Save() const {
+
         rj::StringBuffer sb;
         rj::PrettyWriter<rj::StringBuffer> writer(sb);
 
@@ -151,7 +156,12 @@ public:
         writer.EndObject(); // assets
         writer.EndObject(); // root
 
-        std::ofstream f(path.data());
+        // Ensure the directory exists before trying to write the file
+        if (path.has_parent_path()) {
+            !fs::create_directories(path.parent_path());
+        }
+
+        std::ofstream f(path);
         if (!f.is_open())
             return false;
 

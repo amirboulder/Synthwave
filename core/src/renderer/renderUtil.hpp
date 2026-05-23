@@ -37,25 +37,7 @@ struct PerModelUniforms {
 
 
 
-struct TextureArray {
 
-	SDL_GPUTexture* textureArray = nullptr;
-	uint32_t usedLayers = 0;
-
-	void init(SDL_GPUDevice* device, uint32_t numLayers = 32) {
-
-		SDL_GPUTextureCreateInfo info{};
-		info.type = SDL_GPU_TEXTURETYPE_2D_ARRAY;
-		info.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
-		info.width = 1024;  // all layers MUST match
-		info.height = 1024;  // all layers MUST match
-		info.layer_count_or_depth = numLayers;  // max number of textures
-		info.num_levels = 1;
-		info.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER;
-
-		textureArray =  SDL_CreateGPUTexture(device, &info);
-	}
-};
 
 class RenderUtil {
 
@@ -277,12 +259,12 @@ public:
 		const Uint32 imageSizeInBytes = imageData->w * imageData->h * 4;
 
 		if (imageData->w != 1024 || imageData->h != 1024) {
-			SDL_Log("Texture must be 1024x1024, got %dx%d scaling the image", imageData->w, imageData->h);
+			LogError(LOG_RENDER, "Texture must be 1024x1024, got %dx%d scaling the image", imageData->w, imageData->h);
 			SDL_Surface* scaled = SDL_ScaleSurface(imageData, 1024, 1024, SDL_SCALEMODE_LINEAR);
 		}
 
-		if (textureArray.usedLayers >= 512) {
-			SDL_Log("TextureArray full!");
+		if (textureArray.usedLayers >= textureArray.maxLayers) {
+			LogError(LOG_RENDER, "TextureArray full!");
 			return false;
 		}
 		
@@ -366,8 +348,8 @@ public:
 		return true;
 	}
 
-	static bool saveSTBImageToFile(fs::path destFilePath, TexHeader& header, stbi_uc* pixels) {
-
+	static bool saveTexToFile(const fs::path& destFilePath, const TexHeader& header, const uint8_t* pixels)
+	{
 		if (!pixels) {
 			LogError(LOG_RENDER, "pixels for file %s is nullptr", destFilePath.c_str());
 			return false;
@@ -391,7 +373,72 @@ public:
 			LogError(LOG_RENDER, "Failed writing pixel data to file: %s", destFilePath.c_str());
 			return false;
 		}
+
 		return true;
+	}
+
+	static bool loadTexFromFile(const fs::path& srcFilePath, TexHeader& header, std::vector<uint8_t>& pixels)
+	{
+		std::ifstream file(srcFilePath, std::ios::binary);
+		if (!file.is_open()) {
+			LogError(LOG_RENDER, "Cannot open texture file: %s", srcFilePath.c_str());
+			return false;
+		}
+
+		file.read(reinterpret_cast<char*>(&header), sizeof(TexHeader));
+		if (file.fail()) {
+			LogError(LOG_RENDER, "Failed reading texture header from: %s", srcFilePath.c_str());
+			return false;
+		}
+
+		if (header.magic != 0x54455820) {
+			LogError(LOG_RENDER, "Invalid texture magic number in file: %s", srcFilePath.c_str());
+			return false;
+		}
+
+		if (header.pixelDataSize == 0 || header.width <= 0 || header.height <= 0) {
+			LogError(LOG_RENDER, "Invalid texture dimensions in file: %s", srcFilePath.c_str());
+			return false;
+		}
+
+		if (header.pitch < header.width) {
+			LogError(LOG_RENDER, "Invalid texture pitch %d for width %d in file: %s",
+				header.pitch, header.width, srcFilePath.c_str());
+			return false;
+		}
+
+		if (header.pixelDataSize != static_cast<uint32_t>(header.pitch * header.height)) {
+			LogError(LOG_RENDER, "Texture pixelDataSize %u doesn't match pitch*height %u in file: %s",
+				header.pixelDataSize, header.pitch * header.height, srcFilePath.c_str());
+			return false;
+		}
+
+		pixels.resize(header.pixelDataSize);
+		file.read(reinterpret_cast<char*>(pixels.data()), header.pixelDataSize);
+		if (file.fail()) {
+			LogError(LOG_RENDER, "Failed reading pixel data from: %s", srcFilePath.c_str());
+			return false;
+		}
+
+		return true;
+	}
+
+	static SDL_Surface* createSurfaceFromPixels(const TexHeader& header, std::vector<uint8_t>& pixels)
+	{
+		SDL_Surface* surface = SDL_CreateSurfaceFrom(
+			header.width,
+			header.height,
+			static_cast<SDL_PixelFormat>(header.format),
+			pixels.data(),
+			header.pitch
+		);
+
+		if (!surface) {
+			LogError(LOG_RENDER, "SDL_CreateSurfaceFrom failed: %s", SDL_GetError());
+			return nullptr;
+		}
+
+		return surface;
 	}
 
 	static bool saveMaterialDataToFile(fs::path destFilePath, MaterialData & materialData) {
@@ -407,6 +454,34 @@ public:
 		file.write(reinterpret_cast<const char*>(&materialData), sizeof(materialData)); 
 		if (file.fail()) {
 			LogError(LOG_RENDER, "Failed materialD ata to file: %s", destFilePath.c_str());
+			return false;
+		}
+
+		return true;
+	}
+
+	static bool loadMaterialDataFromFile(const fs::path& srcFilePath, MaterialData& materialData)
+	{
+		std::ifstream file(srcFilePath, std::ios::binary);
+		if (!file.is_open()) {
+			LogError(LOG_RENDER, "Cannot open material file: %s", srcFilePath.c_str());
+			return false;
+		}
+
+		// --- Validate file size before reading ---
+		file.seekg(0, std::ios::end);
+		const std::streamsize fileSize = file.tellg();
+		file.seekg(0, std::ios::beg);
+
+		if (fileSize != sizeof(MaterialData)) {
+			LogError(LOG_RENDER, "Material file size mismatch (expected %zu, got %lld): %s",
+				sizeof(MaterialData), fileSize, srcFilePath.c_str());
+			return false;
+		}
+
+		file.read(reinterpret_cast<char*>(&materialData), sizeof(MaterialData));
+		if (file.fail()) {
+			LogError(LOG_RENDER, "Failed reading material data from: %s", srcFilePath.c_str());
 			return false;
 		}
 
@@ -461,6 +536,87 @@ public:
 			file.write(reinterpret_cast<const char*>(mesh.indices.data()), indexDataSize);
 			if (file.fail()) {
 				LogError(LOG_RENDER, "Failed writing index data to: %s", destFilePath.c_str());
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	static bool loadMeshFromFile(const fs::path& srcFilePath, Mesh& mesh, MeshHeader& header)
+	{
+		std::ifstream file(srcFilePath, std::ios::binary);
+		if (!file.is_open()) {
+			LogError(LOG_RENDER, "Cannot open mesh file: %s", srcFilePath.c_str());
+			return false;
+		}
+
+		// --- Read and validate header ---
+		file.read(reinterpret_cast<char*>(&header), sizeof(MeshHeader));
+		if (file.fail()) {
+			LogError(LOG_RENDER, "Failed reading mesh header from: %s", srcFilePath.c_str());
+			return false;
+		}
+
+		if (header.magic != 0x4D455348) {
+			LogError(LOG_RENDER, "Invalid mesh magic number in file: %s", srcFilePath.c_str());
+			return false;
+		}
+
+		if (header.version != 1) {
+			LogError(LOG_RENDER, "Unsupported mesh version %u in file: %s", header.version, srcFilePath.c_str());
+			return false;
+		}
+
+		if (header.vertexStride != sizeof(Vertex)) {
+			LogError(LOG_RENDER, "Vertex stride mismatch (expected %zu, got %u) in file: %s",
+				sizeof(Vertex), header.vertexStride, srcFilePath.c_str());
+			return false;
+		}
+
+		if (header.vertexCount == 0) {
+			LogError(LOG_RENDER, "Mesh has no vertices in file: %s", srcFilePath.c_str());
+			return false;
+		}
+
+		if (header.subMeshCount > mesh.subMeshes.size()) {
+			LogError(LOG_RENDER, "SubMesh count %u exceeds max capacity %zu in file: %s",
+				header.subMeshCount, mesh.subMeshes.size(), srcFilePath.c_str());
+			return false;
+		}
+
+		//Set size
+		mesh.size = header.size;
+
+		//set Transform
+		mesh.transform = header.transform;
+
+		// --- Read submesh descriptors ---
+		mesh.subMeshCount = header.subMeshCount;
+		for (uint32_t i = 0; i < header.subMeshCount; i++) {
+			file.read(reinterpret_cast<char*>(&mesh.subMeshes[i]), sizeof(SubMesh));
+			if (file.fail()) {
+				LogError(LOG_RENDER, "Failed reading submesh %u from: %s", i, srcFilePath.c_str());
+				return false;
+			}
+		}
+
+		// --- Read vertex buffer ---
+		mesh.vertices.resize(header.vertexCount);
+		const size_t vertexDataSize = header.vertexCount * sizeof(Vertex);
+		file.read(reinterpret_cast<char*>(mesh.vertices.data()), vertexDataSize);
+		if (file.fail()) {
+			LogError(LOG_RENDER, "Failed reading vertex data from: %s", srcFilePath.c_str());
+			return false;
+		}
+
+		// --- Read index buffer (optional) ---
+		if (header.indexCount > 0) {
+			mesh.indices.resize(header.indexCount);
+			const size_t indexDataSize = header.indexCount * sizeof(uint32_t);
+			file.read(reinterpret_cast<char*>(mesh.indices.data()), indexDataSize);
+			if (file.fail()) {
+				LogError(LOG_RENDER, "Failed reading index data from: %s", srcFilePath.c_str());
 				return false;
 			}
 		}

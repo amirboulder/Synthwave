@@ -26,20 +26,16 @@ public:
     std::vector<uint64_t> assetIds;
 
     const std::string assetsFolder;
-    
+    fs::path cookedAssetsFolder;
 
-    //std::unordered_map<std::string, fs::path> modelPaths;
     std::vector<fs::path> modelPaths;
-
-    TextureArray diffuseTextures;
 
     //maps ragdoll names to their paths
     std::map<std::string, std::string> ragdolls;
 
-
-
-    AssetLibrary(flecs::world& ecs, const fs::path& manifestPath = "games/CrashTheSim/src/manifest.json", const std::string& assetFolder = "assets")
-        :ecs(ecs), assetsFolder(assetFolder)
+    AssetLibrary(flecs::world& ecs, const fs::path& manifestPath = "games/CrashTheSim/src/manifest.json",
+        const std::string& assetFolder = "assets", const fs::path& cookedAssetsFolder = "assets/cooked")
+        :ecs(ecs), assetsFolder(assetFolder), cookedAssetsFolder(cookedAssetsFolder)
     {
         const RenderContext& renderContext = ecs.get<RenderContext>();
 
@@ -50,22 +46,16 @@ public:
         ecs.component<AssetLibRef>();
         ecs.set<AssetLibRef>({ this });
 
-        manifest.Load(manifestPath);
-
-        scanForRagdolls();
-    
-        diffuseTextures.init(renderContext.device);
-
-        //Creating defaultTexture for meshes that don't have a texture
-        SDL_Surface* imageData = RenderUtil::LoadImage("assets/checkerboard.bmp", 4);
-        if (imageData == NULL)
-        {
-            LogError(LOG_RENDER, "Could not load checkerboard.bmp image data!");
+        if (!manifest.Load(manifestPath)) {
+            manifest.Save(); // save the manifest file to create it.
         }
 
-       RenderUtil::uploadToTextureArray(renderContext.device, diffuseTextures, imageData);
+        scanForRagdolls();
+   
+       
+        importAssets();
 
-
+        manifest.Save();
 
         LogSuccess(LOG_APP, "AssetLibrary Initialized");
     }
@@ -79,7 +69,7 @@ public:
     /// If file source path is present then then the file has been updated.
     /// IF not then its a new file.
     /// </summary>
-    void importAssets(Manifest & manifest) {
+    void importAssets() {
 
         fs::file_time_type manifestLastWrite = fs::last_write_time(manifest.Path());
 
@@ -90,7 +80,8 @@ public:
 
             fs::file_time_type fileLastWrite = fs::last_write_time(filePath);
 
-            if (fileLastWrite > manifestLastWrite) {
+            //TODO filePaths are that are present in manifest
+            // and and its file size and OS timestamp match the manifest don't need the contentHash check.
                      
                 uint64_t contentHash = util::generateContentHash(filePath);
 
@@ -100,8 +91,6 @@ public:
 
                     if (meta.sourceHash == contentHash) contentHashFound = true;
                     if (meta.sourcePath == filePath.string()) pathFound = true;
-
-
                 });
 
                 if (!contentHashFound && !pathFound) needsImport.push_back(filePath);     // new file
@@ -111,16 +100,15 @@ public:
                     
                     LogWarn(LOG_APP, "file %s has been renamed ", filePath.string().c_str());
                 }
-            }
 
         }
 
         for (const fs::path& filePath : needsImport) {
-            AssetImporter::ImportGLTF(filePath, assetsFolder, manifest);
+            AssetImporter::ImportGLTF(filePath, cookedAssetsFolder, manifest);
         }
 
         for (const fs::path& filePath : needsReImport) {
-            AssetImporter::reImportGLTF(filePath, assetsFolder, manifest);
+            AssetImporter::reImportGLTF(filePath, cookedAssetsFolder, manifest);
         }
 
 

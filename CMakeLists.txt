@@ -356,13 +356,13 @@ FetchContent_Declare(
   GIT_REPOSITORY https://github.com/Cyan4973/xxHash.git
   GIT_TAG        v0.8.3
   GIT_SHALLOW TRUE
+  SOURCE_SUBDIR  cmake_unofficial
 )
 
 set(XXHASH_BUILD_XXHSUM OFF) 
 
 FetchContent_MakeAvailable(xxhash)
 
-target_include_directories(Synthwave PRIVATE ${xxhash_SOURCE_DIR})
 
 #=============================================
 # IMGUI for GUI
@@ -429,7 +429,7 @@ Jolt
 OptickCore
 inih
 flecs::flecs
-xxHash
+xxHash::xxhash
 )
 
 

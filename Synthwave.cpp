@@ -11,6 +11,7 @@ int main(int argc, char* argv[])
 	Fisiks fisiks(ecs);
 
 	AssetLibrary assetLib(ecs);
+	AssetManager assetManager(ecs, assetLib.manifest);
 
 	MenuSystem menuSys(ecs);
 
@@ -42,7 +43,8 @@ int main(int argc, char* argv[])
 		time.tick();
 		while (time.accumulator >= time.timeStep) {
 
-			//TODO input can be handled at a faster rate which would enable faster camera movement, which would then require interpolation.
+			//TODO input can be handled at a faster rate which would enable faster camera movement (less latency),
+			// which would then require interpolation
 			inputManager.handleInput(); 
 
 			ecs.progress(); //All systems except rendering happen here.

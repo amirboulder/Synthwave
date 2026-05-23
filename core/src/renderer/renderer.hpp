@@ -1,6 +1,15 @@
 ﻿#pragma once
 
-#include "Model.hpp"
+#include "../util/util.hpp"
+
+#include "Texture.hpp"
+#include "Material.hpp"
+#include "Mesh.hpp"
+
+#include "renderUtil.hpp"
+
+#include "GeometryPool.hpp"
+
 #include "../physics/physics.hpp"
 
 #include "UI/UserInterface.hpp"
@@ -12,13 +21,11 @@
 #include "text/textRenderer.hpp"
 #include "overlay/overlay.hpp"
 
-#include "../util/util.hpp"
-
-#include "renderUtil.hpp"
 
 #include "pipeline.hpp"
 
-#include "../AssetLibrary/AssetLibrary.hpp"
+#include "../AssetSystems/Manifest.hpp"
+#include "../AssetSystems/AssetManager.hpp"
 
 
 struct DrawItem {
@@ -28,7 +35,7 @@ struct DrawItem {
 	uint32_t indexCount = 0;
 	uint32_t vertexCount = 0;
 	uint32_t meshID = 0;
-	uint32_t materialID = 0;
+	uint32_t materialIndex = 0;
 
 	glm::mat4 transform;
 	glm::mat4 normalMatrix;
@@ -122,12 +129,11 @@ struct Renderer {
 
 	Uint32 swapchainWidth, swapchainHeight;
 
-	//TODO remove defaultTexture
-	SDL_GPUTexture* defaultTexture = nullptr;
-	SDL_GPUSampler* defaultSampler = nullptr;
-	SDL_GPUTextureSamplerBinding defaultSamplerBinding;
 
+	SDL_GPUSampler* linearSampler = nullptr;
 	SDL_GPUSampler* nearestSampler = nullptr;
+	//SDL_GPUTextureSamplerBinding defaultSamplerBinding;
+
 
 	SDL_GPUTexture* mainDepthStencilTexture = nullptr;
 
@@ -190,7 +196,7 @@ struct Renderer {
 		createAndClaimGPUVulkan();
 		createRenderTargets();
 
-		createSamplerAndDefaultTexture();
+		createSamplers();
 
 		ui.init();
 
@@ -367,7 +373,7 @@ struct Renderer {
 	}
 
 	//TODO remove default texture from here it should be a part of assetLib
-	bool createSamplerAndDefaultTexture() {
+	bool createSamplers() {
 
 		const RenderContext& renderContext = ecs.get<RenderContext>();
 
@@ -380,9 +386,9 @@ struct Renderer {
 		.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
 		};
 
-		defaultSampler = SDL_CreateGPUSampler(renderContext.device, &samplerCreateInfo);
+		linearSampler = SDL_CreateGPUSampler(renderContext.device, &samplerCreateInfo);
 
-		if (!defaultSampler) {
+		if (!linearSampler) {
 			LogError(LOG_RENDER, "Could not create GPU sampler!");
 			return false;
 		}
@@ -398,23 +404,12 @@ struct Renderer {
 		};
 		nearestSampler = SDL_CreateGPUSampler(renderContext.device, &nearestSamplerInfo);
 
-		if (!defaultSampler) {
+		if (!nearestSampler) {
 			LogError(LOG_RENDER, "Could not create nearestSampler !");
 			return false;
 		}
 
-		// Load the image
-		SDL_Surface* imageData1 = RenderUtil::LoadImage("assets/checkerboard.bmp", 4);
-		if (imageData1 == NULL)
-		{
-			LogError(LOG_RENDER, "Could not load checkerboard.bmp image data!");
-			return false;
-		}
-
-		MaterialLoader::createGPUTexture(imageData1, defaultTexture, "defaultTexture", renderContext.device);
-
-
-		LogInfo(LOG_RENDER, "created Sampler And Default Texture");
+		LogInfo(LOG_RENDER, "created Samplers");
 
 		return true;
 	}
@@ -642,7 +637,6 @@ struct Renderer {
 			&depthStencilTargetInfo
 		);
 
-		defaultSamplerBinding = { .texture = defaultTexture, .sampler = defaultSampler };
 
 		// Maybe have an observer that runs each time camera is switched so that we don't query which cam is active every frame
 		ecs.query<Camera, ActiveCamera>()
@@ -673,7 +667,7 @@ struct Renderer {
 	/// </summary>
 	void createDrawBatchesSystem() {
 
-		createDrawBatchesSys = ecs.system<Transform , Renderable, MeshAsset>("CreateDrawBatchesSys")
+		createDrawBatchesSys = ecs.system<Transform , Renderable, MeshComponent>("CreateDrawBatchesSys")
 			.kind(renderPhase)
 			.run([&](flecs::iter& it) {
 
@@ -690,7 +684,7 @@ struct Renderer {
 			while (it.next()) {
 
 				auto transforms = it.field<const Transform>(0);
-				auto meshAssets = it.field<const MeshAsset>(2);
+				auto meshComponents = it.field<const MeshComponent>(2);
 
 
 				for (auto i : it) {
@@ -700,11 +694,11 @@ struct Renderer {
 					//TODO pick the appropriate LOD once we have LODs
 
 					const Transform& transform = transforms[i];
-					const MeshAsset& meshAsset = meshAssets[i];
+					const MeshComponent& meshComp = meshComponents[i];
 
 					//calculate Ent model matrix
 					glm::mat4 entityTransform = createModelMatrix(transform);
-					glm::mat4 modelTransform = entityTransform * createModelMatrix(meshAsset.transform);
+					glm::mat4 modelTransform = entityTransform * createModelMatrix(meshComp.transform);
 
 					// Compute normal matrix BEFORE transposing localMat for Slang.
 					// Normal matrix = inverse transpose of the upper 3x3 of the model matrix.
@@ -718,20 +712,23 @@ struct Renderer {
 					modelTransform = glm::transpose(modelTransform);
 
 
-					DrawItem drawItem;
+					for (size_t i = 0; i < meshComp.subMeshCount; i++) {
+						const SubMesh& subMesh = meshComp.subMeshes[i];
+						DrawItem drawItem;
 
-					drawItem.vertexOffset = meshAsset.vertexOffset;
-					drawItem.firstIndex = meshAsset.firstIndex;
-					drawItem.indexCount = meshAsset.indexCount;
-					drawItem.vertexCount = meshAsset.vertexCount;
-					drawItem.meshID = meshAsset.meshID;
-					drawItem.materialID = meshAsset.materialID;
+						drawItem.vertexOffset = subMesh.baseVertex;
+						drawItem.firstIndex = subMesh.firstIndex;
+						drawItem.indexCount = subMesh.indexCount;
+						drawItem.vertexCount = subMesh.vertexCount;
+						drawItem.meshID = meshComp.index;
+						drawItem.materialIndex = subMesh.materialIndex;
 
-					drawItem.transform = modelTransform;
-					drawItem.normalMatrix = normalMat4;
+						drawItem.transform = modelTransform;
+						drawItem.normalMatrix = normalMat4;
 
-					drawItems.push_back(std::move(drawItem));
+						drawItems.push_back(std::move(drawItem));
 
+					}
 				}
 			}
 
@@ -802,7 +799,7 @@ struct Renderer {
 			cmd.first_instance = 0;
 			
 			//fill MaterialData, we do this here because we have 1 material per batch
-			materialData.push_back(drawItems[batchStart].materialID);
+			materialData.push_back(drawItems[batchStart].materialIndex);
 
 			drawCommands.push_back(cmd);
 			batchStart = i;
@@ -869,7 +866,8 @@ struct Renderer {
 	/// </summary>
 	void drawLit(FrameContext& frameContext) {
 
-		const GeometryPool& geometryPool = ecs.get<GeometryPool>();
+		AssetManager* assetManger = ecs.get<AssetManagerRef>().assetManager;
+		GeometryPool& geometryPool = assetManger->geometryPool;
 
 		// Bind pipeline ONCE
 		flecs::entity pipelineEntity = ecs.entity("pipelinePhong");
@@ -918,15 +916,9 @@ struct Renderer {
 		
 		//TODO rest of the lights
 
-
-		//TODO
-		AssetLibrary* assetLib = ecs.get<AssetLibRef>().assetLib;
-		assetLib->materialRegistry.size();
-
-		SDL_GPUTextureSamplerBinding binding = { assetLib->diffuseTextures.textureArray, defaultSampler };
+		SDL_GPUTextureSamplerBinding binding = { assetManger->textureArrays.diffuseTextures.textureArray, nearestSampler };
 		SDL_BindGPUFragmentSamplers(activeRenderPass, 0, &binding, 1);
 
-		// Draw
 		SDL_DrawGPUIndexedPrimitivesIndirect(activeRenderPass, drawCommandBuffer.buffer, 0, numDrawCalls);
 
 		
@@ -1010,7 +1002,7 @@ struct Renderer {
 	/// <summary>
 	/// Draws entity ID, assumes entity is in the GeometryPool.
 	/// </summary>
-	void drawMeshWithID(const FrameContext& frameContext, const GeometryPool& geometryPool,  MeshAsset& mesh, uint32_t entID, glm::mat4& modelMat) {
+	void drawMeshWithID(const FrameContext& frameContext, const GeometryPool& geometryPool, const MeshComponent& mesh, uint32_t entID, glm::mat4& modelMat) {
 
 		//TODO change this later once the shader is updated to take in transforms and inverseMatrices buffer
 		//SDL_BindGPUVertexStorageBuffers(activeRenderPass, 0, &allTransformsBuffer.buffer, 1);
@@ -1031,14 +1023,21 @@ struct Renderer {
 		SDL_PushGPUVertexUniformData(frameContext.commandBuffer, 1, &mvp, sizeof(mvp));
 		SDL_PushGPUFragmentUniformData(frameContext.commandBuffer, 1, &entID, sizeof(entID));
 
-		SDL_DrawGPUIndexedPrimitives(
-			activeRenderPass,
-			mesh.indexCount,   // indexCount
-			1,                 // instanceCount
-			mesh.firstIndex,   // firstIndex  — element index into megaIndexBuffer
-			mesh.vertexOffset,   // vertexOffset — element index into megaVertexBuffer
-			0                  // firstInstance
-		);
+
+		//TODO no need to draw one at a time here since the data is in the geomtery buffer 
+		//FIX FIX FIX !!!
+		for (size_t i = 0; i < mesh.subMeshCount; i++) {
+			const SubMesh& subMesh = mesh.subMeshes[i];
+
+			SDL_DrawGPUIndexedPrimitives(
+				activeRenderPass,
+				subMesh.indexCount,   // indexCount
+				1,                 // instanceCount
+				subMesh.firstIndex,   // firstIndex  — element index into megaIndexBuffer
+				subMesh.baseVertex,   // vertexOffset — element index into megaVertexBuffer
+				0                  // firstInstance
+			);
+		}
 	}
 
 	/// <summary>
@@ -1068,12 +1067,11 @@ struct Renderer {
 			&depthStencilTargetInfo
 		);
 
-		const GeometryPool& geometryPool = ecs.get<GeometryPool>();
+		AssetManager* assetManager = ecs.get<AssetManagerRef>().assetManager;
 		
 		flecs::entity pipelineEnt = ecs.lookup("pipelineEntID");
 		const Pipeline& pipeline = pipelineEnt.get<Pipeline>();
 
-		AssetLibrary* assetLib = ecs.get<AssetLibRef>().assetLib;
 
 		SDL_BindGPUGraphicsPipeline(activeRenderPass, pipeline.pipeline);
 
@@ -1088,12 +1086,7 @@ struct Renderer {
 			//calculate Ent model matrix
 			glm::mat4 modelMat = createModelMatrix(transform);
 
-			for (uint32_t index : meshComponent.MeshAssetIndices) {
-
-				MeshAsset& mesh = assetLib->meshRegistry[index];
-
-				drawMeshWithID(frameContext, geometryPool, mesh, entID, modelMat);
-			}
+			drawMeshWithID(frameContext, assetManager->geometryPool, meshComponent, entID, modelMat);
 
 		});
 		
@@ -1133,14 +1126,14 @@ struct Renderer {
 			&depthStencilTargetInfo
 		);
 
-		const GeometryPool& geometryPool = ecs.get<GeometryPool>();
+		AssetManager* assetManager = ecs.get<AssetManagerRef>().assetManager;
 
 		flecs::entity pipelineEnt = ecs.lookup("pipelineEntID"); //TODO maybe use a different pipeline
 		const Pipeline& pipeline = pipelineEnt.get<Pipeline>();
 
 		SDL_BindGPUGraphicsPipeline(activeRenderPass, pipeline.pipeline);
 
-		AssetLibrary * assetLib = ecs.get<AssetLibRef>().assetLib;
+		//AssetLibrary * assetLib = ecs.get<AssetLibRef>().assetLib;
 
 		const Transform& transform = selectedEnt.get<Transform>();
 		//replace MeshComponent with MeshAsset
@@ -1150,12 +1143,8 @@ struct Renderer {
 
 		uint32_t entID = (uint32_t)selectedEnt.id();
 
-		for (uint32_t meshIndex : meshcomponent.MeshAssetIndices) {
 
-			MeshAsset& mesh = assetLib->meshRegistry[meshIndex];
-
-			drawMeshWithID(frameContext, geometryPool, mesh, entID, modelMat);
-		}
+		drawMeshWithID(frameContext, assetManager->geometryPool, meshcomponent, entID, modelMat);
 		
 		SDL_EndGPURenderPass(activeRenderPass);
 

@@ -1,7 +1,5 @@
 #pragma once
 
-#include "renderUtil.hpp"
-#include "Texture.hpp"
 
 struct Material {
 	int32_t baseColorTexIndex = -1;  // index into a flat texture array
@@ -13,7 +11,7 @@ struct Material {
 };
 
 struct MaterialData {
-	int64_t baseColorTexID = 0;  // index into a flat texture array
+	int64_t baseColorTexID = 0;  
 	int64_t normalTexID = 0;
 	int64_t metallicRoughnessTexID = 0; // GLTF packs these into one texture (G=roughness, B=metallic)
 	glm::vec4 baseColorFactor = { 1,1,1,1 };
@@ -21,15 +19,24 @@ struct MaterialData {
 	float roughnessFactor = 1.0f;
 };
 
-struct MaterialArray {
+
+enum class TextureMapType {
+
+	BaseColor,
+	Normal,
+	metallicRoughness,
+};
+
+struct TextureArrays {
 
 	TextureArray diffuseTextures;
+	TextureArray normalTextures;
 	TextureArray metallicRoughnessTextures;
 
-	MaterialArray(SDL_GPUDevice* device) {
+	void init(SDL_GPUDevice* device) {
 
 		diffuseTextures.init(device);
+		normalTextures.init(device);
 		metallicRoughnessTextures.init(device);
 	}
-
 };

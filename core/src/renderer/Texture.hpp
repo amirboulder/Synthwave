@@ -1,13 +1,39 @@
 #pragma once
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
 struct TexHeader {
-	uint32_t corruptionCheck = 0x544558;    // e.g. 'TEX1' for format validation on load
+	uint32_t magic = 0x54455820;    //'TEX' for format validation on load
 	int32_t  width;
 	int32_t  height;
 	int32_t  pitch;      // bytes per row (may have padding)
 	uint32_t format;     // SDL_PixelFormat enum value
 	uint32_t pixelDataSize;
 	uint64_t AssetID;        
+};
+
+struct TextureArray {
+
+	SDL_GPUTexture* textureArray = nullptr;
+	uint32_t usedLayers = 0;
+	uint32_t maxLayers = 0;
+
+	void init(SDL_GPUDevice* device, uint32_t numLayers = 32) {
+
+		this->maxLayers = numLayers;
+
+		SDL_GPUTextureCreateInfo info{};
+		info.type = SDL_GPU_TEXTURETYPE_2D_ARRAY;
+		info.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
+		info.width = 1024;  // all layers MUST match
+		info.height = 1024;  // all layers MUST match
+		info.layer_count_or_depth = numLayers;  // max number of textures
+		info.num_levels = 1;
+		info.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER;
+
+		textureArray = SDL_CreateGPUTexture(device, &info);
+	}
 };
 
 namespace Texture {
