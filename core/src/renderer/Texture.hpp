@@ -4,7 +4,7 @@
 #include "stb_image.h"
 
 struct TexHeader {
-	uint32_t magic = 0x54455820;    //'TEX' for format validation on load
+	uint32_t magic = 0x544558;    //'TEX' for format validation on load
 	int32_t  width;
 	int32_t  height;
 	int32_t  pitch;      // bytes per row (may have padding)

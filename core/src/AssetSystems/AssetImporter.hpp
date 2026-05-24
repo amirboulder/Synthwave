@@ -7,24 +7,26 @@ namespace AssetImporter {
 
 
 	/// <summary>
-	/// processes texture, materials, meshes in a glTF file,
+	/// processes texture, materials, meshes, Scenes in a glTF file,
 	/// assigns IDs to each and save the processed data to their respective files.
-	/// inserts AssetMetadata into the manifest
+	/// inserts AssetMetadata into the manifest.
+	/// Enforces assets having names.
 	/// </summary>
-	static bool ImportGLTF(const fs::path& filePath, const fs::path& destFolder, Manifest& manifest)
+	bool ImportGLTF(const fs::path& filePath, const fs::path& destFolder, Manifest& manifest)
 	{
-		//Used to map local texture/materials to their AssetIDs,
+		//Used to map local texture/materials/meshes to their AssetIDs,
 		//materials store AssetIDs of textures,
 		// Meshes store AssetIDs of materials.
+		//Scene nodes have meshes
 		std::unordered_map<uint32_t, uint64_t> localToMaterialId;
 		std::unordered_map<uint32_t, uint64_t> localToTextureId;
+		std::unordered_map<uint32_t, uint64_t> localToMeshId;
 
-		const std::string filePathStr = filePath.generic_string().c_str();
+		const std::string filePathStr = filePath.generic_string();
 
 		// Ensure the directory exists before trying to write files
-		if (destFolder.has_parent_path()) {
-			fs::create_directories(destFolder.parent_path());
-		}
+		fs::create_directories(destFolder);
+
 
 		// Create the parser
 		fastgltf::Parser parser;
@@ -50,39 +52,34 @@ namespace AssetImporter {
 
 		fastgltf::Asset& gltf = asset.get();
 
-		LogDebug(LOG_RENDER, "Info for 3D Asset file %s", filePath.generic_string().c_str());
-		LogDebug(LOG_RENDER, "Number of meshes : %d", gltf.meshes.size());
-		LogDebug(LOG_RENDER, "Number of Materials : %d", gltf.materials.size());
-		LogDebug(LOG_RENDER, "Number of Textures : %d", gltf.textures.size());
-		LogDebug(LOG_RENDER, "Number of Images : %d", gltf.images.size());
-		LogDebug(LOG_RENDER, "Number of Nodes : %d", gltf.nodes.size());
-		LogDebug(LOG_RENDER, "Number of Scenes : %d", gltf.scenes.size());
+		LogDebug(LOG_ERR, "Info for 3D Asset file %s", filePath.generic_string().c_str());
+		LogDebug(LOG_ERR, "Number of meshes : %d", gltf.meshes.size());
+		LogDebug(LOG_ERR, "Number of Materials : %d", gltf.materials.size());
+		LogDebug(LOG_ERR, "Number of Textures : %d", gltf.textures.size());
+		LogDebug(LOG_ERR, "Number of Images : %d", gltf.images.size());
+		LogDebug(LOG_ERR, "Number of Nodes : %d", gltf.nodes.size());
+		LogDebug(LOG_ERR, "Number of Scenes : %d", gltf.scenes.size());
 
-
-		uint64_t assetID = util::generateAssetID(filePathStr);
+		
 
 		uint64_t gltfFileContentHash = util::generateContentHash(filePath);
 
 		if (gltfFileContentHash == 0) {
-			LogError(LOG_RENDER, "Failed to generate Content Hash for file %s", filePathStr.c_str());
+			LogError(LOG_ERR, "Failed to generate Content Hash for file %s", filePathStr.c_str());
 			return false;
 		}
 
-		AssetMetadata assetMetaData;
-		assetMetaData.contentHash = gltfFileContentHash;
-		assetMetaData.cookedPath = " ";
-		assetMetaData.id = assetID;
-		assetMetaData.importedAt = util::Now();
-		assetMetaData.type = AssetType::Scene;
-		assetMetaData.sourcePath = filePathStr;
-		assetMetaData.sourceHash = gltfFileContentHash;
 
-		manifest.Insert(assetMetaData);
+		for (size_t i = 0; i < gltf.textures.size(); i++) {
+			auto& texture = gltf.textures[i];
 
+			if (!texture.imageIndex.has_value()) {
 
+				LogError(LOG_ERR, "Texture image index has no value for file %s", filePathStr.c_str());
+				return false;
+			}
 
-		for (size_t i = 0; i < gltf.images.size(); i++) {
-			auto& image = gltf.images[i];
+			auto& image  = gltf.images[texture.imageIndex.value()];
 
 
 			stbi_uc* pixels = nullptr;
@@ -90,16 +87,23 @@ namespace AssetImporter {
 
 			if (!Texture::loadImageFromGLTF(filePath.string(), gltf, image, pixels, width, height, channels))
 			{
-				LogError(LOG_RENDER, "Failed to load image %zu from %s", i, filePathStr.c_str());
+				LogError(LOG_ERR, "Failed to load image %zu from %s", i, filePathStr.c_str());
 				stbi_image_free(pixels);
 				continue;
+			}
+
+			if (image.name.empty()) {
+
+				LogError(LOG_ERR, "Empty image name in file %s ", filePathStr.c_str());
+				LogError(LOG_ERR, "all assets must have unique names within the file, cannot import asset, please add names and try again!");
+				return false;
 			}
 
 			uint64_t assetID = util::generateAssetID(filePathStr + image.name.c_str());
 
 			TexHeader header = {
 
-					.magic = 0x54455820, // 'TEX' for corruptionCheck,
+					.magic = 0x544558, // 'TEX' for corruptionCheck,
 					.width = width,
 					.height = height,
 					.pitch = width * channels,
@@ -124,7 +128,7 @@ namespace AssetImporter {
 
 			uint64_t contentHash = util::generateContentHash(textureDest);
 			if (contentHash == 0) {
-				LogError(LOG_RENDER, "Failed to generate Content Hash for asset %zu in %s", i, filePathStr.c_str());
+				LogError(LOG_ERR, "Failed to generate Content Hash for asset %zu in %s", i, filePathStr.c_str());
 				continue;
 			}
 
@@ -145,8 +149,13 @@ namespace AssetImporter {
 
 			auto& material = gltf.materials[i];
 
-			MaterialData currentMat;
+			if (material.name.empty()) {
+				LogError(LOG_ERR, "Empty Material name in file %s ", filePathStr.c_str());
+				LogError(LOG_ERR, "all assets must have unique names within the file, cannot import asset, please add names and try again!");
+				return false;
+			}
 
+			MaterialData currentMat;
 
 			currentMat.baseColorFactor = glm::vec4(material.pbrData.baseColorFactor.x(),
 				material.pbrData.baseColorFactor.y(),
@@ -168,12 +177,13 @@ namespace AssetImporter {
 
 			// TODO the rest of the material data
 
+
 			uint64_t assetID = util::generateAssetID(filePathStr + material.name.c_str());
 
 			fs::path materialDest = destFolder / std::format("{:016x}.mat", assetID);
 
 			if (!RenderUtil::saveMaterialDataToFile(materialDest, currentMat)) {
-				LogError(LOG_RENDER, "Failed to save material %zu from %s", i, filePathStr.c_str());
+				LogError(LOG_ERR, "Failed to save material %zu from %s", i, filePathStr.c_str());
 				continue;
 			}
 
@@ -181,7 +191,7 @@ namespace AssetImporter {
 
 			uint64_t contentHash = util::generateContentHash(materialDest);
 			if (contentHash == 0) {
-				LogError(LOG_RENDER, "Failed to generate Content Hash for asset %zu in %s", i, filePathStr.c_str());
+				LogError(LOG_ERR, "Failed to generate Content Hash for asset %zu in %s", i, filePathStr.c_str());
 				continue;
 			}
 
@@ -202,104 +212,176 @@ namespace AssetImporter {
 			manifest.Insert(assetMetaData);
 		}
 
+		//Load all meshes.
+		for (size_t i = 0; i < gltf.meshes.size(); i++) {
+
+			Mesh currentMesh;
+
+			fastgltf::Mesh& mesh = gltf.meshes.at(i);
+
+			uint16_t subMeshIndex = 0;
+			for (auto& primitive : mesh.primitives) {
+
+				if (subMeshIndex >= currentMesh.subMeshes.size()) {
+					LogWarn(LOG_ERR, "Mesh %s has more than %d primitives, skipping remainder", mesh.name.c_str(), currentMesh.subMeshes.size());
+					break;
+				}
+
+				currentMesh.subMeshCount++;
+
+				SubMesh& sub = currentMesh.subMeshes[subMeshIndex++];
+				sub.baseVertex = (uint32_t)currentMesh.vertices.size();
+				sub.firstIndex = (uint32_t)currentMesh.indices.size();
+
+				//If the subMesh has a material then use localToMaterialRegistry to map it to correct material.
+				if (primitive.materialIndex.has_value()) {
+
+					sub.materialID = localToMaterialId[primitive.materialIndex.value()];
+				}
+				else {
+
+					//If not material set it default material
+					sub.materialID = 0;
+				}
+
+				// ---- INDICES ----
+				if (primitive.indicesAccessor.has_value()) {
+					auto& accessor = gltf.accessors[primitive.indicesAccessor.value()];
+					sub.indexCount = (uint32_t)accessor.count;
+					currentMesh.indices.reserve(currentMesh.indices.size() + accessor.count);
+					fastgltf::iterateAccessor<uint32_t>(gltf, accessor, [&](uint32_t index) {
+						currentMesh.indices.push_back(index);
+					});
+				}
+
+				// ---- VERTICES ----
+				// positions (required)
+				{
+					auto* attrib = primitive.findAttribute("POSITION");
+					if (attrib == primitive.attributes.end()) {
+
+						LogError(LOG_ERR, "Mesh primitive missing POSITION, skipping");
+						return false;
+					}
+					auto& accessor = gltf.accessors[attrib->accessorIndex];
+					sub.vertexCount = (uint32_t)accessor.count;
+					currentMesh.vertices.resize(sub.baseVertex + accessor.count);
+					fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(gltf, accessor,
+						[&](fastgltf::math::fvec3 pos, size_t i) {
+						Vertex& v = currentMesh.vertices[sub.baseVertex + i];
+						v.position = glm::vec3(pos.x(), pos.y(), pos.z());
+						v.normal = { 0, 1, 0 };
+						v.texCoord = { 0, 0 };
+					});
+				}
+				// normals (optional)
+				{
+					auto* attrib = primitive.findAttribute("NORMAL");
+					if (attrib != primitive.attributes.end()) {
+						auto& accessor = gltf.accessors[attrib->accessorIndex];
+						fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(gltf, accessor,
+							[&](fastgltf::math::fvec3 normal, size_t i) {
+							currentMesh.vertices[sub.baseVertex + i].normal =
+								glm::vec3(normal.x(), normal.y(), normal.z());
+						});
+					}
+				}
+				// uvs (optional)
+				{
+					auto* attrib = primitive.findAttribute("TEXCOORD_0");
+					if (attrib != primitive.attributes.end()) {
+						auto& accessor = gltf.accessors[attrib->accessorIndex];
+						fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec2>(gltf, accessor,
+							[&](fastgltf::math::fvec2 uv, size_t i) {
+							currentMesh.vertices[sub.baseVertex + i].texCoord =
+								glm::vec2(uv.x(), uv.y());
+						});
+					}
+				}
+			}
+
+			//TODO generate LODs here.
+
+			//save Mesh to file
+			
+			currentMesh.size = Mesh::calculateMeshSize(currentMesh.vertices);
+
+			if (mesh.name.empty()) {
+
+				LogError(LOG_ERR, "Empty Mesh name in file %s ", filePathStr.c_str());
+				LogError(LOG_ERR, "all assets must have unique names within the file, cannot import asset, please add names and try again!");
+				return false;
+			}
+
+			//todo make sure name is not null
+			uint64_t assetID = util::generateAssetID(filePathStr + mesh.name.c_str());
+
+			// --- Build header ---
+			MeshHeader header;
+			header.vertexCount = (uint32_t)currentMesh.vertices.size();
+			header.indexCount = (uint32_t)currentMesh.indices.size();
+			header.subMeshCount = currentMesh.subMeshCount;
+			header.AssetID = assetID;
+			header.size = currentMesh.size;
+
+			fs::path meshDest = destFolder / std::format("{:016x}.mesh", assetID);
+
+			if (!RenderUtil::saveMeshToFile(meshDest, currentMesh, header)) {
+				LogError(LOG_ERR, "Failed to save mesh %s", meshDest.generic_string().c_str());
+				return false;
+			}
+
+			localToMeshId[i] = assetID;
+
+			uint64_t contentHash = util::generateContentHash(meshDest);
+			if (contentHash == 0) {
+				LogError(LOG_ERR, "Failed to generate Content Hash for asset %zu in %s", i, filePathStr.c_str());
+				return false;
+			}
+
+			AssetMetadata assetMetaData;
+			assetMetaData.contentHash = contentHash;
+			assetMetaData.cookedPath = meshDest.generic_string();
+			assetMetaData.id = assetID;
+			assetMetaData.importedAt = util::Now();
+			assetMetaData.type = AssetType::Mesh;
+			assetMetaData.sourcePath = filePathStr;
+			assetMetaData.sourceHash = gltfFileContentHash;
+
+			for (int j = 0; j < currentMesh.subMeshCount; j++) {
+				assetMetaData.dependencies.push_back(currentMesh.subMeshes[j].materialID);
+			}
+
+			manifest.Insert(assetMetaData);
+
+		}
 
 		//Go through all the scenes
 		for (std::size_t i = 0; i < gltf.scenes.size(); i++) {
 
+			std::vector<SceneNodeData> sceneNodeDatalist;
 
 			//Iterate through all scenes and all nodes and process every mesh
 			fastgltf::iterateSceneNodes(gltf, i, fastgltf::math::fmat4x4(),
 				[&](fastgltf::Node& node, const auto& matrix) {
 
-
+				//We only care about node with meshes
 				if (node.meshIndex.has_value()) {
 
-					Mesh currentMesh;
+					SceneNodeData & nodeData = sceneNodeDatalist.emplace_back();
 
-					fastgltf::Mesh& mesh = gltf.meshes.at(node.meshIndex.value());
+					if (node.name.empty()) {
 
-					uint16_t subMeshIndex = 0;
-					for (auto& primitive : mesh.primitives) {
-
-						if (subMeshIndex >= currentMesh.subMeshes.size()) {
-							LogWarn(LOG_RENDER, "Mesh %s has more than %d primitives, skipping remainder", mesh.name.c_str(), currentMesh.subMeshes.size());
-							break;
-						}
-
-						currentMesh.subMeshCount++;
-
-						SubMesh& sub = currentMesh.subMeshes[subMeshIndex++];
-						sub.baseVertex = (uint32_t)currentMesh.vertices.size();
-						sub.firstIndex = (uint32_t)currentMesh.indices.size();
-
-						//If the subMesh has a material then use localToMaterialRegistry to map it to correct material. 
-						if (primitive.materialIndex.has_value()) {
-
-							sub.materialID = localToMaterialId[primitive.materialIndex.value()];
-						}
-						else {
-
-							//If not material set it default material
-							sub.materialID = 0;
-						}
-
-						// ---- INDICES ----
-						if (primitive.indicesAccessor.has_value()) {
-							auto& accessor = gltf.accessors[primitive.indicesAccessor.value()];
-							sub.indexCount = (uint32_t)accessor.count;
-							currentMesh.indices.reserve(currentMesh.indices.size() + accessor.count);
-							fastgltf::iterateAccessor<uint32_t>(gltf, accessor, [&](uint32_t index) {
-								currentMesh.indices.push_back(index);
-							});
-						}
-
-						// ---- VERTICES ----
-						// positions (required)
-						{
-							auto* attrib = primitive.findAttribute("POSITION");
-							if (attrib == primitive.attributes.end()) {
-
-								LogWarn(LOG_RENDER, "Mesh primitive missing POSITION, skipping");
-								return;
-							}
-							auto& accessor = gltf.accessors[attrib->accessorIndex];
-							sub.vertexCount = (uint32_t)accessor.count;
-							currentMesh.vertices.resize(sub.baseVertex + accessor.count);
-							fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(gltf, accessor,
-								[&](fastgltf::math::fvec3 pos, size_t i) {
-								Vertex& v = currentMesh.vertices[sub.baseVertex + i];
-								v.position = glm::vec3(pos.x(), pos.y(), pos.z());
-								v.normal = { 0, 1, 0 };
-								v.texCoord = { 0, 0 };
-							});
-						}
-						// normals (optional)
-						{
-							auto* attrib = primitive.findAttribute("NORMAL");
-							if (attrib != primitive.attributes.end()) {
-								auto& accessor = gltf.accessors[attrib->accessorIndex];
-								fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(gltf, accessor,
-									[&](fastgltf::math::fvec3 normal, size_t i) {
-									currentMesh.vertices[sub.baseVertex + i].normal =
-										glm::vec3(normal.x(), normal.y(), normal.z());
-								});
-							}
-						}
-						// uvs (optional)
-						{
-							auto* attrib = primitive.findAttribute("TEXCOORD_0");
-							if (attrib != primitive.attributes.end()) {
-								auto& accessor = gltf.accessors[attrib->accessorIndex];
-								fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec2>(gltf, accessor,
-									[&](fastgltf::math::fvec2 uv, size_t i) {
-									currentMesh.vertices[sub.baseVertex + i].texCoord =
-										glm::vec2(uv.x(), uv.y());
-								});
-							}
-						}
+						LogError(LOG_ERR, "Empty Node name in file %s ", filePathStr.c_str());
+						LogError(LOG_ERR, "all assets must have unique names within the file, cannot import asset, please add names and try again!");
+						return false;
 					}
 
+					nodeData.name = node.name;
+					nodeData.meshID = localToMeshId[node.meshIndex.value()];
 
+					Transform& transform = nodeData.transform;
+					
 					//process the meshes transform
 					//we only care about a nodes transform if it has a mesh
 					//Do we always care about the transform ???
@@ -308,67 +390,79 @@ namespace AssetImporter {
 
 						fastgltf::TRS& trs = get<fastgltf::TRS>(transformVarient);
 
-						currentMesh.transform.position = glm::vec3(trs.translation[0],
+						transform.position = glm::vec3(trs.translation[0],
 							trs.translation[1],
 							trs.translation[2]);
 
-						currentMesh.transform.rotation = glm::quat(trs.rotation[3],
+						transform.rotation = glm::quat(trs.rotation[3],
 							trs.rotation[0],
 							trs.rotation[1],
 							trs.rotation[2]);
 
-						currentMesh.transform.scale = glm::vec3(trs.scale[0],
+						transform.scale = glm::vec3(trs.scale[0],
 							trs.scale[1],
 							trs.scale[2]);
 					}
-					else {
+					else 
+					{
 
-						cout << "TODO handle mat4 case " << '\n';
+						fastgltf::math::fmat4x4 matrix = get<fastgltf::math::fmat4x4>(transformVarient);
+
+						fastgltf::math::fvec3 translation = fastgltf::math::fvec3();
+						fastgltf::math::fquat rotation  = fastgltf::math::fquat();
+						fastgltf::math::fvec3 scale = fastgltf::math::fvec3();
+
+						fastgltf::math::decomposeTransformMatrix(matrix, scale, rotation, translation);
+
+						transform.position = glm::vec3(translation[0], translation[1], translation[2]);
+						transform.rotation = glm::quat(rotation[3], rotation[0], rotation[1], rotation[2]);
+						transform.scale = glm::vec3(scale[0], scale[1], scale[2]);
+
 					}
-
-					//calculate Mesh size
-					currentMesh.size = Mesh::calculateMeshSize(currentMesh.vertices);
-
-					//todo make sure name is not null
-					uint64_t assetID = util::generateAssetID(filePathStr + mesh.name.c_str());
-
-					// --- Build header ---
-					MeshHeader header;
-					header.vertexCount = (uint32_t)currentMesh.vertices.size();
-					header.indexCount = (uint32_t)currentMesh.indices.size();
-					header.subMeshCount = currentMesh.subMeshCount;
-					header.AssetID = assetID;
-					header.size = currentMesh.size;
-
-					fs::path meshDest = destFolder / std::format("{:016x}.mesh", assetID);
-
-					RenderUtil::saveMeshToFile(meshDest, currentMesh, header);
-
-
-					uint64_t contentHash = util::generateContentHash(meshDest);
-					if (contentHash == 0) {
-						LogError(LOG_RENDER, "Failed to generate Content Hash for asset %zu in %s", i, filePathStr.c_str());
-						return;
-					}
-
-					AssetMetadata assetMetaData;
-					assetMetaData.contentHash = contentHash;
-					assetMetaData.cookedPath = meshDest.generic_string();
-					assetMetaData.id = assetID;
-					assetMetaData.importedAt = util::Now();
-					assetMetaData.type = AssetType::Mesh;
-					assetMetaData.sourcePath = filePathStr;
-					assetMetaData.sourceHash = gltfFileContentHash;
-
-					for (int i = 0; i < currentMesh.subMeshCount; i++) {
-						assetMetaData.dependencies.push_back(currentMesh.subMeshes[i].materialID);
-					}
-
-					manifest.Insert(assetMetaData);
 				}
 
-
 			});
+
+
+			if (gltf.scenes[i].name.empty()) {
+
+				LogError(LOG_ERR, "Empty Scene name in file %s ", filePathStr.c_str());
+				LogError(LOG_ERR, "all assets must have unique names within the file, cannot import asset, please add names and try again!");
+				return false;
+			}
+
+			uint64_t assetID = util::generateAssetID(filePathStr + gltf.scenes[i].name.c_str());
+
+			SceneHeader sceneHeader;
+			sceneHeader.assetID = assetID;
+			sceneHeader.nodesNum = sceneNodeDatalist.size();
+
+			fs::path sceneDestPath = destFolder / std::format("{:016x}.scene", assetID);
+
+			if (!RenderUtil::saveSceneDataFile(sceneDestPath, sceneHeader, sceneNodeDatalist)) {
+
+				return false;
+			}
+
+			uint64_t SceneContentHash = util::generateContentHash(sceneDestPath);
+			if (SceneContentHash == 0) {
+				LogError(LOG_ERR, "Failed to generate Content Hash for asset %zu in %s", i, filePathStr.c_str());
+				continue;
+			}
+
+
+			AssetMetadata assetMetaData;
+			assetMetaData.contentHash = SceneContentHash;
+			assetMetaData.cookedPath = sceneDestPath.generic_string();
+			assetMetaData.id = assetID;
+			assetMetaData.importedAt = util::Now();
+			assetMetaData.type = AssetType::Scene;
+			assetMetaData.sourcePath = filePathStr;
+			assetMetaData.sourceHash = gltfFileContentHash;
+
+			manifest.Insert(assetMetaData);
+
+
 		}
 
 		return true;
@@ -381,4 +475,3 @@ namespace AssetImporter {
 	}
 
 }
-

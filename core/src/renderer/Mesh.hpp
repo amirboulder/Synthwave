@@ -11,7 +11,9 @@ struct MeshHeader {
 	uint32_t subMeshCount = 0;
 	uint32_t vertexStride = sizeof(Vertex);
 	uint64_t AssetID;
-	Transform transform;
+	uint32_t subMeshOffset = 0;  // bytes from file start
+	uint32_t vertexOffset = 0;
+	uint32_t indexOffset = 0;
 	glm::vec3 size = glm::vec3(0.0f);
 };
 
@@ -32,8 +34,6 @@ struct SubMesh {
 
 struct MeshComponent {
 
-	Transform transform; //local transform relative to entity's position
-
 	std::array<SubMesh, 8> subMeshes; // subMesh data in here is relative to the geometry pool
 
 	uint32_t index = 0; // relative to the geometry buffer
@@ -50,7 +50,6 @@ public:
 
 	std::vector<Vertex> vertices;
 	std::vector <uint32_t> indices;
-	Transform transform;
 
 	std::array<SubMesh, 8> subMeshes; // subMesh data in here is relative to the mesh
 

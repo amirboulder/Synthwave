@@ -90,9 +90,9 @@ public:
 	}
 
 
-	//Just loads and returns the mesh,
+	//loads and returns the mesh,
 	// used by entities that need the mesh vertex to create their physics bodies
-	//We could in theory read that data from the geomtery bufffer buy why complicate things.
+	//We could in theory read that data from the geometry buffer buy why complicate things.
 	Mesh requestMesh(const uint64_t& ID) {
 
 		Mesh mesh;
@@ -115,7 +115,6 @@ public:
 		const RenderContext& renderContext = ecs.get<RenderContext>();
 
 		//Set MeshComp Data
-		meshComp.transform = mesh.transform;
 		meshComp.subMeshCount = mesh.subMeshCount;
 		meshComp.size = mesh.size;
 

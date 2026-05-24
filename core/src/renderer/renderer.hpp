@@ -221,9 +221,7 @@ struct Renderer {
 		//needed so SLD_GPU don't complain about empty buffer being uploaded
 		lightBatch.initDummyBuffers(ecs);
 
-
 		LogSuccess(LOG_RENDER, "Renderer SubSystems Initialized");
-
 	}
 
 	//Create singleton components
@@ -697,19 +695,18 @@ struct Renderer {
 					const MeshComponent& meshComp = meshComponents[i];
 
 					//calculate Ent model matrix
-					glm::mat4 entityTransform = createModelMatrix(transform);
-					glm::mat4 modelTransform = entityTransform * createModelMatrix(meshComp.transform);
+					glm::mat4 entityTransform = createModelMatrix(transform);;
 
 					// Compute normal matrix BEFORE transposing localMat for Slang.
 					// Normal matrix = inverse transpose of the upper 3x3 of the model matrix.
 					// Stored as glm::mat4 with 4th column zeroed to satisfy GPU 16-byte row alignment.
-					glm::mat3 normalMat3 = glm::mat3(glm::transpose(glm::inverse(modelTransform)));
+					glm::mat3 normalMat3 = glm::mat3(glm::transpose(glm::inverse(entityTransform)));
 					glm::mat4 normalMat4 = glm::mat4(normalMat3); // expands to mat4, 4th col = (0,0,0,1)
 					normalMat4[3] = glm::vec4(0.0f);       // zero out 4th column explicitly
 
 					// transpose matrices to row-major for Slang
 					normalMat4 = glm::transpose(normalMat4);
-					modelTransform = glm::transpose(modelTransform);
+					entityTransform = glm::transpose(entityTransform);
 
 
 					for (size_t i = 0; i < meshComp.subMeshCount; i++) {
@@ -723,8 +720,8 @@ struct Renderer {
 						drawItem.meshID = meshComp.index;
 						drawItem.materialIndex = subMesh.materialIndex;
 
-						drawItem.transform = modelTransform;
 						drawItem.normalMatrix = normalMat4;
+						drawItem.transform = entityTransform;
 
 						drawItems.push_back(std::move(drawItem));
 
@@ -1002,17 +999,15 @@ struct Renderer {
 	/// <summary>
 	/// Draws entity ID, assumes entity is in the GeometryPool.
 	/// </summary>
-	void drawMeshWithID(const FrameContext& frameContext, const GeometryPool& geometryPool, const MeshComponent& mesh, uint32_t entID, glm::mat4& modelMat) {
+	void drawMeshWithID(const FrameContext& frameContext, const GeometryPool& geometryPool, const MeshComponent& mesh, uint32_t entID, glm::mat4 modelMat) {
 
 		//TODO change this later once the shader is updated to take in transforms and inverseMatrices buffer
 		//SDL_BindGPUVertexStorageBuffers(activeRenderPass, 0, &allTransformsBuffer.buffer, 1);
 
-		glm::mat4 localMat = createModelMatrix(mesh.transform);
-		localMat = modelMat * localMat;
-		localMat = glm::transpose(localMat);
+		modelMat = glm::transpose(modelMat);
 		// Reversed multiplication order (Mᵀ × VPᵀ) because both matrices are pre-transposed for Slang's row-major layout.
 		// This is equivalent to (VP × M)ᵀ, which the GPU interprets correctly as model transform followed by view-projection.
-		glm::mat4 mvp = localMat * uniforms.viewProjection;
+		glm::mat4 mvp = modelMat * uniforms.viewProjection;
 
 
 		SDL_GPUBufferBinding vbBinding{ .buffer = geometryPool.megaVertexBuffer, .offset = 0 };
