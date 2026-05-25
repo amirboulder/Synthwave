@@ -22,7 +22,7 @@ private:
 public:
 
 	static bool createCubeEntity(flecs::world& ecs, const flecs::entity parent, const std::string name, 
-		const Transform transform, uint64_t meshID) {
+		const Transform transform) {
 
 		if (!validateName(ecs, parent, name)) return false;
 		if (!validateTransform(transform, name.c_str())) return false;
@@ -30,7 +30,8 @@ public:
 		//Get MeshComponent from AssetManager
 		AssetManager* assetManger = ecs.get<AssetManagerRef>().assetManager;
 		
-		MeshComponent meshComp = assetManger->requestMeshComponent(meshID);
+		//Assuming default asset exists
+		MeshComponent meshComp = assetManger->requestMeshComponent(assetManger->defaultAssetsMap.at(DefaultAssets::CUBE));
 
 		glm::vec3 scaledSize = meshComp.size * transform.scale;
 
@@ -38,7 +39,6 @@ public:
 
 		// Ref<> manages reference counting - no manual cleanup needed
 		Ref<Shape> boxShape = new BoxShape(boxHalfExtents);
-
 
 		// Convert GLM to Jolt types
 		JPH::Vec3 joltPosition(transform.position.x, transform.position.y, transform.position.z);
@@ -532,7 +532,7 @@ public:
 
 	//Creates a capsule shaped entity
 	static bool createCapsuleEntity(flecs::world& ecs,const flecs::entity parent,
-		std::string_view name, const Transform transform, uint64_t meshID) {
+		std::string_view name, const Transform transform) {
 
 		if (!validateName(ecs,parent,name.data())) return false;
 		if (!validateTransform(transform, name.data())) return false;
@@ -540,7 +540,7 @@ public:
 		//Get MeshComponent from AssetManager
 		AssetManager* assetManger = ecs.get<AssetManagerRef>().assetManager;
 
-		MeshComponent meshComp = assetManger->requestMeshComponent(meshID);
+		MeshComponent meshComp = assetManger->requestMeshComponent(assetManger->defaultAssetsMap.at(DefaultAssets::CAPSULE));
 		glm::vec3 scaledSize = meshComp.size * transform.scale;
 
 		// Compute capsule dimensions
@@ -602,7 +602,7 @@ public:
 	
 	static bool createActorEntity(flecs::world& ecs, flecs::entity parent, const std::string name,
 		Transform transform, JPH::CharacterSettings settings,
-		entUpdateFn actorUpdate, uint64_t meshID) {
+		entUpdateFn actorUpdate) {
 
 		if (!validateName(ecs, parent, name)) return false;
 		if (!validateTransform(transform, name.c_str())) return false;
@@ -610,7 +610,7 @@ public:
 		//Get MeshComponent from AssetManager
 		AssetManager* assetManger = ecs.get<AssetManagerRef>().assetManager;
 
-		MeshComponent meshComp = assetManger->requestMeshComponent(meshID);
+		MeshComponent meshComp = assetManger->requestMeshComponent(assetManger->defaultAssetsMap.at(DefaultAssets::ROBOT));
 		glm::vec3 scaledSize = meshComp.size * transform.scale;
 
 		// Convert GLM to Jolt types
@@ -737,14 +737,26 @@ public:
 
 	}
 
+	static bool createMTNEntity(flecs::world& ecs, const flecs::entity parent,
+		const std::string name, Transform transform) {
+
+		AssetManager* assetManger = ecs.get<AssetManagerRef>().assetManager;
+
+		if (!createStaticMeshEntity(ecs, parent, name, transform, assetManger->defaultAssetsMap.at(DefaultAssets::MOUNTAIN))) {
+			
+			return false;
+		}
+
+		return true;
+	}
+
 	static bool createStaticMeshEntity(flecs::world& ecs, const flecs::entity parent, 
 		const std::string name, Transform transform, uint64_t meshID) {
 
 		if (!validateName(ecs, parent, name)) return false;
 		if (!validateTransform(transform, name.c_str())) return false;
 	
-		float scaleFactor = 1.0f;
-
+	
 		//Get MeshComponent from AssetManager
 		AssetManager* assetManger = ecs.get<AssetManagerRef>().assetManager;
 
@@ -752,11 +764,17 @@ public:
 		MeshComponent meshComp = assetManger->requestMeshComponent(meshID);
 		Mesh meshSrc = assetManger->requestMesh(meshID);
 
+		if (meshSrc.vertices.size() == 0) {
+
+			LogError(LOG_ERR, "Mesh is empty");
+			return false;
+		}
+
 		//Create physics body from mesh data
 		// Scale vertices
 		VertexList scaledVertexList;
 		for (const Vertex& vertexData : meshSrc.vertices) {
-			glm::vec3 scaledVertex = vertexData.position * scaleFactor; // Apply scale
+			glm::vec3 scaledVertex = vertexData.position * transform.scale; // Apply scale
 			scaledVertexList.push_back(Float3(scaledVertex.x, scaledVertex.y, scaledVertex.z));
 		}
 

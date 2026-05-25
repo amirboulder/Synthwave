@@ -129,9 +129,15 @@ namespace util {
 
 	//Generates a DETERMINISTIC 64bit ID
 	//God does not play dice with the universe
-	uint64_t generateAssetID(std::string_view assetName, uint64_t seed = 0) {
+	uint64_t generateAssetID(std::string_view assetName) {
 
-		return XXH64(assetName.data(), assetName.size(), seed);
+		return XXH3_64bits(assetName.data(), assetName.size());
+	}
+
+	/// Even with seed 0 this will produce a different hash than generateAssetID.
+	uint64_t generateAssetIDWithSeed(std::string_view assetName, uint64_t seed) {
+
+		return XXH3_64bits_withSeed(assetName.data(), assetName.size(), seed);
 	}
 
 	uint64_t generateRandomAssetID(std::string_view assetName) {
@@ -140,8 +146,8 @@ namespace util {
 		static std::random_device s_randomDevice;
 		static std::mt19937_64 s_engine(s_randomDevice());
 		static std::uniform_int_distribution<uint64_t> s_uniformDistribution;
-
-		return XXH64(assetName.data(), assetName.size(), s_uniformDistribution(s_engine));
+		
+		return XXH3_64bits_withSeed(assetName.data(), assetName.size(), s_uniformDistribution(s_engine));
 	}
 
 	uint64_t generateContentHash(const fs::path& filePath) {
@@ -167,7 +173,7 @@ namespace util {
 			return 0;
 		}
 
-		return XXH64(buffer.data(), buffer.size(), 0);
+		return XXH3_64bits(buffer.data(), buffer.size());
 	}
 }
 

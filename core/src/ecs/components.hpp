@@ -185,6 +185,7 @@ enum class EntityType {
 	Capsule,
 	Grid,
 	StaticMesh,
+	Mountain,
 	Sphere,
 	Sensor,
 	Cube,

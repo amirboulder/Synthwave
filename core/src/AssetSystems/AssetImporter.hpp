@@ -465,6 +465,8 @@ namespace AssetImporter {
 
 		}
 
+		manifest.Save();
+
 		return true;
 	}
 

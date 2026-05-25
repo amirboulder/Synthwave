@@ -342,9 +342,9 @@ public:
 
 						createGridChild(ecs);
 						break;
-					case EntityType::StaticMesh:
+					case EntityType::Mountain:
 
-						createStaticMeshChild(ecs);
+						createMountainChild(ecs);
 						break;
 					case EntityType::Sphere:
 						SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Adding Sphere not yet implemented");
@@ -405,14 +405,13 @@ public:
 
 	}
 
-
 	static void createCapsuleChild(flecs::world& ecs) {
 
 		Transform capsule1Transform;
 		capsule1Transform.position = glm::vec3(1.0f, 5.0f, 0.0f);
 		capsule1Transform.rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
 		capsule1Transform.scale = glm::vec3(1.0f);
-		EntityFactory::createCapsuleEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, capsule1Transform, 5895531305822256830);
+		EntityFactory::createCapsuleEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, capsule1Transform);
 
 	}
 
@@ -422,7 +421,7 @@ public:
 		transform.position = glm::vec3(1.0f, 5.0f, 0.0f);
 		transform.rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
 		transform.scale = glm::vec3(1.0f);
-		EntityFactory::createCubeEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, transform, 7328866536053982113);
+		EntityFactory::createCubeEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, transform);
 
 	}
 
@@ -449,7 +448,7 @@ public:
 		settings.mMaxSlopeAngle = DegreesToRadians(20.0f); // Max walkable slope
 		settings.mLayer = Layers::MOVING;
 		settings.mGravityFactor = 1;
-		EntityFactory::createActorEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, actorTransform, settings, actor1Update, 8341858647569279633);
+		EntityFactory::createActorEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, actorTransform, settings, actor1Update);
 
 	}
 
@@ -462,12 +461,19 @@ public:
 
 	}
 
-	static void createStaticMeshChild(flecs::world& ecs) {
+	//static void createStaticMeshChild(flecs::world& ecs) {
+	//	Transform mtnTransform;
+	//	mtnTransform.position = glm::vec3(0.0f, -40.0f, 0.0f);
+	//	mtnTransform.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+	//	EntityFactory::createStaticMeshEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, mtnTransform, 12180758562205882676);
+	//}
+
+	static void createMountainChild(flecs::world& ecs) {
 
 		Transform mtnTransform;
 		mtnTransform.position = glm::vec3(0.0f, -40.0f, 0.0f);
 		mtnTransform.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
-		EntityFactory::createStaticMeshEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, mtnTransform, 12180758562205882676);
+		EntityFactory::createMTNEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, mtnTransform);
 
 	}
 

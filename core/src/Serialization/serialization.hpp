@@ -189,6 +189,10 @@ public:
 
 						createStaticMeshEntFromJson(item, path);
 					}
+					else if (entType == "Mountain") {
+
+						createStaticMountainEntFromJson(item, path);
+					}
 					else if (entType == "Camera") {
 
 						//PlayerCam is created with the player for now.
@@ -296,7 +300,7 @@ public:
 		parentName = item["parent"].GetString();
 		flecs::entity parentEnt = ecs.lookup(parentName.c_str(), ".");
 
-		if (!EntityFactory::createCapsuleEntity(ecs, parentEnt, name, transform, 5895531305822256830)) {
+		if (!EntityFactory::createCapsuleEntity(ecs, parentEnt, name, transform)) {
 			return false;
 		}
 
@@ -332,7 +336,7 @@ public:
 		settings.mLayer = Layers::MOVING;
 		settings.mGravityFactor = 1;
 
-		if (!EntityFactory::createActorEntity(ecs, parentEnt, name, transform, settings, actor1Update, 15780229385423134329)) {
+		if (!EntityFactory::createActorEntity(ecs, parentEnt, name, transform, settings, actor1Update)) {
 			return false;
 		}
 
@@ -420,7 +424,38 @@ public:
 		transform = optTransform.value();
 
 		flecs::entity parentEnt = ecs.lookup(parentName.c_str(), ".");
-		if (!EntityFactory::createStaticMeshEntity(ecs, parentEnt, name, transform, 12180758562205882676)) {
+		if (!EntityFactory::createStaticMeshEntity(ecs, parentEnt, name, transform, 2337188011122585679)) {
+			return false;
+		}
+
+		return true;
+	}
+
+	bool createStaticMountainEntFromJson(const rapidjson::Value& item, const std::string& filename) {
+
+		std::string name;
+		std::string parentName;
+		std::string modelSrcName;
+		Transform transform;
+
+		if (!validateName(item, filename)) return false;
+		if (!validateTransform(item, filename)) return false;
+		if (!validateParent(item, filename)) return false;
+		if (!validateModelSrc(item, filename)) return false;
+
+		//TODO entityFactory validate Name 
+
+		name = item["name"].GetString();
+		parentName = item["parent"].GetString();
+		modelSrcName = item["components"]["ModelSourceRef"]["name"].GetString();
+
+
+		std::optional<Transform> optTransform = deserTransform(item["components"]["Transform"]);
+		if (!optTransform) return false;
+		transform = optTransform.value();
+
+		flecs::entity parentEnt = ecs.lookup(parentName.c_str(), ".");
+		if (!EntityFactory::createMTNEntity(ecs, parentEnt, name, transform)) {
 			return false;
 		}
 

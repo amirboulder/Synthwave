@@ -1,5 +1,16 @@
 #pragma once
 
+enum class DefaultAssets {
+
+	CUBE,
+	SPHERE,
+	CAPSULE,
+	ROBOT,	//TODO This should be a game asset
+	MOUNTAIN, //TODO This should be a game asset
+};
+
+
+
 class AssetManager;
 
 struct AssetManagerRef {
@@ -12,9 +23,11 @@ class AssetManager {
 public:
 
 	flecs::world& ecs;
-	Manifest & manifest;
+	const Manifest & manifest;
 
 	GeometryPool geometryPool;
+
+	std::unordered_map<DefaultAssets, uint64_t>defaultAssetsMap;
 
 	std::unordered_map<uint64_t, MeshComponent> meshes;
 
@@ -26,7 +39,7 @@ public:
 	std::unordered_map<uint64_t, uint32_t> NormalTextureIdToIndex;//Maps Metallic Roughness texture Id to their index in textureArrays
 	TextureArrays textureArrays;
 
-	AssetManager(flecs::world& ecs, Manifest& manifest)
+	AssetManager(flecs::world& ecs, const Manifest& manifest)
 		:ecs(ecs), manifest(manifest)
 	{
 		 //Register the ref component
@@ -39,20 +52,52 @@ public:
 		textureArrays.init(renderContext.device);
 
 		//Creating defaultTexture for meshes that don't have a texture
-		SDL_Surface* imageData = RenderUtil::LoadImage("assets/checkerboard.bmp", 4);
+		SDL_Surface* imageData = RenderUtil::LoadImage("assets/images/checkerboard.bmp", 4);
 		if (imageData == NULL)
 		{
 			LogError(LOG_RENDER, "Could not load checkerboard.bmp image data!");
 		}
 
+		
 		//Setting texture 0 and material 0
 		RenderUtil::uploadToTextureArray(renderContext.device, textureArrays.diffuseTextures, imageData);
 		//TODO
 		//RenderUtil::uploadToTextureArray(renderContext.device, textureArrays.metallicRoughnessTextures, imageData);
 		//RenderUtil::uploadToTextureArray(renderContext.device, textureArrays.normalTextures, imageData);
+
+		SDL_DestroySurface(imageData);
+		//SDL_DestroySurface(imageData);
+		//SDL_DestroySurface(imageData);
+
 		Material mat;
 		materials.push_back(mat);
 
+		makeSureDefaultAssetsExistInManifest();
+
+		//Cube will serve as the default Mesh
+		MeshComponent meshComp = requestMeshComponent(defaultAssetsMap.at(DefaultAssets::CUBE));
+
+	}
+
+	/// <summary>
+	/// As the name suggests this makes sure that the default assets exist in the manifest
+	/// </summary>
+	void makeSureDefaultAssetsExistInManifest() {
+
+		defaultAssetsMap.insert({ DefaultAssets::CUBE, 6728271091387442376 });
+		defaultAssetsMap.insert({ DefaultAssets::SPHERE, 6728271091387442376 }); // FIX
+		defaultAssetsMap.insert({ DefaultAssets::CAPSULE, 17196989714979220390 });
+		defaultAssetsMap.insert({ DefaultAssets::ROBOT, 5156344710508223273 });
+		defaultAssetsMap.insert({ DefaultAssets::MOUNTAIN, 7018586682167799274 });
+
+		for (const auto& pair : defaultAssetsMap) {
+
+			if (!manifest.Contains(pair.second)) {
+
+				LogError(LOG_ERR, "Default AssetID %llu to does not exist in the manifest Fix it",
+					pair.second);
+			}
+		}
 	}
 
 	//TODO upgrade to cpp23 and used std::expected
@@ -62,7 +107,7 @@ public:
 	/// </summary>
 	MeshComponent requestMeshComponent(const uint64_t& ID) {
 
-		MeshComponent meshComp;
+		MeshComponent meshComp{};
 
 		auto it = meshes.find(ID);
 
@@ -73,17 +118,22 @@ public:
 		// If not in the map then load it
 		else {
 
-			
-			AssetMetadata* assetMetaData =  manifest.Find(ID);
+			const AssetMetadata* assetMetaData =  manifest.Find(ID);
+			if (!assetMetaData) {
+				return meshes[0]; //default Mesh
+			}
 		
 			Mesh mesh;
 			MeshHeader meshHeader;
 
 			if (!RenderUtil::loadMeshFromFile(assetMetaData->cookedPath, mesh, meshHeader)) {
 				LogError(LOG_APP, "Failed to loadMeshFromFile");
+				return meshes[0]; //default Mesh
 			}
 
-			fillMeshComp(mesh, meshComp, ID);
+			if (!fillMeshComp(mesh, meshComp, ID)) {
+				return meshes[0]; //default Mesh
+			}
 
 			return meshComp;
 		}
@@ -98,7 +148,11 @@ public:
 		Mesh mesh;
 		MeshHeader meshHeader;
 
-		AssetMetadata* assetMetaData = manifest.Find(ID);
+		const AssetMetadata* assetMetaData = manifest.Find(ID);
+		if (!assetMetaData) {
+			return mesh; //returns default Mesh
+		}
+
 
 		if (!RenderUtil::loadMeshFromFile(assetMetaData->cookedPath, mesh, meshHeader)) {
 			LogError(LOG_APP, "Failed to loadMeshFromFile");
@@ -110,7 +164,7 @@ public:
 	// fills meshComp data from Mesh and GeometryPool, used by requestMeshComp in most circumstances,
 	// but also can be used to add MeshData to the Geopool and meshes map for thing like generated meshes for example
 	//TODO maybe a better name for this
-	void fillMeshComp(const Mesh & mesh, MeshComponent& meshComp, const uint64_t& ID) {
+	bool fillMeshComp(const Mesh & mesh, MeshComponent& meshComp, const uint64_t& ID) {
 
 		const RenderContext& renderContext = ecs.get<RenderContext>();
 
@@ -133,6 +187,7 @@ public:
 		//This sets the rest of the data
 		if (!geometryPool.addMeshCompToBuffer(renderContext.device, mesh, meshComp)) {
 			LogError(LOG_APP, "Failed to addMeshCompToBuffer");
+			return false;
 		}
 
 
@@ -148,6 +203,7 @@ public:
 		//This will copy the meshComp so it will still be outside of this function right ?
 		meshes[ID] = meshComp;
 
+		return true;
 	}
 
 	bool isMeshCompLoaded(const uint64_t& ID) {
@@ -181,23 +237,35 @@ public:
 		}
 		else {
 
-			Material material;
+			Material material{};
 
-			const RenderContext& renderContext = ecs.get<RenderContext>();
-			AssetMetadata* assetMetaData = manifest.Find(ID);
+			const AssetMetadata* assetMetaData = manifest.Find(ID);
+			if (!assetMetaData) {
+				return 0; //defaltMaterial
+			}
 
-			MaterialData materialData;
+			MaterialData materialData{};
 
-			RenderUtil::loadMaterialDataFromFile(assetMetaData->cookedPath, materialData);
+			if (!RenderUtil::loadMaterialDataFromFile(assetMetaData->cookedPath, materialData)) {
+				LogError(LOG_APP,
+					"Failed to load material data from file %s corresponding to source file %s",
+					assetMetaData->cookedPath.c_str(), assetMetaData->sourcePath.c_str());
+				return 0;
+			}
 			
-			material.baseColorTexIndex = requestTextureIndex(materialData.baseColorTexID, diffuseTextureIdToIndex, TextureMapType::BaseColor);
+			material.baseColorTexIndex = requestTextureIndex(materialData.baseColorTexID,
+				diffuseTextureIdToIndex, TextureMapType::BaseColor);
 			material.baseColorFactor = materialData.baseColorFactor;
 
-			material.metallicRoughnessTexIndex = requestTextureIndex(materialData.metallicRoughnessTexID, MRTextureIdToIndex, TextureMapType::metallicRoughness);
+			material.metallicRoughnessTexIndex = requestTextureIndex(
+				materialData.metallicRoughnessTexID
+				, MRTextureIdToIndex,
+				TextureMapType::metallicRoughness);
 			material.metallicFactor = materialData.metallicFactor;
 			material.roughnessFactor = materialData.roughnessFactor;
 
-			material.normalTexIndex = requestTextureIndex(materialData.normalTexID, NormalTextureIdToIndex, TextureMapType::Normal);
+			material.normalTexIndex = requestTextureIndex(materialData.normalTexID, NormalTextureIdToIndex,
+				TextureMapType::Normal);
 
 			materials.push_back(material);
 
@@ -230,7 +298,10 @@ public:
 
 			const RenderContext& renderContext = ecs.get<RenderContext>();
 
-			AssetMetadata* assetMetaData = manifest.Find(ID);
+			const AssetMetadata* assetMetaData = manifest.Find(ID);
+			if (!assetMetaData) {
+				return 0; //defalt Texture
+			}
 
 			TexHeader texHeader{};
 			std::vector<uint8_t> pixels;
@@ -240,7 +311,6 @@ public:
 			}
 
 			SDL_Surface* surface = RenderUtil::createSurfaceFromPixels(texHeader, pixels);
-
 			if (!surface) {
 				return 0;
 			}
@@ -260,8 +330,17 @@ public:
 				if(!RenderUtil::uploadToTextureArray(renderContext.device, textureArrays.metallicRoughnessTextures, surface))
 					return 0;
 			}
+			else if (texType == TextureMapType::Normal) {
+
+				textureIndex = textureArrays.normalTextures.usedLayers;
+
+				if (!RenderUtil::uploadToTextureArray(renderContext.device, textureArrays.normalTextures, surface))
+					return 0;
+			}
 
 			IdToIndex[ID] = textureIndex;
+
+			SDL_DestroySurface(surface);
 
 			return textureIndex;
 		}

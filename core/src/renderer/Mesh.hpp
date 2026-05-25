@@ -29,7 +29,7 @@ struct SubMesh {
 	uint32_t vertexCount = 0;
 
 	uint64_t materialID = 0;
-	uint32_t materialIndex = 0; // relatvie to Materials Vector in AssetManger
+	uint32_t materialIndex = 0; // relative to Materials Vector in AssetManger
 };
 
 struct MeshComponent {

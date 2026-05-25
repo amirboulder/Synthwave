@@ -13,7 +13,8 @@ struct AssetLibRef {
 //TODO FIX HARDCODED PATHS
 
 /// <summary>
-/// This class is responsible for 
+/// This class is responsible Importing / reimporting assets.
+/// Only needed when editing the game.
 /// </summary>
 class AssetLibrary {
 
@@ -40,22 +41,19 @@ public:
         const RenderContext& renderContext = ecs.get<RenderContext>();
 
         scanForFilesRecursive(assetsFolder, ".glb", modelPaths);
-       // scanForFilesRecursive(assetsFolder, ".obj", modelPaths);
 
         // Register the ref component
         ecs.component<AssetLibRef>();
         ecs.set<AssetLibRef>({ this });
 
+        //IF manifest does not exist create it and save
         if (!manifest.Load(manifestPath)) {
-            manifest.Save(); // save the manifest file to create it.
+            manifest.Save(); 
         }
 
         scanForRagdolls();
    
-       
         importAssets();
-
-        manifest.Save();
 
         LogSuccess(LOG_APP, "AssetLibrary Initialized");
     }
@@ -100,7 +98,6 @@ public:
                     
                     LogWarn(LOG_APP, "file %s has been renamed ", filePath.string().c_str());
                 }
-
         }
 
         for (const fs::path& filePath : needsImport) {
@@ -110,7 +107,6 @@ public:
         for (const fs::path& filePath : needsReImport) {
             AssetImporter::reImportGLTF(filePath, cookedAssetsFolder, manifest);
         }
-
 
     }
 
