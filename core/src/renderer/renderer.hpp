@@ -129,11 +129,8 @@ struct Renderer {
 
 	Uint32 swapchainWidth, swapchainHeight;
 
-
 	SDL_GPUSampler* linearSampler = nullptr;
 	SDL_GPUSampler* nearestSampler = nullptr;
-	//SDL_GPUTextureSamplerBinding defaultSamplerBinding;
-
 
 	SDL_GPUTexture* mainDepthStencilTexture = nullptr;
 
@@ -156,13 +153,16 @@ struct Renderer {
 	//List of DrawItems after culling before duplicates are instanced
 	std::vector<DrawItem> drawItems;
 
-	//Instanced list of drawCommands
-	std::vector<SDL_GPUIndexedIndirectDrawCommand> drawCommands;
-	std::vector<uint32_t> materialData;
+	std::vector<SDL_GPUIndexedIndirectDrawCommand> drawCommands;//Instanced list of drawCommands
+	std::vector<Material> materialDatas;
+	std::vector<uint32_t> materialIndices;
+	std::vector<uint32_t> instanceOffsets;
 
 	GrowableGPUBuffer allTransformsBuffer;
 	GrowableGPUBuffer allNormalMatricesBuffer;
 	GrowableGPUBuffer allMaterialsBuffer;
+	GrowableGPUBuffer allMaterialIndicesBuffer;
+	GrowableGPUBuffer allInstanceOffsetsBuffer;
 	GrowableGPUBuffer drawCommandBuffer;
 	uint32_t numDrawCalls = 0 ;
 
@@ -676,7 +676,9 @@ struct Renderer {
 			allNormalMatrices.clear();
 			drawCommands.clear();
 			drawItems.clear();
-			materialData.clear();
+			materialDatas.clear();
+			materialIndices.clear();
+			instanceOffsets.clear();
 			numDrawCalls = 0;
 
 			while (it.next()) {
@@ -748,8 +750,18 @@ struct Renderer {
 					SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ);
 
 				allMaterialsBuffer.upload(renderContext.device,
-					materialData.data(),
-					materialData.size() * sizeof(uint32_t),
+					materialDatas.data(),
+					materialDatas.size() * sizeof(Material),
+					SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ);
+
+				allMaterialIndicesBuffer.upload(renderContext.device,
+					materialIndices.data(),
+					materialIndices.size() * sizeof(uint32_t),
+					SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ);
+
+				allInstanceOffsetsBuffer.upload(renderContext.device,
+					instanceOffsets.data(),
+					instanceOffsets.size() * sizeof(uint32_t),
 					SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ);
 
 				drawCommandBuffer.upload(renderContext.device,
@@ -761,13 +773,15 @@ struct Renderer {
 
 	}
 
-
 	void createDrawCommands() {
 
-		// Sort by meshID — radix sort 
+		// Sort by meshID and then by firstIndex to group identical submeshes together
 		std::sort(drawItems.begin(), drawItems.end(),
 			[](const DrawItem& a, const DrawItem& b) {
-			return a.meshID < b.meshID;
+			if (a.meshID != b.meshID) {
+				return a.meshID < b.meshID;
+			}
+			return a.firstIndex < b.firstIndex;
 		});
 
 
@@ -781,28 +795,39 @@ struct Renderer {
 		uint32_t batchStart = 0;
 		for (uint32_t i = 1; i <= drawItems.size(); i++) {
 			bool lastElement = i == drawItems.size();
-			bool meshIDChange = !lastElement &&
-				drawItems[i].meshID != drawItems[batchStart].meshID;
+			bool batchChange = !lastElement && (
+				drawItems[i].meshID != drawItems[batchStart].meshID ||
+				drawItems[i].firstIndex != drawItems[batchStart].firstIndex
+			);
 
 			//New batch push another drawCommand
-			if (lastElement || meshIDChange) {
+			if (lastElement || batchChange) {
 				
-			///Fill draw command 
+			///Fill draw command
 			SDL_GPUIndexedIndirectDrawCommand cmd{};
 			cmd.num_indices = drawItems[batchStart].indexCount;
 			cmd.num_instances = i - batchStart;
 			cmd.first_index = drawItems[batchStart].firstIndex;    // from GeometryPool slot
 			cmd.vertex_offset = (Sint32)drawItems[batchStart].vertexOffset;
-			cmd.first_instance = 0;
+			cmd.first_instance = 0; //Keep this zero for compatibility with DX12
 			
 			//fill MaterialData, we do this here because we have 1 material per batch
-			materialData.push_back(drawItems[batchStart].materialIndex);
+			materialIndices.push_back(drawItems[batchStart].materialIndex);
+			instanceOffsets.push_back(batchStart);
 
 			drawCommands.push_back(cmd);
 			batchStart = i;
 			numDrawCalls++;
 
 			}			
+		}
+
+		//Just push back all materials for now
+		AssetManager* assetManger = ecs.get<AssetManagerRef>().assetManager;
+		
+		for (const Material& material : assetManger->materials) {
+
+			materialDatas.push_back(material);
 		}
 	}
 
@@ -871,8 +896,6 @@ struct Renderer {
 		const Pipeline* pipeline = &pipelineEntity.get<Pipeline>();
 		SDL_BindGPUGraphicsPipeline(activeRenderPass, pipeline->pipelineMS);
 
-		//SDL_BindGPUFragmentSamplers(activeRenderPass, 0, &defaultSamplerBinding, 1);
-
 		if (geometryPool.size < 1 || allTransforms.size() < 1) {
 			return;
 		}
@@ -886,7 +909,8 @@ struct Renderer {
 		// Bind all transforms, NormalMatrices, and MaterialData
 		SDL_BindGPUVertexStorageBuffers(activeRenderPass, 0, &allTransformsBuffer.buffer, 1);
 		SDL_BindGPUVertexStorageBuffers(activeRenderPass, 1, &allNormalMatricesBuffer.buffer, 1);
-		SDL_BindGPUVertexStorageBuffers(activeRenderPass, 2, &allMaterialsBuffer.buffer, 1);
+		SDL_BindGPUVertexStorageBuffers(activeRenderPass, 2, &allMaterialIndicesBuffer.buffer, 1);
+		SDL_BindGPUVertexStorageBuffers(activeRenderPass, 3, &allInstanceOffsetsBuffer.buffer, 1);
 
 		//Push the ambient light data so there is always some light in the scene.
 		LightDataUniform lightDataUniform;
@@ -894,28 +918,34 @@ struct Renderer {
 		lightDataUniform.numPointLights = lightBatch.numPoint;
 		SDL_PushGPUFragmentUniformData(frameContext.commandBuffer, 1, &lightDataUniform, sizeof(lightDataUniform));
 
-		// Always bind something — dummy buffer when empty
-		if (lightBatch.numDirectional > 0) {
-			SDL_BindGPUFragmentStorageBuffers(activeRenderPass, 0, &lightBatch.directionalBuffer.buffer, 1);
-		}
-		else {
-			SDL_BindGPUFragmentStorageBuffers(activeRenderPass, 0, &lightBatch.dummyBufferDir.buffer, 1);
-
-		}
-		
-		if (lightBatch.numPoint > 0) {
-			SDL_BindGPUFragmentStorageBuffers(activeRenderPass, 1, &lightBatch.pointBuffer.buffer, 1);
-		}
-		else {
-			SDL_BindGPUFragmentStorageBuffers(activeRenderPass, 1, &lightBatch.dummyBufferPoint.buffer, 1);
-
-		}
-		
-		//TODO rest of the lights
+	
 
 		SDL_GPUTextureSamplerBinding binding = { assetManger->textureArrays.diffuseTextures.textureArray, nearestSampler };
 		SDL_BindGPUFragmentSamplers(activeRenderPass, 0, &binding, 1);
 
+		//Seperate binding set for Samplers StorageBuffers so they both start binding at slot 0
+		SDL_BindGPUFragmentStorageBuffers(activeRenderPass, 0, &allMaterialsBuffer.buffer, 1);
+
+		// Always bind something — dummy buffer when empty
+		if (lightBatch.numDirectional > 0) { 
+			SDL_BindGPUFragmentStorageBuffers(activeRenderPass, 1, &lightBatch.directionalBuffer.buffer, 1);
+		}
+		else {
+			SDL_BindGPUFragmentStorageBuffers(activeRenderPass, 1, &lightBatch.dummyBufferDir.buffer, 1);
+
+		}
+
+		if (lightBatch.numPoint > 0) { 
+			SDL_BindGPUFragmentStorageBuffers(activeRenderPass, 2, &lightBatch.pointBuffer.buffer, 1);
+		}
+		else {
+			SDL_BindGPUFragmentStorageBuffers(activeRenderPass, 2, &lightBatch.dummyBufferPoint.buffer, 1);
+		}
+
+		//TODO rest of the lights
+
+
+		//Finally Draw Indirectly
 		SDL_DrawGPUIndexedPrimitivesIndirect(activeRenderPass, drawCommandBuffer.buffer, 0, numDrawCalls);
 
 		

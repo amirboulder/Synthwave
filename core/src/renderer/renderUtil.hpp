@@ -1,5 +1,15 @@
 #pragma once
 
+using SDLSurface = std::unique_ptr<SDL_Surface, decltype(&SDL_DestroySurface)>;
+
+struct SDLTransferBufferDeleter {
+	SDL_GPUDevice* device = nullptr;
+	void operator()(SDL_GPUTransferBuffer* tb) const {
+		SDL_ReleaseGPUTransferBuffer(device, tb);
+	}
+};
+using SDLTransferBuffer = std::unique_ptr<SDL_GPUTransferBuffer, SDLTransferBufferDeleter>;
+
 struct Context {
 	SDL_GPUDevice* device;
 	SDL_Window* window;
@@ -141,7 +151,7 @@ public:
 
 		if (desiredChannels == 4)
 		{
-			format = SDL_PIXELFORMAT_ABGR8888;
+			format = SDL_PIXELFORMAT_RGBA32;
 		}
 		else
 		{
@@ -261,63 +271,104 @@ public:
     }
 
 
-	static bool uploadToTextureArray(SDL_GPUDevice* device, TextureArray & textureArray, SDL_Surface* imageData) {
+	static bool uploadToTextureArray(SDL_GPUDevice* device, TextureArray& textureArray, SDL_Surface* imageData) {
 
-		// Set up texture data
-		const Uint32 imageSizeInBytes = imageData->w * imageData->h * 4;
-
-		if (imageData->w != 1024 || imageData->h != 1024) {
-			LogError(LOG_RENDER, "Texture must be 1024x1024, got %dx%d scaling the image", imageData->w, imageData->h);
-			SDL_Surface* scaled = SDL_ScaleSurface(imageData, 1024, 1024, SDL_SCALEMODE_LINEAR);
-		}
-
+		// Validate capacity
 		if (textureArray.usedLayers >= textureArray.maxLayers) {
-			LogError(LOG_RENDER, "TextureArray full!");
+			LogError(LOG_RENDER, "TextureArray is full (%u/%u layers used)",
+				textureArray.usedLayers, textureArray.maxLayers);
 			return false;
 		}
-		
-		SDL_GPUTextureRegion region{};
-		region.texture = textureArray.textureArray;
-		region.layer = textureArray.usedLayers ;  // which slot this texture occupies
-		region.w = 1024;
-		region.h = 1024;
-		region.d = 1;
 
-		// Set up buffer data
-		SDL_GPUTransferBufferCreateInfo transferBufferInfo = {
+		//Scale to 1024x1024 if needed
+		SDLSurface scaledSurface(nullptr, SDL_DestroySurface);
+		SDL_Surface* uploadSurface = imageData;
+
+		if (imageData->w != 1024 || imageData->h != 1024) {
+			LogWarn(LOG_RENDER, "Texture is %dx%d (expected 1024x1024), scaling to fit",
+				imageData->w, imageData->h);
+			scaledSurface.reset(SDL_ScaleSurface(imageData, 1024, 1024, SDL_SCALEMODE_LINEAR));
+			if (!scaledSurface) {
+				LogError(LOG_RENDER, "SDL_ScaleSurface failed: %s", SDL_GetError());
+				return false;
+			}
+			uploadSurface = scaledSurface.get();
+		}
+
+		// Validate format matches the GPU texture (R8G8B8A8_UNORM = 4 bytes/pixel).
+		if (uploadSurface->format != SDL_PIXELFORMAT_RGBA32) {
+			LogError(LOG_RENDER, "Unexpected surface format 0x%x — expected SDL_PIXELFORMAT_RGBA32",
+				static_cast<unsigned>(uploadSurface->format));
+			return false;
+		}
+
+		// Compute sizes using pitch to correctly account for any row padding.
+		constexpr Uint32 kBytesPerPixel = 4;
+		const Uint32 pixelsPerRow = uploadSurface->pitch / kBytesPerPixel;
+		const Uint32 totalBytes = static_cast<Uint32>(uploadSurface->pitch * uploadSurface->h);
+
+		// Create the transfer buffer.
+		const SDL_GPUTransferBufferCreateInfo transferInfo = {
 			.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
-			.size = imageSizeInBytes
+			.size = totalBytes,
 		};
-		SDL_GPUTransferBuffer* textureTransferBuffer = SDL_CreateGPUTransferBuffer(device, &transferBufferInfo);
+		SDLTransferBuffer transferBuffer(
+			SDL_CreateGPUTransferBuffer(device, &transferInfo),
+			SDLTransferBufferDeleter{ device }
+		);
+		if (!transferBuffer) {
+			LogError(LOG_RENDER, "SDL_CreateGPUTransferBuffer failed: %s", SDL_GetError());
+			return false;
+		}
 
-		void* textureTransferPtr = SDL_MapGPUTransferBuffer(device, textureTransferBuffer, false);
+		// Map, copy pixel data, unmap.
+		void* mapped = SDL_MapGPUTransferBuffer(device, transferBuffer.get(), false);
+		if (!mapped) {
+			LogError(LOG_RENDER, "SDL_MapGPUTransferBuffer failed: %s", SDL_GetError());
+			return false;
+		}
+		SDL_memcpy(mapped, uploadSurface->pixels, totalBytes);
+		SDL_UnmapGPUTransferBuffer(device, transferBuffer.get());
 
-		SDL_memcpy(textureTransferPtr, imageData->pixels, imageSizeInBytes);
+		// Record and submit the upload command.
+		SDL_GPUCommandBuffer* cmdBuf = SDL_AcquireGPUCommandBuffer(device);
+		if (!cmdBuf) {
+			LogError(LOG_RENDER, "SDL_AcquireGPUCommandBuffer failed: %s", SDL_GetError());
+			return false;
+		}
 
-		SDL_UnmapGPUTransferBuffer(device, textureTransferBuffer);
+		SDL_GPUCopyPass* copyPass = SDL_BeginGPUCopyPass(cmdBuf);
+		if (!copyPass) {
+			LogError(LOG_RENDER, "SDL_BeginGPUCopyPass failed: %s", SDL_GetError());
+			SDL_CancelGPUCommandBuffer(cmdBuf);
+			return false;
+		}
 
-		// Upload the transfer data to the GPU resources
-		SDL_GPUCommandBuffer* uploadCmdBuf = SDL_AcquireGPUCommandBuffer(device);
-		SDL_GPUCopyPass* copyPass = SDL_BeginGPUCopyPass(uploadCmdBuf);
-
-
-
-		SDL_GPUTextureTransferInfo textureTransferInfo = {
-			.transfer_buffer = textureTransferBuffer,
+		const SDL_GPUTextureTransferInfo transferSrc = {
+			.transfer_buffer = transferBuffer.get(),
 			.offset = 0,
+			.pixels_per_row = pixelsPerRow,
+			.rows_per_layer = static_cast<Uint32>(uploadSurface->h),
+		};
+		const SDL_GPUTextureRegion dstRegion = {
+			.texture = textureArray.textureArray,
+			.layer = textureArray.usedLayers,
+			.w = static_cast<Uint32>(uploadSurface->w),
+			.h = static_cast<Uint32>(uploadSurface->h),
+			.d = 1,
 		};
 
-
-		SDL_UploadToGPUTexture(copyPass, &textureTransferInfo, &region, false);
+		SDL_UploadToGPUTexture(copyPass, &transferSrc, &dstRegion, false);
 		SDL_EndGPUCopyPass(copyPass);
-		SDL_SubmitGPUCommandBuffer(uploadCmdBuf);
-	
-		SDL_ReleaseGPUTransferBuffer(device, textureTransferBuffer);
 
+		if (!SDL_SubmitGPUCommandBuffer(cmdBuf)) {
+			LogError(LOG_RENDER, "SDL_SubmitGPUCommandBuffer failed: %s", SDL_GetError());
+			return false; // usedLayers NOT incremented.
+		}
+
+		// transferBuffer and scaledSurface released here by their destructors.
 		textureArray.usedLayers++;
-
 		return true;
-
 	}
 
 

@@ -88,7 +88,7 @@ public:
                 manifest.ForEach([&](const AssetMetadata& meta) {
 
                     if (meta.sourceHash == contentHash) contentHashFound = true;
-                    if (meta.sourcePath == filePath.string()) pathFound = true;
+                    if (meta.sourcePath == filePath.string()) pathFound = true; //TODO change to generic string
                 });
 
                 if (!contentHashFound && !pathFound) needsImport.push_back(filePath);     // new file

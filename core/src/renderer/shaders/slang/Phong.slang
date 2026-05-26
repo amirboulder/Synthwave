@@ -21,6 +21,8 @@ layout(set = 1, binding = 0) cbuffer VertexFrameData {
 layout(set = 0, binding = 0) StructuredBuffer<float4x4> transforms;
 layout(set = 0, binding = 1) StructuredBuffer<float4x4> normalMatrices;
 layout(set = 0, binding = 2) StructuredBuffer<uint32_t> materialData;
+layout(set = 0, binding = 3) StructuredBuffer<uint32_t> instanceOffsets;
+
 
 
 struct VertexInput
@@ -37,14 +39,15 @@ struct VertexOutput
     float3 worldPos : WORLD_Position;
     float3 normal : NORMAL;
     float2 texCoords : TextureCoords;
-    uint  materialIndex;
+    nointerpolation uint32_t materialIndex;
 };
 
 [shader("vertex")]
 VertexOutput vertexMain(VertexInput input, uint instanceID: SV_InstanceID, uint drawIndex: SV_DrawIndex)
 {
-    float4x4 modelMatrix = transforms[drawIndex + instanceID];
-    float3x3 normalMat = (float3x3)normalMatrices[drawIndex + instanceID];
+    uint32_t globalInstanceID = instanceOffsets[drawIndex] + instanceID;
+    float4x4 modelMatrix = transforms[globalInstanceID];
+    float3x3 normalMat = (float3x3)normalMatrices[globalInstanceID];
 
     VertexOutput output;
 
@@ -58,14 +61,27 @@ VertexOutput vertexMain(VertexInput input, uint instanceID: SV_InstanceID, uint 
     output.texCoords = input.texCoords;
     output.materialIndex = materialData[drawIndex];
 
-    
     return output;
 }
 
-// Using Combined Image Sampler,
-layout(set = 2, binding = 0) SamplerState sampler;
-layout(set = 2, binding = 0) Texture2DArray<float4> diffuseTextures;
 
+struct Material {
+    uint32_t baseColorTexIndex;
+    uint32_t normalTexIndex;
+    uint32_t metallicRoughnessTexIndex;
+    uint32_t padding;
+    float4 baseColorFactor;
+    float metallicFactor;
+    float roughnessFactor;
+    float2 padding2;
+};
+
+struct DirectionalLight {
+    float3 direction;
+    float intensity;
+    float3 color;
+    float _pad;
+};
 
 layout(set = 3, binding = 0) cbuffer FragmentFrameData : register(b0, space3) {
     FrameData fragData;
@@ -79,15 +95,15 @@ layout(set = 3, binding = 1) cbuffer LightData {
     uint numPointLights;
 } lightData;
 
-layout(set = 2, binding = 1) StructuredBuffer<DirectionalLight> directionalLights;
 
+// Using Combined Image Sampler, so they will be bound to the same slot
+layout(set = 2, binding = 0) SamplerState sampler;
+layout(set = 2, binding = 0) Texture2DArray<float4> diffuseTextures;
 
-struct DirectionalLight {
-    float3 direction;
-    float intensity;
-    float3 color;
-    float _pad;
-};
+layout(set = 2, binding = 1) StructuredBuffer<Material> materials;
+
+layout(set = 2, binding = 2) StructuredBuffer<DirectionalLight> directionalLights;
+layout(set = 2, binding = 3) StructuredBuffer<DirectionalLight> pointLights;
 
 [shader("fragment")]
 float4 fragmentMain(VertexOutput fragInput)
@@ -127,10 +143,12 @@ float4 fragmentMain(VertexOutput fragInput)
         totalSpecular += specular;
     }
 
-
     //TODO point light loop
 
-    float4 textureColor = diffuseTextures.Sample(sampler, float3(fragInput.texCoords, float(fragInput.materialIndex)));
+
+    uint32_t baseColorTexIndex =  materials[fragInput.materialIndex].baseColorTexIndex;
+
+    float4 textureColor = diffuseTextures.Sample(sampler, float3(fragInput.texCoords, float(baseColorTexIndex)));
 
     // Combine: texture color is scaled by the lighting result
     float3 lighting = ambient + totalDiffuse + totalSpecular;
@@ -138,4 +156,3 @@ float4 fragmentMain(VertexOutput fragInput)
     return finalColor;
 
 }
-

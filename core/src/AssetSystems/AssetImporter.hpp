@@ -106,9 +106,9 @@ namespace AssetImporter {
 					.magic = 0x544558, // 'TEX' for corruptionCheck,
 					.width = width,
 					.height = height,
-					.pitch = width * channels,
-					.format = SDL_PIXELFORMAT_ABGR8888,
-					.pixelDataSize = static_cast<uint32_t> (width * channels * height),
+					.pitch = width * kForcedChannels,
+					.format = SDL_PIXELFORMAT_RGBA32,
+					.pixelDataSize = static_cast<uint32_t> (width * kForcedChannels * height),
 					.AssetID = assetID,
 			};
 

@@ -3,6 +3,8 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
+constexpr int kForcedChannels = 4;
+
 struct TexHeader {
 	uint32_t magic = 0x544558;    //'TEX' for format validation on load
 	int32_t  width;

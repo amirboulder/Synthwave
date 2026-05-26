@@ -51,7 +51,7 @@ class Manifest {
 private:
 
     fs::path path;
-    int version = 1;
+    uint32_t version = 1;
     std::unordered_map<uint64_t, AssetMetadata> assetsMap;
     mutable bool isDirty = false;
 

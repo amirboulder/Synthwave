@@ -51,6 +51,18 @@ public:
 		geometryPool.init(renderContext.device);
 		textureArrays.init(renderContext.device);
 
+		createDefaultMaterial(renderContext.device);
+
+		makeSureDefaultAssetsExistInManifest();
+
+		//Cube will serve as the default Mesh
+		MeshComponent meshComp = requestMeshComponent(defaultAssetsMap.at(DefaultAssets::CUBE));
+
+	}
+
+
+	void createDefaultMaterial(SDL_GPUDevice* device ) {
+
 		//Creating defaultTexture for meshes that don't have a texture
 		SDL_Surface* imageData = RenderUtil::LoadImage("assets/images/checkerboard.bmp", 4);
 		if (imageData == NULL)
@@ -58,9 +70,10 @@ public:
 			LogError(LOG_RENDER, "Could not load checkerboard.bmp image data!");
 		}
 
-		
+
 		//Setting texture 0 and material 0
-		RenderUtil::uploadToTextureArray(renderContext.device, textureArrays.diffuseTextures, imageData);
+		RenderUtil::uploadToTextureArray(device, textureArrays.diffuseTextures, imageData);
+		diffuseTextureIdToIndex[0] = 0;
 		//TODO
 		//RenderUtil::uploadToTextureArray(renderContext.device, textureArrays.metallicRoughnessTextures, imageData);
 		//RenderUtil::uploadToTextureArray(renderContext.device, textureArrays.normalTextures, imageData);
@@ -71,11 +84,6 @@ public:
 
 		Material mat;
 		materials.push_back(mat);
-
-		makeSureDefaultAssetsExistInManifest();
-
-		//Cube will serve as the default Mesh
-		MeshComponent meshComp = requestMeshComponent(defaultAssetsMap.at(DefaultAssets::CUBE));
 
 	}
 
@@ -272,7 +280,6 @@ public:
 			uint32_t index = static_cast<uint32_t>(materials.size()) - 1;
 			materialIdToIndex[ID] = index;
 			return index;
-
 		}
 	}
 
@@ -300,7 +307,7 @@ public:
 
 			const AssetMetadata* assetMetaData = manifest.Find(ID);
 			if (!assetMetaData) {
-				return 0; //defalt Texture
+				return 0; //default Texture
 			}
 
 			TexHeader texHeader{};
