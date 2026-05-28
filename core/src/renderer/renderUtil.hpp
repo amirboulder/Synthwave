@@ -271,7 +271,7 @@ public:
     }
 
 
-	static bool uploadToTextureArray(SDL_GPUDevice* device, TextureArray& textureArray, SDL_Surface* imageData) {
+	static bool uploadToTextureArray(SDL_GPUDevice* device, TextureArray& textureArray, const SDLSurface& imageData) {
 
 		// Validate capacity
 		if (textureArray.usedLayers >= textureArray.maxLayers) {
@@ -282,12 +282,12 @@ public:
 
 		//Scale to 1024x1024 if needed
 		SDLSurface scaledSurface(nullptr, SDL_DestroySurface);
-		SDL_Surface* uploadSurface = imageData;
+		SDL_Surface* uploadSurface = imageData.get();
 
 		if (imageData->w != 1024 || imageData->h != 1024) {
 			LogWarn(LOG_RENDER, "Texture is %dx%d (expected 1024x1024), scaling to fit",
 				imageData->w, imageData->h);
-			scaledSurface.reset(SDL_ScaleSurface(imageData, 1024, 1024, SDL_SCALEMODE_LINEAR));
+			scaledSurface.reset(SDL_ScaleSurface(imageData.get(), 1024, 1024, SDL_SCALEMODE_LINEAR));
 			if (!scaledSurface) {
 				LogError(LOG_RENDER, "SDL_ScaleSurface failed: %s", SDL_GetError());
 				return false;
@@ -482,12 +482,12 @@ public:
 		return true;
 	}
 
-	static SDL_Surface* createSurfaceFromPixels(const TexHeader& header, std::vector<uint8_t>& pixels)
+	static SDL_Surface* createSurfaceFromPixels(const TexHeader& header, std::vector<uint8_t>& pixels, SDL_PixelFormat format)
 	{
 		SDL_Surface* surface = SDL_CreateSurfaceFrom(
 			header.width,
 			header.height,
-			static_cast<SDL_PixelFormat>(header.format),
+			format,
 			pixels.data(),
 			header.pitch
 		);

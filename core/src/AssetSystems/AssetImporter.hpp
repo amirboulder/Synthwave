@@ -8,8 +8,8 @@ namespace AssetImporter {
 
 	/// <summary>
 	/// processes texture, materials, meshes, Scenes in a glTF file,
-	/// assigns IDs to each and save the processed data to their respective files.
-	/// inserts AssetMetadata into the manifest.
+	/// assigns IDs to each and saves the processed data to their respective files.
+	/// inserts AssetMetadata into the manifest, saves the manifest.
 	/// Enforces assets having names.
 	/// </summary>
 	bool ImportGLTF(const fs::path& filePath, const fs::path& destFolder, Manifest& manifest)
@@ -52,15 +52,14 @@ namespace AssetImporter {
 
 		fastgltf::Asset& gltf = asset.get();
 
-		LogDebug(LOG_ERR, "Info for 3D Asset file %s", filePath.generic_string().c_str());
-		LogDebug(LOG_ERR, "Number of meshes : %d", gltf.meshes.size());
-		LogDebug(LOG_ERR, "Number of Materials : %d", gltf.materials.size());
-		LogDebug(LOG_ERR, "Number of Textures : %d", gltf.textures.size());
-		LogDebug(LOG_ERR, "Number of Images : %d", gltf.images.size());
-		LogDebug(LOG_ERR, "Number of Nodes : %d", gltf.nodes.size());
-		LogDebug(LOG_ERR, "Number of Scenes : %d", gltf.scenes.size());
+		LogDebug(LOG_APP, "Info for 3D Asset file %s", filePath.generic_string().c_str());
+		LogDebug(LOG_APP, "Number of meshes : %d", gltf.meshes.size());
+		LogDebug(LOG_APP, "Number of Materials : %d", gltf.materials.size());
+		LogDebug(LOG_APP, "Number of Textures : %d", gltf.textures.size());
+		LogDebug(LOG_APP, "Number of Images : %d", gltf.images.size());
+		LogDebug(LOG_APP, "Number of Nodes : %d", gltf.nodes.size());
+		LogDebug(LOG_APP, "Number of Scenes : %d", gltf.scenes.size());
 
-		
 
 		uint64_t gltfFileContentHash = util::generateContentHash(filePath);
 
@@ -81,22 +80,21 @@ namespace AssetImporter {
 
 			auto& image  = gltf.images[texture.imageIndex.value()];
 
-
-			stbi_uc* pixels = nullptr;
-			int width, height, channels;
-
-			if (!Texture::loadImageFromGLTF(filePath.string(), gltf, image, pixels, width, height, channels))
-			{
-				LogError(LOG_ERR, "Failed to load image %zu from %s", i, filePathStr.c_str());
-				stbi_image_free(pixels);
-				continue;
-			}
-
 			if (image.name.empty()) {
 
 				LogError(LOG_ERR, "Empty image name in file %s ", filePathStr.c_str());
 				LogError(LOG_ERR, "all assets must have unique names within the file, cannot import asset, please add names and try again!");
 				return false;
+			}
+
+
+			StbImage imageData(nullptr);
+			int width, height, channels;
+
+			if (!Texture::loadImageFromGLTF(filePath.string(), gltf, image, imageData, width, height, channels))
+			{
+				LogError(LOG_ERR, "Failed to load image %zu from %s", i, filePathStr.c_str());
+				continue;
 			}
 
 			uint64_t assetID = util::generateAssetID(filePathStr + image.name.c_str());
@@ -107,7 +105,7 @@ namespace AssetImporter {
 					.width = width,
 					.height = height,
 					.pitch = width * kForcedChannels,
-					.format = SDL_PIXELFORMAT_RGBA32,
+					.format = TextureFormat::RGBA8_UNorm,
 					.pixelDataSize = static_cast<uint32_t> (width * kForcedChannels * height),
 					.AssetID = assetID,
 			};
@@ -115,14 +113,10 @@ namespace AssetImporter {
 			fs::path textureDest = destFolder / std::format("{:016x}.tex", assetID);
 
 			//save image to file
-			if (!RenderUtil::saveTexToFile(textureDest, header, pixels)) {
+			if (!RenderUtil::saveTexToFile(textureDest, header, imageData.get())) {
 				//saveSTBImageToFile aleady logs
-				stbi_image_free(pixels);
 				continue;
 			}
-
-			//free the image data because we're done with it
-			stbi_image_free(pixels);
 
 			localToTextureId[i] = assetID;
 

@@ -64,8 +64,8 @@ public:
 	void createDefaultMaterial(SDL_GPUDevice* device ) {
 
 		//Creating defaultTexture for meshes that don't have a texture
-		SDL_Surface* imageData = RenderUtil::LoadImage("assets/images/checkerboard.bmp", 4);
-		if (imageData == NULL)
+		SDLSurface imageData(RenderUtil::LoadImage("assets/images/checkerboard.bmp", 4), SDL_DestroySurface);
+		if (!imageData.get())
 		{
 			LogError(LOG_RENDER, "Could not load checkerboard.bmp image data!");
 		}
@@ -77,10 +77,6 @@ public:
 		//TODO
 		//RenderUtil::uploadToTextureArray(renderContext.device, textureArrays.metallicRoughnessTextures, imageData);
 		//RenderUtil::uploadToTextureArray(renderContext.device, textureArrays.normalTextures, imageData);
-
-		SDL_DestroySurface(imageData);
-		//SDL_DestroySurface(imageData);
-		//SDL_DestroySurface(imageData);
 
 		Material mat;
 		materials.push_back(mat);
@@ -317,7 +313,7 @@ public:
 				return 0;
 			}
 
-			SDL_Surface* surface = RenderUtil::createSurfaceFromPixels(texHeader, pixels);
+			SDLSurface surface(RenderUtil::createSurfaceFromPixels(texHeader, pixels, mapToSDLPixelFormat[texHeader.format]), SDL_DestroySurface);
 			if (!surface) {
 				return 0;
 			}
@@ -346,8 +342,6 @@ public:
 			}
 
 			IdToIndex[ID] = textureIndex;
-
-			SDL_DestroySurface(surface);
 
 			return textureIndex;
 		}

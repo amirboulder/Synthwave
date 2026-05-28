@@ -3,6 +3,11 @@
 #include "../ecs/components.hpp"
 #include "Grid.hpp"
 
+struct AABB {
+	glm::vec3 center = glm::vec3(0.0f);
+	glm::vec3 extents = glm::vec3(0.0f); // half-size
+};
+
 struct MeshHeader {
 	uint32_t magic = 0x4D455348; // 'MESH' catches corrupted files on load
 	uint32_t version = 1;
@@ -41,6 +46,14 @@ struct MeshComponent {
 	uint32_t subMeshCount = 0; // number of used sub meshes
 
 	glm::vec3 size = glm::vec3(0.0f);
+};
+
+//TODO use this 
+struct MeshComponent2 {
+
+	uint64_t meshAssetID = 0;
+	uint8_t currentLOD = 0;
+	AABB aabb;
 };
 
 

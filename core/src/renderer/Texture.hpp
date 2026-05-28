@@ -3,6 +3,27 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
+struct StbImageDelete {
+	void operator()(void* data) const {
+		stbi_image_free(data);
+	}
+};
+using StbImage = std::unique_ptr<stbi_uc, StbImageDelete>;
+
+enum class TextureFormat : uint32_t {
+	Unknown = 0,
+	RGBA8_UNorm,
+	RGBA8_SRGB,
+};
+
+std::unordered_map<TextureFormat, SDL_PixelFormat> mapToSDLPixelFormat = {
+
+	{TextureFormat::Unknown, SDL_PIXELFORMAT_UNKNOWN},
+	{TextureFormat::RGBA8_UNorm, SDL_PIXELFORMAT_RGBA32},
+	{TextureFormat::RGBA8_SRGB, SDL_PIXELFORMAT_RGBA8888 },
+};
+
+
 constexpr int kForcedChannels = 4;
 
 struct TexHeader {
@@ -10,7 +31,7 @@ struct TexHeader {
 	int32_t  width;
 	int32_t  height;
 	int32_t  pitch;      // bytes per row (may have padding)
-	uint32_t format;     // SDL_PixelFormat enum value
+	TextureFormat format = TextureFormat::RGBA8_UNorm;
 	uint32_t pixelDataSize;
 	uint64_t AssetID;        
 };
@@ -40,16 +61,16 @@ struct TextureArray {
 
 namespace Texture {
 
-	bool loadImageFromGLTF(std::string_view filename, fastgltf::Asset& asset, fastgltf::Image& image, stbi_uc*& pixels, int& width, int& height, int& channels)
+	bool loadImageFromGLTF(std::string_view filename, fastgltf::Asset& asset, fastgltf::Image& image, StbImage& imageData, int& width, int& height, int& channels)
 	{
-
+		
 		std::visit(fastgltf::visitor{
 			// 1. EXTERNAL — just a URI filepath
 			[&](const fastgltf::sources::URI& uri) {
 			// uri.uri.path() gives you the relative file path
 			// Load it yourself from disk
 
-			pixels = stbi_load(uri.uri.path().data(), &width, &height, &channels, 4);
+			imageData.reset(stbi_load(uri.uri.path().data(), &width, &height, &channels, 4));
 		},
 
 			// 2. EMBEDDED in .glb — binary buffer view
@@ -63,18 +84,22 @@ namespace Texture {
 					const unsigned char* dataPtr =
 						reinterpret_cast<const unsigned char*>(array->bytes.data()) + view.byteOffset;
 
-					pixels = stbi_load_from_memory(dataPtr, static_cast<int>(view.byteLength),
-										  &width, &height, &channels, 4);
+					imageData.reset(stbi_load_from_memory(dataPtr, static_cast<int>(view.byteLength),
+										  &width, &height, &channels, 4));
+				}
+				if (!array) {
+					LogError(LOG_RENDER, "BufferView buffer data is not an Array for %s", filename.data());
+					return; // early out of the lambda
 				}
 			},
 
 			// 3. EMBEDDED in .gltf — base64 data URI, already decoded by fastgltf
 			[&](const fastgltf::sources::Array& array) {
 
-				pixels = stbi_load_from_memory(
+				imageData.reset(stbi_load_from_memory(
 					reinterpret_cast<const unsigned char*>(array.bytes.data()),
 					static_cast<int>(array.bytes.size()),
-					&width, &height, &channels, 4);
+					&width, &height, &channels, 4));
 			},
 
 			// 4. Fallback — shouldn't normally hit this
@@ -84,6 +109,11 @@ namespace Texture {
 			}
 
 			}, image.data);
+
+		if (!imageData) {
+			LogError(LOG_RENDER, "stbi_load failed for %s: %s", filename.data(), stbi_failure_reason());
+			return false;
+		}
 
 		return true;
 	}
