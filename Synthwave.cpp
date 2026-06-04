@@ -10,6 +10,8 @@ int main(int argc, char* argv[])
 
 	Fisiks fisiks(ecs);
 
+	TransformPropagation transformPropagation(ecs);
+
 	AssetLibrary assetLib(ecs);
 	AssetManager assetManager(ecs, assetLib.manifest);
 

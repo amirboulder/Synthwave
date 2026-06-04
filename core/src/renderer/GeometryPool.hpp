@@ -10,7 +10,7 @@ public:
     uint32_t indexHead = 0;
     uint32_t maxVertices = 1 << 20;
     uint32_t maxIndices = 1 << 22;
-    uint32_t size = 0;
+    uint32_t numMeshes = 0;
 
     void init(SDL_GPUDevice* device) {
 
@@ -25,11 +25,11 @@ public:
         megaIndexBuffer = SDL_CreateGPUBuffer(device, &ibInfo);
     }
 
-    bool isEmpty() const { return size == 0; }
+    bool isEmpty() const { return numMeshes == 0; }
 
 
     //Appends mesh data to buffer and sets the correct offsets for MeshComponent
-    bool addMeshCompToBuffer(SDL_GPUDevice* device, const Mesh& mesh, MeshComponent & meshComp) {
+    bool addMeshToBuffer(SDL_GPUDevice* device, const Mesh& mesh) {
         size_t vSize = mesh.vertices.size() * sizeof(Vertex);
         size_t iSize = mesh.indices.size() * sizeof(uint32_t);
 
@@ -51,31 +51,15 @@ public:
             return false;
         }
 
-        uint32_t vertexOffset = vertexHead;
-        uint32_t indexOffset = indexHead;
-
-        meshComp.index = size; // Not sure about this
-       
-        for (size_t i = 0; i < mesh.subMeshCount; i++) {
-
-            const SubMesh& srcSubMesh = mesh.subMeshes[i];
-
-            SubMesh& destSubMesh = meshComp.subMeshes[i];
-
-            destSubMesh.baseVertex = vertexHead;
-            destSubMesh.firstIndex = indexHead;
-          
-            vertexHead += srcSubMesh.vertexCount;
-            indexHead += srcSubMesh.indexCount;
-        }
-
-       
         appendToBuffer(device, megaVertexBuffer, mesh.vertices.data(), vSize,
-            vertexOffset * sizeof(Vertex));
+            vertexHead * sizeof(Vertex));
         appendToBuffer(device, megaIndexBuffer, mesh.indices.data(), iSize,
-            indexOffset * sizeof(uint32_t));
+            indexHead * sizeof(uint32_t));
 
-        size++;
+        vertexHead += mesh.vertices.size();
+        indexHead += mesh.indices.size();
+
+        numMeshes++;
 
         return true;
     }
@@ -83,7 +67,7 @@ public:
     void release(SDL_GPUDevice* device) {
         if (megaVertexBuffer) { SDL_ReleaseGPUBuffer(device, megaVertexBuffer); megaVertexBuffer = nullptr; }
         if (megaIndexBuffer) { SDL_ReleaseGPUBuffer(device, megaIndexBuffer);  megaIndexBuffer = nullptr; }
-        vertexHead = indexHead = size = 0;
+        vertexHead = indexHead = numMeshes = 0;
     }
 
 private:

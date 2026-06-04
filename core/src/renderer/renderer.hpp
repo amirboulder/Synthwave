@@ -28,6 +28,20 @@
 #include "../AssetSystems/AssetManager.hpp"
 
 
+// One per unique mesh instance — shared by all its submeshes
+struct GPUPerMeshData {
+	glm::mat4 worldMatrix;
+	glm::mat4 normalMatrix;
+};
+
+// One per draw call — submesh specific
+struct GPUPerSubMeshData {
+	uint32_t instanceOffset;   // → indexes into GPUInstanceData buffer
+	uint32_t materialIndex;
+	uint32_t _pad[2];
+};
+
+
 struct DrawItem {
 
 	uint32_t vertexOffset = UINT32_MAX;
@@ -35,9 +49,10 @@ struct DrawItem {
 	uint32_t indexCount = 0;
 	uint32_t vertexCount = 0;
 	uint32_t meshID = 0;
+	uint32_t meshEntityID = 0;
 	uint32_t materialIndex = 0;
 
-	glm::mat4 transform;
+	glm::mat4 transformMatrix;
 	glm::mat4 normalMatrix;
 };
 
@@ -147,22 +162,19 @@ struct Renderer {
 
 	FrameDataUniforms uniforms;
 
-	std::vector<glm::mat4> allTransforms;
-	std::vector<glm::mat4>  allNormalMatrices;
+	std::vector<GPUPerMeshData> perMeshData;
+	std::vector<GPUPerSubMeshData> perSubMeshData;
 
 	//List of DrawItems after culling before duplicates are instanced
 	std::vector<DrawItem> drawItems;
 
 	std::vector<SDL_GPUIndexedIndirectDrawCommand> drawCommands;//Instanced list of drawCommands
 	std::vector<Material> materialDatas;
-	std::vector<uint32_t> materialIndices;
-	std::vector<uint32_t> instanceOffsets;
 
-	GrowableGPUBuffer allTransformsBuffer;
-	GrowableGPUBuffer allNormalMatricesBuffer;
+
+	GrowableGPUBuffer perMeshDataBuffer;
+	GrowableGPUBuffer perSubMeshDataBuffer;
 	GrowableGPUBuffer allMaterialsBuffer;
-	GrowableGPUBuffer allMaterialIndicesBuffer;
-	GrowableGPUBuffer allInstanceOffsetsBuffer;
 	GrowableGPUBuffer drawCommandBuffer;
 	uint32_t numDrawCalls = 0 ;
 
@@ -247,7 +259,7 @@ struct Renderer {
 
 	void loadConfig() {
 
-		//TODO MOVE HARDCODED path
+		//TODO REMOVE HARDCODED path
 		RenderConfig::loadRendererConfigINIFile(ecs, "config/renderConfig.ini");
 
 	}
@@ -338,7 +350,7 @@ struct Renderer {
 		// SDL_GPU_PRESENTMODE_IMMEDIATE for uncapped fps
 		// SDL_GPU_PRESENTMODE_VSYNC for VSYNC
 		SDL_SetGPUSwapchainParameters(renderContext.device, renderContext.window,
-			SDL_GPU_SWAPCHAINCOMPOSITION_SDR, SDL_GPU_PRESENTMODE_VSYNC);
+			SDL_GPU_SWAPCHAINCOMPOSITION_SDR, SDL_GPU_PRESENTMODE_IMMEDIATE);
 
 		LogInfo(LOG_RENDER, "created AndClaimed GPU Vulkan");
 
@@ -665,88 +677,96 @@ struct Renderer {
 	/// </summary>
 	void createDrawBatchesSystem() {
 
-		createDrawBatchesSys = ecs.system<Transform , Renderable, MeshComponent>("CreateDrawBatchesSys")
+		ecs.system<SubMeshComponent, flecs::Parent>("CreateDrawBatchesSys")
 			.kind(renderPhase)
 			.run([&](flecs::iter& it) {
 
 			const RenderContext& renderContext = ecs.get<RenderContext>();
 
 			//clear previous batch
-			allTransforms.clear();
-			allNormalMatrices.clear();
+			perMeshData.clear();
+			perSubMeshData.clear();
 			drawCommands.clear();
 			drawItems.clear();
 			materialDatas.clear();
-			materialIndices.clear();
-			instanceOffsets.clear();
 			numDrawCalls = 0;
 
 			while (it.next()) {
 
-				auto transforms = it.field<const Transform>(0);
-				auto meshComponents = it.field<const MeshComponent>(2);
+				auto subMeshes = it.field<SubMeshComponent>(0);
+				auto parents = it.field<flecs::Parent>(1);
 
+				flecs::entity parentEntPrev = ecs.entity(0);
+
+				glm::mat4 worldMatrix;
+				glm::mat4 normalMatrix;
 
 				for (auto i : it) {
 
-					//TODO culling
-					//if meshAsset survives culling then add to the list
-					//TODO pick the appropriate LOD once we have LODs
+					flecs::entity parentEnt = it.world().entity(parents[i].value);
+					const MeshComponent& parentMeshComp = parentEnt.get<MeshComponent>();
 
-					const Transform& transform = transforms[i];
-					const MeshComponent& meshComp = meshComponents[i];
-
-					//calculate Ent model matrix
-					glm::mat4 entityTransform = createModelMatrix(transform);;
-
-					// Compute normal matrix BEFORE transposing localMat for Slang.
-					// Normal matrix = inverse transpose of the upper 3x3 of the model matrix.
-					// Stored as glm::mat4 with 4th column zeroed to satisfy GPU 16-byte row alignment.
-					glm::mat3 normalMat3 = glm::mat3(glm::transpose(glm::inverse(entityTransform)));
-					glm::mat4 normalMat4 = glm::mat4(normalMat3); // expands to mat4, 4th col = (0,0,0,1)
-					normalMat4[3] = glm::vec4(0.0f);       // zero out 4th column explicitly
-
-					// transpose matrices to row-major for Slang
-					normalMat4 = glm::transpose(normalMat4);
-					entityTransform = glm::transpose(entityTransform);
-
-
-					for (size_t i = 0; i < meshComp.subMeshCount; i++) {
-						const SubMesh& subMesh = meshComp.subMeshes[i];
-						DrawItem drawItem;
-
-						drawItem.vertexOffset = subMesh.baseVertex;
-						drawItem.firstIndex = subMesh.firstIndex;
-						drawItem.indexCount = subMesh.indexCount;
-						drawItem.vertexCount = subMesh.vertexCount;
-						drawItem.meshID = meshComp.index;
-						drawItem.materialIndex = subMesh.materialIndex;
-
-						drawItem.normalMatrix = normalMat4;
-						drawItem.transform = entityTransform;
-
-						drawItems.push_back(std::move(drawItem));
-
+					if (!parentMeshComp.visible) {
+						continue;
 					}
+
+					//If parent is different then fetch its data an cache it
+					if (parentEntPrev != parentEnt) {
+
+						parentEntPrev = parentEnt;
+						worldMatrix = parentEnt.get<WorldMatrix>().matrix;
+
+						// Compute normal matrix BEFORE transposing localMat for Slang.
+						// Normal matrix = inverse transpose of the upper 3x3 of the model matrix.
+						// Stored as glm::mat4 with 4th column zeroed to satisfy GPU 16-byte row alignment.
+						glm::mat3 normalMat3 = glm::mat3(glm::transpose(glm::inverse(worldMatrix)));
+						glm::mat4 normalMat4 = glm::mat4(normalMat3); // expands to mat4, 4th col = (0,0,0,1)
+						normalMat4[3] = glm::vec4(0.0f);       // zero out 4th column explicitly
+
+						// transpose matrices to row-major for Slang
+						//TODO switch slang to COL-major.
+						normalMatrix = glm::transpose(normalMat4);
+						worldMatrix = glm::transpose(worldMatrix);
+					}
+
+					const SubMeshComponent& submeshComp = subMeshes[i];
+
+
+					//const LODComponent& activeLOD = submeshComp.LODs[parentMeshComp.activeLOD];
+
+					DrawItem drawItem;
+
+					drawItem.firstIndex = submeshComp.firstIndex;
+					drawItem.indexCount = submeshComp.indexCount;
+
+					drawItem.vertexOffset = submeshComp.vertexOffset;
+					drawItem.vertexCount = submeshComp.vertexCount;
+					drawItem.meshID = parentMeshComp.index;
+					drawItem.meshEntityID = static_cast<uint32_t>(parentEnt.id()); // we just need the lower 32bits
+					drawItem.materialIndex = submeshComp.materialIndex;
+
+					drawItem.normalMatrix = normalMatrix;
+					drawItem.transformMatrix = worldMatrix;
+
+					drawItems.push_back(std::move(drawItem));
+
 				}
 			}
 
-			//TODO These two can be run in parallel
 			createDrawCommands();
 			createLightBatches();
 
 			//upload everything to gpu
-			if (!allTransforms.empty())
-			{
+			if (!perMeshData.empty()){
 
-				allTransformsBuffer.upload(renderContext.device,
-					allTransforms.data(),
-					allTransforms.size() * sizeof(glm::mat4),
+				perMeshDataBuffer.upload(renderContext.device,
+					perMeshData.data(),
+					perMeshData.size() * sizeof(GPUPerMeshData),
 					SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ);
 
-				allNormalMatricesBuffer.upload(renderContext.device,
-					allNormalMatrices.data(),
-					allNormalMatrices.size() * sizeof(glm::mat4),
+				perSubMeshDataBuffer.upload(renderContext.device,
+					perSubMeshData.data(),
+					perSubMeshData.size() * sizeof(GPUPerSubMeshData),
 					SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ);
 
 				allMaterialsBuffer.upload(renderContext.device,
@@ -754,82 +774,73 @@ struct Renderer {
 					materialDatas.size() * sizeof(Material),
 					SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ);
 
-				allMaterialIndicesBuffer.upload(renderContext.device,
-					materialIndices.data(),
-					materialIndices.size() * sizeof(uint32_t),
-					SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ);
-
-				allInstanceOffsetsBuffer.upload(renderContext.device,
-					instanceOffsets.data(),
-					instanceOffsets.size() * sizeof(uint32_t),
-					SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ);
-
 				drawCommandBuffer.upload(renderContext.device,
 					drawCommands.data(),
 					drawCommands.size() * sizeof(SDL_GPUIndexedIndirectDrawCommand),
 					SDL_GPU_BUFFERUSAGE_INDIRECT);
 			}
-		});
 
+			});
 	}
+
 
 	void createDrawCommands() {
 
-		// Sort by meshID and then by firstIndex to group identical submeshes together
 		std::sort(drawItems.begin(), drawItems.end(),
 			[](const DrawItem& a, const DrawItem& b) {
+
 			if (a.meshID != b.meshID) {
 				return a.meshID < b.meshID;
 			}
 			return a.firstIndex < b.firstIndex;
 		});
 
+		uint32_t lastMeshEntID = UINT32_MAX;
+		uint32_t meshIndex = 0;
+		for (uint32_t i = 0; i < drawItems.size(); i++) {
 
-		//once sorted push all Transforms and normalMatrices to their respective vectors
-		//We nee to do this step after sort
-		for (const DrawItem& item : drawItems) {
-			allTransforms.push_back(item.transform);
-			allNormalMatrices.push_back(item.normalMatrix);
-		}
+			const DrawItem& item = drawItems[i];
 
-		uint32_t batchStart = 0;
-		for (uint32_t i = 1; i <= drawItems.size(); i++) {
-			bool lastElement = i == drawItems.size();
-			bool batchChange = !lastElement && (
-				drawItems[i].meshID != drawItems[batchStart].meshID ||
-				drawItems[i].firstIndex != drawItems[batchStart].firstIndex
-			);
+			bool newBatch = (i == 0) || (drawItems[i - 1].firstIndex != item.firstIndex);
 
-			//New batch push another drawCommand
-			if (lastElement || batchChange) {
-				
-			///Fill draw command
-			SDL_GPUIndexedIndirectDrawCommand cmd{};
-			cmd.num_indices = drawItems[batchStart].indexCount;
-			cmd.num_instances = i - batchStart;
-			cmd.first_index = drawItems[batchStart].firstIndex;    // from GeometryPool slot
-			cmd.vertex_offset = (Sint32)drawItems[batchStart].vertexOffset;
-			cmd.first_instance = 0; //Keep this zero for compatibility with DX12
-			
-			//fill MaterialData, we do this here because we have 1 material per batch
-			materialIndices.push_back(drawItems[batchStart].materialIndex);
-			instanceOffsets.push_back(batchStart);
 
-			drawCommands.push_back(cmd);
-			batchStart = i;
-			numDrawCalls++;
+			if (newBatch) {
+				SDL_GPUIndexedIndirectDrawCommand cmd{};
+				cmd.num_indices = item.indexCount;
+				cmd.num_instances = 1;
+				cmd.first_index = item.firstIndex;
+				cmd.vertex_offset = item.vertexOffset;
+				cmd.first_instance = 0;   // offset into instance buffer
+				drawCommands.push_back(cmd);
 
-			}			
-		}
+				perSubMeshData.emplace_back(meshIndex, item.materialIndex);
+				numDrawCalls++;
+			}
+			else {
+				drawCommands.back().num_instances++;  // update the ACTUAL pushed command
+			}
 
-		//Just push back all materials for now
-		AssetManager* assetManger = ecs.get<AssetManagerRef>().assetManager;
+
+			if (drawItems[i].meshEntityID != lastMeshEntID) {
+
+				lastMeshEntID = drawItems[i].meshID;
+
+				GPUPerMeshData inst;
+				inst.worldMatrix = item.transformMatrix;
+				inst.normalMatrix = item.normalMatrix;
+				perMeshData.push_back(inst);
+				meshIndex++;
+			}
 		
-		for (const Material& material : assetManger->materials) {
+		}
 
-			materialDatas.push_back(material);
+		// Materials
+		AssetManager* am = ecs.get<AssetManagerRef>().assetManager;
+		for (const Material& m : am->materials) {
+			materialDatas.push_back(m);
 		}
 	}
+
 
 	/// <summary>
 	/// Creates a batch for each light type
@@ -888,7 +899,7 @@ struct Renderer {
 	/// </summary>
 	void drawLit(FrameContext& frameContext) {
 
-		AssetManager* assetManger = ecs.get<AssetManagerRef>().assetManager;
+	AssetManager* assetManger = ecs.get<AssetManagerRef>().assetManager;
 		GeometryPool& geometryPool = assetManger->geometryPool;
 
 		// Bind pipeline ONCE
@@ -896,7 +907,7 @@ struct Renderer {
 		const Pipeline* pipeline = &pipelineEntity.get<Pipeline>();
 		SDL_BindGPUGraphicsPipeline(activeRenderPass, pipeline->pipelineMS);
 
-		if (geometryPool.size < 1 || allTransforms.size() < 1) {
+		if (geometryPool.numMeshes < 1 || perMeshData.size() < 1) {
 			return;
 		}
 
@@ -907,10 +918,8 @@ struct Renderer {
 		SDL_BindGPUIndexBuffer(activeRenderPass, &ibBinding, SDL_GPU_INDEXELEMENTSIZE_32BIT);
 
 		// Bind all transforms, NormalMatrices, and MaterialData
-		SDL_BindGPUVertexStorageBuffers(activeRenderPass, 0, &allTransformsBuffer.buffer, 1);
-		SDL_BindGPUVertexStorageBuffers(activeRenderPass, 1, &allNormalMatricesBuffer.buffer, 1);
-		SDL_BindGPUVertexStorageBuffers(activeRenderPass, 2, &allMaterialIndicesBuffer.buffer, 1);
-		SDL_BindGPUVertexStorageBuffers(activeRenderPass, 3, &allInstanceOffsetsBuffer.buffer, 1);
+		SDL_BindGPUVertexStorageBuffers(activeRenderPass, 0, &perMeshDataBuffer.buffer, 1);
+		SDL_BindGPUVertexStorageBuffers(activeRenderPass, 1, &perSubMeshDataBuffer.buffer, 1);
 
 		//Push the ambient light data so there is always some light in the scene.
 		LightDataUniform lightDataUniform;
@@ -923,7 +932,7 @@ struct Renderer {
 		SDL_GPUTextureSamplerBinding binding = { assetManger->textureArrays.diffuseTextures.textureArray, nearestSampler };
 		SDL_BindGPUFragmentSamplers(activeRenderPass, 0, &binding, 1);
 
-		//Seperate binding set for Samplers StorageBuffers so they both start binding at slot 0
+		//Separate binding set for Samplers StorageBuffers so they both start binding at slot 0
 		SDL_BindGPUFragmentStorageBuffers(activeRenderPass, 0, &allMaterialsBuffer.buffer, 1);
 
 		// Always bind something — dummy buffer when empty
@@ -944,11 +953,8 @@ struct Renderer {
 
 		//TODO rest of the lights
 
-
 		//Finally Draw Indirectly
 		SDL_DrawGPUIndexedPrimitivesIndirect(activeRenderPass, drawCommandBuffer.buffer, 0, numDrawCalls);
-
-		
 	}
 
 	
@@ -1034,6 +1040,8 @@ struct Renderer {
 		//TODO change this later once the shader is updated to take in transforms and inverseMatrices buffer
 		//SDL_BindGPUVertexStorageBuffers(activeRenderPass, 0, &allTransformsBuffer.buffer, 1);
 
+		AssetManager* assetManger = ecs.get<AssetManagerRef>().assetManager;
+
 		modelMat = glm::transpose(modelMat);
 		// Reversed multiplication order (Mᵀ × VPᵀ) because both matrices are pre-transposed for Slang's row-major layout.
 		// This is equivalent to (VP × M)ᵀ, which the GPU interprets correctly as model transform followed by view-projection.
@@ -1052,14 +1060,15 @@ struct Renderer {
 		//TODO no need to draw one at a time here since the data is in the geomtery buffer 
 		//FIX FIX FIX !!!
 		for (size_t i = 0; i < mesh.subMeshCount; i++) {
-			const SubMesh& subMesh = mesh.subMeshes[i];
+
+			const SubMeshComponent& subMesh = assetManger->subMeshes[mesh.firstSubMeshIndex + i];
 
 			SDL_DrawGPUIndexedPrimitives(
 				activeRenderPass,
 				subMesh.indexCount,   // indexCount
 				1,                 // instanceCount
 				subMesh.firstIndex,   // firstIndex  — element index into megaIndexBuffer
-				subMesh.baseVertex,   // vertexOffset — element index into megaVertexBuffer
+				subMesh.vertexOffset,   // vertexOffset — element index into megaVertexBuffer
 				0                  // firstInstance
 			);
 		}

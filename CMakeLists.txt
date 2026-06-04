@@ -363,6 +363,20 @@ set(XXHASH_BUILD_XXHSUM OFF)
 
 FetchContent_MakeAvailable(xxhash)
 
+#=============================================
+#meshoptimizer for optimizing meshes
+#=============================================
+
+FetchContent_Declare( 
+    meshoptimizer
+  GIT_REPOSITORY https://github.com/zeux/meshoptimizer.git
+  GIT_TAG        v1.1
+  GIT_SHALLOW TRUE
+
+)
+
+FetchContent_MakeAvailable(meshoptimizer)
+
 
 #=============================================
 # IMGUI for GUI
@@ -430,6 +444,7 @@ OptickCore
 inih
 flecs::flecs
 xxHash::xxhash
+meshoptimizer
 )
 
 

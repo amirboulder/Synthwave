@@ -108,6 +108,9 @@ namespace fs = std::filesystem;
 //xxhash
 #include <xxhash.h>
 
+//meshoptimizer
+#include <meshoptimizer.h>
+
 //INIReader
 #include "INIReader.h"
 

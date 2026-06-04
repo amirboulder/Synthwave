@@ -31,6 +31,8 @@ public:
 
 	std::unordered_map<uint64_t, MeshComponent> meshes;
 
+	std::vector<SubMeshComponent> subMeshes;
+
 	std::unordered_map<uint64_t, uint32_t> materialIdToIndex; //Maps material Id to their index in materials Vector
 	std::vector<Material> materials;
 
@@ -143,6 +145,19 @@ public:
 		}
 	}
 
+	
+	SubMeshComponent requestSubMeshComponent(const uint32_t& index) {
+
+		if (subMeshes.size() < index) {
+
+			SubMeshComponent subMesh;
+
+			return subMesh;
+		}
+
+		return subMeshes[index];
+	}
+
 
 	//loads and returns the mesh,
 	// used by entities that need the mesh vertex to create their physics bodies
@@ -173,38 +188,38 @@ public:
 		const RenderContext& renderContext = ecs.get<RenderContext>();
 
 		//Set MeshComp Data
-		meshComp.subMeshCount = mesh.subMeshCount;
-		meshComp.size = mesh.size;
+		meshComp.subMeshCount = static_cast<uint8_t>(std::min(mesh.subMeshes.size(), size_t(255)));
+		meshComp.aabb = mesh.aabb;
+		meshComp.index = geometryPool.numMeshes;
+		meshComp.firstSubMeshIndex = subMeshes.size();
 
-		for (size_t i = 0; i < mesh.subMeshCount; i++) {
+		uint32_t vertexOffset = geometryPool.vertexHead;
+		uint32_t indexOffset = geometryPool.indexHead;
+
+		//For each subMesh create a subMesh component
+		for (size_t i = 0; i < mesh.subMeshes.size(); i++) {
 
 			const SubMesh& srcSubMesh = mesh.subMeshes[i];
 
-			SubMesh& destSubMesh = meshComp.subMeshes[i];
+			SubMeshComponent& destSubMesh = subMeshes.emplace_back();
 
 			destSubMesh.vertexCount = srcSubMesh.vertexCount;
 			destSubMesh.indexCount = srcSubMesh.indexCount;
-			destSubMesh.materialID = srcSubMesh.materialID;
+			destSubMesh.materialIndex = requestMaterialIndex(srcSubMesh.materialID);
+
+			destSubMesh.vertexOffset = vertexOffset;
+			destSubMesh.firstIndex = indexOffset;
+
+			vertexOffset += srcSubMesh.vertexCount;
+			indexOffset += srcSubMesh.indexCount;
 
 		}
 
-		//This sets the rest of the data
-		if (!geometryPool.addMeshCompToBuffer(renderContext.device, mesh, meshComp)) {
+		if (!geometryPool.addMeshToBuffer(renderContext.device, mesh)) {
 			LogError(LOG_APP, "Failed to addMeshCompToBuffer");
 			return false;
 		}
 
-
-		//For all the active subMeshes in the meshComp get the materialIndex in materials Vector
-		// and update the subMeshes to reference it.
-		for (int i = 0; i < meshComp.subMeshCount; i++) {
-
-			uint32_t materialIndex = requestMaterialIndex(meshComp.subMeshes[i].materialID);
-
-			meshComp.subMeshes[i].materialIndex = materialIndex;
-		}
-
-		//This will copy the meshComp so it will still be outside of this function right ?
 		meshes[ID] = meshComp;
 
 		return true;

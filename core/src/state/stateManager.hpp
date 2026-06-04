@@ -180,7 +180,9 @@ public:
 		//TODO maybe gameState phase
 		flecs::entity playerPhaseDependency = ecs.lookup("PlayerPhaseDependency").depends_on(aiPhaseDependency);
 
-		flecs::entity renderPhaseDependency = ecs.lookup("RenderPhaseDependency").depends_on(playerPhaseDependency);
+		flecs::entity transformPropPhaseDependency = ecs.lookup("TransformPropagationPhaseDependency").depends_on(playerPhaseDependency);
+
+		flecs::entity renderPhaseDependency = ecs.lookup("RenderPhaseDependency").depends_on(transformPropPhaseDependency);
 
 
 		/* This still works with flecs builtin pipeline query :

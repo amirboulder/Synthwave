@@ -18,12 +18,20 @@ layout(set = 1, binding = 0) cbuffer VertexFrameData {
     FrameData vertexFrameData;
 };
 
-layout(set = 0, binding = 0) StructuredBuffer<float4x4> transforms;
-layout(set = 0, binding = 1) StructuredBuffer<float4x4> normalMatrices;
-layout(set = 0, binding = 2) StructuredBuffer<uint32_t> materialData;
-layout(set = 0, binding = 3) StructuredBuffer<uint32_t> instanceOffsets;
+layout(set = 0, binding = 0) StructuredBuffer<PerMeshData> perMeshData;     // per mesh instance
 
+layout(set = 0, binding = 1) StructuredBuffer<PerSubMeshData> perSubmeshData;//per submesh
 
+struct PerMeshData {
+    float4x4 worldMatrix;
+    float4x4 normalMatrix;
+};
+
+struct PerSubMeshData {
+    uint32_t instanceOffset;
+    uint32_t materialIndex;
+    uint32_t _pad[2];
+};
 
 struct VertexInput
 {
@@ -45,9 +53,9 @@ struct VertexOutput
 [shader("vertex")]
 VertexOutput vertexMain(VertexInput input, uint instanceID: SV_InstanceID, uint drawIndex: SV_DrawIndex)
 {
-    uint32_t globalInstanceID = instanceOffsets[drawIndex] + instanceID;
-    float4x4 modelMatrix = transforms[globalInstanceID];
-    float3x3 normalMat = (float3x3)normalMatrices[globalInstanceID];
+    uint32_t globalInstanceID = perSubmeshData[drawIndex].instanceOffset + instanceID;
+    float4x4 modelMatrix = perMeshData[globalInstanceID].worldMatrix;
+    float3x3 normalMat = (float3x3)perMeshData[globalInstanceID].normalMatrix;
 
     VertexOutput output;
 
@@ -59,7 +67,7 @@ VertexOutput vertexMain(VertexInput input, uint instanceID: SV_InstanceID, uint 
     output.normal = normalize(mul(normalMat, input.normal));
 
     output.texCoords = input.texCoords;
-    output.materialIndex = materialData[drawIndex];
+    output.materialIndex = perSubmeshData[drawIndex].materialIndex;
 
     return output;
 }

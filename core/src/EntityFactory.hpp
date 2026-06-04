@@ -33,7 +33,7 @@ public:
 		//Assuming default asset exists
 		MeshComponent meshComp = assetManger->requestMeshComponent(assetManger->defaultAssetsMap.at(DefaultAssets::CUBE));
 
-		glm::vec3 scaledSize = meshComp.size * transform.scale;
+		glm::vec3 scaledSize = meshComp.aabb.extents * transform.scale;
 
 		Vec3 boxHalfExtents(scaledSize.x * 0.5, scaledSize.y * 0.5, scaledSize.z * 0.5);
 
@@ -100,15 +100,15 @@ public:
 		//Get the modelSource from Asset Library
 		AssetManager* assetManger = ecs.get<AssetManagerRef>().assetManager;
 	
-
 		JPH::BodyInterface& bodyInterface = ecs.get<PhysicsSystemRef>().physicsSystem.GetBodyInterface();
 
-		MeshComponent meshComp = assetManger->requestMeshComponent(0212121212);
+		MeshComponent meshComp;   //= assetManger->requestMeshComponent(0212121212);
 
 		flecs::entity entity = ecs.entity(name.c_str())
 			.set<EntityTypeComponent>({ EntityType::Car })
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
+			.set<WorldMatrix>({})
 			.set<MeshComponent>({ std::move(meshComp) })
 			.add<Renderable>()
 			.child_of(parent)
@@ -116,7 +116,13 @@ public:
 
 		if (!validateEntityCreation(entity, name))  return false;
 
+		for (int i = 0; i < meshComp.subMeshCount; i++) {
 
+			flecs::entity childEntity = ecs.entity(std::format("{}-subMesh {}", name, i).c_str())
+				.set<SubMeshComponent>({ assetManger->requestSubMeshComponent(meshComp.firstSubMeshIndex + i)});
+		}
+
+		
 		StaticCompoundShapeSettings settings;
 
 		/*
@@ -541,7 +547,7 @@ public:
 		AssetManager* assetManger = ecs.get<AssetManagerRef>().assetManager;
 
 		MeshComponent meshComp = assetManger->requestMeshComponent(assetManger->defaultAssetsMap.at(DefaultAssets::CAPSULE));
-		glm::vec3 scaledSize = meshComp.size * transform.scale;
+		glm::vec3 scaledSize = meshComp.aabb.extents * transform.scale;
 
 		// Compute capsule dimensions
 		float modelRadius = scaledSize.x / 2.0f; // Unscaled model radius
@@ -585,16 +591,27 @@ public:
 			.set<EntityTypeComponent>({ EntityType::Capsule })
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
+			.set<WorldMatrix>({})
 			.set<MeshComponent>({ std::move(meshComp) })
 			.add<Renderable>()
 			.set<JPH::BodyID>(physicsID)
 			.child_of(parent)
 			;
 
+
 		// Store the entity ID in the physics body which gives us a two way mapping between entity and bodyId
 		bodyInterface.SetUserData(physicsID, entity.id());
 
 		if (!validateEntityCreation(entity, name.data()))  return false;
+
+		for (int i = 0; i < meshComp.subMeshCount; i++) {
+
+			std::string childEntName = std::format("{}-subMesh {}", name, i);
+			flecs::entity childEntity = ecs.entity(flecs::Parent{ entity }, childEntName.c_str())
+				.set<SubMeshComponent>({ assetManger->requestSubMeshComponent(meshComp.firstSubMeshIndex + i) });
+
+			if (!validateEntityCreation(childEntity, childEntName.c_str()))  return false;
+		}
 
 		return true;
 	}
@@ -611,7 +628,7 @@ public:
 		AssetManager* assetManger = ecs.get<AssetManagerRef>().assetManager;
 
 		MeshComponent meshComp = assetManger->requestMeshComponent(assetManger->defaultAssetsMap.at(DefaultAssets::ROBOT));
-		glm::vec3 scaledSize = meshComp.size * transform.scale;
+		glm::vec3 scaledSize = meshComp.aabb.extents * transform.scale;
 
 		// Convert GLM to Jolt types
 		JPH::Vec3 joltPosition(transform.position.x, transform.position.y, transform.position.z);
@@ -638,6 +655,7 @@ public:
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
 			.set<MeshComponent>({ std::move(meshComp) })
+			.set<WorldMatrix>({})
 			.add<Renderable>()
 			.set<JoltCharacter>({ joltCharacter })
 			.set<JPH::BodyID>(joltCharacter->GetBodyID())
@@ -652,6 +670,15 @@ public:
 
 		joltCharacter->AddToPhysicsSystem(JPH::EActivation::Activate);
 		physicsSystem.GetBodyInterface().SetUserData(joltCharacter->GetBodyID(), actorEnt.id());
+
+		for (int i = 0; i < meshComp.subMeshCount; i++) {
+
+			std::string childEntName = std::format("{}-subMesh {}", name, i);
+			flecs::entity childEntity = ecs.entity(flecs::Parent{ actorEnt }, childEntName.c_str())
+				.set<SubMeshComponent>({ assetManger->requestSubMeshComponent(meshComp.firstSubMeshIndex + i) });
+
+			if (!validateEntityCreation(childEntity, childEntName.c_str()))  return false;
+		}
 
 		return true;
 	}

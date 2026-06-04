@@ -570,7 +570,7 @@ public:
 		}
 
 		// --- Write submesh descriptors (only valid ones) ---
-		for (int i = 0; i < mesh.subMeshCount; i++) {
+		for (int i = 0; i < mesh.subMeshes.size(); i++) {
 
 			const SubMesh& sub = mesh.subMeshes[i];
 			file.write(reinterpret_cast<const char*>(&sub), sizeof(SubMesh));
@@ -605,49 +605,50 @@ public:
 	{
 		std::ifstream file(srcFilePath, std::ios::binary);
 		if (!file.is_open()) {
-			LogError(LOG_RENDER, "Cannot open mesh file: %s", srcFilePath.c_str());
+			LogError(LOG_RENDER, "Cannot open mesh file: %s", srcFilePath.string().c_str());
 			return false;
 		}
 
 		// --- Read and validate header ---
 		file.read(reinterpret_cast<char*>(&header), sizeof(MeshHeader));
 		if (file.fail()) {
-			LogError(LOG_RENDER, "Failed reading mesh header from: %s", srcFilePath.c_str());
+			LogError(LOG_RENDER, "Failed reading mesh header from: %s", srcFilePath.string().c_str());
 			return false;
 		}
 
 		if (header.magic != 0x4D455348) {
-			LogError(LOG_RENDER, "Invalid mesh magic number in file: %s", srcFilePath.c_str());
+			LogError(LOG_RENDER, "Invalid mesh magic number in file: %s", srcFilePath.string().c_str());
 			return false;
 		}
 
 		if (header.version != 1) {
-			LogError(LOG_RENDER, "Unsupported mesh version %u in file: %s", header.version, srcFilePath.c_str());
+			LogError(LOG_RENDER, "Unsupported mesh version %u in file: %s", header.version, srcFilePath.string().c_str());
 			return false;
 		}
 
 		if (header.vertexStride != sizeof(Vertex)) {
 			LogError(LOG_RENDER, "Vertex stride mismatch (expected %zu, got %u) in file: %s",
-				sizeof(Vertex), header.vertexStride, srcFilePath.c_str());
+				sizeof(Vertex), header.vertexStride, srcFilePath.string().c_str());
 			return false;
 		}
 
 		if (header.vertexCount == 0) {
-			LogError(LOG_RENDER, "Mesh has no vertices in file: %s", srcFilePath.c_str());
+			LogError(LOG_RENDER, "Mesh has no vertices in file: %s", srcFilePath.string().c_str());
 			return false;
 		}
 
-		if (header.subMeshCount > mesh.subMeshes.size()) {
-			LogError(LOG_RENDER, "SubMesh count %u exceeds max capacity %zu in file: %s",
-				header.subMeshCount, mesh.subMeshes.size(), srcFilePath.c_str());
+		if (header.subMeshCount <= 0) {
+			LogError(LOG_RENDER, "SubMesh count is %u in file: %s",
+				header.subMeshCount, srcFilePath.string().c_str());
 			return false;
 		}
 
 		//Set size
-		mesh.size = header.size;
+		mesh.aabb = header.aabb;
+
+		mesh.subMeshes.resize(header.subMeshCount);
 
 		// --- Read submesh descriptors ---
-		mesh.subMeshCount = header.subMeshCount;
 		for (uint32_t i = 0; i < header.subMeshCount; i++) {
 			file.read(reinterpret_cast<char*>(&mesh.subMeshes[i]), sizeof(SubMesh));
 			if (file.fail()) {

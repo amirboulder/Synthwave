@@ -209,20 +209,16 @@ namespace AssetImporter {
 		//Load all meshes.
 		for (size_t i = 0; i < gltf.meshes.size(); i++) {
 
-			Mesh currentMesh;
-
 			fastgltf::Mesh& mesh = gltf.meshes.at(i);
+
+			Mesh currentMesh;
+			//currentMesh.subMeshCount = mesh.primitives.size();
+			currentMesh.subMeshes.resize(mesh.primitives.size());
 
 			uint16_t subMeshIndex = 0;
 			for (auto& primitive : mesh.primitives) {
 
-				if (subMeshIndex >= currentMesh.subMeshes.size()) {
-					LogWarn(LOG_ERR, "Mesh %s has more than %d primitives, skipping remainder", mesh.name.c_str(), currentMesh.subMeshes.size());
-					break;
-				}
-
-				currentMesh.subMeshCount++;
-
+				
 				SubMesh& sub = currentMesh.subMeshes[subMeshIndex++];
 				sub.baseVertex = (uint32_t)currentMesh.vertices.size();
 				sub.firstIndex = (uint32_t)currentMesh.indices.size();
@@ -294,11 +290,11 @@ namespace AssetImporter {
 				}
 			}
 
-			//TODO generate LODs here.
+			//generateLODs(currentMesh);
 
 			//save Mesh to file
 			
-			currentMesh.size = Mesh::calculateMeshSize(currentMesh.vertices);
+			currentMesh.aabb = Mesh::CalculateMeshAABB(currentMesh.vertices);
 
 			if (mesh.name.empty()) {
 
@@ -314,9 +310,9 @@ namespace AssetImporter {
 			MeshHeader header;
 			header.vertexCount = (uint32_t)currentMesh.vertices.size();
 			header.indexCount = (uint32_t)currentMesh.indices.size();
-			header.subMeshCount = currentMesh.subMeshCount;
+			header.subMeshCount = currentMesh.subMeshes.size();
 			header.AssetID = assetID;
-			header.size = currentMesh.size;
+			header.aabb = currentMesh.aabb;
 
 			fs::path meshDest = destFolder / std::format("{:016x}.mesh", assetID);
 
@@ -342,7 +338,7 @@ namespace AssetImporter {
 			assetMetaData.sourcePath = filePathStr;
 			assetMetaData.sourceHash = gltfFileContentHash;
 
-			for (int j = 0; j < currentMesh.subMeshCount; j++) {
+			for (int j = 0; j < currentMesh.subMeshes.size(); j++) {
 				assetMetaData.dependencies.push_back(currentMesh.subMeshes[j].materialID);
 			}
 

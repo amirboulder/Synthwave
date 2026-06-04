@@ -3,6 +3,8 @@
 #include "../ecs/components.hpp"
 #include "Grid.hpp"
 
+constexpr uint8_t numberOfLODs = 3;
+
 struct AABB {
 	glm::vec3 center = glm::vec3(0.0f);
 	glm::vec3 extents = glm::vec3(0.0f); // half-size
@@ -19,42 +21,57 @@ struct MeshHeader {
 	uint32_t subMeshOffset = 0;  // bytes from file start
 	uint32_t vertexOffset = 0;
 	uint32_t indexOffset = 0;
-	glm::vec3 size = glm::vec3(0.0f);
+	AABB aabb;
 };
 
-//TODO make this part of an engine config file
-constexpr uint32_t MAX_SUBMESHES = 8;
 
+
+
+//struct LOD {
+//
+//	std::vector<uint32_t> indices;
+//	float error;
+//};
+
+struct LODComponent {
+	uint32_t firstIndex = UINT32_MAX;
+	uint32_t indexCount = 0;
+	float error;
+};
 
 struct SubMesh {
 
-	uint32_t baseVertex = UINT32_MAX;
 	uint32_t firstIndex = UINT32_MAX;
 	uint32_t indexCount = 0;
+	uint32_t baseVertex = UINT32_MAX;
+	uint32_t vertexCount = 0;
+	uint64_t materialID = 0;
+	//uint32_t materialIndex = 0; //deprecate ?
+};
+
+
+struct SubMeshComponent {
+
+	uint32_t firstIndex = UINT32_MAX;
+	uint32_t indexCount = 0;
+	uint32_t vertexOffset = UINT32_MAX;
 	uint32_t vertexCount = 0;
 
-	uint64_t materialID = 0;
 	uint32_t materialIndex = 0; // relative to Materials Vector in AssetManger
 };
 
-struct MeshComponent {
-
-	std::array<SubMesh, 8> subMeshes; // subMesh data in here is relative to the geometry pool
-
-	uint32_t index = 0; // relative to the geometry buffer
-
-	uint32_t subMeshCount = 0; // number of used sub meshes
-
-	glm::vec3 size = glm::vec3(0.0f);
-};
 
 //TODO use this 
-struct MeshComponent2 {
+struct MeshComponent {
 
-	uint64_t meshAssetID = 0;
-	uint8_t currentLOD = 0;
-	AABB aabb;
+	uint64_t index = 0; // relative to the geometry buffer used for sorting
+	AABB aabb; // local aabb used for culling
+	uint32_t firstSubMeshIndex; // index of the first submesh in AssetManager subMeshes vector
+	uint8_t subMeshCount = 0;
+	bool visible = true;
 };
+
+
 
 
 class Mesh {
@@ -63,39 +80,93 @@ public:
 
 	std::vector<Vertex> vertices;
 	std::vector <uint32_t> indices;
+	std::vector<SubMesh> subMeshes; // subMesh data in here is relative to the mesh
 
-	std::array<SubMesh, 8> subMeshes; // subMesh data in here is relative to the mesh
+	AABB aabb;
 
-	uint32_t subMeshCount = 0; // number of used submeshes
-
-	glm::vec3 size = glm::vec3(0.0f);
+//	std::array<LOD, numberOfLODs> LODs; 
 	
-	static glm::vec3 calculateMeshSize(const std::vector<Vertex> & vertices) {
-
+	static AABB CalculateMeshAABB(const std::vector<Vertex>& vertices) {
+		AABB aabb;
 		if (vertices.empty()) {
-			LogError(LOG_APP, "vertices are empty Cannot calculate Mesh size !!!");
-			return glm::vec3(0.0f);
+			LogError(LOG_APP, "Vertices are empty, cannot calculate AABB!");
+			return aabb;
 		}
 
-		float minX = FLT_MAX, maxX = -FLT_MAX;
-		float minY = FLT_MAX, maxY = -FLT_MAX;
-		float minZ = FLT_MAX, maxZ = -FLT_MAX;
+		glm::vec3 min = glm::vec3(FLT_MAX);
+		glm::vec3 max = glm::vec3(-FLT_MAX);
 
-		for (const auto& current : vertices) {
-
-			minX = std::min(minX, current.position.x);
-			maxX = std::max(maxX, current.position.x);
-
-			minY = std::min(minY, current.position.y);
-			maxY = std::max(maxY, current.position.y);
-
-			minZ = std::min(minZ, current.position.z);
-			maxZ = std::max(maxZ, current.position.z);
+		for (const auto& v : vertices) {
+			min = glm::min(min, v.position);
+			max = glm::max(max, v.position);
 		}
 
-		return glm::vec3(maxX - minX, maxY - minY, maxZ - minZ);
+		aabb.center = (min + max) * 0.5f;
+		aabb.extents = (max - min) * 0.5f;
+		return aabb;
 	}
 };
+
+
+
+/*
+void generateLODs(Mesh& mesh)
+{
+	// --- Step 1: Optimize the base mesh first ---
+	meshopt_optimizeVertexCache(
+		mesh.indices.data(), mesh.indices.data(),
+		mesh.indices.size(), mesh.vertices.size());
+
+	meshopt_optimizeOverdraw(
+		mesh.indices.data(), mesh.indices.data(),
+		mesh.indices.size(),
+		&mesh.vertices[0].position.x,      // float* positions
+		mesh.vertices.size(),
+		sizeof(Vertex),
+		1.05f);                             // threshold: allow 5% more overdraw
+
+	meshopt_optimizeVertexFetch(
+		mesh.vertices.data(), mesh.indices.data(),
+		mesh.indices.size(), mesh.vertices.data(),
+		mesh.vertices.size(), sizeof(Vertex));
+
+
+	// --- Step 2: Generate simplified LODs ---
+	const std::vector<uint32_t>* prevIndices = &mesh.indices;
+
+	for (int lod = 1; lod <= numberOfLODs; ++lod)
+	{
+		// Target: halve triangle count each LOD
+		size_t targetIndexCount = prevIndices->size() / (2 * lod);
+		float  targetError = 0.01f * lod; // grow error tolerance per LOD
+
+		std::vector<uint32_t> lodBuffer(prevIndices->size());
+		float resultError = 0.0f;
+
+		size_t newIndexCount = meshopt_simplify(
+			lodBuffer.data(),
+			prevIndices->data(), prevIndices->size(),
+			&mesh.vertices[0].position.x,     // float* positions
+			mesh.vertices.size(),
+			sizeof(Vertex),
+			targetIndexCount,
+			targetError,
+			0,             // options (e.g. meshopt_SimplifyLockBorder)
+			&resultError);
+
+		lodBuffer.resize(newIndexCount);
+
+		// Optionally stop if simplification stalled (< 10% reduction)
+		if (newIndexCount > prevIndices->size() * 0.9f && lod > 1)
+			break;
+
+		mesh.LODs[lod].indices = lodBuffer;
+		mesh.LODs[lod].error =  resultError;
+
+		prevIndices = &mesh.LODs[lod].indices;
+	}
+}
+*/
 
 /// <summary>
 /// A standalone mesh, not a part of the mesh registry or mega buffers
@@ -106,7 +177,7 @@ struct MeshStandalone {
 	std::vector <uint32_t> indices;
 	Transform transform;//local transform relative to entity's position
 
-	std::array<SubMesh, 8> subMeshes; // subMesh data in here is relative to the mesh
+	std::array<SubMesh, 8> subMeshes;
 
 	uint32_t subMeshCount = 0;
 
@@ -121,6 +192,8 @@ struct MeshStandalone {
 
 	Mesh mesh;
 
+	mesh.subMeshes.emplace_back();
+
 	GridGenerator::generateGrid(size, mesh.vertices, mesh.indices);
 
 	mesh.subMeshes[0].indexCount = mesh.indices.size();
@@ -130,7 +203,6 @@ struct MeshStandalone {
 	mesh.subMeshes[0].firstIndex = 0;
 	mesh.subMeshes[0].materialID = 0;
 
-	mesh.subMeshCount = 1;
 
 	return mesh;
 }
