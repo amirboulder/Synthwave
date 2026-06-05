@@ -7,7 +7,6 @@ import ShaderCompiler;
 
 #include "core/src/renderer/renderer.hpp"
 
-#include "core/src/Scene/SceneManagement.hpp"
 #include "core/src/TransformPropagation/TransformPropagation.hpp"
 
 #include "game/src/gameObjects.hpp"

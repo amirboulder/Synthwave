@@ -45,23 +45,32 @@ public:
 
 	void TransformPropagationSystem() {
 		
-		ecs.system<MeshComponent,Transform, WorldMatrix>("TransformPropagationSys")
+
+		ecs.system<const Transform, WorldMatrix>("RootTransformSys")
+			.without<flecs::Parent>()
+			.kind(TransformPropagationPhase)
+			.each([&](const Transform& t, WorldMatrix& worldMat) {
+			worldMat.matrix = createWorldMatrix(t);
+		});
+
+
+		ecs.system<MeshComponent, Transform, WorldMatrix, const flecs::Parent>("TransformPropagationSys")
 			.kind(TransformPropagationPhase)
 			.group_by(flecs::ParentDepth)
-			.each([&](const MeshComponent & meshComp, const Transform& transform,
-				WorldMatrix & worldMat){
-			
-			//flecs::entity parentEnt = ecs.entity(parent.value);
+			.each([&](const MeshComponent& meshComp, const Transform& transform,
+				WorldMatrix& worldMat, const flecs::Parent parent) {
+
+			flecs::entity parentEnt = ecs.entity(parent.value);
 
 			//Assuming parent has worldMatrix
-			//const glm::mat4& parentWorldMat = parentEnt.get<WorldMatrix>().matrix;
+			const glm::mat4& parentWorldMat = parentEnt.get<WorldMatrix>().matrix;
 
 			worldMat.matrix = createWorldMatrix(transform);
-			//worldMat.matrix = parentWorldMat * worldMat.matrix;
+			worldMat.matrix = parentWorldMat * worldMat.matrix;
 
-			});
-
+		});
 	}
+
 
 	glm::mat4 createWorldMatrix(const Transform& transform) {
 
@@ -70,4 +79,5 @@ public:
 		glm::mat4 modelScale = glm::scale(glm::mat4(1.0f), transform.scale);
 		return modelTranslation * modelRotation * modelScale;
 	}
+	
 };

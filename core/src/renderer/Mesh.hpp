@@ -60,6 +60,12 @@ struct SubMeshComponent {
 	uint32_t materialIndex = 0; // relative to Materials Vector in AssetManger
 };
 
+struct MeshNode {
+
+	uint64_t meshID;
+	std::vector<MeshNode> children;
+};
+
 
 //TODO use this 
 struct MeshComponent {

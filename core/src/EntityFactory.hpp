@@ -35,7 +35,7 @@ public:
 
 		glm::vec3 scaledSize = meshComp.aabb.extents * transform.scale;
 
-		Vec3 boxHalfExtents(scaledSize.x * 0.5, scaledSize.y * 0.5, scaledSize.z * 0.5);
+		Vec3 boxHalfExtents(scaledSize.x , scaledSize.y, scaledSize.z );
 
 		// Ref<> manages reference counting - no manual cleanup needed
 		Ref<Shape> boxShape = new BoxShape(boxHalfExtents);
@@ -73,7 +73,7 @@ public:
 			.set<EntityTypeComponent>({ EntityType::Cube })
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
-			.set<MeshComponent>({ std::move(meshComp)})
+			.set<WorldMatrix>({})
 			.add<Renderable>()
 			.set<JPH::BodyID>(physicsID)
 			.child_of(parent)
@@ -84,6 +84,9 @@ public:
 		bodyInterface.SetUserData(physicsID, entity.id());
 
 		if (!validateEntityCreation(entity, name))  return false;
+
+		//Create a child entity for mesh and a grandchild entity for each submesh.
+		if (!createMeshEntity(ecs, assetManger, entity, meshComp, name)) return false;
 
 		return true;
 
@@ -98,31 +101,28 @@ public:
 		if (!validateTransform(transform, name.c_str())) return false;
 
 		//Get the modelSource from Asset Library
-		AssetManager* assetManger = ecs.get<AssetManagerRef>().assetManager;
+		AssetManager* assetManager = ecs.get<AssetManagerRef>().assetManager;
 	
 		JPH::BodyInterface& bodyInterface = ecs.get<PhysicsSystemRef>().physicsSystem.GetBodyInterface();
 
-		MeshComponent meshComp;   //= assetManger->requestMeshComponent(0212121212);
 
-		flecs::entity entity = ecs.entity(name.c_str())
+
+		flecs::entity  rootEntity= ecs.entity(name.c_str())
 			.set<EntityTypeComponent>({ EntityType::Car })
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
 			.set<WorldMatrix>({})
-			.set<MeshComponent>({ std::move(meshComp) })
 			.add<Renderable>()
 			.child_of(parent)
 			;
 
-		if (!validateEntityCreation(entity, name))  return false;
 
-		for (int i = 0; i < meshComp.subMeshCount; i++) {
+		if (!validateEntityCreation(rootEntity, name))  return false;
 
-			flecs::entity childEntity = ecs.entity(std::format("{}-subMesh {}", name, i).c_str())
-				.set<SubMeshComponent>({ assetManger->requestSubMeshComponent(meshComp.firstSubMeshIndex + i)});
-		}
+		MeshNode rootNode;
 
-		
+		if (!createMeshHierarchy(ecs, rootEntity, rootNode, name, assetManager)) return false;
+
 		StaticCompoundShapeSettings settings;
 
 		/*
@@ -164,7 +164,7 @@ public:
 		const BodyID physicsID = bodyInterface.CreateAndAddBody(bodySettings, JPH::EActivation::Activate);
 
 
-		entity.set<JPH::BodyID>(physicsID);
+		rootEntity.set<JPH::BodyID>(physicsID);
 
 
 		return true;
@@ -550,10 +550,10 @@ public:
 		glm::vec3 scaledSize = meshComp.aabb.extents * transform.scale;
 
 		// Compute capsule dimensions
-		float modelRadius = scaledSize.x / 2.0f; // Unscaled model radius
+		float modelRadius = scaledSize.x; // Unscaled model radius
 		float modelHeight = scaledSize.y; // Unscaled model total height
 		float physicsRadius = modelRadius * transform.scale.x; // Scale radius (x-axis)
-		float physicsHalfHeight = (modelHeight / 2.0f - modelRadius) * transform.scale.y; // Scale height (y-axis)
+		float physicsHalfHeight = (modelHeight - modelRadius) * transform.scale.y; // Scale height (y-axis)
 
 		// Ref<> manages reference counting - no manual cleanup needed
 		Ref<Shape> capsuleShape = new JPH::CapsuleShape(physicsHalfHeight, physicsRadius);
@@ -592,7 +592,6 @@ public:
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
 			.set<WorldMatrix>({})
-			.set<MeshComponent>({ std::move(meshComp) })
 			.add<Renderable>()
 			.set<JPH::BodyID>(physicsID)
 			.child_of(parent)
@@ -604,14 +603,9 @@ public:
 
 		if (!validateEntityCreation(entity, name.data()))  return false;
 
-		for (int i = 0; i < meshComp.subMeshCount; i++) {
-
-			std::string childEntName = std::format("{}-subMesh {}", name, i);
-			flecs::entity childEntity = ecs.entity(flecs::Parent{ entity }, childEntName.c_str())
-				.set<SubMeshComponent>({ assetManger->requestSubMeshComponent(meshComp.firstSubMeshIndex + i) });
-
-			if (!validateEntityCreation(childEntity, childEntName.c_str()))  return false;
-		}
+		//Create a child entity for mesh and a grandchild entity for each submesh.
+		Transform identity;
+		if (!createMeshEntity(ecs, assetManger, entity, meshComp, name)) return false;
 
 		return true;
 	}
@@ -650,11 +644,10 @@ public:
 		}
 
 
-		flecs::entity actorEnt = ecs.entity(name.c_str())
+		flecs::entity entity = ecs.entity(name.c_str())
 			.set<EntityTypeComponent>({ EntityType::Actor})
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
-			.set<MeshComponent>({ std::move(meshComp) })
 			.set<WorldMatrix>({})
 			.add<Renderable>()
 			.set<JoltCharacter>({ joltCharacter })
@@ -663,22 +656,17 @@ public:
 			.child_of(parent);
 
 	
-		if (!validateEntityCreation(actorEnt, name)) {
+		if (!validateEntityCreation(entity, name)) {
 			delete joltCharacter;
 			return false;
 		}
 
 		joltCharacter->AddToPhysicsSystem(JPH::EActivation::Activate);
-		physicsSystem.GetBodyInterface().SetUserData(joltCharacter->GetBodyID(), actorEnt.id());
+		physicsSystem.GetBodyInterface().SetUserData(joltCharacter->GetBodyID(), entity.id());
 
-		for (int i = 0; i < meshComp.subMeshCount; i++) {
-
-			std::string childEntName = std::format("{}-subMesh {}", name, i);
-			flecs::entity childEntity = ecs.entity(flecs::Parent{ actorEnt }, childEntName.c_str())
-				.set<SubMeshComponent>({ assetManger->requestSubMeshComponent(meshComp.firstSubMeshIndex + i) });
-
-			if (!validateEntityCreation(childEntity, childEntName.c_str()))  return false;
-		}
+		Transform identity;
+		//Create a child entity for mesh and a grandchild entity for each submesh.
+		if (!createMeshEntity(ecs, assetManger, entity, meshComp, name)) return false;
 
 		return true;
 	}
@@ -697,11 +685,14 @@ public:
 
 		const flecs::entity entity = ecs.entity(name.c_str())
 			.set<Transform>(transform)
-			.set<MeshComponent>({ std::move(meshComp)})
+			.set<WorldMatrix>({})
 			.add<Renderable>()
 			;
 
 		if (!validateEntityCreation(entity, name)) return false;
+
+		//Create a child entity for mesh and a grandchild entity for each submesh.
+		if (!createMeshEntity(ecs, assetManger, entity, meshComp, name)) return false;
 
 		return true;
 
@@ -787,7 +778,6 @@ public:
 		//Get MeshComponent from AssetManager
 		AssetManager* assetManger = ecs.get<AssetManagerRef>().assetManager;
 
-
 		MeshComponent meshComp = assetManger->requestMeshComponent(meshID);
 		Mesh meshSrc = assetManger->requestMesh(meshID);
 
@@ -852,7 +842,7 @@ public:
 			.set<EntityTypeComponent>({ EntityType::StaticMesh })
 			.add<StaticEnt>()
 			.set<Transform>(transform)
-			.set<MeshComponent>({ std::move(meshComp)})
+			.set<WorldMatrix>({})
 			.add<Renderable>()
 			.set<JPH::BodyID>(physicsID)
 			//for secondary pipelines create a tag which will be used in the query for that renderQuery
@@ -864,6 +854,9 @@ public:
 		bodyInterface.SetUserData(physicsID, entity.id());
 
 		if (!validateEntityCreation(entity, name)) return false;
+
+		//Create a child entity for mesh and a grandchild entity for each submesh.
+		if (!createMeshEntity(ecs, assetManger, entity, meshComp, name, transform)) return false;
 
 		return true;
 	}
@@ -881,11 +874,9 @@ public:
 		std::string assetName = std::format("Grid{}", size);
 
 		MeshComponent meshComp;
-
 		uint64_t id =  util::generateAssetID(assetName);
-
 		//If a grid chunk of this size has been generated before then use it,
-		//If not then generate and send it to asetManager
+		//If not then generate and send it to assetManager
 		if (assetManger->isMeshCompLoaded(id)) {
 
 			meshComp = assetManger->requestMeshComponent(id);
@@ -928,15 +919,13 @@ public:
 
 		BodyID physicsID = bodyInterface.CreateAndAddBody(boxBodySettings, EActivation::Activate);
 
-		
-
 		if (!validatePhysicsBodyCreation(physicsID, name)) return false;
 
 		const flecs::entity entity = ecs.entity(name.c_str())
 			.set<EntityTypeComponent>({ EntityType::Grid })
 			.add<StaticEnt>()
 			.set<Transform>(transform)
-			.set<MeshComponent>({ std::move(meshComp) })
+			.set<WorldMatrix>({})
 			.add<Renderable>()
 			.set<JPH::BodyID>(physicsID)
 			.child_of(parent);
@@ -945,6 +934,9 @@ public:
 		bodyInterface.SetUserData(physicsID, entity.id());
 
 		if (!validateEntityCreation(entity, name)) return false;
+
+		//Create a child entity for mesh and a grandchild entity for each submesh.
+		if (!createMeshEntity(ecs, assetManger, entity, meshComp, name, transform)) return false;
 
 		return true;
 
@@ -981,6 +973,109 @@ public:
 		if (!validateEntityCreation(playerCam, playerCamName)) return false;
 
 		
+		return true;
+
+	}
+
+	static bool createMeshHierarchy(flecs::world& ecs, const flecs::entity parent, const MeshNode& rootNode, std::string_view name, AssetManager* assetManager) {
+
+		// Request the mesh component for the root itself
+		MeshComponent meshComp = assetManager->requestMeshComponent(rootNode.meshID);
+
+		std::string rootEntName = std::format("{}-RootMesh", name.data());
+		flecs::entity rootEntity = ecs.entity(flecs::Parent{ parent }, rootEntName.c_str())
+			.set<WorldMatrix>({})
+			.set<MeshComponent>({ meshComp });
+
+		if (!validateEntityCreation(rootEntity, rootEntName.c_str())) return false;
+
+		if (!createSubMeshEntities(ecs, rootEntity, meshComp, rootEntName, assetManager)) {
+			return false;
+		}
+
+		
+
+		// recursively create all children
+		return createMeshEntityHelperRecursive(ecs, rootEntity, rootNode, name, assetManager);
+	}
+
+	static bool createMeshEntityHelperRecursive(flecs::world& ecs, const flecs::entity parent, const MeshNode& meshNode, std::string_view name, AssetManager* assetManager) {
+
+		for (size_t i = 0; i < meshNode.children.size(); i++) {
+			const MeshNode& childNode = meshNode.children[i];
+
+			// Process this specific child
+			MeshComponent meshComp = assetManager->requestMeshComponent(childNode.meshID);
+
+			std::string childEntName = std::format("{}-Mesh {}", name.data(), i);
+			flecs::entity meshEntity = ecs.entity(flecs::Parent{ parent }, childEntName.c_str())
+				.set<WorldMatrix>({})
+				.set<MeshComponent>({ meshComp });
+
+			if (!validateEntityCreation(meshEntity, childEntName.c_str())) return false;
+
+			// Create submeshes for this child
+			if (!createSubMeshEntities(ecs, meshEntity, meshComp, childEntName, assetManager)) {
+				return false;
+			}
+
+			// Recurse deeper into this child's own children
+			if (!createMeshEntityHelperRecursive(ecs, meshEntity, childNode, name, assetManager)) {
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+
+	static bool createMeshEntity(flecs::world& ecs, AssetManager* assetManager, const flecs::entity parent, const MeshComponent& meshComp, std::string_view name, Transform transform = {}) {
+
+		std::string rootEntName = std::format("{}-Mesh", name.data());
+		flecs::entity rootEntity = ecs.entity(flecs::Parent{ parent }, rootEntName.c_str())
+			.set<WorldMatrix>({})
+			.set<Transform>(transform)
+			.set<MeshComponent>({ meshComp });
+
+		if (!validateEntityCreation(rootEntity, rootEntName.c_str())) return false;
+
+		if (!createSubMeshEntities(ecs, rootEntity, meshComp, rootEntName, assetManager)) {
+			return false;
+		}
+
+		return true;
+	}
+
+	//static bool createMeshEntity(flecs::world& ecs, const flecs::entity parent, uint64_t meshID, std::string_view name, AssetManager* assetManager) {
+
+	//	MeshComponent meshComp = assetManager->requestMeshComponent(meshID);
+
+	//	std::string rootEntName = std::format("{}-Mesh", parent.name());
+	//	flecs::entity rootEntity = ecs.entity(flecs::Parent{ parent }, rootEntName.c_str())
+	//		.set<WorldMatrix>({})
+	//		.set<MeshComponent>({ meshComp });
+
+	//	if (!validateEntityCreation(rootEntity, rootEntName.c_str())) return false;
+
+	//	if (!createSubMeshEntities(ecs, rootEntity, meshComp, rootEntName, assetManager)) {
+	//		return false;
+	//	}
+
+	//	return true;
+	//}
+
+	static bool createSubMeshEntities(flecs::world& ecs, const flecs::entity parent,  const MeshComponent & meshComp, std::string_view name, AssetManager* assetManager) {
+
+
+		for (int i = 0; i < meshComp.subMeshCount; i++) {
+
+			std::string childEntName = std::format("{}-subMesh {}", name, i);
+			flecs::entity childEntity = ecs.entity(flecs::Parent{ parent }, childEntName.c_str())
+				.set<SubMeshComponent>({ assetManager->requestSubMeshComponent(meshComp.firstSubMeshIndex + i) });
+
+			if (!validateEntityCreation(childEntity, childEntName.c_str()))  return false;
+		}
+
 		return true;
 
 	}
