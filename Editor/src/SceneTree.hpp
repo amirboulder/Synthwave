@@ -3,7 +3,7 @@
 
 //Used for Scene dropdown list
 //NOTE: EntityType must have a corresponding name here to show up in the dropdown
-static const std::map<EntityType, std::string> sceneEntityNames = {
+static const std::unordered_map<EntityType, std::string> sceneEntityNames = {
 	{EntityType::Player, "Player"},
 	{EntityType::Actor, "Actor"},
 	{EntityType::Humanoid, "Humanoid"},
@@ -14,8 +14,9 @@ static const std::map<EntityType, std::string> sceneEntityNames = {
 	{EntityType::Grid, "Grid"},
 	{EntityType::StaticMesh, "StaticMesh"},
 	{EntityType::Sphere, "Sphere"},
+	{EntityType::Cylinder, "Cylinder"},
 	{EntityType::Cube, "Cube"},
-	{EntityType::Car, "Car"},
+	{EntityType::BoxCar, "BoxCar"},
 	{EntityType::Light, "Light"},
 	//{EntityType::Camera, "Camera"},
 };
@@ -317,8 +318,8 @@ public:
 
 						createActorChild(ecs);
 						break;
-					case EntityType::Car:
-						createCarChild(ecs);
+					case EntityType::BoxCar:
+						createBoxCarChild(ecs);
 						break;
 					case EntityType::Humanoid:
 
@@ -347,7 +348,10 @@ public:
 						createMountainChild(ecs);
 						break;
 					case EntityType::Sphere:
-						SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Adding Sphere not yet implemented");
+						createSphereChild(ecs);
+						break;
+					case EntityType::Cylinder:
+						createCylinderChild(ecs);
 						break;
 					case EntityType::Cube:
 						createCubeChild(ecs);
@@ -425,12 +429,32 @@ public:
 
 	}
 
-	static void createCarChild(flecs::world& ecs) {
+	static void createSphereChild(flecs::world& ecs) {
 
 		Transform transform;
-		transform.position = glm::vec3(0.0f, 0.0f, 0.0f);
+		transform.position = glm::vec3(1.0f, 5.0f, 0.0f);
+		transform.rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
+		transform.scale = glm::vec3(1.0f);
+		EntityFactory::createSphereEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, transform);
+
+	}
+
+	static void createCylinderChild(flecs::world& ecs) {
+
+		Transform transform;
+		transform.position = glm::vec3(1.0f, 5.0f, 0.0f);
+		transform.rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
+		transform.scale = glm::vec3(1.0f);
+		EntityFactory::createCylinderEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, transform);
+
+	}
+
+	static void createBoxCarChild(flecs::world& ecs) {
+
+		Transform transform;
+		transform.position = glm::vec3(0.0f, 20.0f, 0.0f);
 		transform.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
-		EntityFactory::createCarEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, transform);
+		EntityFactory::createBoxCarEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, transform);
 
 	}
 

@@ -44,21 +44,8 @@ struct PerModelUniforms {
     glm::mat4 mvp;
 };
 
-struct SceneNodeData {
-	std::string name;
-	uint64_t meshID;
-	Transform transform;
-};
-
-struct SceneHeader {
-
-	uint32_t magic = 0x5343454e45;    //'SCENE' for format validation on load
-	uint32_t nodesNum;
-	uint64_t assetID;
-};
 
 class RenderUtil {
-
 
 public:
 
@@ -680,44 +667,52 @@ public:
 		return true;
 	}
 
-	static bool saveSceneDataFile(const fs::path& destFilePath, const SceneHeader& sceneHeader,
-		const std::vector<SceneNodeData>& nodeData)
+	static bool saveModelToFile(const fs::path& destFilePath, const ModelHeader& modelHeader,
+		const std::vector<MeshNode>& meshNodes)
 	{
 		std::error_code ec;
 		std::filesystem::create_directories(destFilePath.parent_path(), ec);
 		if (ec) {
-			LogError(LOG_RENDER, "Failed to create directories for: %s (%s)",
-				destFilePath.c_str(), ec.message().c_str());
+			LogError(LOG_APP, "Failed to create directories for: %s (%s)",
+				destFilePath.string().c_str(), ec.message().c_str());
 			return false;
 		}
 
 		std::ofstream file(destFilePath, std::ios::binary);
 		if (!file.is_open()) {
-			LogError(LOG_RENDER, "Cannot open output file: %s", destFilePath.c_str());
+			LogError(LOG_APP, "Cannot open output file: %s", destFilePath.string().c_str());
 			return false;
 		}
 
 		// Stamp nodesNum from the actual vector size before writing
-		SceneHeader headerToWrite = sceneHeader;
-		headerToWrite.nodesNum = static_cast<uint32_t>(nodeData.size());
+		ModelHeader headerToWrite = modelHeader;
+		headerToWrite.nodesNum = static_cast<uint32_t>(meshNodes.size());
 
-		file.write(reinterpret_cast<const char*>(&headerToWrite), sizeof(SceneHeader));
+		file.write(reinterpret_cast<const char*>(&headerToWrite), sizeof(ModelHeader));
 		if (file.fail()) {
-			LogError(LOG_RENDER, "Failed writing SceneHeader to file: %s", destFilePath.c_str());
+			LogError(LOG_APP, "Failed writing SceneHeader to file: %s", destFilePath.string().c_str());
 			return false;
 		}
 
-		for (const SceneNodeData& sceneNode : nodeData) {
+		for (const MeshNode& meshNode : meshNodes) {
+			
 			// Serialize name as length-prefixed string
-			const uint32_t nameLen = static_cast<uint32_t>(sceneNode.name.size());
+			const uint32_t nameLen = static_cast<uint32_t>(meshNode.name.size());
 			file.write(reinterpret_cast<const char*>(&nameLen), sizeof(nameLen));
-			file.write(sceneNode.name.data(), nameLen);
+			file.write(meshNode.name.data(), nameLen);
 
-			file.write(reinterpret_cast<const char*>(&sceneNode.meshID), sizeof(sceneNode.meshID));
-			file.write(reinterpret_cast<const char*>(&sceneNode.transform), sizeof(sceneNode.transform));
+			file.write(reinterpret_cast<const char*>(&meshNode.meshID), sizeof(MeshNode::meshID));
+			file.write(reinterpret_cast<const char*>(&meshNode.assetID), sizeof(MeshNode::assetID));
+			file.write(reinterpret_cast<const char*>(&meshNode.transform), sizeof(MeshNode::transform));
+
+			const uint32_t childCount = static_cast<uint32_t>(meshNode.children.size());
+			file.write(reinterpret_cast<const char*>(&childCount), sizeof(childCount));
+			for (uint64_t childID : meshNode.children) {
+				file.write(reinterpret_cast<const char*>(&childID), sizeof(childID));
+			}
 
 			if (file.fail()) {
-				LogError(LOG_RENDER, "Failed writing SceneNodeData to file: %s", destFilePath.c_str());
+				LogError(LOG_APP, "Failed writing SceneNodeData to file: %s", destFilePath.string().c_str());
 				return false;
 			}
 		}
@@ -725,69 +720,88 @@ public:
 		return true;
 	}
 
-	static bool loadSceneDataFile(const fs::path& srcFilePath, SceneHeader& sceneHeader,
-		std::vector<SceneNodeData>& nodeData)
+	static bool loadModelFromFile(const fs::path& srcFilePath, ModelHeader& modelHeader,
+		std::vector<MeshNode>& meshNodes)
 	{
 		std::ifstream file(srcFilePath, std::ios::binary);
 		if (!file.is_open()) {
-			LogError(LOG_RENDER, "Cannot open scene file: %s", srcFilePath.c_str());
+			LogError(LOG_APP, "Cannot open scene file: %s", srcFilePath.string().c_str());
 			return false;
 		}
 
 		// Read and validate header first
-		file.read(reinterpret_cast<char*>(&sceneHeader), sizeof(SceneHeader));
+		file.read(reinterpret_cast<char*>(&modelHeader), sizeof(ModelHeader));
 		if (file.fail()) {
-			LogError(LOG_RENDER, "Failed reading SceneHeader from: %s", srcFilePath.c_str());
+			LogError(LOG_APP, "Failed reading SceneHeader from: %s", srcFilePath.string().c_str());
 			return false;
 		}
 
-		if (sceneHeader.magic != 0x5343454e) {   // 'SCEN' — fits in uint32_t
-			LogError(LOG_RENDER, "Invalid scene header magic number in file: %s", srcFilePath.c_str());
+		if (modelHeader.magic != ModelHeader::magic) {   // 'MODEL' — fits in uint64_t
+			LogError(LOG_APP, "Invalid scene header magic number in file: %s", srcFilePath.string().c_str());
 			return false;
 		}
 
 		// Validate remaining file size against the node count in the header.
 		// We can't know exact size without reading the variable-length name strings,
 		// so just check there's at least some data left when nodesNum > 0.
-		if (sceneHeader.nodesNum > 0) {
+		if (modelHeader.nodesNum > 0) {
 			const std::streampos currentPos = file.tellg();
 			file.seekg(0, std::ios::end);
 			const std::streamsize remaining = static_cast<std::streamsize>(file.tellg() - currentPos);
 			file.seekg(currentPos);
 
 			if (remaining <= 0) {
-				LogError(LOG_RENDER, "Scene file has no node data despite nodesNum=%u: %s",
-					sceneHeader.nodesNum, srcFilePath.c_str());
+				LogError(LOG_APP, "Scene file has no node data despite nodesNum=%u: %s",
+					modelHeader.nodesNum, srcFilePath.string().c_str());
 				return false;
 			}
 		}
 
-		nodeData.resize(sceneHeader.nodesNum);
+		meshNodes.resize(modelHeader.nodesNum);
 
-		for (SceneNodeData& sceneNode : nodeData) {
+		for (MeshNode& meshNode : meshNodes) {
 			// Read length-prefixed name
 			uint32_t nameLen = 0;
 			file.read(reinterpret_cast<char*>(&nameLen), sizeof(nameLen));
 			if (file.fail()) {
-				LogError(LOG_RENDER, "Failed reading name length from: %s", srcFilePath.c_str());
+				LogError(LOG_APP, "Failed reading name length from: %s", srcFilePath.string().c_str());
 				return false;
 			}
 
 			// Sanity-cap name length to guard against corrupt files
 			constexpr uint32_t kMaxNameLen = 4096;
 			if (nameLen > kMaxNameLen) {
-				LogError(LOG_RENDER, "Implausible name length %u in file: %s", nameLen, srcFilePath.c_str());
+				LogError(LOG_APP, "Implausible name length %u in file: %s", nameLen, srcFilePath.string().c_str());
 				return false;
 			}
 
-			sceneNode.name.resize(nameLen);
-			file.read(sceneNode.name.data(), nameLen);
+			meshNode.name.resize(nameLen);
+			file.read(meshNode.name.data(), nameLen);
 
-			file.read(reinterpret_cast<char*>(&sceneNode.meshID), sizeof(sceneNode.meshID));
-			file.read(reinterpret_cast<char*>(&sceneNode.transform), sizeof(sceneNode.transform));
+			file.read(reinterpret_cast<char*>(&meshNode.meshID), sizeof(MeshNode::meshID));
+			file.read(reinterpret_cast<char*>(&meshNode.assetID), sizeof(MeshNode::assetID));
+			file.read(reinterpret_cast<char*>(&meshNode.transform), sizeof(MeshNode::transform));
+
+			uint32_t childCount = 0;
+			file.read(reinterpret_cast<char*>(&childCount), sizeof(uint32_t));
+			if (file.fail()) {
+				LogError(LOG_APP, "Failed reading childCount from: %s", srcFilePath.string().c_str());
+				return false;
+			}
+			
+			constexpr uint32_t kMaxChildren = 65536;
+			if (childCount > kMaxChildren) {
+				LogError(LOG_APP, "Implausible child count %u in file: %s", childCount, srcFilePath.string().c_str());
+				return false;
+			}
+
+			meshNode.children.resize(childCount);
+			for (uint64_t& childID : meshNode.children) {
+				file.read(reinterpret_cast<char*>(&childID), sizeof(childID));
+			}
 
 			if (file.fail()) {
-				LogError(LOG_RENDER, "Failed reading SceneNodeData from: %s", srcFilePath.c_str());
+				LogError(LOG_APP, "Failed reading SceneNodeData from: %s", srcFilePath.string().c_str());
 				return false;
 			}
 		}

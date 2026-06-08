@@ -25,8 +25,6 @@ struct MeshHeader {
 };
 
 
-
-
 //struct LOD {
 //
 //	std::vector<uint32_t> indices;
@@ -46,7 +44,6 @@ struct SubMesh {
 	uint32_t baseVertex = UINT32_MAX;
 	uint32_t vertexCount = 0;
 	uint64_t materialID = 0;
-	//uint32_t materialIndex = 0; //deprecate ?
 };
 
 
@@ -60,10 +57,22 @@ struct SubMeshComponent {
 	uint32_t materialIndex = 0; // relative to Materials Vector in AssetManger
 };
 
-struct MeshNode {
 
-	uint64_t meshID;
-	std::vector<MeshNode> children;
+struct MeshNode {
+	std::string name;
+	uint64_t meshID = { 0 };
+	uint64_t assetID = { 0 };
+	Transform transform;
+	std::vector<uint64_t> children;
+};
+
+
+struct ModelHeader {
+	static constexpr uint64_t magic = 0x4D4F44454C; //MODEL 
+	uint64_t assetID;       
+	uint64_t rootNodeID;    // assetID of the root MeshNode
+	uint32_t version = 1;
+	uint32_t nodesNum;
 };
 
 

@@ -3,6 +3,7 @@
 enum class AssetType {
     Unknown,
     Mesh,
+    Model,
     Texture2D,
     Audio,
     Shader,
@@ -11,19 +12,21 @@ enum class AssetType {
 };
 
 struct AssetMetadata {
-    uint64_t     id = 0;
-    std::string     cookedPath;
-    std::string     sourcePath;
-    uint64_t     contentHash = 0;
-    uint64_t     sourceHash = 0; // contentHash of the source file
-    uint64_t        importedAt = 0;
-    std::vector<uint64_t> dependencies;
-    AssetType       type;
+    uint64_t                id = 0;
+    std::string             name;
+    std::string             cookedPath;
+    std::string             sourcePath;
+    uint64_t                contentHash = 0;
+    uint64_t                sourceHash = 0; // contentHash of the source file
+    uint64_t                importedAt = 0;
+    std::vector<uint64_t>   dependencies;
+    AssetType               type = AssetType::Unknown;
 };
 
 
 inline AssetType AssetTypeFromString(const std::string& str) {
     if (str == "Mesh")      return AssetType::Mesh;
+    if (str == "Model")      return AssetType::Model;
     if (str == "Texture2D") return AssetType::Texture2D;
     if (str == "Audio")     return AssetType::Audio;
     if (str == "Shader")    return AssetType::Shader;
@@ -35,6 +38,7 @@ inline AssetType AssetTypeFromString(const std::string& str) {
 inline std::string AssetTypeToString(AssetType type) {
     switch (type) {
     case AssetType::Mesh:      return "Mesh";
+    case AssetType::Model:      return "Model";
     case AssetType::Texture2D: return "Texture2D";
     case AssetType::Audio:     return "Audio";
     case AssetType::Shader:    return "Shader";
@@ -98,6 +102,7 @@ public:
             AssetMetadata meta;
 
             meta.id = std::stoull(key.GetString());
+            meta.name = SafeStr(v, "name");
             meta.cookedPath = SafeStr(v, "cookedPath");
             meta.sourcePath = SafeStr(v, "sourcePath");
             meta.contentHash = v.HasMember("contentHash") && v["contentHash"].IsUint64();
@@ -118,11 +123,6 @@ public:
         return true;
     }
 
-    bool create() {
-
-
-    }
-
     bool Save() const {
 
         rj::StringBuffer sb;
@@ -138,6 +138,7 @@ public:
             writer.StartObject();
 
             writer.Key("cookedPath");  writer.String(meta.cookedPath.c_str());
+            writer.Key("name");  writer.String(meta.name.c_str());
             writer.Key("sourcePath");  writer.String(meta.sourcePath.c_str());
             writer.Key("contentHash"); writer.Uint64(meta.contentHash);
             writer.Key("sourceHash");  writer.Uint64(meta.sourceHash);
@@ -184,6 +185,17 @@ public:
 
     bool Contains(const uint64_t& id) const {
         return assetsMap.count(id) > 0;
+    }
+
+    uint64_t FindByName( const std::string& name) const {
+
+        auto it = std::find_if(assetsMap.begin(), assetsMap.end(),
+            [&name](const auto& pair) {
+            const AssetMetadata& asset = pair.second;
+            return asset.name == name;
+        });
+
+        return it != assetsMap.end() ? it->second.id : 0;
     }
 
     // ── Mutation ──────────────────────────────────────────────────────────────

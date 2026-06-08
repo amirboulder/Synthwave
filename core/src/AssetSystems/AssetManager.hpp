@@ -5,10 +5,11 @@ enum class DefaultAssets {
 	CUBE,
 	SPHERE,
 	CAPSULE,
+	CYLINDER,
+	BOXCAR,
 	ROBOT,	//TODO This should be a game asset
 	MOUNTAIN, //TODO This should be a game asset
 };
-
 
 
 class AssetManager;
@@ -30,6 +31,7 @@ public:
 	std::unordered_map<DefaultAssets, uint64_t>defaultAssetsMap;
 
 	std::unordered_map<uint64_t, MeshComponent> meshes;
+	std::unordered_map<uint64_t, MeshNode> meshNodes;
 
 	std::vector<SubMeshComponent> subMeshes;
 
@@ -58,7 +60,10 @@ public:
 		makeSureDefaultAssetsExistInManifest();
 
 		//Cube will serve as the default Mesh
-		MeshComponent meshComp = requestMeshComponent(defaultAssetsMap.at(DefaultAssets::CUBE));
+		requestMeshComponent(defaultAssetsMap.at(DefaultAssets::CUBE));
+		
+		//BoxCar will serve as the default Model TODO Generate A Model insted
+		requestModel(defaultAssetsMap.at(DefaultAssets::BOXCAR));
 
 	}
 
@@ -90,20 +95,80 @@ public:
 	/// </summary>
 	void makeSureDefaultAssetsExistInManifest() {
 
-		defaultAssetsMap.insert({ DefaultAssets::CUBE, 6728271091387442376 });
-		defaultAssetsMap.insert({ DefaultAssets::SPHERE, 6728271091387442376 }); // FIX
-		defaultAssetsMap.insert({ DefaultAssets::CAPSULE, 17196989714979220390 });
-		defaultAssetsMap.insert({ DefaultAssets::ROBOT, 5156344710508223273 });
-		defaultAssetsMap.insert({ DefaultAssets::MOUNTAIN, 7018586682167799274 });
+		//TODO generate CUBE,SPHERE, and CYLINDER.
+
+		defaultAssetsMap.insert({ DefaultAssets::CUBE, manifest.FindByName("mesh|assets/meshes/Cube.glb|Cube") });
+		defaultAssetsMap.insert({ DefaultAssets::SPHERE, manifest.FindByName("mesh|assets/meshes/Sphere.glb|Cube.001") });
+		defaultAssetsMap.insert({ DefaultAssets::CAPSULE, manifest.FindByName("mesh|assets/meshes/Capsule.glb|Sphere") });
+		defaultAssetsMap.insert({ DefaultAssets::CYLINDER, manifest.FindByName("mesh|assets/meshes/Car.glb|Cylinder.001") }); 
+		defaultAssetsMap.insert({ DefaultAssets::BOXCAR, manifest.FindByName("model|assets/meshes/BoxCar.glb|Cube") });
+		defaultAssetsMap.insert({ DefaultAssets::ROBOT, manifest.FindByName("mesh|assets/meshes/enemy1.glb|Icosphere") });
+		defaultAssetsMap.insert({ DefaultAssets::MOUNTAIN, manifest.FindByName("mesh|assets/meshes/mtn4.glb|Plane.001") });
 
 		for (const auto& pair : defaultAssetsMap) {
 
-			if (!manifest.Contains(pair.second)) {
+			if (pair.second == 0) {
 
-				LogError(LOG_ERR, "Default AssetID %llu to does not exist in the manifest Fix it",
-					pair.second);
+				LogError(LOG_APP, "Default AssetID is zero Fix it!!!"); // TODO use magicEnum so we can log which asset
 			}
 		}
+	}
+
+	//TODO FIX second import bug 
+	MeshNode requestModel(const uint64_t& ID) {
+
+		auto it = meshNodes.find(ID);
+
+		if (it != meshNodes.end()) {
+
+			return  it->second;
+		}
+		//If asset is not loaded then load it and all of its children
+		else {
+
+			const AssetMetadata* assetMetaData = manifest.Find(ID);
+			if (!assetMetaData) {
+				return meshNodes[0]; //default MeshNode
+			}
+
+			ModelHeader modelHeader;
+			std::vector< MeshNode> meshNodesList;
+			if (!RenderUtil::loadModelFromFile(assetMetaData->cookedPath, modelHeader, meshNodesList)) {
+				LogError(LOG_APP, "Failed to loadModelFromFile for file %s returning default meshNode instead"
+					,assetMetaData->cookedPath.c_str());
+				return meshNodes[0]; //default MeshNode
+			}
+
+			for (const MeshNode& node : meshNodesList) {
+
+				auto [it, inserted] = meshNodes.emplace( node.assetID, node);
+
+				if (!inserted) {
+					LogError(LOG_APP,
+						"Cannot emplace Asset ID : %u from file %s in meshNodes because it already exists,"
+						"this means are the potential duplicate ids ",
+						node.assetID, assetMetaData->cookedPath.c_str());
+				}
+			}
+
+			return meshNodes[modelHeader.rootNodeID];
+		}	
+	}
+
+	
+
+	MeshNode requestMeshNode(const uint64_t& ID) {
+
+		auto it = meshNodes.find(ID);
+
+		if (it != meshNodes.end()) {
+
+			return  it->second;
+		}
+
+		LogError(LOG_APP, "MeshNode with ID : %d does not exist in AssetManager::meshNodes.Returning default meshNode instead."
+			, ID);
+		return meshNodes[0];
 	}
 
 	//TODO upgrade to cpp23 and used std::expected

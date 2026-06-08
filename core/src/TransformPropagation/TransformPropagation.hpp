@@ -45,7 +45,6 @@ public:
 
 	void TransformPropagationSystem() {
 		
-
 		ecs.system<const Transform, WorldMatrix>("RootTransformSys")
 			.without<flecs::Parent>()
 			.kind(TransformPropagationPhase)
@@ -65,9 +64,7 @@ public:
 			//Assuming parent has worldMatrix
 			const glm::mat4& parentWorldMat = parentEnt.get<WorldMatrix>().matrix;
 
-			worldMat.matrix = createWorldMatrix(transform);
-			worldMat.matrix = parentWorldMat * worldMat.matrix;
-
+			worldMat.matrix = parentWorldMat * createWorldMatrix(transform);
 		});
 	}
 

@@ -5,6 +5,115 @@
 
 namespace AssetImporter {
 
+	bool processMeshNodeRecursive(fastgltf::Asset& gltf,
+		fastgltf::Node& node, uint32_t nodeIndex, std::vector<MeshNode>& meshNodeList,
+		const std::unordered_map<uint32_t, uint64_t>& localToMeshId,
+		std::unordered_map<uint32_t, uint64_t>& localToMeshNodeId,
+		std::string_view filePathStr) {
+
+		//Create a MeshNode
+		// fill the mesh nodes data from gltf
+		// do the same for the its children recursively
+		// add the children AssetIds its children vector
+		//Add the mesh to meshNodeList
+
+		//We only care about node with meshes here
+		if (node.meshIndex.has_value()) {
+
+			MeshNode meshNode ;
+
+			if (node.name.empty()) {
+
+				LogError(LOG_ERR, "Empty Node name in file %s ", filePathStr.data());
+				LogError(LOG_ERR, "all assets must have unique names within the file, cannot import asset, please add names and try again!");
+				return false;
+			}
+
+			meshNode.name = node.name;
+
+			//Make sure the referenced mesh exists
+			auto findIt = localToMeshId.find(node.meshIndex.value());
+			if (findIt != localToMeshId.end()) {
+
+				meshNode.meshID = findIt->second;
+			}
+			else {
+				LogError(LOG_ERR, "MeshIndex %d not found in localToMeshId for file %s", node.meshIndex.value(), filePathStr.data());
+				return false;
+			}
+
+			uint64_t assetID = util::generateAssetID(std::format("meshnode|{}|{}", filePathStr.data(), node.name.c_str()));
+			meshNode.assetID = assetID;
+
+			auto [it, inserted] = localToMeshNodeId.emplace(nodeIndex, assetID);
+			if (!inserted) {
+				LogError(LOG_ERR, "Mesh Node index %d already exists %s in file", nodeIndex, filePathStr.data());
+				return false;
+			}
+
+			Transform& transform = meshNode.transform;
+
+			auto transformVariant = node.transform;
+			if (std::holds_alternative<fastgltf::TRS>(transformVariant)) {
+
+				fastgltf::TRS& trs = get<fastgltf::TRS>(transformVariant);
+
+				transform.position = glm::vec3(trs.translation[0],
+					trs.translation[1],
+					trs.translation[2]);
+
+				transform.rotation = glm::quat(trs.rotation[3],
+					trs.rotation[0],
+					trs.rotation[1],
+					trs.rotation[2]);
+
+				transform.scale = glm::vec3(trs.scale[0],
+					trs.scale[1],
+					trs.scale[2]);
+			}
+			else
+			{
+
+				fastgltf::math::fmat4x4 matrix = get<fastgltf::math::fmat4x4>(transformVariant);
+
+				fastgltf::math::fvec3 translation = fastgltf::math::fvec3();
+				fastgltf::math::fquat rotation = fastgltf::math::fquat();
+				fastgltf::math::fvec3 scale = fastgltf::math::fvec3();
+
+				fastgltf::math::decomposeTransformMatrix(matrix, scale, rotation, translation);
+
+				transform.position = glm::vec3(translation[0], translation[1], translation[2]);
+				transform.rotation = glm::quat(rotation[3], rotation[0], rotation[1], rotation[2]);
+				transform.scale = glm::vec3(scale[0], scale[1], scale[2]);
+
+			}
+
+			for (const uint32_t childIndex : node.children) {
+
+				fastgltf::Node& childNode = gltf.nodes[childIndex];
+
+				if (!processMeshNodeRecursive(gltf, childNode, childIndex, meshNodeList, localToMeshId, localToMeshNodeId, filePathStr)) {
+					return false;
+				}
+
+				auto itr = localToMeshNodeId.find(childIndex);
+				if (itr != localToMeshNodeId.end()) {
+
+					meshNode.children.emplace_back(itr->second);
+				}
+				else {
+					LogError(LOG_ERR, "childID %d not found in localToMeshNodeId for file %s", childIndex, filePathStr.data());
+					return false;
+				}
+			}
+
+			meshNodeList.emplace_back(std::move(meshNode)); 
+		}
+
+		return true;
+	}
+
+
 
 	/// <summary>
 	/// processes texture, materials, meshes, Scenes in a glTF file,
@@ -21,6 +130,7 @@ namespace AssetImporter {
 		std::unordered_map<uint32_t, uint64_t> localToMaterialId;
 		std::unordered_map<uint32_t, uint64_t> localToTextureId;
 		std::unordered_map<uint32_t, uint64_t> localToMeshId;
+		std::unordered_map<uint32_t, uint64_t> localToNodeId;
 
 		const std::string filePathStr = filePath.generic_string();
 
@@ -80,6 +190,7 @@ namespace AssetImporter {
 
 			auto& image  = gltf.images[texture.imageIndex.value()];
 
+	
 			if (image.name.empty()) {
 
 				LogError(LOG_ERR, "Empty image name in file %s ", filePathStr.c_str());
@@ -97,7 +208,8 @@ namespace AssetImporter {
 				continue;
 			}
 
-			uint64_t assetID = util::generateAssetID(filePathStr + image.name.c_str());
+			std::string assetName = std::format("texture|{}|{}", filePathStr, image.name.c_str());
+			uint64_t assetID = util::generateAssetID(assetName);
 
 			TexHeader header = {
 
@@ -114,7 +226,7 @@ namespace AssetImporter {
 
 			//save image to file
 			if (!RenderUtil::saveTexToFile(textureDest, header, imageData.get())) {
-				//saveSTBImageToFile aleady logs
+				//saveSTBImageToFile already logs
 				continue;
 			}
 
@@ -127,6 +239,7 @@ namespace AssetImporter {
 			}
 
 			AssetMetadata assetMetaData;
+			assetMetaData.name = assetName;
 			assetMetaData.contentHash = contentHash;
 			assetMetaData.cookedPath = textureDest.generic_string();
 			assetMetaData.id = assetID;
@@ -171,8 +284,8 @@ namespace AssetImporter {
 
 			// TODO the rest of the material data
 
-
-			uint64_t assetID = util::generateAssetID(filePathStr + material.name.c_str());
+			std::string assetName = std::format("Material|{}|{}", filePathStr, material.name.c_str());
+			uint64_t assetID = util::generateAssetID(assetName);
 
 			fs::path materialDest = destFolder / std::format("{:016x}.mat", assetID);
 
@@ -190,6 +303,7 @@ namespace AssetImporter {
 			}
 
 			AssetMetadata assetMetaData;
+			assetMetaData.name = assetName;
 			assetMetaData.contentHash = contentHash;
 			assetMetaData.cookedPath = materialDest.generic_string();
 			assetMetaData.id = assetID;
@@ -303,8 +417,8 @@ namespace AssetImporter {
 				return false;
 			}
 
-			//todo make sure name is not null
-			uint64_t assetID = util::generateAssetID(filePathStr + mesh.name.c_str());
+			std::string assetName = std::format("mesh|{}|{}", filePathStr, mesh.name.c_str());
+			uint64_t assetID = util::generateAssetID(assetName);
 
 			// --- Build header ---
 			MeshHeader header;
@@ -330,6 +444,7 @@ namespace AssetImporter {
 			}
 
 			AssetMetadata assetMetaData;
+			assetMetaData.name = assetName;
 			assetMetaData.contentHash = contentHash;
 			assetMetaData.cookedPath = meshDest.generic_string();
 			assetMetaData.id = assetID;
@@ -345,120 +460,70 @@ namespace AssetImporter {
 			manifest.Insert(assetMetaData);
 
 		}
-
+		
 		//Go through all the scenes
 		for (std::size_t i = 0; i < gltf.scenes.size(); i++) {
 
-			std::vector<SceneNodeData> sceneNodeDatalist;
+			fastgltf::Scene& scene = gltf.scenes[i];
 
-			//Iterate through all scenes and all nodes and process every mesh
-			fastgltf::iterateSceneNodes(gltf, i, fastgltf::math::fmat4x4(),
-				[&](fastgltf::Node& node, const auto& matrix) {
+			//Scene only holds root nodes
+			//So for each root node we get a Model Asset
+			for (size_t index : scene.nodeIndices) {
 
-				//We only care about node with meshes
-				if (node.meshIndex.has_value()) {
+				std::vector<MeshNode> meshNodesList;
 
-					SceneNodeData & nodeData = sceneNodeDatalist.emplace_back();
+				fastgltf::Node& node = gltf.nodes.at(index);
 
-					if (node.name.empty()) {
-
-						LogError(LOG_ERR, "Empty Node name in file %s ", filePathStr.c_str());
-						LogError(LOG_ERR, "all assets must have unique names within the file, cannot import asset, please add names and try again!");
-						return false;
-					}
-
-					nodeData.name = node.name;
-					nodeData.meshID = localToMeshId[node.meshIndex.value()];
-
-					Transform& transform = nodeData.transform;
-					
-					//process the meshes transform
-					//we only care about a nodes transform if it has a mesh
-					//Do we always care about the transform ???
-					auto transformVarient = node.transform;
-					if (std::holds_alternative<fastgltf::TRS>(transformVarient)) {
-
-						fastgltf::TRS& trs = get<fastgltf::TRS>(transformVarient);
-
-						transform.position = glm::vec3(trs.translation[0],
-							trs.translation[1],
-							trs.translation[2]);
-
-						transform.rotation = glm::quat(trs.rotation[3],
-							trs.rotation[0],
-							trs.rotation[1],
-							trs.rotation[2]);
-
-						transform.scale = glm::vec3(trs.scale[0],
-							trs.scale[1],
-							trs.scale[2]);
-					}
-					else 
-					{
-
-						fastgltf::math::fmat4x4 matrix = get<fastgltf::math::fmat4x4>(transformVarient);
-
-						fastgltf::math::fvec3 translation = fastgltf::math::fvec3();
-						fastgltf::math::fquat rotation  = fastgltf::math::fquat();
-						fastgltf::math::fvec3 scale = fastgltf::math::fvec3();
-
-						fastgltf::math::decomposeTransformMatrix(matrix, scale, rotation, translation);
-
-						transform.position = glm::vec3(translation[0], translation[1], translation[2]);
-						transform.rotation = glm::quat(rotation[3], rotation[0], rotation[1], rotation[2]);
-						transform.scale = glm::vec3(scale[0], scale[1], scale[2]);
-
-					}
+				if (!processMeshNodeRecursive(gltf, node, index, meshNodesList, localToMeshId, localToNodeId, filePathStr)){
+					return false;
 				}
 
-			});
+				std::string assetName = std::format("model|{}|{}", filePathStr.data(), node.name.c_str());
+				uint64_t assetID = util::generateAssetID(assetName);
 
+				ModelHeader modelHeader = {
+					.assetID = assetID,
+					.rootNodeID = localToNodeId[index],
+					.nodesNum = static_cast<uint32_t>(meshNodesList.size()),
+				};
 
-			if (gltf.scenes[i].name.empty()) {
+				fs::path modelDestPath = destFolder / std::format("{:016x}.model", assetID);
+				if (!RenderUtil::saveModelToFile(modelDestPath, modelHeader, meshNodesList)) {
+					return false;
+				}
 
-				LogError(LOG_ERR, "Empty Scene name in file %s ", filePathStr.c_str());
-				LogError(LOG_ERR, "all assets must have unique names within the file, cannot import asset, please add names and try again!");
-				return false;
+				uint64_t modelContentHash = util::generateContentHash(modelDestPath);
+				if (modelContentHash == 0) {
+					LogError(LOG_ERR, "Failed to generate Content Hash for asset %zu in %s", index, filePathStr.c_str());
+					return false;
+				}
+
+				AssetMetadata assetMetaData;
+				assetMetaData.name = assetName;
+				assetMetaData.contentHash = modelContentHash;
+				assetMetaData.cookedPath = modelDestPath.generic_string();
+				assetMetaData.id = assetID;
+				assetMetaData.importedAt = util::Now();
+				assetMetaData.type = AssetType::Model;
+				assetMetaData.sourcePath = filePathStr;
+				assetMetaData.sourceHash = gltfFileContentHash;
+
+				for (const MeshNode& meshNode : meshNodesList) {
+
+					// Using meshID here because mesh is the independent asset not meshNode itself
+					assetMetaData.dependencies.emplace_back(meshNode.meshID); 
+				}
+
+				manifest.Insert(assetMetaData);
 			}
-
-			uint64_t assetID = util::generateAssetID(filePathStr + gltf.scenes[i].name.c_str());
-
-			SceneHeader sceneHeader;
-			sceneHeader.assetID = assetID;
-			sceneHeader.nodesNum = sceneNodeDatalist.size();
-
-			fs::path sceneDestPath = destFolder / std::format("{:016x}.scene", assetID);
-
-			if (!RenderUtil::saveSceneDataFile(sceneDestPath, sceneHeader, sceneNodeDatalist)) {
-
-				return false;
-			}
-
-			uint64_t SceneContentHash = util::generateContentHash(sceneDestPath);
-			if (SceneContentHash == 0) {
-				LogError(LOG_ERR, "Failed to generate Content Hash for asset %zu in %s", i, filePathStr.c_str());
-				continue;
-			}
-
-
-			AssetMetadata assetMetaData;
-			assetMetaData.contentHash = SceneContentHash;
-			assetMetaData.cookedPath = sceneDestPath.generic_string();
-			assetMetaData.id = assetID;
-			assetMetaData.importedAt = util::Now();
-			assetMetaData.type = AssetType::Scene;
-			assetMetaData.sourcePath = filePathStr;
-			assetMetaData.sourceHash = gltfFileContentHash;
-
-			manifest.Insert(assetMetaData);
-
-
 		}
 
 		manifest.Save();
 
 		return true;
 	}
+
+	
 
 	//TODO
 	static bool reImportGLTF(const fs::path& filePath, const fs::path& destFolder, Manifest& manifest)

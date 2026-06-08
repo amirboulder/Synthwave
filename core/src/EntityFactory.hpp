@@ -21,17 +21,88 @@ private:
 
 public:
 
-	static bool createCubeEntity(flecs::world& ecs, const flecs::entity parent, const std::string name, 
-		const Transform transform) {
+	//Creates a capsule shaped entity
+	static bool createCapsuleEntity(flecs::world& ecs, const flecs::entity parent,
+		std::string_view name, const Transform transform) {
 
-		if (!validateName(ecs, parent, name)) return false;
-		if (!validateTransform(transform, name.c_str())) return false;
+		if (!validateName(ecs, parent, name.data())) return false;
+		if (!validateTransform(transform, name.data())) return false;
 
 		//Get MeshComponent from AssetManager
-		AssetManager* assetManger = ecs.get<AssetManagerRef>().assetManager;
+		AssetManager* assetManager = ecs.get<AssetManagerRef>().assetManager;
+
+		MeshComponent meshComp = assetManager->requestMeshComponent(assetManager->defaultAssetsMap.at(DefaultAssets::CAPSULE));
+		glm::vec3 scaledSize = meshComp.aabb.extents * transform.scale;
+
+		float physicsRadius = scaledSize.x;
+		float physicsHalfHeight = scaledSize.y;
+
+		//the half-height parameter in Jolt is the half-height of the cylindrical center section only
+		float physicsCylHalf = scaledSize.y - physicsRadius; 
+
+		// Ref<> manages reference counting - no manual cleanup needed
+		Ref<Shape> capsuleShape = new JPH::CapsuleShape(physicsCylHalf, physicsRadius);
+
+		JPH::Vec3 joltPosition(transform.position.x, transform.position.y, transform.position.z);
+		JPH::Quat joltRotation(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
+		if (!joltRotation.IsNormalized()) {
+			joltRotation = joltRotation.Normalized();
+		}
+
+		JPH::BodyCreationSettings pillSettings(
+			capsuleShape,
+			joltPosition,
+			joltRotation,
+			JPH::EMotionType::Dynamic,
+			Layers::MOVING
+		);
+
+		// bounciness
+		pillSettings.mRestitution = 0.5f;
+
+		pillSettings.mOverrideMassProperties = JPH::EOverrideMassProperties::CalculateInertia;
+		pillSettings.mMassPropertiesOverride.mMass = 50.1f;
+
+		JPH::BodyInterface& bodyInterface = ecs.get<PhysicsSystemRef>().physicsSystem.GetBodyInterface();
+
+		// Create and add body
+		const BodyID physicsID = bodyInterface.CreateAndAddBody(pillSettings, JPH::EActivation::Activate);
+
+		if (!validatePhysicsBodyCreation(physicsID, name.data())) return false;
+
+		flecs::entity entity = ecs.entity(name.data())
+			.set<EntityTypeComponent>({ EntityType::Capsule })
+			.add<DynamicEnt>()
+			.set<Transform>(transform)
+			.set<WorldMatrix>({})
+			.add<Renderable>()
+			.set<JPH::BodyID>(physicsID)
+			.child_of(parent)
+			;
+
+
+		// Store the entity ID in the physics body which gives us a two way mapping between entity and bodyId
+		bodyInterface.SetUserData(physicsID, entity.id());
+
+		if (!validateEntityCreation(entity, name.data()))  return false;
+
+		//Create a child entity for mesh and a grandchild entity for each submesh.
+		if (!createMeshEntity(ecs, assetManager, entity, meshComp, name)) return false;
+
+		return true;
+	}
+
+	static bool createCubeEntity(flecs::world& ecs, const flecs::entity parent, std::string_view name,
+		const Transform transform) {
+
+		if (!validateName(ecs, parent, name.data())) return false;
+		if (!validateTransform(transform, name.data())) return false;
+
+		//Get MeshComponent from AssetManager
+		AssetManager* assetManager = ecs.get<AssetManagerRef>().assetManager;
 		
 		//Assuming default asset exists
-		MeshComponent meshComp = assetManger->requestMeshComponent(assetManger->defaultAssetsMap.at(DefaultAssets::CUBE));
+		MeshComponent meshComp = assetManager->requestMeshComponent(assetManager->defaultAssetsMap.at(DefaultAssets::CUBE));
 
 		glm::vec3 scaledSize = meshComp.aabb.extents * transform.scale;
 
@@ -41,35 +112,29 @@ public:
 		Ref<Shape> boxShape = new BoxShape(boxHalfExtents);
 
 		// Convert GLM to Jolt types
-		JPH::Vec3 joltPosition(transform.position.x, transform.position.y, transform.position.z);
-		JPH::Quat joltRotation(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
-		if (!joltRotation.IsNormalized()) {
-			joltRotation = joltRotation.Normalized();
+		JPH::Vec3 joltPos(transform.position.x, transform.position.y, transform.position.z);
+		JPH::Quat joltRot(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
+		if (!joltRot.IsNormalized()) {
+			joltRot = joltRot.Normalized();
 		}
 
-		JPH::BodyCreationSettings cubeSetting(
-			boxShape,
-			joltPosition,
-			joltRotation,
-			JPH::EMotionType::Dynamic,
-			Layers::MOVING
-		);
+		JPH::BodyCreationSettings bodySettings(boxShape, joltPos, joltRot,JPH::EMotionType::Dynamic,Layers::MOVING);
 
 		// bounciness
-		cubeSetting.mRestitution = 0.5f;
+		bodySettings.mRestitution = 0.5f;
 
-		cubeSetting.mOverrideMassProperties = JPH::EOverrideMassProperties::CalculateInertia;
-		cubeSetting.mMassPropertiesOverride.mMass = 50.1f;
+		bodySettings.mOverrideMassProperties = JPH::EOverrideMassProperties::CalculateInertia;
+		bodySettings.mMassPropertiesOverride.mMass = 50.1f;
 
 		JPH::BodyInterface& bodyInterface = ecs.get<PhysicsSystemRef>().physicsSystem.GetBodyInterface();
 
 		// Create and add body
-		const BodyID physicsID = bodyInterface.CreateAndAddBody(cubeSetting, JPH::EActivation::Activate);
+		const BodyID physicsID = bodyInterface.CreateAndAddBody(bodySettings, JPH::EActivation::Activate);
 
-		if (!validatePhysicsBodyCreation(physicsID, name)) return false;
+		if (!validatePhysicsBodyCreation(physicsID, name.data())) return false;
 
 
-		const flecs::entity entity = ecs.entity(name.c_str())
+		const flecs::entity entity = ecs.entity(name.data())
 			.set<EntityTypeComponent>({ EntityType::Cube })
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
@@ -83,32 +148,153 @@ public:
 		// Store the entity ID in the physics body which gives us a two way mapping between entity and bodyId
 		bodyInterface.SetUserData(physicsID, entity.id());
 
-		if (!validateEntityCreation(entity, name))  return false;
+		if (!validateEntityCreation(entity, name.data()))  return false;
 
 		//Create a child entity for mesh and a grandchild entity for each submesh.
-		if (!createMeshEntity(ecs, assetManger, entity, meshComp, name)) return false;
+		if (!createMeshEntity(ecs, assetManager, entity, meshComp, name)) return false;
 
 		return true;
 
 	}
 
-	//TODO We need to rethink how to create entities with multiple meshes
-	// Perhaps a prefab with each child ent holding one mesh
-	static bool createCarEntity(flecs::world& ecs, const flecs::entity parent, const std::string name,
+	static bool createSphereEntity(flecs::world& ecs, const flecs::entity parent, std::string_view name,
 		const Transform transform) {
 
-		if (!validateName(ecs, parent, name)) return false;
-		if (!validateTransform(transform, name.c_str())) return false;
+		if (!validateName(ecs, parent, name.data())) return false;
+		if (!validateTransform(transform, name.data())) return false;
 
-		//Get the modelSource from Asset Library
+		//Get MeshComponent from AssetManager
 		AssetManager* assetManager = ecs.get<AssetManagerRef>().assetManager;
-	
+
+		//Assuming default asset exists
+		MeshComponent meshComp = assetManager->requestMeshComponent(assetManager->defaultAssetsMap.at(DefaultAssets::SPHERE));
+
+		glm::vec3 scaledSize = meshComp.aabb.extents * transform.scale;
+
+		// Ref<> manages reference counting - no manual cleanup needed
+		Ref<Shape> shape = new SphereShape(scaledSize.x); //Assuming uniform scaling
+
+		// Convert GLM to Jolt types
+		JPH::Vec3 joltPos(transform.position.x, transform.position.y, transform.position.z);
+		JPH::Quat joltRot(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
+		if (!joltRot.IsNormalized()) {
+			joltRot = joltRot.Normalized();
+		}
+
+		JPH::BodyCreationSettings bodySettings(shape, joltPos, joltRot, JPH::EMotionType::Dynamic, Layers::MOVING);
+
+		// bounciness
+		bodySettings.mRestitution = 0.5f;
+
+		bodySettings.mOverrideMassProperties = JPH::EOverrideMassProperties::CalculateInertia;
+		bodySettings.mMassPropertiesOverride.mMass = 50.1f;
+
 		JPH::BodyInterface& bodyInterface = ecs.get<PhysicsSystemRef>().physicsSystem.GetBodyInterface();
 
+		// Create and add body
+		const BodyID physicsID = bodyInterface.CreateAndAddBody(bodySettings, JPH::EActivation::Activate);
+
+		if (!validatePhysicsBodyCreation(physicsID, name.data())) return false;
 
 
-		flecs::entity  rootEntity= ecs.entity(name.c_str())
-			.set<EntityTypeComponent>({ EntityType::Car })
+		const flecs::entity entity = ecs.entity(name.data())
+			.set<EntityTypeComponent>({ EntityType::Cube })
+			.add<DynamicEnt>()
+			.set<Transform>(transform)
+			.set<WorldMatrix>({})
+			.add<Renderable>()
+			.set<JPH::BodyID>(physicsID)
+			.child_of(parent)
+			;
+
+		// Store the entity ID in the physics body which gives us a two way mapping between entity and bodyId
+		bodyInterface.SetUserData(physicsID, entity.id());
+
+		if (!validateEntityCreation(entity, name.data()))  return false;
+
+		//Create a child entity for mesh and a grandchild entity for each submesh.
+		if (!createMeshEntity(ecs, assetManager, entity, meshComp, name)) return false;
+
+		return true;
+	}
+
+	static bool createCylinderEntity(flecs::world& ecs, const flecs::entity parent, std::string_view name,
+		const Transform transform) {
+
+		if (!validateName(ecs, parent, name.data())) return false;
+		if (!validateTransform(transform, name.data())) return false;
+
+		//Get MeshComponent from AssetManager
+		AssetManager* assetManager = ecs.get<AssetManagerRef>().assetManager;
+		MeshComponent meshComp = assetManager->requestMeshComponent(assetManager->defaultAssetsMap.at(DefaultAssets::CYLINDER));
+
+		glm::vec3 scaledSize = meshComp.aabb.extents * transform.scale;
+
+		// Compute Cylinder dimensions
+		float physicsRadius = scaledSize.x;
+		float physicsHalfHeight = scaledSize.y;
+
+		// Ref<> manages reference counting - no manual cleanup needed
+		Ref<Shape> shape = new CylinderShape(physicsHalfHeight, physicsRadius); 
+
+		// Convert GLM to Jolt types
+		JPH::Vec3 joltPos(transform.position.x, transform.position.y, transform.position.z);
+		JPH::Quat joltRot(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
+		if (!joltRot.IsNormalized()) {
+			joltRot = joltRot.Normalized();
+		}
+
+		JPH::BodyCreationSettings bodySettings(shape, joltPos, joltRot, JPH::EMotionType::Dynamic, Layers::MOVING);
+
+		// bounciness
+		bodySettings.mRestitution = 0.5f;
+
+		bodySettings.mOverrideMassProperties = JPH::EOverrideMassProperties::CalculateInertia;
+		bodySettings.mMassPropertiesOverride.mMass = 100.0f;
+
+		JPH::BodyInterface& bodyInterface = ecs.get<PhysicsSystemRef>().physicsSystem.GetBodyInterface();
+
+		// Create and add body
+		const BodyID physicsID = bodyInterface.CreateAndAddBody(bodySettings, JPH::EActivation::Activate);
+
+		if (!validatePhysicsBodyCreation(physicsID, name.data())) return false;
+
+		const flecs::entity entity = ecs.entity(name.data())
+			.set<EntityTypeComponent>({ EntityType::Cylinder })
+			.add<DynamicEnt>()
+			.set<Transform>(transform)
+			.set<WorldMatrix>({})
+			.add<Renderable>()
+			.set<JPH::BodyID>(physicsID)
+			.child_of(parent)
+			;
+
+		// Store the entity ID in the physics body which gives us a two way mapping between entity and bodyId
+		bodyInterface.SetUserData(physicsID, entity.id());
+
+		if (!validateEntityCreation(entity, name.data()))  return false;
+
+		//Create a child entity for mesh and a grandchild entity for each submesh.
+		if (!createMeshEntity(ecs, assetManager, entity, meshComp, name)) return false;
+
+		return true;
+	}
+
+	static bool createBoxCarEntity(flecs::world& ecs, const flecs::entity parent, std::string_view name,
+		const Transform transform) {
+
+		if (!validateName(ecs, parent, name.data())) return false;
+		if (!validateTransform(transform, name.data())) return false;
+
+		//Get MeshComponent from AssetManager
+		AssetManager* assetManager = ecs.get<AssetManagerRef>().assetManager;
+	
+		uint64_t rootNodeID = assetManager->defaultAssetsMap.at(DefaultAssets::BOXCAR);
+
+		JPH::BodyInterface& bodyInterface = ecs.get<PhysicsSystemRef>().physicsSystem.GetBodyInterface();
+
+		flecs::entity  rootEntity= ecs.entity(name.data())
+			.set<EntityTypeComponent>({ EntityType::BoxCar })
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
 			.set<WorldMatrix>({})
@@ -117,15 +303,16 @@ public:
 			;
 
 
-		if (!validateEntityCreation(rootEntity, name))  return false;
+		if (!validateEntityCreation(rootEntity, name.data()))  return false;
 
-		MeshNode rootNode;
+		MeshNode rootNode = assetManager->requestModel(rootNodeID);
 
 		if (!createMeshHierarchy(ecs, rootEntity, rootNode, name, assetManager)) return false;
 
-		StaticCompoundShapeSettings settings;
-
 		/*
+		 StaticCompoundShapeSettings settings;
+
+		
 		for (const Mesh& mesh : modelSource->meshes) {
 
 			Mesh::calculateMeshSize(mesh.vertices);
@@ -144,7 +331,7 @@ public:
 			settings.AddShape(joltPos, joltRot, boxShapeSettings, (uint32_t)entity.id());
 
 		}
-		*/
+		
 
 
 		Result<Ref<Shape>> shapeResult = settings.Create();
@@ -163,12 +350,11 @@ public:
 
 		const BodyID physicsID = bodyInterface.CreateAndAddBody(bodySettings, JPH::EActivation::Activate);
 
-
 		rootEntity.set<JPH::BodyID>(physicsID);
 
+		*/
 
 		return true;
-
 	}
 
 	static bool createHumanRagdollEntity(flecs::world& ecs, const flecs::entity parent, const std::string name,
@@ -536,87 +722,13 @@ public:
 	}
 
 
-	//Creates a capsule shaped entity
-	static bool createCapsuleEntity(flecs::world& ecs,const flecs::entity parent,
-		std::string_view name, const Transform transform) {
 
-		if (!validateName(ecs,parent,name.data())) return false;
-		if (!validateTransform(transform, name.data())) return false;
-
-		//Get MeshComponent from AssetManager
-		AssetManager* assetManger = ecs.get<AssetManagerRef>().assetManager;
-
-		MeshComponent meshComp = assetManger->requestMeshComponent(assetManger->defaultAssetsMap.at(DefaultAssets::CAPSULE));
-		glm::vec3 scaledSize = meshComp.aabb.extents * transform.scale;
-
-		// Compute capsule dimensions
-		float modelRadius = scaledSize.x; // Unscaled model radius
-		float modelHeight = scaledSize.y; // Unscaled model total height
-		float physicsRadius = modelRadius * transform.scale.x; // Scale radius (x-axis)
-		float physicsHalfHeight = (modelHeight - modelRadius) * transform.scale.y; // Scale height (y-axis)
-
-		// Ref<> manages reference counting - no manual cleanup needed
-		Ref<Shape> capsuleShape = new JPH::CapsuleShape(physicsHalfHeight, physicsRadius);
-
-
-		JPH::Vec3 joltPosition(transform.position.x, transform.position.y, transform.position.z);
-		JPH::Quat joltRotation(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
-		if (!joltRotation.IsNormalized()) {
-			joltRotation = joltRotation.Normalized();
-		}
-
-
-		JPH::BodyCreationSettings pillSettings(
-			capsuleShape,
-			joltPosition,
-			joltRotation,
-			JPH::EMotionType::Dynamic,
-			Layers::MOVING
-		);
-
-		// bounciness
-		pillSettings.mRestitution = 0.5f;
-
-		pillSettings.mOverrideMassProperties = JPH::EOverrideMassProperties::CalculateInertia;
-		pillSettings.mMassPropertiesOverride.mMass = 50.1f;
-
-		JPH::BodyInterface& bodyInterface = ecs.get<PhysicsSystemRef>().physicsSystem.GetBodyInterface();
-
-		// Create and add body
-		const BodyID physicsID = bodyInterface.CreateAndAddBody(pillSettings, JPH::EActivation::Activate);
-
-		if (!validatePhysicsBodyCreation(physicsID, name.data())) return false;
-
-			flecs::entity entity = ecs.entity(name.data())
-			.set<EntityTypeComponent>({ EntityType::Capsule })
-			.add<DynamicEnt>()
-			.set<Transform>(transform)
-			.set<WorldMatrix>({})
-			.add<Renderable>()
-			.set<JPH::BodyID>(physicsID)
-			.child_of(parent)
-			;
-
-
-		// Store the entity ID in the physics body which gives us a two way mapping between entity and bodyId
-		bodyInterface.SetUserData(physicsID, entity.id());
-
-		if (!validateEntityCreation(entity, name.data()))  return false;
-
-		//Create a child entity for mesh and a grandchild entity for each submesh.
-		Transform identity;
-		if (!createMeshEntity(ecs, assetManger, entity, meshComp, name)) return false;
-
-		return true;
-	}
-
-	
-	static bool createActorEntity(flecs::world& ecs, flecs::entity parent, const std::string name,
+	static bool createActorEntity(flecs::world& ecs, flecs::entity parent, std::string_view name,
 		Transform transform, JPH::CharacterSettings settings,
 		entUpdateFn actorUpdate) {
 
-		if (!validateName(ecs, parent, name)) return false;
-		if (!validateTransform(transform, name.c_str())) return false;
+		if (!validateName(ecs, parent, name.data())) return false;
+		if (!validateTransform(transform, name.data())) return false;
 
 		//Get MeshComponent from AssetManager
 		AssetManager* assetManger = ecs.get<AssetManagerRef>().assetManager;
@@ -638,13 +750,12 @@ public:
 			&settings, joltPosition, joltRotation, 0, &physicsSystem
 		);
 
-		if (!validatePhysicsBodyCreation(joltCharacter->GetBodyID(), name)) {
+		if (!validatePhysicsBodyCreation(joltCharacter->GetBodyID(), name.data())) {
 			delete joltCharacter;
 			return false;
 		}
 
-
-		flecs::entity entity = ecs.entity(name.c_str())
+		flecs::entity entity = ecs.entity(name.data())
 			.set<EntityTypeComponent>({ EntityType::Actor})
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
@@ -656,7 +767,7 @@ public:
 			.child_of(parent);
 
 	
-		if (!validateEntityCreation(entity, name)) {
+		if (!validateEntityCreation(entity, name.data())) {
 			delete joltCharacter;
 			return false;
 		}
@@ -769,11 +880,10 @@ public:
 	}
 
 	static bool createStaticMeshEntity(flecs::world& ecs, const flecs::entity parent, 
-		const std::string name, Transform transform, uint64_t meshID) {
+		std::string_view name, Transform transform, uint64_t meshID) {
 
-		if (!validateName(ecs, parent, name)) return false;
-		if (!validateTransform(transform, name.c_str())) return false;
-	
+		if (!validateName(ecs, parent, name.data())) return false;
+		if (!validateTransform(transform, name.data())) return false;
 	
 		//Get MeshComponent from AssetManager
 		AssetManager* assetManger = ecs.get<AssetManagerRef>().assetManager;
@@ -836,9 +946,9 @@ public:
 			EActivation::DontActivate
 		);
 
-		if (!validatePhysicsBodyCreation(physicsID, name)) return false;
+		if (!validatePhysicsBodyCreation(physicsID, name.data())) return false;
 
-		const flecs::entity entity = ecs.entity(name.c_str())
+		const flecs::entity entity = ecs.entity(name.data())
 			.set<EntityTypeComponent>({ EntityType::StaticMesh })
 			.add<StaticEnt>()
 			.set<Transform>(transform)
@@ -853,7 +963,7 @@ public:
 		// Store the entity ID in the physics body which gives us a two way mapping between entity and bodyId
 		bodyInterface.SetUserData(physicsID, entity.id());
 
-		if (!validateEntityCreation(entity, name)) return false;
+		if (!validateEntityCreation(entity, name.data())) return false;
 
 		//Create a child entity for mesh and a grandchild entity for each submesh.
 		if (!createMeshEntity(ecs, assetManger, entity, meshComp, name, transform)) return false;
@@ -861,12 +971,10 @@ public:
 		return true;
 	}
 
-	
-	static bool createGridEntity(flecs::world& ecs, const flecs::entity parent, const std::string name, Transform transform, uint32_t size) {
+	static bool createGridEntity(flecs::world& ecs, const flecs::entity parent, std::string_view name, Transform transform, uint32_t size) {
 
-		if (!validateName(ecs, parent, name)) return false;
-		if (!validateTransform(transform, name.c_str())) return false;
-
+		if (!validateName(ecs, parent, name.data())) return false;
+		if (!validateTransform(transform, name.data())) return false;
 
 		//Get the modelSource from Asset Library
 		AssetManager* assetManger = ecs.get<AssetManagerRef>().assetManager;
@@ -886,7 +994,6 @@ public:
 			Mesh gridMesh = createGridMesh(size);
 			assetManger->fillMeshComp(gridMesh, meshComp, id);
 		}
-
 
 		// any thickness less than 0.01 will break jolt!
 		float boxThickness = 1;
@@ -916,12 +1023,11 @@ public:
 
 		JPH::BodyInterface& bodyInterface = ecs.get<PhysicsSystemRef>().physicsSystem.GetBodyInterface();
 
-
 		BodyID physicsID = bodyInterface.CreateAndAddBody(boxBodySettings, EActivation::Activate);
 
-		if (!validatePhysicsBodyCreation(physicsID, name)) return false;
+		if (!validatePhysicsBodyCreation(physicsID, name.data())) return false;
 
-		const flecs::entity entity = ecs.entity(name.c_str())
+		const flecs::entity entity = ecs.entity(name.data())
 			.set<EntityTypeComponent>({ EntityType::Grid })
 			.add<StaticEnt>()
 			.set<Transform>(transform)
@@ -933,13 +1039,12 @@ public:
 		// Store the entity ID in the physics body which gives us a two way mapping between entity and bodyId
 		bodyInterface.SetUserData(physicsID, entity.id());
 
-		if (!validateEntityCreation(entity, name)) return false;
+		if (!validateEntityCreation(entity, name.data())) return false;
 
 		//Create a child entity for mesh and a grandchild entity for each submesh.
 		if (!createMeshEntity(ecs, assetManger, entity, meshComp, name, transform)) return false;
 
 		return true;
-
 	}
 
 	//TODO use transform
@@ -974,7 +1079,6 @@ public:
 
 		
 		return true;
-
 	}
 
 	static bool createMeshHierarchy(flecs::world& ecs, const flecs::entity parent, const MeshNode& rootNode, std::string_view name, AssetManager* assetManager) {
@@ -982,9 +1086,10 @@ public:
 		// Request the mesh component for the root itself
 		MeshComponent meshComp = assetManager->requestMeshComponent(rootNode.meshID);
 
-		std::string rootEntName = std::format("{}-RootMesh", name.data());
+		std::string rootEntName = std::format("{}-Mesh", name.data());
 		flecs::entity rootEntity = ecs.entity(flecs::Parent{ parent }, rootEntName.c_str())
 			.set<WorldMatrix>({})
+			.set<Transform>(rootNode.transform)
 			.set<MeshComponent>({ meshComp });
 
 		if (!validateEntityCreation(rootEntity, rootEntName.c_str())) return false;
@@ -993,7 +1098,6 @@ public:
 			return false;
 		}
 
-		
 
 		// recursively create all children
 		return createMeshEntityHelperRecursive(ecs, rootEntity, rootNode, name, assetManager);
@@ -1002,19 +1106,20 @@ public:
 	static bool createMeshEntityHelperRecursive(flecs::world& ecs, const flecs::entity parent, const MeshNode& meshNode, std::string_view name, AssetManager* assetManager) {
 
 		for (size_t i = 0; i < meshNode.children.size(); i++) {
-			const MeshNode& childNode = meshNode.children[i];
+			MeshNode childNode = assetManager->requestMeshNode( meshNode.children[i]);
 
 			// Process this specific child
 			MeshComponent meshComp = assetManager->requestMeshComponent(childNode.meshID);
 
-			std::string childEntName = std::format("{}-Mesh {}", name.data(), i);
+			std::string childEntName = std::format("{}-Mesh-{}", name.data(), childNode.name);
 			flecs::entity meshEntity = ecs.entity(flecs::Parent{ parent }, childEntName.c_str())
 				.set<WorldMatrix>({})
+				.set<Transform>(childNode.transform)
 				.set<MeshComponent>({ meshComp });
 
 			if (!validateEntityCreation(meshEntity, childEntName.c_str())) return false;
 
-			// Create submeshes for this child
+			// Create subMeshes for this child
 			if (!createSubMeshEntities(ecs, meshEntity, meshComp, childEntName, assetManager)) {
 				return false;
 			}
@@ -1069,6 +1174,8 @@ public:
 
 		for (int i = 0; i < meshComp.subMeshCount; i++) {
 
+			SubMeshComponent subMeshComp = assetManager->requestSubMeshComponent(meshComp.firstSubMeshIndex + i);
+
 			std::string childEntName = std::format("{}-subMesh {}", name, i);
 			flecs::entity childEntity = ecs.entity(flecs::Parent{ parent }, childEntName.c_str())
 				.set<SubMeshComponent>({ assetManager->requestSubMeshComponent(meshComp.firstSubMeshIndex + i) });
@@ -1090,7 +1197,6 @@ public:
 		return true;
 	}
 
-
 	static flecs::entity createEditorItemEntity(flecs::world& ecs, std::string name, flecs::entity editorToggle,
 		std::function<void(flecs::world& ecs)> drawFunction) {
 
@@ -1106,7 +1212,6 @@ public:
 		return entity;
 	}
 
-
 	static flecs::entity createMenuItemEntity(flecs::world& ecs, std::string name,
 		std::function<void(flecs::world& ecs)> drawFunction) {
 
@@ -1118,7 +1223,6 @@ public:
 
 		return entity;
 	}
-
 
 	static bool validateName(flecs::world& ecs, flecs::entity parent, std::string_view name) {
 		if (name.empty()) {
@@ -1147,19 +1251,19 @@ public:
 		return true;
 	}
 
-	static bool validateTransform(Transform transform, std::string name) {
+	static bool validateTransform(Transform transform, std::string_view name) {
 		if (!std::isfinite(transform.position.x) || !std::isfinite(transform.position.y) || !std::isfinite(transform.position.z)) {
-			LogError(LOG_APP, "Error Invalid position (contains NaN or Inf) found in transform for : %s", name.c_str());
+			LogError(LOG_APP, "Error Invalid position (contains NaN or Inf) found in transform for : %s", name.data());
 			return false;
 		}
 		if (!std::isfinite(transform.rotation.x) || !std::isfinite(transform.rotation.y) ||
 			!std::isfinite(transform.rotation.z) || !std::isfinite(transform.rotation.w)) {
-			LogError(LOG_APP, "Error Invalid rotation (contains NaN or Inf) found in transform for : %s", name.c_str());
+			LogError(LOG_APP, "Error Invalid rotation (contains NaN or Inf) found in transform for : %s", name.data());
 			return false;
 		}
 		if (!std::isfinite(transform.scale.x) || !std::isfinite(transform.scale.y) ||
 			!std::isfinite(transform.scale.z)) {
-			LogError(LOG_APP, "Error Invalid scale (contains NaN or Inf) found in transform for : %s", name.c_str());
+			LogError(LOG_APP, "Error Invalid scale (contains NaN or Inf) found in transform for : %s", name.data());
 			return false;
 		}
 		return true;
@@ -1168,7 +1272,7 @@ public:
 
 	// Jolt documentation says dynamic objects should be in the order [0.1, 10]
 	// Static objects should be in the order [0.1, 2000] meters long
-	static bool validateSize(JPH::Vec3Arg size, const std::string& name, bool dynamicObject)
+	static bool validateSize(JPH::Vec3Arg size, std::string_view name, bool dynamicObject)
 	{
 		const JPH::Vec3 minSizeConstraint(0.1f, 0.1f, 0.1f);
 		const JPH::Vec3 maxSizeConstraint = dynamicObject
@@ -1177,7 +1281,7 @@ public:
 
 		// Check for NaN / Inf first
 		if (!std::isfinite(size.GetX()) || !std::isfinite(size.GetY()) || !std::isfinite(size.GetZ())) {
-			LogError(LOG_APP, "Error: Entity %s size contains NaN or Inf", name.c_str());
+			LogError(LOG_APP, "Error: Entity %s size contains NaN or Inf", name.data());
 			return false;
 		}
 
@@ -1185,7 +1289,7 @@ public:
 		if (size.GetX() < minSizeConstraint.GetX() || size.GetY() < minSizeConstraint.GetY() || size.GetZ() < minSizeConstraint.GetZ()) {
 			LogError(LOG_APP,
 				"Error: Size components for entity %s must be >= 0.1 m (x: %.3f, y: %.3f, z: %.3f)",
-				name.c_str(), size.GetX(), size.GetY(), size.GetZ());
+				name.data(), size.GetX(), size.GetY(), size.GetZ());
 			return false;
 		}
 
@@ -1193,17 +1297,17 @@ public:
 		if (size.GetX() > maxSizeConstraint.GetX() || size.GetY() > maxSizeConstraint.GetY() || size.GetZ() > maxSizeConstraint.GetZ()) {
 			LogError(LOG_APP,
 				"Warning: Entity %s size exceeds recommended bounds for %s objects (x: %.3f, y: %.3f, z: %.3f)",
-				name.c_str(), dynamicObject ? "dynamic" : "static", size.GetX(), size.GetY(), size.GetZ());
+				name.data(), dynamicObject ? "dynamic" : "static", size.GetX(), size.GetY(), size.GetZ());
 			return false;
 		}
 
 		return true;
 	}
 
-	static bool validatePhysicsBodyCreation(JPH::BodyID id, std::string name) {
+	static bool validatePhysicsBodyCreation(JPH::BodyID id, std::string_view name) {
 
 		if (id.IsInvalid()) {
-			LogError(LOG_PHYSICS, "Error creating physics body for Entity : %s", name.c_str());
+			LogError(LOG_PHYSICS, "Error creating physics body for Entity : %s", name.data());
 			return false;
 		}
 		return true;
@@ -1218,9 +1322,9 @@ public:
 			return false;
 		}
 	}
-	static bool validateEntityCreation(flecs::entity entity, std::string name) {
+	static bool validateEntityCreation(flecs::entity entity, std::string_view name) {
 		if (!entity.is_valid()) {
-			LogError(LOG_ECS, "Error creating Entity : %s", name.c_str());
+			LogError(LOG_ECS, "Error creating Entity : %s", name.data());
 			return false;
 		}
 		return true;
@@ -1234,13 +1338,7 @@ public:
 		}
 
 		return true;
-
 	}
-
-	//TODO move this function
-	
-
-
 };
 
 

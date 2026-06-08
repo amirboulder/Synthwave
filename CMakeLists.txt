@@ -478,19 +478,50 @@ add_custom_target(copy_shaders ALL
 
 add_dependencies(Synthwave copy_shaders)
 
-# If any asset file is updated OR added, copy it into the build folder
-#TODO shaders can be put into assets folder and this can be just one command
-add_custom_command(
-    OUTPUT ${CMAKE_BINARY_DIR}/assets
-    COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different
-            ${CMAKE_SOURCE_DIR}/assets
-            ${CMAKE_BINARY_DIR}/assets
-    DEPENDS ${CMAKE_SOURCE_DIR}/assets
-    COMMENT "Copying asset files..."
+# Watch the top-level dir AND every subdirectory recursively (for new/ deleted files)
+file(GLOB_RECURSE ASSET_SUBDIRS
+    LIST_DIRECTORIES true
+    "${CMAKE_SOURCE_DIR}/assets/*"
 )
 
+set_property(DIRECTORY APPEND PROPERTY
+    CMAKE_CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/assets"
+)
+
+foreach(SUBDIR ${ASSET_SUBDIRS})
+    if(IS_DIRECTORY ${SUBDIR})
+        set_property(DIRECTORY APPEND PROPERTY
+            CMAKE_CONFIGURE_DEPENDS "${SUBDIR}"
+        )
+    endif()
+endforeach()
+# Collect all assets
+file(GLOB_RECURSE ASSET_FILES
+    RELATIVE "${CMAKE_SOURCE_DIR}/assets"
+    "${CMAKE_SOURCE_DIR}/assets/*"
+)
+
+# Declare per-file copy rules
+set(COPIED_ASSETS)
+foreach(ASSET ${ASSET_FILES})
+    set(SRC "${CMAKE_SOURCE_DIR}/assets/${ASSET}")
+    set(DST "${CMAKE_BINARY_DIR}/assets/${ASSET}")
+
+    add_custom_command(
+        OUTPUT  ${DST}
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/assets"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${SRC}" "${DST}"
+        DEPENDS "${SRC}"
+        COMMENT "Copying asset: ${ASSET}"
+        VERBATIM
+    )
+    list(APPEND COPIED_ASSETS ${DST})
+endforeach()
+
+# Top-level target
 add_custom_target(copy_assets ALL
-    DEPENDS ${CMAKE_BINARY_DIR}/assets)
+    DEPENDS ${COPIED_ASSETS}
+)
 
 add_dependencies(Synthwave copy_assets)
 
