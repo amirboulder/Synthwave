@@ -24,9 +24,12 @@ public:
 
 	uint16_t jumpKey = SDL_SCANCODE_SPACE;
 
-	uint16_t escapeMenu = SDL_SCANCODE_ESCAPE;
+	uint16_t escapeMenuKey = SDL_SCANCODE_ESCAPE;
 
-	uint16_t closeWindow = SDL_SCANCODE_END;
+	uint16_t closeWindowKey = SDL_SCANCODE_END;
+
+	uint16_t leftClickKey = SDL_BUTTON_LEFT;
+	uint16_t rightClickKey = SDL_BUTTON_LEFT;
 
 
 	InputManager(flecs::world& ecs)
@@ -78,38 +81,29 @@ public:
 		captureInputKeyboardMouse();
 	}
 
-
 	void handleEvents(SDL_Event& event) {
 
-		//Events only get passed down if IMGUI is not using them
 		ImGui_ImplSDL3_ProcessEvent(&event);
-
-		//This can also be handled in inputManager
 		ImGuiIO& io = ImGui::GetIO();
 
-		// Skip viewport input if ImGui is using the mouse or keyboard
-		if (io.WantTextInput) {
-			return;
-		}
-		if (io.WantCaptureMouse)
-		{
-			return;
-		}
-
-
+		// We handle quit and escape BEFORE yielding to ImGui,
+		// so escape can close the pause menu even when ImGui has focus
 		if (event.type == SDL_EVENT_QUIT) {
-
 			ecs.set<ExitEvent>({ true });
 		}
-
-		if (event.type == SDL_EVENT_KEY_DOWN && event.key.repeat == 0 && event.key.scancode == SDL_SCANCODE_ESCAPE) {
-
-			ecs.set<GamePauseEvent>({true});
+		if (event.type == SDL_EVENT_KEY_DOWN && event.key.repeat == 0
+			&& event.key.scancode == escapeMenuKey) {
+			ecs.set<GamePauseEvent>({ true });
 		}
 
-		if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN && event.button.button == SDL_BUTTON_LEFT) {
+		// The rest of the input is now gated
+		if (io.WantTextInput || io.WantCaptureMouse) {
+			return;
+		}
 
-			ecs.set<MouseClickLeftEvent>({ event.button.x,event.button.y });
+		if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN
+			&& event.button.button == leftClickKey) {
+			ecs.set<MouseClickLeftEvent>({ event.button.x, event.button.y });
 		}
 
 		handleEditorEvents(event);
@@ -121,7 +115,7 @@ public:
 
 		const RenderContext& renderContext = ecs.get<RenderContext>();
 
-		if (event.type == SDL_EVENT_KEY_DOWN && event.key.repeat == 0 && event.key.scancode == closeWindow) {
+		if (event.type == SDL_EVENT_KEY_DOWN && event.key.repeat == 0 && event.key.scancode == closeWindowKey) {
 			ecs.set<ExitEvent>({true});
 		}
 

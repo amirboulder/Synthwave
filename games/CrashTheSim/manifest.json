@@ -1,0 +1,8 @@
+{
+  "name": "CrashTheSim",
+  "library": "CrashTheSim.dll",
+  "entry": "RegisterGame",
+  "assets": "assets/",
+  "version": "0.1.0",
+  "engineVersion": "0.1.0"
+}
