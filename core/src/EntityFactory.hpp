@@ -289,7 +289,7 @@ public:
 		//Get MeshComponent from AssetManager
 		AssetManager* assetManager = ecs.get<AssetManagerRef>().assetManager;
 	
-		uint64_t rootNodeID = assetManager->defaultAssetsMap.at(DefaultAssets::BOXCAR);
+		uint64_t modelID = assetManager->defaultAssetsMap.at(DefaultAssets::BOXCAR);
 
 		JPH::BodyInterface& bodyInterface = ecs.get<PhysicsSystemRef>().physicsSystem.GetBodyInterface();
 
@@ -305,7 +305,8 @@ public:
 
 		if (!validateEntityCreation(rootEntity, name.data()))  return false;
 
-		MeshNode rootNode = assetManager->requestModel(rootNodeID);
+		ModelData model = assetManager->requestModel(modelID);
+		MeshNode rootNode = assetManager->requestMeshNode(model.rootNodeID);
 
 		if (!createMeshHierarchy(ecs, rootEntity, rootNode, name, assetManager)) return false;
 

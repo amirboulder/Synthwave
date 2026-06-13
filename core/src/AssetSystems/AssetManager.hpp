@@ -32,16 +32,22 @@ public:
 
 	std::unordered_map<uint64_t, MeshComponent> meshes;
 	std::unordered_map<uint64_t, MeshNode> meshNodes;
+	std::unordered_map<uint64_t, ModelData> models;
 
 	std::vector<SubMeshComponent> subMeshes;
 
 	std::unordered_map<uint64_t, uint32_t> materialIdToIndex; //Maps material Id to their index in materials Vector
 	std::vector<Material> materials;
 
-	std::unordered_map<uint64_t, uint32_t> diffuseTextureIdToIndex;//Maps texture Id to their index in textureArrays
-	std::unordered_map<uint64_t, uint32_t> MRTextureIdToIndex;//Maps Metallic Roughness texture Id to their index in textureArrays
-	std::unordered_map<uint64_t, uint32_t> NormalTextureIdToIndex;//Maps Metallic Roughness texture Id to their index in textureArrays
+	std::unordered_map<uint64_t, uint32_t> diffuseTextureIdToIndex;//Maps texture ID to its index in textureArrays
+	std::unordered_map<uint64_t, uint32_t> MRTextureIdToIndex;//Maps Metallic Roughness ID texture Id to their index in textureArrays
+	std::unordered_map<uint64_t, uint32_t> NormalTextureIdToIndex;//Maps Normal texture ID to its index in textureArrays
 	TextureArrays textureArrays;
+
+	MeshComponent defaultMesh;
+	MeshNode defaultMeshNode;
+	ModelData defaultModel;
+	Material defaultMaterial;
 
 	AssetManager(flecs::world& ecs, const Manifest& manifest)
 		:ecs(ecs), manifest(manifest)
@@ -55,39 +61,54 @@ public:
 		geometryPool.init(renderContext.device);
 		textureArrays.init(renderContext.device);
 
-		createDefaultMaterial(renderContext.device);
-
-		makeSureDefaultAssetsExistInManifest();
-
-		//Cube will serve as the default Mesh
-		requestMeshComponent(defaultAssetsMap.at(DefaultAssets::CUBE));
-		
-		//BoxCar will serve as the default Model TODO Generate A Model insted
-		requestModel(defaultAssetsMap.at(DefaultAssets::BOXCAR));
-
+		createDefaultAssets(renderContext.device);
 	}
 
+	//TODO default assets should be generated not loaded that way there is no possibility of failure
+	void createDefaultAssets(SDL_GPUDevice* device) {
 
-	void createDefaultMaterial(SDL_GPUDevice* device ) {
+		//TODO remove once assets are generated
+		makeSureDefaultAssetsExistInManifest();
+
+		defaultMaterial = createDefaultMaterial(device);
+
+		//Cube will serve as the default Mesh
+		defaultMesh =requestMeshComponent(defaultAssetsMap.at(DefaultAssets::CUBE));
+
+		//BoxCar will serve as the default Model TODO Generate A Model instead
+		defaultModel = requestModel(defaultAssetsMap.at(DefaultAssets::BOXCAR));
+
+		defaultMeshNode = requestMeshNode(defaultModel.rootNodeID);
+	}
+
+	//TODO generate default Material
+	// A purple 1024x1024 for assets with missing textures
+	// Checkerboard can be used for assets that don't have a texture
+	Material createDefaultMaterial(SDL_GPUDevice* device) {
+
+		Material mat;
 
 		//Creating defaultTexture for meshes that don't have a texture
 		SDLSurface imageData(RenderUtil::LoadImage("assets/images/checkerboard.bmp", 4), SDL_DestroySurface);
 		if (!imageData.get())
 		{
 			LogError(LOG_RENDER, "Could not load checkerboard.bmp image data!");
+			return mat;
 		}
 
-
 		//Setting texture 0 and material 0
-		RenderUtil::uploadToTextureArray(device, textureArrays.diffuseTextures, imageData);
+		if (!RenderUtil::uploadToTextureArray(device, textureArrays.diffuseTextures, imageData)) {
+			return mat;
+		}
 		diffuseTextureIdToIndex[0] = 0;
 		//TODO
 		//RenderUtil::uploadToTextureArray(renderContext.device, textureArrays.metallicRoughnessTextures, imageData);
 		//RenderUtil::uploadToTextureArray(renderContext.device, textureArrays.normalTextures, imageData);
 
-		Material mat;
+		//Material Data already has 0 as all of its indices so this works out
 		materials.push_back(mat);
 
+		return mat;
 	}
 
 	/// <summary>
@@ -100,7 +121,7 @@ public:
 		defaultAssetsMap.insert({ DefaultAssets::CUBE, manifest.FindByName("mesh|assets/meshes/Cube.glb|Cube") });
 		defaultAssetsMap.insert({ DefaultAssets::SPHERE, manifest.FindByName("mesh|assets/meshes/Sphere.glb|Cube.001") });
 		defaultAssetsMap.insert({ DefaultAssets::CAPSULE, manifest.FindByName("mesh|assets/meshes/Capsule.glb|Sphere") });
-		defaultAssetsMap.insert({ DefaultAssets::CYLINDER, manifest.FindByName("mesh|assets/meshes/Car.glb|Cylinder.001") }); 
+		defaultAssetsMap.insert({ DefaultAssets::CYLINDER, manifest.FindByName("mesh|assets/meshes/MultiMatCylinder.glb|Cylinder") }); 
 		defaultAssetsMap.insert({ DefaultAssets::BOXCAR, manifest.FindByName("model|assets/meshes/BoxCar.glb|Cube") });
 		defaultAssetsMap.insert({ DefaultAssets::ROBOT, manifest.FindByName("mesh|assets/meshes/enemy1.glb|Icosphere") });
 		defaultAssetsMap.insert({ DefaultAssets::MOUNTAIN, manifest.FindByName("mesh|assets/meshes/mtn4.glb|Plane.001") });
@@ -114,13 +135,13 @@ public:
 		}
 	}
 
-	//TODO FIX second import bug 
-	MeshNode requestModel(const uint64_t& ID) {
+	ModelData requestModel(const uint64_t& ID) {
 
-		auto it = meshNodes.find(ID);
+		auto it = models.find(ID);
 
-		if (it != meshNodes.end()) {
+		if (it != models.end()) {
 
+			//If the model is loaded then the root node is loaded
 			return  it->second;
 		}
 		//If asset is not loaded then load it and all of its children
@@ -128,15 +149,15 @@ public:
 
 			const AssetMetadata* assetMetaData = manifest.Find(ID);
 			if (!assetMetaData) {
-				return meshNodes[0]; //default MeshNode
+				return defaultModel;
 			}
 
 			ModelHeader modelHeader;
 			std::vector< MeshNode> meshNodesList;
 			if (!RenderUtil::loadModelFromFile(assetMetaData->cookedPath, modelHeader, meshNodesList)) {
-				LogError(LOG_APP, "Failed to loadModelFromFile for file %s returning default meshNode instead"
+				LogError(LOG_APP, "Failed to loadModelFromFile for file %s returning default Model instead"
 					,assetMetaData->cookedPath.c_str());
-				return meshNodes[0]; //default MeshNode
+				return defaultModel;
 			}
 
 			for (const MeshNode& node : meshNodesList) {
@@ -145,19 +166,28 @@ public:
 
 				if (!inserted) {
 					LogError(LOG_APP,
-						"Cannot emplace Asset ID : %u from file %s in meshNodes because it already exists,"
+						"Cannot emplace Asset ID : %llu from file %s in meshNodes because it already exists,"
 						"this means are the potential duplicate ids ",
 						node.assetID, assetMetaData->cookedPath.c_str());
+					return defaultModel;
 				}
 			}
 
-			return meshNodes[modelHeader.rootNodeID];
+			ModelData model = {
+				.assetID = modelHeader.assetID,
+				.rootNodeID = modelHeader.rootNodeID,
+				.nodesNum = modelHeader.nodesNum,
+			};
+
+			models.emplace(model.assetID, model);
+
+			return model;
 		}	
 	}
 
 	
 
-	MeshNode requestMeshNode(const uint64_t& ID) {
+	MeshNode requestMeshNode(const uint64_t& ID) const {
 
 		auto it = meshNodes.find(ID);
 
@@ -166,9 +196,9 @@ public:
 			return  it->second;
 		}
 
-		LogError(LOG_APP, "MeshNode with ID : %d does not exist in AssetManager::meshNodes.Returning default meshNode instead."
+		LogError(LOG_APP, "MeshNode with ID : %llu does not exist in AssetManager::meshNodes.Returning default meshNode instead."
 			, ID);
-		return meshNodes[0];
+		return defaultMeshNode;
 	}
 
 	//TODO upgrade to cpp23 and used std::expected
@@ -191,7 +221,7 @@ public:
 
 			const AssetMetadata* assetMetaData =  manifest.Find(ID);
 			if (!assetMetaData) {
-				return meshes[0]; //default Mesh
+				return defaultMesh;
 			}
 		
 			Mesh mesh;
@@ -199,11 +229,11 @@ public:
 
 			if (!RenderUtil::loadMeshFromFile(assetMetaData->cookedPath, mesh, meshHeader)) {
 				LogError(LOG_APP, "Failed to loadMeshFromFile");
-				return meshes[0]; //default Mesh
+				return defaultMesh; 
 			}
 
 			if (!fillMeshComp(mesh, meshComp, ID)) {
-				return meshes[0]; //default Mesh
+				return defaultMesh;
 			}
 
 			return meshComp;
@@ -213,13 +243,11 @@ public:
 	
 	SubMeshComponent requestSubMeshComponent(const uint32_t& index) {
 
-		if (subMeshes.size() < index) {
+		if (index >= subMeshes.size()) {
 
 			SubMeshComponent subMesh;
-
-			return subMesh;
+			return subMesh; // return empty subMesh
 		}
-
 		return subMeshes[index];
 	}
 
@@ -325,7 +353,7 @@ public:
 
 			const AssetMetadata* assetMetaData = manifest.Find(ID);
 			if (!assetMetaData) {
-				return 0; //defaltMaterial
+				return 0; //defaultMaterial
 			}
 
 			MaterialData materialData{};

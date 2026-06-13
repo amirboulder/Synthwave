@@ -76,6 +76,14 @@ struct ModelHeader {
 };
 
 
+struct ModelData {
+
+	uint64_t assetID;
+	uint64_t rootNodeID;
+	uint32_t nodesNum;
+};
+
+
 //TODO use this 
 struct MeshComponent {
 
