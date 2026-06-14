@@ -1,7 +1,7 @@
 #pragma once
 
 #include "../ecs/components.hpp"
-#include "Grid.hpp"
+#include "ProceduralMeshes.hpp"
 
 constexpr uint8_t numberOfLODs = 3;
 
@@ -217,7 +217,7 @@ struct MeshStandalone {
 
 	mesh.subMeshes.emplace_back();
 
-	GridGenerator::generateGrid(size, mesh.vertices, mesh.indices);
+	MeshGen::generateGrid(size, mesh.vertices, mesh.indices);
 
 	mesh.subMeshes[0].indexCount = mesh.indices.size();
 	mesh.subMeshes[0].vertexCount = mesh.vertices.size();
@@ -226,6 +226,79 @@ struct MeshStandalone {
 	mesh.subMeshes[0].firstIndex = 0;
 	mesh.subMeshes[0].materialID = 0;
 
+
+	return mesh;
+}
+
+Mesh createCubeMesh(float scale = 1.0f) {
+
+	Mesh mesh;
+	mesh.subMeshes.emplace_back();
+
+	MeshGen::generateCube(scale, mesh.vertices, mesh.indices);
+
+	mesh.subMeshes[0].indexCount = static_cast<uint32_t>(mesh.indices.size());
+	mesh.subMeshes[0].vertexCount = static_cast<uint32_t>(mesh.vertices.size());
+	mesh.subMeshes[0].baseVertex = 0;
+	mesh.subMeshes[0].firstIndex = 0;
+	mesh.subMeshes[0].materialID = 0;
+
+	mesh.aabb = Mesh::CalculateMeshAABB(mesh.vertices);
+
+	return mesh;
+}
+
+
+Mesh createSphereMesh(float radius = 1, int sectors = 32, int stacks = 16) {
+
+	Mesh mesh;
+	mesh.subMeshes.emplace_back();
+
+	MeshGen::generateSphere(radius, sectors, stacks, mesh.vertices, mesh.indices);
+
+	mesh.subMeshes[0].indexCount = static_cast<uint32_t>(mesh.indices.size());
+	mesh.subMeshes[0].vertexCount = static_cast<uint32_t>(mesh.vertices.size());
+	mesh.subMeshes[0].baseVertex = 0;
+	mesh.subMeshes[0].firstIndex = 0;
+	mesh.subMeshes[0].materialID = 0;
+
+	mesh.aabb = Mesh::CalculateMeshAABB(mesh.vertices);
+
+	return mesh;
+}
+
+Mesh generateCylinderMesh(float radius = 1, int height = 1, int segments = 32) {
+
+	Mesh mesh;
+	mesh.subMeshes.emplace_back();
+
+	MeshGen::generateCylinder(radius, height, segments, mesh.vertices, mesh.indices);
+
+	mesh.subMeshes[0].indexCount = static_cast<uint32_t>(mesh.indices.size());
+	mesh.subMeshes[0].vertexCount = static_cast<uint32_t>(mesh.vertices.size());
+	mesh.subMeshes[0].baseVertex = 0;
+	mesh.subMeshes[0].firstIndex = 0;
+	mesh.subMeshes[0].materialID = 0;
+
+	mesh.aabb = Mesh::CalculateMeshAABB(mesh.vertices);
+
+	return mesh;
+}
+
+Mesh generateCapsuleMesh(float radius = 1.0f, int height = 2.0f, int sectors = 32, int ringsPerDome = 32) {
+
+	Mesh mesh;
+	mesh.subMeshes.emplace_back();
+
+	MeshGen::generateCapsule(radius, height, sectors, ringsPerDome, mesh.vertices, mesh.indices);
+
+	mesh.subMeshes[0].indexCount = static_cast<uint32_t>(mesh.indices.size());
+	mesh.subMeshes[0].vertexCount = static_cast<uint32_t>(mesh.vertices.size());
+	mesh.subMeshes[0].baseVertex = 0;
+	mesh.subMeshes[0].firstIndex = 0;
+	mesh.subMeshes[0].materialID = 0;
+
+	mesh.aabb = Mesh::CalculateMeshAABB(mesh.vertices);
 
 	return mesh;
 }

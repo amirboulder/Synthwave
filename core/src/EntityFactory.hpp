@@ -40,6 +40,11 @@ public:
 		//the half-height parameter in Jolt is the half-height of the cylindrical center section only
 		float physicsCylHalf = scaledSize.y - physicsRadius; 
 
+		if (physicsCylHalf <= 0) {
+			LogError(LOG_APP, "physicsCylHalf is zero");
+			return false;
+		}
+
 		// Ref<> manages reference counting - no manual cleanup needed
 		Ref<Shape> capsuleShape = new JPH::CapsuleShape(physicsCylHalf, physicsRadius);
 

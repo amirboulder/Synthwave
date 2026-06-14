@@ -72,13 +72,79 @@ public:
 
 		defaultMaterial = createDefaultMaterial(device);
 
-		//Cube will serve as the default Mesh
-		defaultMesh =requestMeshComponent(defaultAssetsMap.at(DefaultAssets::CUBE));
+		generateDefaultCube(); //Cube will serve as default Mesh
+		generateDefaultSphere();
+		generateDefaultCylinder();
+		generateDefaultCapsule();
 
 		//BoxCar will serve as the default Model TODO Generate A Model instead
 		defaultModel = requestModel(defaultAssetsMap.at(DefaultAssets::BOXCAR));
 
 		defaultMeshNode = requestMeshNode(defaultModel.rootNodeID);
+	}
+
+	void generateDefaultCube() {
+
+		std::string assetName = std::format("DefaultCube");
+		uint64_t id = util::generateAssetID(assetName);
+
+		Mesh cubeMesh = createCubeMesh(1.0f);
+
+		if (!fillMeshComp(cubeMesh, defaultMesh, id)) {
+			LogError(LOG_APP, "Failed to generate DefaultCube");
+			//Probably a fatal error at this point
+		}
+
+		defaultAssetsMap.insert({ DefaultAssets::CUBE, id });
+	}
+
+	void generateDefaultSphere() {
+
+		std::string assetName = std::format("DefaultSphere");
+		uint64_t id = util::generateAssetID(assetName);
+
+		MeshComponent meshComp;
+		Mesh mesh = createSphereMesh(1.0f);
+
+		if (!fillMeshComp(mesh, meshComp, id)) {
+			LogError(LOG_APP, "Failed to generate DefaultSphere");
+			//Probably a fatal error at this point
+		}
+
+		defaultAssetsMap.insert({ DefaultAssets::SPHERE, id });
+	}
+
+	void generateDefaultCylinder() {
+
+		std::string assetName = std::format("DefaultCylinder");
+		uint64_t id = util::generateAssetID(assetName);
+
+		MeshComponent meshComp;
+		Mesh mesh = generateCylinderMesh(1.0f);
+
+		if (!fillMeshComp(mesh, meshComp, id)) {
+			LogError(LOG_APP, "Failed to generate DefaultCylinder");
+			//Probably a fatal error at this point
+		}
+
+		defaultAssetsMap.insert({ DefaultAssets::CYLINDER, id });
+	}
+
+	void generateDefaultCapsule() {
+
+		std::string assetName = std::format("DefaultCapsule");
+		uint64_t id = util::generateAssetID(assetName);
+
+		
+		MeshComponent meshComp;
+		Mesh mesh = generateCapsuleMesh(1.0f, 2.0f, 32, 16);
+
+		if (!fillMeshComp(mesh, meshComp, id)) {
+			LogError(LOG_APP, "Failed to generate DefaultCapsule");
+			//Probably a fatal error at this point
+		}
+
+		defaultAssetsMap.insert({ DefaultAssets::CAPSULE, id });
 	}
 
 	//TODO generate default Material
@@ -116,12 +182,7 @@ public:
 	/// </summary>
 	void makeSureDefaultAssetsExistInManifest() {
 
-		//TODO generate CUBE,SPHERE, and CYLINDER.
-
-		defaultAssetsMap.insert({ DefaultAssets::CUBE, manifest.FindByName("mesh|assets/meshes/Cube.glb|Cube") });
-		defaultAssetsMap.insert({ DefaultAssets::SPHERE, manifest.FindByName("mesh|assets/meshes/Sphere.glb|Cube.001") });
-		defaultAssetsMap.insert({ DefaultAssets::CAPSULE, manifest.FindByName("mesh|assets/meshes/Capsule.glb|Sphere") });
-		defaultAssetsMap.insert({ DefaultAssets::CYLINDER, manifest.FindByName("mesh|assets/meshes/MultiMatCylinder.glb|Cylinder") }); 
+		//TODO generate boxCar as well
 		defaultAssetsMap.insert({ DefaultAssets::BOXCAR, manifest.FindByName("model|assets/meshes/BoxCar.glb|Cube") });
 		defaultAssetsMap.insert({ DefaultAssets::ROBOT, manifest.FindByName("mesh|assets/meshes/enemy1.glb|Icosphere") });
 		defaultAssetsMap.insert({ DefaultAssets::MOUNTAIN, manifest.FindByName("mesh|assets/meshes/mtn4.glb|Plane.001") });
@@ -254,7 +315,7 @@ public:
 
 	//loads and returns the mesh,
 	// used by entities that need the mesh vertex to create their physics bodies
-	//We could in theory read that data from the geometry buffer buy why complicate things.
+	//We could in theory read that data from the geometry buffer but why complicate things.
 	Mesh requestMesh(const uint64_t& ID) {
 
 		Mesh mesh;
@@ -274,7 +335,7 @@ public:
 	}
 
 	// fills meshComp data from Mesh and GeometryPool, used by requestMeshComp in most circumstances,
-	// but also can be used to add MeshData to the Geopool and meshes map for thing like generated meshes for example
+	// but also can be used to add MeshData to the GeometryPool and meshes map for thing like generated meshes for example
 	//TODO maybe a better name for this
 	bool fillMeshComp(const Mesh & mesh, MeshComponent& meshComp, const uint64_t& ID) {
 
