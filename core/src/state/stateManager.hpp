@@ -959,12 +959,9 @@ public:
 			.without(flecs::Disabled).up(flecs::ChildOf)
 			.build();
 
-		// Query phase dependent systems in pipeline execution order
-		auto independentSystemsQuery = ecs.query_builder<>()
+		auto allSystemsQuery = ecs.query_builder<>()
 			.with(flecs::System)
-			.without(flecs::Phase)
-			.without(flecs::Disabled).up(flecs::DependsOn)
-			.without(flecs::Disabled).up(flecs::ChildOf)
+			.without(flecs::Disabled)
 			.build();
 
 		LogInfo(LOG_APP, "Printing systems that depend on a phase in pipeline execution order");
@@ -976,8 +973,8 @@ public:
 		LogInfo(LOG_APP, " ");
 		LogInfo(LOG_APP, " ");
 
-		LogInfo(LOG_APP, "Printing independent systems ");
-		independentSystemsQuery.each([&](flecs::entity system) {
+		LogInfo(LOG_APP, "Printing All Systems ");
+		allSystemsQuery.each([&](flecs::entity system) {
 			LogInfo(LOG_APP, "  System: %s", system.name().c_str());
 		});
 
@@ -1006,6 +1003,10 @@ public:
 	}
 
 	void exitCallback() {
+
+		serde.unload();
+		ecs.set<GameLoadedState>({ GameLoadedState::NotLoaded });
+
 		running = false;
 	}
 };

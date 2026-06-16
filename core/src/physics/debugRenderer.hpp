@@ -57,7 +57,7 @@ public:
 	glm::mat4 view;
 	glm::mat4 proj;
 
-	vector<BatchImpl*> batches;
+	vector<Ref<BatchImpl>> batches;
 	vector<glm::mat4> modelMatrices;
 	vector<LineVertex> lines;
 
@@ -141,12 +141,6 @@ public:
 			}
 		}
 
-		// Create and upload buffer
-		SDL_GPUBufferCreateInfo bufferCreateInfo = {};
-		bufferCreateInfo.usage = SDL_GPU_BUFFERUSAGE_VERTEX;
-		bufferCreateInfo.size = vertices.size() * sizeof(glm::vec3);
-
-		batch->vertexBuffer = SDL_CreateGPUBuffer(renderContext.device, &bufferCreateInfo);
 		RenderUtil::uploadBufferData(renderContext.device, batch->vertexBuffer, vertices.data(),
 			vertices.size() * sizeof(glm::vec3), SDL_GPU_BUFFERUSAGE_VERTEX);
 
@@ -215,7 +209,7 @@ public:
 			SDL_GPU_BUFFERUSAGE_VERTEX
 		);
 
-		return lineVertexBuffer != nullptr; 
+		return true; 
 	}
 
 
@@ -270,6 +264,7 @@ public:
 
 			auto batch = batches[i];
 
+
 			SDL_GPUBufferBinding vertexBufferBinding = {};
 			vertexBufferBinding.buffer = batch->vertexBuffer;
 			vertexBufferBinding.offset = 0;
@@ -311,6 +306,13 @@ public:
 		}
 		
 
+	}
+
+	void clearBatches() {
+
+		batches.clear();
+		modelMatrices.clear();
+		lines.clear();
 	}
 
 	void configDrawSettings(bool drawBoundingBox,bool drawShapeWireframe) {

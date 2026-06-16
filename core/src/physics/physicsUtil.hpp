@@ -1,8 +1,6 @@
 #pragma once
 
-#include "physics.hpp"
-
-namespace FUtil {
+namespace Utils::Phys {
 
 	struct GroundInfo {
 		JPH::Vec3 groundPoint;
@@ -52,6 +50,82 @@ namespace FUtil {
         }
 
         return info;
+    }
+
+
+    bool isPlayerVisible(JPH::PhysicsSystem* physicsSystem,
+        JPH::Vec3 fromPos,
+        JPH::Vec3 toPos,
+        JPH::BodyID actorBodyID,
+        JPH::BodyID playerBodyID)
+    {
+        JPH::Vec3 dir = toPos - fromPos;
+
+        // RRayCast takes origin + direction (not normalized, length = max distance)
+        JPH::RRayCast ray{ fromPos, dir };
+        JPH::RayCastResult hit;
+
+        // IgnoreMultipleBodiesFilter lets us skip the actor's own body
+        JPH::IgnoreSingleBodyFilter bodyFilter(actorBodyID);
+
+        if (physicsSystem->GetNarrowPhaseQuery().CastRay(ray, hit, {}, {}, bodyFilter))
+        {
+            // Hit something — check if it's the player
+            return hit.mBodyID == playerBodyID;
+        }
+
+        return true; // Nothing in the way
+    }
+
+
+    bool checkVisibilityRayCast(const JPH::PhysicsSystem& physicsSystem,
+        JPH::Vec3 fromPos,
+        JPH::Vec3 toPos,
+        JPH::BodyID sourceBody,
+        JPH::BodyID targetBody)
+    {
+        JPH::Vec3 dir = toPos - fromPos;
+
+        // RRayCast takes origin + direction (not normalized, length = max distance)
+        JPH::RRayCast ray{ fromPos, dir };
+        JPH::RayCastResult hit;
+
+        // IgnoreMultipleBodiesFilter lets us skip the actor's own body
+        JPH::IgnoreSingleBodyFilter bodyFilter(sourceBody);
+
+        if (physicsSystem.GetNarrowPhaseQuery().CastRay(ray, hit, {}, {}, bodyFilter))
+        {
+            // Hit something — check if it's the player
+            return hit.mBodyID == targetBody;
+        }
+
+        return true; // Nothing in the way
+    }
+
+
+    void PrintJPHMat4(const JPH::Mat44& mat, unsigned int index) {
+        std::cout << "JPH Matrix with index: " << index << "\n";
+        for (int row = 0; row < 4; ++row) {
+            std::cout << "| ";
+            for (int col = 0; col < 4; ++col) {
+                // Access matrix in column-major order, but print as row-major for readability
+                std::cout << std::setw(10) << std::setprecision(4)
+                    << std::fixed << mat.GetColumn4(col)[row] << " ";
+            }
+            std::cout << "|\n";
+        }
+        std::cout << "\n"; // Add newline for separation
+    }
+
+    void PrintGLMMat4(const glm::mat4& mat, const unsigned int index) {
+        std::cout << "GLM Matrix with index : " << index << ":\n";
+        for (int row = 0; row < 4; ++row) {
+            std::cout << "| ";
+            for (int col = 0; col < 4; ++col) {
+                std::cout << std::setw(10) << std::setprecision(4) << mat[col][row] << " ";
+            }
+            std::cout << "|\n";
+        }
     }
 
 }

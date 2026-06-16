@@ -184,7 +184,7 @@ public:
 
 		//TODO generate boxCar as well
 		defaultAssetsMap.insert({ DefaultAssets::BOXCAR, manifest.FindByName("model|assets/meshes/BoxCar.glb|Cube") });
-		defaultAssetsMap.insert({ DefaultAssets::ROBOT, manifest.FindByName("mesh|assets/meshes/enemy1.glb|Icosphere") });
+		defaultAssetsMap.insert({ DefaultAssets::ROBOT, manifest.FindByName("model|assets/meshes/CapsuleEnemy.glb|Sphere") });
 		defaultAssetsMap.insert({ DefaultAssets::MOUNTAIN, manifest.FindByName("mesh|assets/meshes/mtn4.glb|Plane.001") });
 
 		for (const auto& pair : defaultAssetsMap) {

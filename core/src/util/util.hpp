@@ -44,6 +44,25 @@ glm::vec3 quatToDirection(const glm::quat& q)
 	return glm::normalize(q * glm::vec3(0.0f, 0.0f, -1.0f));
 }
 
+JPH::Quat dirToQuat(const JPH::Vec3& dir) {
+	JPH::Vec3 forward = JPH::Vec3(0, 0, 1); // Jolt's default forward
+	JPH::Vec3 d = dir.Normalized();
+
+	float dot = forward.Dot(d);
+
+	if (dot > 0.9999f)
+		return JPH::Quat::sIdentity();
+
+	if (dot < -0.9999f) {
+		// 180° flip around up axis
+		return JPH::Quat::sRotation(JPH::Vec3(0, 1, 0), JPH::JPH_PI);
+	}
+
+	JPH::Vec3 axis = forward.Cross(d).Normalized();
+	float angle = acosf(dot);
+	return JPH::Quat::sRotation(axis, angle);
+}
+
 namespace util {
 
 

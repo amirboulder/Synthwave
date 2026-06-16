@@ -98,8 +98,8 @@ struct AreaLight {
 };
 
 
-//The following is Used as relationship tag between entities and meshes.
-//Having multiple tag allows 
-struct BaseMesh {};
-struct SecondaryMesh {};
+struct ActorDebugInfo {
+
+	bool playerVisible = false;
+};
 

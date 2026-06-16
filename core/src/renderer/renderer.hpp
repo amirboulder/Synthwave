@@ -376,8 +376,6 @@ struct Renderer {
 	void registerSystems() {
 
 		createDrawBatchesSystem();
-		createPhysicsBatchesSystem();
-		renderPhysicsSystem();
 
 		LogInfo(LOG_RENDER, "registered Rendering Systems");
 
@@ -971,23 +969,29 @@ struct Renderer {
 
 		}
 
+		// Part of physics so they are registered here.
+		createPhysicsBatchesSystem();
+		renderPhysicsSystem();
 #endif
 	}
+
 
 	void createPhysicsBatchesSystem() {
 
 #ifdef	JPH_DEBUG_RENDERER
 
+		//This system is Part of physics phase because it happens first
+		//allows systems to push data to the batches without them being cleared before rendering
+		flecs::entity physicsPhase = ecs.lookup("PhysicsPhase");
+
 		flecs::system createPhysicsBatchesSys = ecs.system<fisiksDebugRenderer>("CreatePhysicsBatchesSys")
 			//.with<fisiksDebugRenderer>()
 			.term_at(0).src<fisiksDebugRenderer>()
-			.kind(renderPhase)
+			.kind(physicsPhase)
 			.each([&](fisiksDebugRenderer& fisiksRenderer) {
 
 			//Clear all the old data
-			fisiksRenderer.batches.clear();
-			fisiksRenderer.modelMatrices.clear();
-			fisiksRenderer.lines.clear();
+			fisiksRenderer.clearBatches();
 
 			JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
 
@@ -995,7 +999,6 @@ struct Renderer {
 			physicsSystem.DrawBodies(fisiksRenderer.drawSettings, &fisiksRenderer);
 
 			//physicsSystem.DrawConstraints(&fisiksRenderer);
-
 			//physicsSystem.DrawConstraintLimits(&fisiksRenderer);
 			//physicsSystem.DrawConstraintReferenceFrame(&fisiksRenderer);
 

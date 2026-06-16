@@ -39,7 +39,7 @@ namespace BroadPhaseLayers
 #include "../ecs/components.hpp"
 
 
-
+#include "physicsUtil.hpp"
 
 
 // Callback for traces, connect this to your own trace function if you have one
@@ -441,31 +441,7 @@ public:
 	}
 
 
-	//TODO move these to physicsUtil
-	void PrintJPHMat4(const JPH::Mat44& mat, unsigned int index) {
-		std::cout << "JPH Matrix with index: " << index << "\n";
-		for (int row = 0; row < 4; ++row) {
-			std::cout << "| ";
-			for (int col = 0; col < 4; ++col) {
-				// Access matrix in column-major order, but print as row-major for readability
-				std::cout << std::setw(10) << std::setprecision(4)
-					<< std::fixed << mat.GetColumn4(col)[row] << " ";
-			}
-			std::cout << "|\n";
-		}
-		std::cout << "\n"; // Add newline for separation
-	}
-
-	void PrintGLMMat4(const glm::mat4& mat, const unsigned int index) {
-		std::cout << "GLM Matrix with index : " << index << ":\n";
-		for (int row = 0; row < 4; ++row) {
-			std::cout << "| ";
-			for (int col = 0; col < 4; ++col) {
-				std::cout << std::setw(10) << std::setprecision(4) << mat[col][row] << " ";
-			}
-			std::cout << "|\n";
-		}
-	}
+	
 
 
 	~Fisiks() {
