@@ -7,8 +7,8 @@ struct Material {
 	uint32_t metallicRoughnessTexIndex = 0; // GLTF packs these into one texture (G=roughness, B=metallic)
 	uint32_t padding = 0;             // Explicit padding to align baseColorFactor to 16-byte boundary
 	glm::vec4 baseColorFactor = { 1,1,1,1 };
-	float metallicFactor = 1.0f;
-	float roughnessFactor = 1.0f;
+	float metallicFactor = 0.0f;
+	float roughnessFactor = 0.5f;
 	float padding2[2] = { 0.0f, 0.0f }; // Explicit padding to align struct size to 48 bytes (multiple of 16)
 };
 

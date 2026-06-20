@@ -55,6 +55,9 @@ struct SubMeshComponent {
 	uint32_t vertexCount = 0;
 
 	uint32_t materialIndex = 0; // relative to Materials Vector in AssetManger
+
+	uint64_t pipelineID = 0; // ID of the pipeline Entity
+
 };
 
 

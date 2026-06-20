@@ -84,10 +84,10 @@ namespace Utils::Phys {
         JPH::BodyID sourceBody,
         JPH::BodyID targetBody)
     {
-        JPH::Vec3 dir = toPos - fromPos;
+       JPH::Vec3 dir = toPos - fromPos;
 
         // RRayCast takes origin + direction (not normalized, length = max distance)
-        JPH::RRayCast ray{ fromPos, dir };
+        JPH::RRayCast ray{ dir, toPos };
         JPH::RayCastResult hit;
 
         // IgnoreMultipleBodiesFilter lets us skip the actor's own body

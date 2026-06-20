@@ -140,6 +140,7 @@ public:
 	// by disabling fisiksDebugRenderer we are effectively disabling this system as it won't be found by the query
 	void drawVirtualCharacterPhysicsBodies() {
 
+		//TODO remove this and move the draw code to player
 		drawVirtualCharacterPhysicsBodiesSys = ecs.system<fisiksDebugRenderer>("DrawVirtualCharacterPhysicsBodiesSys")
 			.term_at(0).src<fisiksDebugRenderer>()
 			.kind(flecs::PostFrame)
@@ -150,11 +151,11 @@ public:
 
 			flecs::entity playerEntity = ecs.get<PlayerRef>().value;
 
-			if (playerEntity.is_valid()) {
+			/*if (playerEntity.is_valid()) {
 				Ref<CharacterVirtual> mChar = playerEntity.get_mut<Player>().mCharacter;
 				RMat44 com = mChar->GetCenterOfMassTransform();
 				mChar->GetShape()->Draw(&fisiksRenderer, com, Vec3::sOne(), Color::sWhite, false, true);
-			}
+			}*/
 
 		});
 	}

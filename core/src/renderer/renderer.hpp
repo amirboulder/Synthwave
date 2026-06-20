@@ -52,9 +52,16 @@ struct DrawItem {
 	uint32_t meshID = 0;
 	uint32_t meshEntityID = 0;
 	uint32_t materialIndex = 0;
+	uint64_t pipelineID = 0;
 
 	glm::mat4 transformMatrix;
 	glm::mat4 normalMatrix;
+};
+
+struct PipelineBatch {
+	uint64_t pipelineID;
+	uint32_t firstDrawCommand;  // index into drawCommands
+	uint32_t drawCommandCount;
 };
 
 //TODO move to its own file
@@ -163,6 +170,10 @@ struct Renderer {
 
 	FrameDataUniforms uniforms;
 
+	std::vector<PipelineBatch> pipelineBatches;
+
+	SDL_GPUGraphicsPipeline* defaultPipeline = nullptr;
+
 	std::vector<GPUPerMeshData> perMeshData;
 	std::vector<GPUPerSubMeshData> perSubMeshData;
 
@@ -221,6 +232,8 @@ struct Renderer {
 		pipelineLib.init();
 
 
+		getDefaultPipeline();
+
 		LogSuccess(LOG_RENDER, "Renderer Initialized");
 	}
 
@@ -231,7 +244,7 @@ struct Renderer {
 
 		overlay.init();
 
-		//needed so SLD_GPU don't complain about empty buffer being uploaded
+		//needed so SDL_GPU don't complain about empty buffer being uploaded
 		lightBatch.initDummyBuffers(ecs);
 
 		LogSuccess(LOG_RENDER, "Renderer SubSystems Initialized");
@@ -262,7 +275,6 @@ struct Renderer {
 
 		//TODO REMOVE HARDCODED path
 		RenderConfig::loadRendererConfigINIFile(ecs, "config/renderConfig.ini");
-
 	}
 
 	bool createWindow() {
@@ -303,15 +315,21 @@ struct Renderer {
 		//TODO debug mode should come from a config file
 		bool debugMode = true;
 
-		// Enable shaderDrawParameters via Vulkan 1.1 features struct
+		// Enable shaderDrawParameters via Vulkan 1.1 features struct.
 		VkPhysicalDeviceVulkan11Features features11 = {};
 		features11.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES;
-		features11.pNext = NULL; 
+		features11.pNext = NULL;
 		features11.shaderDrawParameters = VK_TRUE;
+
+		const char* requiredDeviceExtensions[] = {
+			VK_KHR_FRAGMENT_SHADER_BARYCENTRIC_EXTENSION_NAME,
+		};
 
 		SDL_GPUVulkanOptions vulkanProps = { 0 };
 		vulkanProps.vulkan_api_version = VK_MAKE_API_VERSION(0, 1, 3, 0); //Vulkan 1.3
 		vulkanProps.feature_list = &features11;
+		vulkanProps.device_extension_count = SDL_arraysize(requiredDeviceExtensions);
+		vulkanProps.device_extension_names = requiredDeviceExtensions;
 
 		SDL_PropertiesID props = SDL_CreateProperties();
 
@@ -563,6 +581,14 @@ struct Renderer {
 		return true;
 	}
 
+	void getDefaultPipeline() {
+
+		flecs::entity pipelineEntity = ecs.entity("pipelinePhong");
+		const Pipeline* pipeline = &pipelineEntity.get<Pipeline>();
+
+		defaultPipeline = pipeline->pipelineMS;
+	}
+
 
 	void buildRenderQueries() {
 
@@ -686,6 +712,7 @@ struct Renderer {
 			perMeshData.clear();
 			perSubMeshData.clear();
 			drawCommands.clear();
+			pipelineBatches.clear();
 			drawItems.clear();
 			materialDatas.clear();
 			numDrawCalls = 0;
@@ -743,6 +770,7 @@ struct Renderer {
 					drawItem.meshID = parentMeshComp.index;
 					drawItem.meshEntityID = static_cast<uint32_t>(parentEnt.id()); // we just need the lower 32bits
 					drawItem.materialIndex = submeshComp.materialIndex;
+					drawItem.pipelineID = submeshComp.pipelineID;
 
 					drawItem.normalMatrix = normalMatrix;
 					drawItem.transformMatrix = worldMatrix;
@@ -788,10 +816,13 @@ struct Renderer {
 		std::sort(drawItems.begin(), drawItems.end(),
 			[](const DrawItem& a, const DrawItem& b) {
 
-			if (a.meshID != b.meshID) {
+			if (a.pipelineID != b.pipelineID) {   // primary: group by pipeline
+				return a.pipelineID < b.pipelineID;
+			}
+			if (a.meshID != b.meshID) {           // secondary: keep instancing buckets
 				return a.meshID < b.meshID;
 			}
-			return a.firstIndex < b.firstIndex;
+			return a.firstIndex < b.firstIndex;   // tertiary: submesh order
 		});
 
 		uint32_t lastMeshEntID = UINT32_MAX;
@@ -800,7 +831,9 @@ struct Renderer {
 
 			const DrawItem& item = drawItems[i];
 
-			bool newBatch = (i == 0) || (drawItems[i - 1].firstIndex != item.firstIndex);
+			bool newPipeline = (i == 0) || (drawItems[i - 1].pipelineID != item.pipelineID);
+			bool newBatch = newPipeline
+				|| (drawItems[i - 1].firstIndex != item.firstIndex);
 
 
 			if (newBatch) {
@@ -809,14 +842,20 @@ struct Renderer {
 				cmd.num_instances = 1;
 				cmd.first_index = item.firstIndex;
 				cmd.vertex_offset = item.vertexOffset;
-				cmd.first_instance = 0;   // offset into instance buffer
+				cmd.first_instance = 0;
 				drawCommands.push_back(cmd);
 
 				perSubMeshData.emplace_back(meshIndex, item.materialIndex);
+
+				if (newPipeline) {
+					pipelineBatches.push_back({ item.pipelineID, numDrawCalls, 0 });
+				}
+				pipelineBatches.back().drawCommandCount++;
+
 				numDrawCalls++;
 			}
 			else {
-				drawCommands.back().num_instances++;  // update the ACTUAL pushed command
+				drawCommands.back().num_instances++;
 			}
 
 
@@ -901,14 +940,13 @@ struct Renderer {
 	AssetManager* assetManger = ecs.get<AssetManagerRef>().assetManager;
 		GeometryPool& geometryPool = assetManger->geometryPool;
 
-		// Bind pipeline ONCE
-		flecs::entity pipelineEntity = ecs.entity("pipelinePhong");
-		const Pipeline* pipeline = &pipelineEntity.get<Pipeline>();
-		SDL_BindGPUGraphicsPipeline(activeRenderPass, pipeline->pipelineMS);
 
 		if (geometryPool.numMeshes < 1 || perMeshData.size() < 1) {
 			return;
 		}
+
+		//Bind default pipeline once , pipelines are sorted so that other pipeline come after this.
+		SDL_BindGPUGraphicsPipeline(activeRenderPass, defaultPipeline);
 
 		// Geometry mega buffers, bind once
 		SDL_GPUBufferBinding vbBinding{ .buffer = geometryPool.megaVertexBuffer, .offset = 0 };
@@ -926,15 +964,21 @@ struct Renderer {
 		lightDataUniform.numPointLights = lightBatch.numPoint;
 		SDL_PushGPUFragmentUniformData(frameContext.commandBuffer, 1, &lightDataUniform, sizeof(lightDataUniform));
 
-	
 
-		SDL_GPUTextureSamplerBinding binding = { assetManger->textureArrays.diffuseTextures.textureArray, nearestSampler };
-		SDL_BindGPUFragmentSamplers(activeRenderPass, 0, &binding, 1);
+		SDL_GPUTextureSamplerBinding binding0 = { assetManger->textureArrays.diffuseTextures.textureArray, nearestSampler };
+		SDL_BindGPUFragmentSamplers(activeRenderPass, 0, &binding0, 1);
+
+		SDL_GPUTextureSamplerBinding binding1 = { assetManger->textureArrays.metallicRoughnessTextures.textureArray, nearestSampler };
+		SDL_BindGPUFragmentSamplers(activeRenderPass, 1, &binding1, 1);
+
+		SDL_GPUTextureSamplerBinding binding2 = { assetManger->textureArrays.normalTextures.textureArray, nearestSampler };
+		SDL_BindGPUFragmentSamplers(activeRenderPass, 2, &binding2, 1);
 
 		//Separate binding set for Samplers StorageBuffers so they both start binding at slot 0
 		SDL_BindGPUFragmentStorageBuffers(activeRenderPass, 0, &allMaterialsBuffer.buffer, 1);
 
 		// Always bind something — dummy buffer when empty
+		//TODO we should just have a dummy light in the buffers instead
 		if (lightBatch.numDirectional > 0) { 
 			SDL_BindGPUFragmentStorageBuffers(activeRenderPass, 1, &lightBatch.directionalBuffer.buffer, 1);
 		}
@@ -952,11 +996,26 @@ struct Renderer {
 
 		//TODO rest of the lights
 
-		//Finally Draw Indirectly
-		SDL_DrawGPUIndexedPrimitivesIndirect(activeRenderPass, drawCommandBuffer.buffer, 0, numDrawCalls);
+		for (const PipelineBatch& batch : pipelineBatches) {
+
+			if (batch.pipelineID > 0) {
+				flecs::entity pe = ecs.entity(batch.pipelineID);            // 0 → resolve to pipelinePhong
+				const Pipeline& p = pe.get<Pipeline>();
+				SDL_BindGPUGraphicsPipeline(activeRenderPass, p.pipelineMS);
+			}
+
+			SDL_PushGPUVertexUniformData(frameContext.commandBuffer, /*slot*/1,
+				&batch.firstDrawCommand, sizeof(uint32_t));
+
+			SDL_DrawGPUIndexedPrimitivesIndirect(
+				activeRenderPass,
+				drawCommandBuffer.buffer,
+				batch.firstDrawCommand * sizeof(SDL_GPUIndexedIndirectDrawCommand), // byte offset
+				batch.drawCommandCount);
+		}
 	}
 
-	
+
 	void initPhysicsRenderer() {
 #ifdef JPH_DEBUG_RENDERER
 
@@ -997,6 +1056,8 @@ struct Renderer {
 
 			// Does not actually draw it just puts all render batches in vector so they can be drawn during a render pass
 			physicsSystem.DrawBodies(fisiksRenderer.drawSettings, &fisiksRenderer);
+
+			fisiksRenderer.createLineBatch();
 
 			//physicsSystem.DrawConstraints(&fisiksRenderer);
 			//physicsSystem.DrawConstraintLimits(&fisiksRenderer);

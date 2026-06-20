@@ -257,6 +257,12 @@ public:
         return tex;
     }
 
+	static SDLSurface makeSolidSurface(uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
+		SDL_Surface* s = SDL_CreateSurface(1, 1, SDL_PIXELFORMAT_RGBA32);
+		if (s) SDL_FillSurfaceRect(s, nullptr, SDL_MapSurfaceRGBA(s, r, g, b, a));
+		return SDLSurface(s, SDL_DestroySurface); //wrapping it in smart pointer
+	}
+
 
 	static bool uploadToTextureArray(SDL_GPUDevice* device, TextureArray& textureArray, const SDLSurface& imageData) {
 

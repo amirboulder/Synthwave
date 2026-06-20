@@ -1,5 +1,6 @@
-#include "include/Shader_Types.slang"
 #include "include/Frame_data.slang"
+#include "include/Shader_Types.slang"
+#include "modules/PhongLighting.slang"
 
 [FillMode("FILL")]
 [CullMode("BACK")]
@@ -21,6 +22,10 @@ layout(set = 1, binding = 0) cbuffer VertexFrameData {
 layout(set = 0, binding = 0) StructuredBuffer<PerMeshData> perMeshData;     // per mesh instance
 
 layout(set = 0, binding = 1) StructuredBuffer<PerSubMeshData> perSubmeshData;//per submesh
+
+layout(set = 1, binding = 1) cbuffer BaseDrawIndex {
+    uint32_t baseDrawIndex;
+};
 
 struct PerMeshData {
     float4x4 worldMatrix;
@@ -53,13 +58,14 @@ struct VertexOutput
 [shader("vertex")]
 VertexOutput vertexMain(VertexInput input, uint instanceID: SV_InstanceID, uint drawIndex: SV_DrawIndex)
 {
-    uint32_t globalInstanceID = perSubmeshData[drawIndex].instanceOffset + instanceID;
+    uint32_t subMeshIndex = drawIndex + baseDrawIndex;
+    uint32_t globalInstanceID = perSubmeshData[subMeshIndex].instanceOffset + instanceID;
     float4x4 modelMatrix = perMeshData[globalInstanceID].worldMatrix;
     float3x3 normalMat = (float3x3)perMeshData[globalInstanceID].normalMatrix;
 
     VertexOutput output;
 
-    // World position (before projection) ó needed for lighting in fragment
+    // World position (before projection) ù needed for lighting in fragment
     float4 worldPos = mul(modelMatrix, float4(input.position, 1.0));
     output.worldPos = worldPos.xyz;
     output.position = mul(vertexFrameData.viewProjection, worldPos); // clip space
@@ -67,7 +73,7 @@ VertexOutput vertexMain(VertexInput input, uint instanceID: SV_InstanceID, uint 
     output.normal = normalize(mul(normalMat, input.normal));
 
     output.texCoords = input.texCoords;
-    output.materialIndex = perSubmeshData[drawIndex].materialIndex;
+    output.materialIndex = perSubmeshData[subMeshIndex].materialIndex;
 
     return output;
 }
@@ -84,83 +90,74 @@ struct Material {
     float2 padding2;
 };
 
-struct DirectionalLight {
-    float3 direction;
-    float intensity;
-    float3 color;
-    float _pad;
-};
 
 layout(set = 3, binding = 0) cbuffer FragmentFrameData : register(b0, space3) {
     FrameData fragData;
 };
 
-layout(set = 3, binding = 1) cbuffer LightData {
-    float3 ambientColor;
-    float ambientIntensity;
-
-    uint numDirectionalLights;
-    uint numPointLights;
-} lightData;
+layout(set = 3, binding = 1) cbuffer LightingData {
+    LightData lightData;
+};
 
 
 // Using Combined Image Sampler, so they will be bound to the same slot
-layout(set = 2, binding = 0) SamplerState sampler;
+layout(set = 2, binding = 0) SamplerState sampler0;
 layout(set = 2, binding = 0) Texture2DArray<float4> diffuseTextures;
 
-layout(set = 2, binding = 1) StructuredBuffer<Material> materials;
+layout(set = 2, binding = 1) SamplerState sampler1;
+layout(set = 2, binding = 1) Texture2DArray<float4> metallicRoughnessTextures;
 
-layout(set = 2, binding = 2) StructuredBuffer<DirectionalLight> directionalLights;
-layout(set = 2, binding = 3) StructuredBuffer<DirectionalLight> pointLights;
+layout(set = 2, binding = 2) SamplerState sampler2;
+layout(set = 2, binding = 2) Texture2DArray<float4> normalTextures;
+
+layout(set = 2, binding = 3) StructuredBuffer<Material> materials;
+
+layout(set = 2, binding = 4) StructuredBuffer<DirectionalLight> directionalLights;
+layout(set = 2, binding = 5) StructuredBuffer<DirectionalLight> pointLights;
+
+// cotangentFrame() / applyNormalMap() live in modules/PhongLighting.slang (included above).
 
 [shader("fragment")]
 float4 fragmentMain(VertexOutput fragInput)
 {
-    // hardcode material values for now
-    //TODO add materials
-    float shininess = 0.1;
-    float specStrength = 0.1;
+    uint32_t baseColorTexIndex = materials[fragInput.materialIndex].baseColorTexIndex;
+    uint32_t metallicRoughnessTexIndex = materials[fragInput.materialIndex].metallicRoughnessTexIndex;
+    uint32_t normalTexIndex = materials[fragInput.materialIndex].normalTexIndex;
 
-    // Ambient ó base light so nothing is pure black
-    float3 ambient = lightData.ambientColor * lightData.ambientIntensity;
+    float4 baseColorFactor = materials[fragInput.materialIndex].baseColorFactor;
+    float metallicFactor = materials[fragInput.materialIndex].metallicFactor;
+    float roughnessFactor = materials[fragInput.materialIndex].roughnessFactor;
 
-    float3 normal = normalize(fragInput.normal); // re-normalize after interpolation
+    float4 baseColor = diffuseTextures.Sample(sampler0, float3(fragInput.texCoords, float(baseColorTexIndex)));
+    baseColor *= baseColorFactor;
+
+    float metallic = metallicRoughnessTextures.Sample(sampler1, float3(fragInput.texCoords, float(metallicRoughnessTexIndex))).b; // Blue (B) Channel: Metallic map
+    metallic *= metallicFactor;
+
+    float roughness = metallicRoughnessTextures.Sample(sampler1, float3(fragInput.texCoords, float(metallicRoughnessTexIndex))).g; // Green (G) Channel: Roughness map
+    roughness *= roughnessFactor;
+
+    // Tangent-space normal from the normal map (flat (0,0,1) for the default texture).
+    float3 sampledNormal = normalTextures.Sample(sampler2, float3(fragInput.texCoords, float(normalTexIndex))).xyz;
+
+    float3 geometricNormal = normalize(fragInput.normal);
+    float3 worldNormal = applyNormalMap(geometricNormal, fragInput.worldPos, fragInput.texCoords, sampledNormal);
+
     float3 viewDir = normalize(fragData.cameraPos - fragInput.worldPos);
 
-    float3 totalDiffuse = float3(0.0);
-    float3 totalSpecular = float3(0.0);
+    Surface surface;
+    surface.worldPos = fragInput.worldPos;
+    surface.normal = worldNormal;
+    surface.viewDir = viewDir;
+    surface.baseColor = baseColor.xyz;
+    surface.metallic = metallic;
+    surface.roughness = roughness; 
 
-    // Loop through all Directional Lights
-    for (uint i = 0; i < lightData.numDirectionalLights; i++)
-    {
-        DirectionalLight dirLight = directionalLights[i];
+    LightResult lightResult;
+    lightResult = calculateLighting(surface, lightData, directionalLights);
 
-        float3 lightDir = normalize(dirLight.direction); // normalize(lightPos - fragInput.worldPos);
-
-        // Diffuse ó how directly the surface faces the light
-        float diff = max(dot(normal, lightDir), 0.0);
-        float3 diffuse = diff * dirLight.color * dirLight.intensity;
-
-        totalDiffuse += diffuse;
-
-        // Specular ó shiny highlight based on view angle
-        float3 reflectDir = reflect(-lightDir, normal);
-        float spec = pow(max(dot(viewDir, reflectDir), 0.0), shininess);
-        float3 specular = specStrength * spec * dirLight.color * dirLight.intensity;
-
-        totalSpecular += specular;
-    }
-
-    //TODO point light loop
-
-
-    uint32_t baseColorTexIndex =  materials[fragInput.materialIndex].baseColorTexIndex;
-
-    float4 textureColor = diffuseTextures.Sample(sampler, float3(fragInput.texCoords, float(baseColorTexIndex)));
-
-    // Combine: texture color is scaled by the lighting result
-    float3 lighting = ambient + totalDiffuse + totalSpecular;
-    float4 finalColor = float4(textureColor.rgb * lighting, textureColor.a);
+    float3 lighting =  lightResult.diffuse + lightResult.specular; // ambinet already accounted for +Frensel ?
+    float4 finalColor = float4(lighting, baseColor.a);
     return finalColor;
 
 }

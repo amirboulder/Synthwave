@@ -18,6 +18,8 @@ public:
 
 	Ref<CharacterVirtual>	mCharacter;
 	Vec3					mDesiredVelocity = Vec3::sZero();
+	BodyID bodyId;
+	Ref<Shape> bodyShape = new JPH::CapsuleShape(2.0f, 1.0f);
 
 	JPH::Vec3 position = JPH::Vec3(1.0f, 15.0f, 0.0f);
 	JPH::Quat rotation = JPH::Quat(0.0f, 0.0f, 0.0f, 1.0f);
@@ -52,21 +54,26 @@ public:
 	
 	}
 
-	Player(flecs::world& ecs, JPH::Vec3Arg position, JPH::QuatArg rotation, float height, float radius, uint64_t entityID)
+	Player(flecs::world& ecs, JPH::Vec3Arg position, JPH::QuatArg rotation, float height, float radius, uint64_t entityID, bool sCreateInnerBody = false)
 		:ecs(ecs) 
 	{
 
 		temp_allocator = new TempAllocatorImpl(1 * 1024 * 1024);
 
-		init(position, rotation, height, radius, entityID);
+		init(position, rotation, height, radius, entityID, sCreateInnerBody);
 
 	}
 
 	~Player() {
 		
+		// Clean up custom allocator
+		if (temp_allocator != nullptr) {
+			delete temp_allocator;
+			temp_allocator = nullptr;
+		}
 	}
 
-	void init(JPH::Vec3Arg position,JPH::QuatArg rotation,float height, float radius, uint64_t entityID) {
+	void init(JPH::Vec3Arg position,JPH::QuatArg rotation,float height, float radius, uint64_t entityID, bool sCreateInnerBody = false) {
 
 		
 		EBackFaceMode sBackFaceMode = EBackFaceMode::CollideWithBackFaces;
@@ -81,8 +88,7 @@ public:
 		//bool		sEnableWalkStairs = true;
 		//bool		sEnableStickToFloor = true;
 		bool		sEnhancedInternalEdgeRemoval = false;
-		// sCreateInnerBody = true breaks it
-		bool		sCreateInnerBody = false;
+		//bool		sCreateInnerBody = true;
 		//bool		sPlayerCanPushOtherCharacters = true;
 		//bool		sOtherCharactersCanPushPlayer = true;
 
@@ -91,7 +97,7 @@ public:
 		settings->mMaxSlopeAngle = sMaxSlopeAngle;
 		settings->mMaxStrength = sMaxStrength;
 		settings->mMass = sMass;
-		settings->mShape = new JPH::CapsuleShape(height / 2.0, radius);
+		settings->mShape = bodyShape;
 		settings->mBackFaceMode = sBackFaceMode;
 		settings->mCharacterPadding = sCharacterPadding;
 		settings->mPenetrationRecoverySpeed = sPenetrationRecoverySpeed;
@@ -99,7 +105,7 @@ public:
 
 		settings->mSupportingVolume = Plane(Vec3::sAxisY(), -radius); // Accept contacts that touch the lower sphere of the capsule
 		settings->mEnhancedInternalEdgeRemoval = sEnhancedInternalEdgeRemoval;
-		settings->mInnerBodyShape = sCreateInnerBody ? new JPH::CapsuleShape(height / 2.0, radius) : nullptr;
+		settings->mInnerBodyShape = sCreateInnerBody ? bodyShape : nullptr;
 		settings->mInnerBodyLayer = Layers::MOVING;
 
 		JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
@@ -108,6 +114,7 @@ public:
 		//mCharacter->SetCharacterVsCharacterCollision(&mCharacterVsCharacterCollision);
 		//mCharacterVsCharacterCollision.Add(mCharacter);
 
+		bodyId = mCharacter->GetInnerBodyID();
 
 		mCharacter->SetListener(this);
 	}

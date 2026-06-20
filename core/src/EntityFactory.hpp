@@ -736,11 +736,35 @@ public:
 		if (!validateName(ecs, parent, name.data())) return false;
 		if (!validateTransform(transform, name.data())) return false;
 
-		//Get MeshComponent from AssetManager
-		AssetManager* assetManger = ecs.get<AssetManagerRef>().assetManager;
 
-		MeshComponent meshComp = assetManger->requestMeshComponent(assetManger->defaultAssetsMap.at(DefaultAssets::ROBOT));
+		//Get MeshComponent from AssetManager
+		AssetManager* assetManager = ecs.get<AssetManagerRef>().assetManager;
+
+		ModelData model = assetManager->requestModel(assetManager->defaultAssetsMap.at(DefaultAssets::ROBOT));
+		MeshNode rootNode = assetManager->requestMeshNode(model.rootNodeID);
+
+		MeshComponent meshComp = assetManager->requestMeshComponent(rootNode.meshID);
 		glm::vec3 scaledSize = meshComp.aabb.extents * transform.scale;
+
+		float physicsRadius = scaledSize.x;
+		float physicsHalfHeight = scaledSize.y;
+
+		//the half-height parameter in Jolt is the half-height of the cylindrical center section only
+		float physicsCylHalf = scaledSize.y - physicsRadius;
+
+		if (physicsCylHalf <= 0) {
+			LogError(LOG_APP, "physicsCylHalf is zero");
+			return false;
+		}
+
+
+		// Character settings
+		JPH::CharacterSettings settings2;
+		settings2.mShape = new CapsuleShape(physicsCylHalf, physicsRadius);
+		settings2.mMass = 2000.0f;
+		settings2.mMaxSlopeAngle = DegreesToRadians(20.0f); // Max walkable slope
+		settings2.mLayer = Layers::MOVING;
+		settings2.mGravityFactor = 1;
 
 		// Convert GLM to Jolt types
 		JPH::Vec3 joltPosition(transform.position.x, transform.position.y, transform.position.z);
@@ -753,7 +777,7 @@ public:
 
 
 		JPH::Character* joltCharacter = new JPH::Character(
-			&settings, joltPosition, joltRotation, 0, &physicsSystem
+			&settings2, joltPosition, joltRotation, 0, &physicsSystem
 		);
 
 		if (!validatePhysicsBodyCreation(joltCharacter->GetBodyID(), name.data())) {
@@ -767,12 +791,12 @@ public:
 			.set<Transform>(transform)
 			.set<WorldMatrix>({})
 			.add<Renderable>()
+			.set<ActorDebugInfo>({})
 			.set<JoltCharacter>({ joltCharacter })
 			.set<JPH::BodyID>(joltCharacter->GetBodyID())
 			.emplace<ActorBehavior>(actorUpdate)
 			.child_of(parent);
 
-	
 		if (!validateEntityCreation(entity, name.data())) {
 			delete joltCharacter;
 			return false;
@@ -781,9 +805,7 @@ public:
 		joltCharacter->AddToPhysicsSystem(JPH::EActivation::Activate);
 		physicsSystem.GetBodyInterface().SetUserData(joltCharacter->GetBodyID(), entity.id());
 
-		Transform identity;
-		//Create a child entity for mesh and a grandchild entity for each submesh.
-		if (!createMeshEntity(ecs, assetManger, entity, meshComp, name)) return false;
+		if (!createMeshHierarchy(ecs, entity, rootNode, name, assetManager)) return false;
 
 		return true;
 	}
@@ -877,7 +899,14 @@ public:
 
 		AssetManager* assetManger = ecs.get<AssetManagerRef>().assetManager;
 
-		if (!createStaticMeshEntity(ecs, parent, name, transform, assetManger->defaultAssetsMap.at(DefaultAssets::MOUNTAIN))) {
+		uint64_t pipelineID = getPipelineEntityId(ecs, "pipelineSolid-Wireframe");
+
+		if (pipelineID == 0) {
+
+			LogWarn(LOG_APP, "Mountain will be created with default pipeline because pipelineID is zero");
+		}
+
+		if (!createStaticMeshEntity(ecs, parent, name, transform, assetManger->defaultAssetsMap.at(DefaultAssets::MOUNTAIN), pipelineID)) {
 			
 			return false;
 		}
@@ -886,7 +915,7 @@ public:
 	}
 
 	static bool createStaticMeshEntity(flecs::world& ecs, const flecs::entity parent, 
-		std::string_view name, Transform transform, uint64_t meshID) {
+		std::string_view name, Transform transform, uint64_t meshID, uint64_t pipelineID = 0) {
 
 		if (!validateName(ecs, parent, name.data())) return false;
 		if (!validateTransform(transform, name.data())) return false;
@@ -972,7 +1001,7 @@ public:
 		if (!validateEntityCreation(entity, name.data())) return false;
 
 		//Create a child entity for mesh and a grandchild entity for each submesh.
-		if (!createMeshEntity(ecs, assetManger, entity, meshComp, name, transform)) return false;
+		if (!createMeshEntity(ecs, assetManger, entity, meshComp, name, transform, pipelineID)) return false;
 
 		return true;
 	}
@@ -1047,14 +1076,23 @@ public:
 
 		if (!validateEntityCreation(entity, name.data())) return false;
 
+		//For now look up the desired pipeline and add it to the SubMesh Entity
+
+		uint64_t pipelineID = getPipelineEntityId(ecs,"pipelineGrid-Wireframe");
+
+		if (pipelineID == 0) {
+
+			LogWarn(LOG_APP, "Grid will be created with default pipeline because pipelineID is zero");
+		}
+
 		//Create a child entity for mesh and a grandchild entity for each submesh.
-		if (!createMeshEntity(ecs, assetManger, entity, meshComp, name, transform)) return false;
+		if (!createMeshEntity(ecs, assetManger, entity, meshComp, name, transform, pipelineID)) return false;
 
 		return true;
 	}
 
 	//TODO use transform
-	static bool createPlayerEntity(flecs::world& ecs, const flecs::entity parent, Transform transform, const std::string pipelineName,  const std::string ModelSrcName = " ") {
+	static bool createPlayerEntity(flecs::world& ecs, const flecs::entity parent, Transform transform, const std::string pipelineName, bool sCreateInnerBody = true) {
 
 		const RenderConfig& config = ecs.get<RenderConfig>();
 
@@ -1067,7 +1105,7 @@ public:
 		flecs::entity playerEntity = ecs.entity(playerName.c_str())
 			.set<EntityTypeComponent>({ EntityType::Player })
 			.child_of(parent);
-		playerEntity.emplace<Player>(ecs, JPH::Vec3(1.0f, 15.0f, 0.0f), JPH::Quat(0.0f, 0.0f, 0.0f, 1.0f), 2.0f, 1.0f, playerEntity.id());
+		playerEntity.emplace<Player>(ecs, JPH::Vec3(1.0f, 15.0f, 0.0f), JPH::Quat(0.0f, 0.0f, 0.0f, 1.0f), 3.0f, 1.0f, playerEntity.id(), sCreateInnerBody);
 
 		ecs.set<PlayerRef>({ playerEntity });
 
@@ -1140,17 +1178,18 @@ public:
 	}
 
 
-	static bool createMeshEntity(flecs::world& ecs, AssetManager* assetManager, const flecs::entity parent, const MeshComponent& meshComp, std::string_view name, Transform transform = {}) {
+	static bool createMeshEntity(flecs::world& ecs, AssetManager* assetManager, const flecs::entity parent, const MeshComponent& meshComp, std::string_view name, Transform transform = {}, uint64_t pipelineID = 0) {
 
 		std::string rootEntName = std::format("{}-Mesh", name.data());
 		flecs::entity rootEntity = ecs.entity(flecs::Parent{ parent }, rootEntName.c_str())
 			.set<WorldMatrix>({})
 			.set<Transform>(transform)
+			.set<Transform>(transform)
 			.set<MeshComponent>({ meshComp });
 
 		if (!validateEntityCreation(rootEntity, rootEntName.c_str())) return false;
 
-		if (!createSubMeshEntities(ecs, rootEntity, meshComp, rootEntName, assetManager)) {
+		if (!createSubMeshEntities(ecs, rootEntity, meshComp, rootEntName, assetManager, pipelineID)) {
 			return false;
 		}
 
@@ -1175,16 +1214,18 @@ public:
 	//	return true;
 	//}
 
-	static bool createSubMeshEntities(flecs::world& ecs, const flecs::entity parent,  const MeshComponent & meshComp, std::string_view name, AssetManager* assetManager) {
+	static bool createSubMeshEntities(flecs::world& ecs, const flecs::entity parent,  const MeshComponent & meshComp, std::string_view name, AssetManager* assetManager, uint64_t pipelineID = 0) {
 
 
 		for (int i = 0; i < meshComp.subMeshCount; i++) {
 
 			SubMeshComponent subMeshComp = assetManager->requestSubMeshComponent(meshComp.firstSubMeshIndex + i);
 
+			subMeshComp.pipelineID = pipelineID;
+
 			std::string childEntName = std::format("{}-subMesh {}", name, i);
 			flecs::entity childEntity = ecs.entity(flecs::Parent{ parent }, childEntName.c_str())
-				.set<SubMeshComponent>({ assetManager->requestSubMeshComponent(meshComp.firstSubMeshIndex + i) });
+				.set<SubMeshComponent>({ std::move(subMeshComp)});
 
 			if (!validateEntityCreation(childEntity, childEntName.c_str()))  return false;
 		}
@@ -1228,6 +1269,25 @@ public:
 		if (!validateEntityCreation(entity, name)) return flecs::entity::null();
 
 		return entity;
+	}
+
+	static uint64_t getPipelineEntityId(flecs::world& ecs, std::string_view name) {
+
+		flecs::entity pipelineEnt = ecs.lookup(name.data());
+		if (!pipelineEnt.is_valid()) {
+			LogError(LOG_APP, "Pipeline Entity with name : %s does not exist!", name.data());
+			return 0;
+		}
+
+		const Pipeline* pipeline = pipelineEnt.try_get<Pipeline>();
+
+		if (!pipelineEnt.try_get<Pipeline>()) {
+			LogError(LOG_APP, "Pipeline Entity with name : % s does not  have pipeline component", name.data());
+			return 0;
+
+		}
+
+		return pipelineEnt.id();
 	}
 
 	static bool validateName(flecs::world& ecs, flecs::entity parent, std::string_view name) {

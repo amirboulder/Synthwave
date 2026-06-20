@@ -49,6 +49,7 @@ public:
 	SDL_GPUGraphicsPipeline* pipelineLine = NULL;
 
 	SDL_GPUBuffer* lineVertexBuffer = NULL;
+	bool lineBatchReady = false;
 
 	SDL_GPURenderPass* renderPass = NULL;
 
@@ -187,7 +188,7 @@ public:
 		return batch;
 	}
 
-	bool CreateLineBatch() {
+	bool createLineBatch() {
 		const RenderContext& renderContext = ecs.get<RenderContext>();
 
 		if (lines.size() == 0) {
@@ -208,6 +209,11 @@ public:
 			lines.size() * sizeof(LineVertex),
 			SDL_GPU_BUFFERUSAGE_VERTEX
 		);
+
+		
+		lineBatchReady = true;
+
+		lines.clear();
 
 		return true; 
 	}
@@ -289,11 +295,7 @@ public:
 		}
 
 
-		if (lines.size() > 0) {
-			if (!CreateLineBatch()) {
-				SDL_LogError(SDL_LOG_CATEGORY_RENDER, "Failed to create line batch");
-				return;
-			}
+		if (lineBatchReady) {
 
 			SDL_BindGPUGraphicsPipeline(renderPass, pipelineLine);
 
@@ -312,7 +314,7 @@ public:
 
 		batches.clear();
 		modelMatrices.clear();
-		lines.clear();
+		
 	}
 
 	void configDrawSettings(bool drawBoundingBox,bool drawShapeWireframe) {

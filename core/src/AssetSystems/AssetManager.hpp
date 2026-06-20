@@ -147,31 +147,33 @@ public:
 		defaultAssetsMap.insert({ DefaultAssets::CAPSULE, id });
 	}
 
-	//TODO generate default Material
 	// A purple 1024x1024 for assets with missing textures
 	// Checkerboard can be used for assets that don't have a texture
 	Material createDefaultMaterial(SDL_GPUDevice* device) {
 
 		Material mat;
 
-		//Creating defaultTexture for meshes that don't have a texture
-		SDLSurface imageData(RenderUtil::LoadImage("assets/images/checkerboard.bmp", 4), SDL_DestroySurface);
-		if (!imageData.get())
-		{
-			LogError(LOG_RENDER, "Could not load checkerboard.bmp image data!");
-			return mat;
-		}
+		mat.baseColorFactor = { 1.0f, 1.0f, 1.0f, 1.0f };
+		mat.metallicFactor = 0.0f;   // generated meshes are dielectric, not metal
+		mat.roughnessFactor = 0.6f;   // matte-to-semigloss; not 1.0 (kills specular) or 0 (mirror)
 
-		//Setting texture 0 and material 0
-		if (!RenderUtil::uploadToTextureArray(device, textureArrays.diffuseTextures, imageData)) {
-			return mat;
-		}
+		// Diffuse layer 0 — white 
+		SDLSurface diffuse0 = RenderUtil::makeSolidSurface(255, 255, 255, 255);
+		if (!RenderUtil::uploadToTextureArray(device, textureArrays.diffuseTextures, diffuse0)) return mat;
 		diffuseTextureIdToIndex[0] = 0;
-		//TODO
-		//RenderUtil::uploadToTextureArray(renderContext.device, textureArrays.metallicRoughnessTextures, imageData);
-		//RenderUtil::uploadToTextureArray(renderContext.device, textureArrays.normalTextures, imageData);
 
-		//Material Data already has 0 as all of its indices so this works out
+		// MetallicRoughness layer 0 — white factors determine metallicRoughness
+		SDLSurface mr0 = RenderUtil::makeSolidSurface(255, 255, 255, 255);
+		if (!RenderUtil::uploadToTextureArray(device, textureArrays.metallicRoughnessTextures, mr0)) return mat;
+		MRTextureIdToIndex[0] = 0;
+
+		// Normal layer 0 — flat normal (0,0,1)
+		SDLSurface normal0 = RenderUtil::makeSolidSurface(128, 128, 255, 255);
+		if (!RenderUtil::uploadToTextureArray(device, textureArrays.normalTextures, normal0)) return mat;
+		NormalTextureIdToIndex[0] = 0;
+
+		mat.metallicFactor = 0.0f;
+		mat.roughnessFactor = 0.6f;
 		materials.push_back(mat);
 
 		return mat;

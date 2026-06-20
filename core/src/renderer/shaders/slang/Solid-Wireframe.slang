@@ -1,5 +1,6 @@
-#include "include/Shader_Types.slang"
 #include "include/Frame_data.slang"
+#include "include/Shader_Types.slang"
+#include "modules/PhongLighting.slang"
 
 [FillMode("FILL")]
 [CullMode("BACK")]
@@ -18,7 +19,24 @@ layout(set = 1, binding = 0) cbuffer VertexFrameData {
     FrameData vertexFrameData;
 };
 
-layout(set = 0, binding = 0) StructuredBuffer<float4x4> transforms;
+layout(set = 0, binding = 0) StructuredBuffer<PerMeshData> perMeshData; // per mesh instance
+
+layout(set = 0, binding = 1) StructuredBuffer<PerSubMeshData> perSubmeshData; // per submesh
+
+layout(set = 1, binding = 1) cbuffer BaseDrawIndex {
+    uint32_t baseDrawIndex;
+};
+
+struct PerMeshData {
+    float4x4 worldMatrix;
+    float4x4 normalMatrix;
+};
+
+struct PerSubMeshData {
+    uint32_t instanceOffset;
+    uint32_t materialIndex;
+    uint32_t _pad[2];
+};
 
 struct VertexInput
 {
@@ -31,24 +49,36 @@ struct VertexInput
 struct VertexOutput
 {
     float4 position : SV_Position;
-    float3 worldPos : WORLD_POSITION;
+    float3 worldPos : WORLD_Position;
+    float3 normal : NORMAL;
+    float2 texCoords : TextureCoords;
     float3 barycentric : BARYCENTRIC;
-    float3 worldNormal : NORMAL;
+    nointerpolation uint32_t materialIndex;
 };
 
 [shader("vertex")]
-VertexOutput vertexMain(VertexInput input, uint vertexID: SV_VertexID, uint instanceIndex: SV_InstanceID)
+VertexOutput vertexMain(VertexInput input, uint vertexID: SV_VertexID, uint instanceID: SV_InstanceID, uint drawIndex: SV_DrawIndex)
 {
-    float4x4 model = transforms[instanceIndex];
-    float4x4 mvp = mul(vertexFrameData.viewProjection, model);
+    uint32_t subMeshIndex = drawIndex + baseDrawIndex;
+    uint32_t globalInstanceID = perSubmeshData[subMeshIndex].instanceOffset + instanceID;
+    float4x4 modelMatrix = perMeshData[globalInstanceID].worldMatrix;
+    float3x3 normalMat = (float3x3)perMeshData[globalInstanceID].normalMatrix;
 
     // Derive barycentric from vertex index within triangle
     uint localID = vertexID % 3;
     float3 bary = float3(float(localID == 0), float(localID == 1), float(localID == 2));
 
     VertexOutput output;
-    output.position = mul(mvp, float4(input.position, 1.0));
-    output.worldNormal = input.normal;
+
+    // World position (before projection) ù needed for lighting in fragment
+    float4 worldPos = mul(modelMatrix, float4(input.position, 1.0));
+    output.worldPos = worldPos.xyz;
+    output.position = mul(vertexFrameData.viewProjection, worldPos); // clip space
+
+    output.normal = normalize(mul(normalMat, input.normal));
+
+    output.texCoords = input.texCoords;
+    output.materialIndex = perSubmeshData[subMeshIndex].materialIndex;
     output.barycentric = bary;
     return output;
 }
@@ -61,14 +91,49 @@ float smoothEdge(float d, float w) {
     return exp2(-2.0 * x * x); 
 }
 
+struct Material {
+    uint32_t baseColorTexIndex;
+    uint32_t normalTexIndex;
+    uint32_t metallicRoughnessTexIndex;
+    uint32_t padding;
+    float4 baseColorFactor;
+    float metallicFactor;
+    float roughnessFactor;
+    float2 padding2;
+};
+
+layout(set = 3, binding = 0) cbuffer FragmentFrameData : register(b0, space3) {
+    FrameData fragData;
+};
+
+layout(set = 3, binding = 1) cbuffer LightingData {
+    LightData lightData;
+};
+
+// Using Combined Image Sampler, so they will be bound to the same slot
+layout(set = 2, binding = 0) SamplerState sampler0;
+layout(set = 2, binding = 0) Texture2DArray<float4> diffuseTextures;
+
+layout(set = 2, binding = 1) SamplerState sampler1;
+layout(set = 2, binding = 1) Texture2DArray<float4> metallicRoughnessTextures;
+
+layout(set = 2, binding = 2) SamplerState sampler2;
+layout(set = 2, binding = 2) Texture2DArray<float4> normalTextures;
+
+layout(set = 2, binding = 3) StructuredBuffer<Material> materials;
+
+layout(set = 2, binding = 4) StructuredBuffer<DirectionalLight> directionalLights;
+layout(set = 2, binding = 5) StructuredBuffer<DirectionalLight> pointLights;
+
 [shader("fragment")]
 float4 fragmentMain(VertexOutput fragInput) : SV_Target
 {
+
     // Hardcoded visual parameters
     float4 wireColor = float4(0.0, 0.0, 1.0, 1.0);
     float4 fillColor = float4(0.0);
     float lineWidth = 1.8;
-    //float fillOpacity = 1.0;
+    // float fillOpacity = 1.0;
 
     float3 bary = fragInput.barycentric;
 
@@ -80,8 +145,6 @@ float4 fragmentMain(VertexOutput fragInput) : SV_Target
 
     // Find minimum distance to any edge
     float minDistance = min(min(distances.x, distances.y), distances.z);
-
-
 
     // Calculate wireframe alpha using smoothing function
     float lineAlpha = smoothEdge(minDistance, lineWidth);
