@@ -63,6 +63,18 @@ JPH::Quat dirToQuat(const JPH::Vec3& dir) {
 	return JPH::Quat::sRotation(axis, angle);
 }
 
+template <typename F>
+class scope_exit {
+	F f_;
+public:
+	explicit scope_exit(F&& f) : f_(std::forward<F>(f)) {}
+	~scope_exit() { f_(); }
+
+	// Delete copy operations to prevent multiple executions
+	scope_exit(const scope_exit&) = delete;
+	scope_exit& operator=(const scope_exit&) = delete;
+};
+
 namespace util {
 
 

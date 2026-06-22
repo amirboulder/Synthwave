@@ -18,7 +18,7 @@ public:
 
 	Ref<CharacterVirtual>	mCharacter;
 	Vec3					mDesiredVelocity = Vec3::sZero();
-	BodyID bodyId;
+	BodyID innerBodyID;
 	Ref<Shape> bodyShape = new JPH::CapsuleShape(2.0f, 1.0f);
 
 	JPH::Vec3 position = JPH::Vec3(1.0f, 15.0f, 0.0f);
@@ -114,7 +114,7 @@ public:
 		//mCharacter->SetCharacterVsCharacterCollision(&mCharacterVsCharacterCollision);
 		//mCharacterVsCharacterCollision.Add(mCharacter);
 
-		bodyId = mCharacter->GetInnerBodyID();
+		innerBodyID = mCharacter->GetInnerBodyID();
 
 		mCharacter->SetListener(this);
 	}
@@ -286,7 +286,7 @@ public:
 		const DefaultBroadPhaseLayerFilter default_broadphase_layer_filter = physicsSystem.GetDefaultBroadPhaseLayerFilter(1);
 		const BroadPhaseLayerFilter& broadphase_layer_filter = default_broadphase_layer_filter;
 
-		const DefaultObjectLayerFilter default_object_layer_filter = physicsSystem.GetDefaultLayerFilter(1);
+		const DefaultObjectLayerFilter default_object_layer_filter = physicsSystem.GetDefaultLayerFilter(Layers::MOVING);
 		const ObjectLayerFilter& object_layer_filter = default_object_layer_filter;
 
 		const BodyFilter body_filter;

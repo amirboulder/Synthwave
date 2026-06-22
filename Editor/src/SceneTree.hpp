@@ -402,7 +402,7 @@ public:
 		//Transforms does nothing yet
 		Transform playerTransform;
 		playerTransform.position = glm::vec3(1.0f, 5.0f, 0.0f);
-		playerTransform.rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
+		playerTransform.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
 		playerTransform.scale = glm::vec3(1.0f);
 
 		EntityFactory::createPlayerEntity(ecs, s_state.contextEntity, playerTransform, "pipelineUnlit");
@@ -413,7 +413,7 @@ public:
 
 		Transform capsule1Transform;
 		capsule1Transform.position = glm::vec3(1.0f, 5.0f, 0.0f);
-		capsule1Transform.rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
+		capsule1Transform.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
 		capsule1Transform.scale = glm::vec3(1.0f);
 		EntityFactory::createCapsuleEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, capsule1Transform);
 
@@ -423,7 +423,7 @@ public:
 
 		Transform transform;
 		transform.position = glm::vec3(1.0f, 5.0f, 0.0f);
-		transform.rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
+		transform.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
 		transform.scale = glm::vec3(1.0f);
 		EntityFactory::createCubeEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, transform);
 
@@ -433,7 +433,7 @@ public:
 
 		Transform transform;
 		transform.position = glm::vec3(1.0f, 5.0f, 0.0f);
-		transform.rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
+		transform.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
 		transform.scale = glm::vec3(1.0f);
 		EntityFactory::createSphereEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, transform);
 
@@ -443,7 +443,7 @@ public:
 
 		Transform transform;
 		transform.position = glm::vec3(1.0f, 5.0f, 0.0f);
-		transform.rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
+		transform.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
 		transform.scale = glm::vec3(1.0f);
 		EntityFactory::createCylinderEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, transform);
 
@@ -462,7 +462,7 @@ public:
 
 		Transform actorTransform;
 		actorTransform.position = glm::vec3(4.0f, 17.0f, 0.0f);
-		actorTransform.rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
+		actorTransform.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
 		actorTransform.scale = glm::vec3(1.0f);
 
 		// Character settings
@@ -472,7 +472,7 @@ public:
 		settings.mMaxSlopeAngle = DegreesToRadians(20.0f); // Max walkable slope
 		settings.mLayer = Layers::MOVING;
 		settings.mGravityFactor = 1;
-		EntityFactory::createActorEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, actorTransform, settings, actor1Update);
+		EntityFactory::createActorEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, actorTransform, settings, Scripts::enemyUpdate);
 
 	}
 
@@ -480,7 +480,7 @@ public:
 
 		Transform gridTransform;
 		gridTransform.position = glm::vec3(12.0f, 0.0f, 0.0f);
-		gridTransform.rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
+		gridTransform.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
 		EntityFactory::createGridEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, gridTransform, 256);
 
 	}
@@ -506,7 +506,7 @@ public:
 		Transform transform;
 		transform.position = glm::vec3(1.0f, 12.0f, 1.0f);
 		transform.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
-		EntityFactory::createHumanRagdollEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, transform, scripts::empty);
+		EntityFactory::createHumanRagdollEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, transform, Scripts::empty);
 
 	}
 
@@ -515,7 +515,7 @@ public:
 		Transform transform;
 		transform.position = glm::vec3(0.0f, 0.0f, 0.0f);
 		transform.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
-		EntityFactory::createRagdollEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, transform, s_state.selectedRagdoll, ragdollUpdate);
+		EntityFactory::createRagdollEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, transform, s_state.selectedRagdoll, Scripts::ragdollUpdate);
 
 	}
 
@@ -524,7 +524,7 @@ public:
 		Transform transform;
 		transform.position = glm::vec3(0.0f, 0.0f, 0.0f);
 		transform.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
-		EntityFactory::createRobotArmEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, "capsule4", transform, armUpdate, "pipelineUnlit");
+		EntityFactory::createRobotArmEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, "capsule4", transform, Scripts::armUpdate, "pipelineUnlit");
 
 	}
 
@@ -533,7 +533,7 @@ public:
 		Transform transform;
 		transform.position = glm::vec3(1.0f, 7.0f, 1.0f);
 		transform.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
-		EntityFactory::createSnakeEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, "Capsule4", transform, SnakeUpdate, "pipelineUnlit");
+		EntityFactory::createSnakeEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, "Capsule4", transform, Scripts::SnakeUpdate, "pipelineUnlit");
 
 	}
 

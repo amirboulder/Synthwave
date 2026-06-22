@@ -85,7 +85,7 @@ public:
         // ImGui::SetNextWindowPos(ImVec2(10, 10));
         ImGui::SetNextWindowBgAlpha(1.0f);
 
-        ImGui::Begin("HUD", nullptr,
+        ImGui::Begin("ActorDebugInfo", nullptr,
             ImGuiWindowFlags_NoResize |         // Prevent resizing
             ImGuiWindowFlags_NoCollapse |       // Prevent collapsing
             ImGuiWindowFlags_AlwaysAutoResize | // Auto-fit content

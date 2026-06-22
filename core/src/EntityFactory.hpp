@@ -698,7 +698,7 @@ public:
 			joltPosition,
 			joltRotation,
 			JPH::EMotionType::Static,
-			Layers::NON_MOVING
+			Layers::Sensors
 		);
 
 		//Make it a sensor!

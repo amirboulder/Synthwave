@@ -33,7 +33,7 @@ namespace Utils::Phys {
         const DefaultBroadPhaseLayerFilter default_broadphase_layer_filter = physicsSystem.GetDefaultBroadPhaseLayerFilter(1);
         const BroadPhaseLayerFilter& broadphase_layer_filter = default_broadphase_layer_filter;
 
-        const DefaultObjectLayerFilter default_object_layer_filter = physicsSystem.GetDefaultLayerFilter(1);
+        const DefaultObjectLayerFilter default_object_layer_filter = physicsSystem.GetDefaultLayerFilter(Layers::MOVING);
         const ObjectLayerFilter& object_layer_filter = default_object_layer_filter;
 
         const IgnoreSingleBodyFilter default_body_filter(physicsID);

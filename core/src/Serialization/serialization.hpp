@@ -336,7 +336,7 @@ public:
 		settings.mLayer = Layers::MOVING;
 		settings.mGravityFactor = 1;
 
-		if (!EntityFactory::createActorEntity(ecs, parentEnt, name, transform, settings, actor1Update)) {
+		if (!EntityFactory::createActorEntity(ecs, parentEnt, name, transform, settings, Scripts::enemyUpdate)) {
 			return false;
 		}
 
