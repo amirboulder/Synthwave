@@ -18,11 +18,12 @@ rotate, and scale controls.
 - [ ] Scene serialization / save & load ( working but mostly broken because I'm changing things so much)
 - [x] In game menus
 - [x] Shader Compilation module with shader reflection
-- [ ]  Blinn Phong Lighting
-- [ ]  Frustum Culling
-- [ ]  Support for skinned meshes
-- [ ]  Mesh deformation based on ragdolls
-- [ ]  Ragdoll builder - WIP
+- [x] Phong Lighting
+- [ ] Shadow mapping
+- [ ] Frustum Culling
+- [ ] Support for skinned meshes
+- [ ] Mesh deformation based on ragdolls
+- [ ] Ragdoll builder - WIP
 
 ## Requirements
 
@@ -44,14 +45,16 @@ All libraries below are downloaded and built by CMake at configure time so no ma
 | [SDL_image](https://github.com/libsdl-org/SDL_image) | 3.2.4 | Image loading |
 | [SDL_ttf](https://github.com/libsdl-org/SDL_ttf) | 3.2.2 | Font rendering / FreeType |
 | [Slang](https://github.com/shader-slang/slang) | 2026.2.1 | Shader language & compiler |
-| [Assimp](https://github.com/assimp/assimp) | 5.4.0 | 3D asset importing (OBJ, glTF) |
+| [FastGLTF](https://github.com/spnda/fastgltf.git) | v0.9.0 | 3D asset importing  |
 | [GLM](https://github.com/g-truc/glm) | `bf71a83` | Math library |
 | [Jolt Physics](https://github.com/jrouwe/JoltPhysics) | 5.5.0 | Physics simulation |
 | [ImGui](https://github.com/ocornut/imgui) | 1.92.5-docking | Immediate-mode GUI |
-| [Flecs](https://github.com/SanderMertens/flecs) | `8a126f0` | Entity Component System |
+| [Flecs](https://github.com/SanderMertens/flecs) | v4.1.5 | Entity Component System |
 | [Optick](https://github.com/bombomby/optick) | 1.4.0.0 | CPU profiling |
 | [inih](https://github.com/benhoyt/inih) | r61 | INI config file parsing |
 | [RapidJSON](https://github.com/Tencent/rapidjson) | `24b5e7a` | JSON parsing |
+| [xxhash](https://github.com/Cyan4973/xxHash.git) | v0.8.3 | hashing |
+| [meshoptimizer](https://github.com/zeux/meshoptimizer.git) | v1.1 | LOD creation |
 
 
 > **Note:** Slang is downloaded as a prebuilt binary rather than compiled from source to because it takes a long time to compile. All other libraries are compiled from source.

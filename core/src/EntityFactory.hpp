@@ -840,14 +840,12 @@ public:
 	/// <summary>
 	/// Infinitely far away, parallel rays — sun, moon .Has no position, only direction.
 	/// </summary>
-	static bool createDirectionalLightEntity(flecs::world& ecs, flecs::entity parent, std::string name, const DirectionalLight& directionalLight, Transform& transform) {
+	static bool createDirectionalLightEntity(flecs::world& ecs, flecs::entity parent, std::string name, const DirectionalLight& directionalLight) {
 
 		if (!EntityFactory::validateName(ecs, parent, name)) return false;
-		if (!EntityFactory::validateTransform(transform, name.c_str())) return false;
 
 		const flecs::entity entity = ecs.entity(name.c_str())
 			.set<EntityTypeComponent>({ EntityType::Light })
-			.set<Transform>(transform)
 			.add<Light>()
 			.set<DirectionalLight>({ directionalLight })
 			.child_of(parent);
@@ -860,14 +858,12 @@ public:
 	/// <summary>
 	/// A point light radiates in all directions from a point, fades with distance
 	/// </summary>
-	static bool createPointLightEntity(flecs::world& ecs, flecs::entity parent, std::string name, const PointLight& pointLight, Transform& transform) {
+	static bool createPointLightEntity(flecs::world& ecs, flecs::entity parent, std::string name, const PointLight& pointLight) {
 
 		if (!EntityFactory::validateName(ecs, parent, name)) return false;
-		if (!EntityFactory::validateTransform(transform, name.c_str())) return false;
 
 		const flecs::entity entity = ecs.entity(name.c_str())
 			.set<EntityTypeComponent>({ EntityType::Light })
-			.set<Transform>(transform)
 			.add<Light>()
 			.set<PointLight>({ pointLight })
 			.child_of(parent);

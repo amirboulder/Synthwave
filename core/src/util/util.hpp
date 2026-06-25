@@ -44,6 +44,18 @@ glm::vec3 quatToDirection(const glm::quat& q)
 	return glm::normalize(q * glm::vec3(0.0f, 0.0f, -1.0f));
 }
 
+
+inline glm::quat rotationFromEulerDegrees(const glm::vec3& eulerDeg)
+{
+	return glm::normalize(glm::quat(glm::vec3(
+		glm::radians(eulerDeg.x),
+		glm::radians(eulerDeg.y),
+		glm::radians(eulerDeg.z)
+	)));
+}
+
+
+
 JPH::Quat dirToQuat(const JPH::Vec3& dir) {
 	JPH::Vec3 forward = JPH::Vec3(0, 0, 1); // Jolt's default forward
 	JPH::Vec3 d = dir.Normalized();

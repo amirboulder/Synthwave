@@ -83,69 +83,7 @@ public:
 		defaultMeshNode = requestMeshNode(defaultModel.rootNodeID);
 	}
 
-	void generateDefaultCube() {
-
-		std::string assetName = std::format("DefaultCube");
-		uint64_t id = util::generateAssetID(assetName);
-
-		Mesh cubeMesh = createCubeMesh(1.0f);
-
-		if (!fillMeshComp(cubeMesh, defaultMesh, id)) {
-			LogError(LOG_APP, "Failed to generate DefaultCube");
-			//Probably a fatal error at this point
-		}
-
-		defaultAssetsMap.insert({ DefaultAssets::CUBE, id });
-	}
-
-	void generateDefaultSphere() {
-
-		std::string assetName = std::format("DefaultSphere");
-		uint64_t id = util::generateAssetID(assetName);
-
-		MeshComponent meshComp;
-		Mesh mesh = createSphereMesh(1.0f);
-
-		if (!fillMeshComp(mesh, meshComp, id)) {
-			LogError(LOG_APP, "Failed to generate DefaultSphere");
-			//Probably a fatal error at this point
-		}
-
-		defaultAssetsMap.insert({ DefaultAssets::SPHERE, id });
-	}
-
-	void generateDefaultCylinder() {
-
-		std::string assetName = std::format("DefaultCylinder");
-		uint64_t id = util::generateAssetID(assetName);
-
-		MeshComponent meshComp;
-		Mesh mesh = generateCylinderMesh(1.0f);
-
-		if (!fillMeshComp(mesh, meshComp, id)) {
-			LogError(LOG_APP, "Failed to generate DefaultCylinder");
-			//Probably a fatal error at this point
-		}
-
-		defaultAssetsMap.insert({ DefaultAssets::CYLINDER, id });
-	}
-
-	void generateDefaultCapsule() {
-
-		std::string assetName = std::format("DefaultCapsule");
-		uint64_t id = util::generateAssetID(assetName);
-
-		
-		MeshComponent meshComp;
-		Mesh mesh = generateCapsuleMesh(1.0f, 2.0f, 32, 16);
-
-		if (!fillMeshComp(mesh, meshComp, id)) {
-			LogError(LOG_APP, "Failed to generate DefaultCapsule");
-			//Probably a fatal error at this point
-		}
-
-		defaultAssetsMap.insert({ DefaultAssets::CAPSULE, id });
-	}
+	
 
 	// A purple 1024x1024 for assets with missing textures
 	// Checkerboard can be used for assets that don't have a texture
@@ -185,8 +123,8 @@ public:
 	void makeSureDefaultAssetsExistInManifest() {
 
 		//TODO generate boxCar as well
-		defaultAssetsMap.insert({ DefaultAssets::BOXCAR, manifest.FindByName("model|assets/meshes/BoxCar.glb|Cube") });
-		defaultAssetsMap.insert({ DefaultAssets::ROBOT, manifest.FindByName("model|assets/meshes/CapsuleEnemy.glb|Sphere") });
+		defaultAssetsMap.insert({ DefaultAssets::BOXCAR, manifest.FindByName("model|assets/meshes/Robot2.glb|Hips") });
+		defaultAssetsMap.insert({ DefaultAssets::ROBOT, manifest.FindByName("model|assets/meshes/EnemyCapsule.glb|Sphere") });
 		defaultAssetsMap.insert({ DefaultAssets::MOUNTAIN, manifest.FindByName("mesh|assets/meshes/mtn4.glb|Plane.001") });
 
 		for (const auto& pair : defaultAssetsMap) {
@@ -516,6 +454,71 @@ public:
 
 			return textureIndex;
 		}
+	}
+
+
+	void generateDefaultCube() {
+
+		std::string assetName = std::format("DefaultCube");
+		uint64_t id = util::generateAssetID(assetName);
+
+		Mesh cubeMesh = createCubeMesh(1.0f);
+
+		if (!fillMeshComp(cubeMesh, defaultMesh, id)) {
+			LogError(LOG_APP, "Failed to generate DefaultCube");
+			//Probably a fatal error at this point
+		}
+
+		defaultAssetsMap.insert({ DefaultAssets::CUBE, id });
+	}
+
+	void generateDefaultSphere() {
+
+		std::string assetName = std::format("DefaultSphere");
+		uint64_t id = util::generateAssetID(assetName);
+
+		MeshComponent meshComp;
+		Mesh mesh = createSphereMesh(1.0f);
+
+		if (!fillMeshComp(mesh, meshComp, id)) {
+			LogError(LOG_APP, "Failed to generate DefaultSphere");
+			//Probably a fatal error at this point
+		}
+
+		defaultAssetsMap.insert({ DefaultAssets::SPHERE, id });
+	}
+
+	void generateDefaultCylinder() {
+
+		std::string assetName = std::format("DefaultCylinder");
+		uint64_t id = util::generateAssetID(assetName);
+
+		MeshComponent meshComp;
+		Mesh mesh = generateCylinderMesh(1.0f);
+
+		if (!fillMeshComp(mesh, meshComp, id)) {
+			LogError(LOG_APP, "Failed to generate DefaultCylinder");
+			//Probably a fatal error at this point
+		}
+
+		defaultAssetsMap.insert({ DefaultAssets::CYLINDER, id });
+	}
+
+	void generateDefaultCapsule() {
+
+		std::string assetName = std::format("DefaultCapsule");
+		uint64_t id = util::generateAssetID(assetName);
+
+
+		MeshComponent meshComp;
+		Mesh mesh = generateCapsuleMesh(1.0f, 2.0f, 32, 16);
+
+		if (!fillMeshComp(mesh, meshComp, id)) {
+			LogError(LOG_APP, "Failed to generate DefaultCapsule");
+			//Probably a fatal error at this point
+		}
+
+		defaultAssetsMap.insert({ DefaultAssets::CAPSULE, id });
 	}
 };
 

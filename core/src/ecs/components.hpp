@@ -173,6 +173,7 @@ struct HighlightedEntRef {
 /// </summary>
 enum class EntityType {
 	Empty,
+	Generic,
 	Game,
 	Scene,
 	BoxCar,

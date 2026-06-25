@@ -211,8 +211,8 @@ FetchContent_Declare(
     GIT_SHALLOW TRUE
 )
 
-set(FASTGLTF_ENABLE_CPP_MODULES YES)
 set(BUILD_SHARED_LIBS OFF)
+set(FASTGLTF_ENABLE_CPP_MODULES OFF CACHE BOOL "" FORCE)
 
 FetchContent_MakeAvailable(fastgltf)
 

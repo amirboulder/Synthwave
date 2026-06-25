@@ -199,7 +199,10 @@ struct Renderer {
 	flecs::entity renderPhase;
 
 	flecs::query<Transform, MeshComponent>queryEntID;
-	flecs::query<Light, Transform>queryLights;
+
+	flecs::query<Light, DirectionalLight>dirLightQuery;
+	flecs::query<Light, PointLight>pointLightQuery;
+
 	flecs::query<EditorMesh>editorVisualsQuery;
 
 	flecs::system drawPhysicsBodiesSys;
@@ -595,7 +598,10 @@ struct Renderer {
 		queryEntID = ecs.query_builder<Transform, MeshComponent>()
 		.build();
 
-		queryLights = ecs.query_builder<Light, Transform>()
+		dirLightQuery = ecs.query_builder<Light, DirectionalLight>()
+			.build();
+
+		pointLightQuery = ecs.query_builder<Light, PointLight>()
 			.build();
 
 		editorVisualsQuery = ecs.query_builder<EditorMesh>()
@@ -879,7 +885,6 @@ struct Renderer {
 		}
 	}
 
-
 	/// <summary>
 	/// Creates a batch for each light type
 	/// </summary>
@@ -891,22 +896,17 @@ struct Renderer {
 
 		const RenderContext& renderContext = ecs.get<RenderContext>();
 
-		queryLights.each([&](flecs::entity e, const Light& light, const Transform& transform) {
+		dirLightQuery.each([&](flecs::entity e, const Light& light, DirectionalLight dirLight) {
 
-
-			if (e.has<DirectionalLight>()) {
-
-				DirectionalLight& light = lightBatch.directionalLights.emplace_back();
-				light.direction = glm::normalize(light.direction); //quatToDirection(transform.rotation);
-			}
-
-
-			if (e.try_get<PointLight>()) {
-
-				lightBatch.pointLights.emplace_back();
-			} 
-
+				dirLight.direction = glm::normalize(dirLight.direction);
+				lightBatch.directionalLights.emplace_back(dirLight);
 		});
+
+		pointLightQuery.each([&](flecs::entity e, const Light& light, PointLight pointLight) {
+
+			lightBatch.pointLights.emplace_back(pointLight);
+		});
+
 
 		lightBatch.numDirectional = (uint32_t)lightBatch.directionalLights.size();
 		lightBatch.numPoint = (uint32_t)lightBatch.pointLights.size();

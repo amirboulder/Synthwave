@@ -151,7 +151,7 @@ float4 fragmentMain(VertexOutput fragInput)
     surface.viewDir = viewDir;
     surface.baseColor = baseColor.xyz;
     surface.metallic = metallic;
-    surface.roughness = roughness; 
+    surface.roughness = roughness;
 
     LightResult lightResult;
     lightResult = calculateLighting(surface, lightData, directionalLights);

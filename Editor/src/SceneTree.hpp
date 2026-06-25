@@ -18,7 +18,8 @@ static const std::unordered_map<EntityType, std::string> sceneEntityNames = {
 	{EntityType::Cube, "Cube"},
 	{EntityType::BoxCar, "BoxCar"},
 	{EntityType::Light, "Light"},
-	//{EntityType::Camera, "Camera"},
+	{EntityType::Generic, "Generic"},
+	{EntityType::Camera, "Camera"},
 };
 
 
@@ -36,6 +37,12 @@ public:
 		EntityType selectedType = EntityType::Empty;
 		bool isNameValid = true;
 		char errorMessage[256] = "";
+
+		glm::vec3 childPosition = { -3.f, 5.f, -3.f };
+		glm::vec3 childRotation = { 0.f, 0.f, 0.f };  // Euler degrees
+		glm::vec3 childScale = { 1.f, 1.f, 1.f };
+
+		glm::vec3 childPositionDefault = { -3.f, 5.f, -3.f };
 
 		string selectedRagdoll;
 	};
@@ -95,7 +102,24 @@ public:
 		// Show selected entity info
 		if (s_state.selectedEntity) {
 			ImGui::Separator();
-			ImGui::Text("Selected: %s", s_state.selectedEntity.name().c_str());
+
+			std::string entityTypeName;
+			auto entTypeComp = s_state.selectedEntity.try_get<EntityTypeComponent>();
+			if (entTypeComp) {
+				entityTypeName = sceneEntityNames.at(entTypeComp->type);
+			}
+
+			ImGui::Text("Selected: %s %s", entityTypeName.c_str(),  s_state.selectedEntity.name().c_str());
+
+			if (Transform* entTransform = s_state.selectedEntity.try_get_mut<Transform>()) {
+				DragFloat3XYZ("Position", entTransform->position);
+
+				glm::vec3 eulerDeg = glm::degrees(glm::eulerAngles(entTransform->rotation));
+				if (DragFloat3XYZ("Rotation", eulerDeg)) {
+					entTransform->rotation = rotationFromEulerDegrees(eulerDeg);
+				}
+			}
+
 		}
 
 
@@ -198,12 +222,31 @@ public:
 		}
 	}
 
+	static void resetAddChildForm() {
+		s_state.childNameBuffer[0] = '\0';
+		s_state.selectedType = EntityType::Empty;
+		s_state.isNameValid = true;
+		s_state.errorMessage[0] = '\0';
+		s_state.selectedRagdoll.clear();
+		s_state.childPosition = s_state.childPositionDefault;
+		s_state.childRotation = glm::vec3(0.f);
+		s_state.childScale = glm::vec3(1.f);
+	}
+
+	static Transform buildChildTransform() {
+		Transform transform;
+		transform.position = s_state.childPosition;
+		transform.rotation = rotationFromEulerDegrees(s_state.childRotation);
+		transform.scale = s_state.childScale;
+		return transform;
+	}
+
 	static void drawAddChildPopup(flecs::world& ecs) {
 		// Open popup if flagged
 		if (s_state.showAddChildPopup) {
 			ImGui::OpenPopup("Add Child Entity");
 			s_state.showAddChildPopup = false;
-			s_state.selectedType = EntityType::Empty;  // Reset to default
+			resetAddChildForm();
 		}
 
 
@@ -220,7 +263,9 @@ public:
 
 			ImGui::Text("%s", entTypeTxt);
 
-			ImGui::SetNextItemWidth(500.0f);
+			const float comboWidth = 500.0f;
+			ImGui::SetCursorPosX((windowWidth - comboWidth) * 0.5f);
+			ImGui::SetNextItemWidth(comboWidth);
 
 			// Get the Ent type name safely
 			auto it = sceneEntityNames.find(s_state.selectedType);
@@ -246,9 +291,22 @@ public:
 			}
 
 
-			//Put common options like pos, rot, scale here
 			ImGui::Spacing();
 
+			const char* transformTxt = "Transform:";
+			textWidth = ImGui::CalcTextSize(transformTxt).x;
+			ImGui::SetCursorPosX((windowWidth - textWidth) * 0.5f);
+			ImGui::Text("%s", transformTxt);
+
+			DragFloat3XYZ("Position", s_state.childPosition);
+			DragFloat3XYZ("Rotation", s_state.childRotation);
+			DragFloat3XYZ("Scale", s_state.childScale, 0.01f, "%.3f");
+
+			if (s_state.childScale.x <= 0.f || s_state.childScale.y <= 0.f || s_state.childScale.z <= 0.f) {
+				disableCreateButton = true;
+			}
+
+			ImGui::Spacing();
 
 			// If something is not valid then disable button
 			if (!drawEntSpecificOptions(ecs)) {
@@ -364,9 +422,8 @@ public:
 						break;
 					}
 
-					s_state.childNameBuffer[0] = '\0';
+					resetAddChildForm();
 					s_state.contextEntity = flecs::entity();
-					s_state.selectedType = EntityType::Empty;
 					ImGui::CloseCurrentPopup();
 
 				}
@@ -380,9 +437,8 @@ public:
 			//Exiting the editor does not clear the buffer 
 			// Cancel button (or ESC key)
 			if (ImGui::Button("Cancel", ImVec2(buttonWidth, 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
-				s_state.childNameBuffer[0] = '\0';
+				resetAddChildForm();
 				s_state.contextEntity = flecs::entity();
-				s_state.selectedType = EntityType::Empty;
 				ImGui::CloseCurrentPopup();
 			}
 
@@ -398,72 +454,31 @@ public:
 	}
 
 	static void createPlayerChild(flecs::world& ecs) {
-
-		//Transforms does nothing yet
-		Transform playerTransform;
-		playerTransform.position = glm::vec3(1.0f, 5.0f, 0.0f);
-		playerTransform.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
-		playerTransform.scale = glm::vec3(1.0f);
-
-		EntityFactory::createPlayerEntity(ecs, s_state.contextEntity, playerTransform, "pipelineUnlit");
-
+		EntityFactory::createPlayerEntity(ecs, s_state.contextEntity, buildChildTransform(), "pipelineUnlit");
 	}
 
 	static void createCapsuleChild(flecs::world& ecs) {
-
-		Transform capsule1Transform;
-		capsule1Transform.position = glm::vec3(1.0f, 5.0f, 0.0f);
-		capsule1Transform.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
-		capsule1Transform.scale = glm::vec3(1.0f);
-		EntityFactory::createCapsuleEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, capsule1Transform);
-
+		EntityFactory::createCapsuleEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, buildChildTransform());
 	}
 
 	static void createCubeChild(flecs::world& ecs) {
-
-		Transform transform;
-		transform.position = glm::vec3(1.0f, 5.0f, 0.0f);
-		transform.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
-		transform.scale = glm::vec3(1.0f);
-		EntityFactory::createCubeEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, transform);
-
+		EntityFactory::createCubeEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, buildChildTransform());
 	}
 
 	static void createSphereChild(flecs::world& ecs) {
-
-		Transform transform;
-		transform.position = glm::vec3(1.0f, 5.0f, 0.0f);
-		transform.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
-		transform.scale = glm::vec3(1.0f);
-		EntityFactory::createSphereEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, transform);
-
+		EntityFactory::createSphereEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, buildChildTransform());
 	}
 
 	static void createCylinderChild(flecs::world& ecs) {
-
-		Transform transform;
-		transform.position = glm::vec3(1.0f, 5.0f, 0.0f);
-		transform.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
-		transform.scale = glm::vec3(1.0f);
-		EntityFactory::createCylinderEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, transform);
-
+		EntityFactory::createCylinderEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, buildChildTransform());
 	}
 
 	static void createBoxCarChild(flecs::world& ecs) {
-
-		Transform transform;
-		transform.position = glm::vec3(0.0f, 20.0f, 0.0f);
-		transform.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
-		EntityFactory::createBoxCarEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, transform);
-
+		EntityFactory::createBoxCarEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, buildChildTransform());
 	}
 
 	static void createActorChild(flecs::world& ecs) {
-
-		Transform actorTransform;
-		actorTransform.position = glm::vec3(4.0f, 17.0f, 0.0f);
-		actorTransform.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
-		actorTransform.scale = glm::vec3(1.0f);
+		Transform actorTransform = buildChildTransform();
 
 		// Character settings
 		JPH::CharacterSettings settings;
@@ -477,12 +492,7 @@ public:
 	}
 
 	static void createGridChild(flecs::world& ecs) {
-
-		Transform gridTransform;
-		gridTransform.position = glm::vec3(12.0f, 0.0f, 0.0f);
-		gridTransform.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
-		EntityFactory::createGridEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, gridTransform, 256);
-
+		EntityFactory::createGridEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, buildChildTransform(), 256);
 	}
 
 	//static void createStaticMeshChild(flecs::world& ecs) {
@@ -493,69 +503,33 @@ public:
 	//}
 
 	static void createMountainChild(flecs::world& ecs) {
-
-		Transform mtnTransform;
-		mtnTransform.position = glm::vec3(0.0f, -40.0f, 0.0f);
-		mtnTransform.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
-		EntityFactory::createMTNEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, mtnTransform);
-
+		EntityFactory::createMTNEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, buildChildTransform());
 	}
 
 	static void createHumanoidChild(flecs::world& ecs) {
-
-		Transform transform;
-		transform.position = glm::vec3(1.0f, 12.0f, 1.0f);
-		transform.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
-		EntityFactory::createHumanRagdollEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, transform, Scripts::empty);
-
+		EntityFactory::createHumanRagdollEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, buildChildTransform(), Scripts::empty);
 	}
 
 	static void createRagdollChild(flecs::world& ecs) {
-
-		Transform transform;
-		transform.position = glm::vec3(0.0f, 0.0f, 0.0f);
-		transform.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
-		EntityFactory::createRagdollEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, transform, s_state.selectedRagdoll, Scripts::ragdollUpdate);
-
+		EntityFactory::createRagdollEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, buildChildTransform(), s_state.selectedRagdoll, Scripts::ragdollUpdate);
 	}
 
 	static void createRobotArmChild(flecs::world& ecs) {
-
-		Transform transform;
-		transform.position = glm::vec3(0.0f, 0.0f, 0.0f);
-		transform.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
-		EntityFactory::createRobotArmEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, "capsule4", transform, Scripts::armUpdate, "pipelineUnlit");
-
+		EntityFactory::createRobotArmEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, "capsule4", buildChildTransform(), Scripts::armUpdate, "pipelineUnlit");
 	}
 
 	static void createSnakeChild(flecs::world& ecs) {
-
-		Transform transform;
-		transform.position = glm::vec3(1.0f, 7.0f, 1.0f);
-		transform.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
-		EntityFactory::createSnakeEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, "Capsule4", transform, Scripts::SnakeUpdate, "pipelineUnlit");
-
+		EntityFactory::createSnakeEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, "Capsule4", buildChildTransform(), Scripts::SnakeUpdate, "pipelineUnlit");
 	}
-
 
 	static void createDirLightChild(flecs::world& ecs) {
-
 		DirectionalLight directionalLight;
-
-		Transform transform;
-		transform.position = glm::vec3(1.0f, 7.0f, 1.0f);
-		transform.rotation = glm::quat(0.707f, 0.707f, 0.0f, 0.0f);
-		EntityFactory::createDirectionalLightEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, directionalLight, transform);
-
-	}
-
-	static void drawCommonOptions() {
-
+		directionalLight.direction = quatToDirection(rotationFromEulerDegrees(s_state.childRotation));
+		EntityFactory::createDirectionalLightEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, directionalLight);
 	}
 
 	static bool drawEntSpecificOptions(flecs::world& ecs) {
 
-		//If the
 		bool isValid = true;
 
 		switch (s_state.selectedType) {
@@ -565,7 +539,12 @@ public:
 			//TODO move creation to under Game
 			isValid = drawRagdollEntOptions(ecs);
 			break;
+
+		case EntityType::Light:
+
+			break;
 		}
+
 
 		return isValid;
 	}
@@ -598,7 +577,6 @@ public:
 		if (!s_state.selectedRagdoll.empty()) {
 
 			return true;
-
 		}
 
 		return false;
@@ -613,6 +591,69 @@ public:
 	}
 
 
+	static bool DragFloatColored(const char* id, float* v, float speed,
+		const char* fmt, ImVec4 color)
+	{
+		ImGui::PushStyleColor(ImGuiCol_Text, color);
+		ImGui::TextUnformatted(id);
+		ImGui::PopStyleColor();
+
+		ImGui::SameLine(0, 2);
+
+		ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.16f, 0.16f, 0.16f, 1.f));
+		ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.22f, 0.22f, 0.22f, 1.f));
+		ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.12f, 0.18f, 0.28f, 1.f));
+
+		// No SetNextItemWidth here — caller sets it before invoking us
+		bool changed = ImGui::DragFloat(id, v, speed, 0.f, 0.f, fmt);
+
+		ImGui::PopStyleColor(3);
+		return changed;
+	}
+
+	// XYZ drag widget — call this wherever you want the row
+	// Returns true if any component changed.
+		static bool DragFloat3XYZ(const char* label, glm::vec3& v, float speed = 0.01f,
+			const char* fmt = "%.3f")
+		{
+			bool changed = false;
+			ImGui::PushID(label);
+
+			const float labelColumnWidth = ImGui::CalcTextSize("Rotation").x + ImGui::GetStyle().ItemInnerSpacing.x * 2.f;
+			ImGui::AlignTextToFramePadding();
+			ImGui::Text("%s", label);
+			ImGui::SameLine(labelColumnWidth);
+
+			const float axisLabelWidth = ImGui::CalcTextSize("X").x + ImGui::GetStyle().ItemInnerSpacing.x;
+			float total_width = ImGui::GetContentRegionAvail().x;
+			float spacing = ImGui::GetStyle().ItemSpacing.x;
+			float cell_width = (total_width - spacing * 2 - axisLabelWidth * 3) / 3.f;
+
+			// X — red
+			ImGui::PushID(0);
+			ImGui::SetNextItemWidth(cell_width);
+			changed |= DragFloatColored("X", &v[0], speed, fmt, ImVec4(0.80f, 0.26f, 0.26f, 1.f));
+			ImGui::PopID();
+
+			ImGui::SameLine(0, spacing);
+
+			// Y — green
+			ImGui::PushID(1);
+			ImGui::SetNextItemWidth(cell_width);
+			changed |= DragFloatColored("Y", &v[1], speed, fmt, ImVec4(0.27f, 0.67f, 0.27f, 1.f));
+			ImGui::PopID();
+
+			ImGui::SameLine(0, spacing);
+
+			// Z — blue
+			ImGui::PushID(2);
+			ImGui::SetNextItemWidth(cell_width);
+			changed |= DragFloatColored("Z", &v[2], speed, fmt, ImVec4(0.27f, 0.47f, 0.80f, 1.f));
+			ImGui::PopID();
+
+			ImGui::PopID();
+			return changed;
+		}
 };
 
 // Initialize static state
