@@ -66,7 +66,7 @@ JPH::Quat dirToQuat(const JPH::Vec3& dir) {
 		return JPH::Quat::sIdentity();
 
 	if (dot < -0.9999f) {
-		// 180° flip around up axis
+		// 180Â° flip around up axis
 		return JPH::Quat::sRotation(JPH::Vec3(0, 1, 0), JPH::JPH_PI);
 	}
 

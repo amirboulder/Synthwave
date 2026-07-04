@@ -410,21 +410,22 @@ public:
 	}
 
 	//creates jolts Human.tof 
-	static bool createHumanTOFRagdollEntity(flecs::world& ecs, const flecs::entity parent, const std::string name,
-		const std::string ModelSrcName, const Transform transform, entUpdateFn updateFunction, const std::string pipelineName) {
+	static bool createHumanTOFRagdollEntity(
+		flecs::world& ecs,
+		const flecs::entity parent, 
+		const std::string name,
+		const Transform transform, 
+		entUpdateFn updateFunction) {
 
 		if (!validateName(ecs, parent, name)) return false;
 		if (!validateTransform(transform, name.c_str())) return false;
-		if (!validatePipelineExistence(ecs, pipelineName)) return false;
-
-		//Get the modelSource from Asset Library
-		/*AssetLibRef ref = ecs.get<AssetLibRef>();
-		ModelSource* modelSource = ref.assetLib->get(ModelSrcName);
-		if (!validateModelSrcExistence(modelSource, ModelSrcName)) return false;*/
 
 		JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
 
-		Ref<RagdollSettings> ragdollSettings = RagdollLoader::load("assets/Human.tof", EMotionType::Dynamic);
+		constexpr float ragdollScale = 2.0f;
+
+		Ref<RagdollSettings> ragdollSettings =
+			RagdollLoader::load("assets/ragdolls/Human.tof", EMotionType::Dynamic, ragdollScale);
 
 		if (!ragdollSettings) {
 
@@ -432,21 +433,17 @@ public:
 			return false;
 		}
 
-
 		const flecs::entity entity = ecs.entity(name.c_str())
 			.set<EntityTypeComponent>({ EntityType::Ragdoll })
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
-			//.set<ModelInstance>(modelSource->createInstance())
 			.set<AnimationTime>({})
-			.add<RenderPipeline>(ecs.lookup(pipelineName.c_str()))
-			//.emplace<ActorBehavior>(updateFunction)
+			.emplace<ActorBehavior>(updateFunction)
 			.child_of(parent);
 
 		if (!validateEntityCreation(entity, name)) return false;
 
-		JPH::SkeletalAnimation* mAnimation;
-		JPH::SkeletonPose* mPose = new JPH::SkeletonPose;
+		JPH::SkeletonPose mPose;
 
 		JPH::Ragdoll* ragdoll = ragdollSettings->CreateRagdoll(0, entity.id(), &physicsSystem);
 		ragdoll->AddToPhysicsSystem(JPH::EActivation::Activate);
@@ -456,23 +453,35 @@ public:
 		cout << "Ragdoll GetConstraintCount : " << ragdoll->GetConstraintCount() << std::endl;
 		cout << "GetSkeleton GetJointCount : " << ragdollSettings->GetSkeleton()->GetJointCount() << std::endl;
 
-		// Load animation
-
-		AssetStream stream(String("assets/sprint.tof"), std::ios::in);
-		if (!ObjectStreamIn::sReadObject(stream.Get(), mAnimation))
-			cout << "ERROR Loading animation \n";
-
-		cout << "mAnimation GetAnimatedJoints : " << mAnimation->GetAnimatedJoints().size() << std::endl;
+		// Load animation (same scale as ragdoll so pose bone offsets match body positions)
+		JPH::SkeletalAnimation* mAnimation =
+			AnimationLoader::load("assets/ragdolls/sprint.tof", ragdollScale);
+		if (!mAnimation) {
+			LogError(LOG_PHYSICS, "failed loading animation for entity %s", name.c_str());
+			return false;
+		}
 
 		// Initialize pose
-		mPose->SetSkeleton(ragdollSettings->GetSkeleton());
+		mPose.SetSkeleton(ragdollSettings->GetSkeleton());
+		//mAnimation->Sample(0.0f, mPose); //Setting the pose to this makes it a valid pose
 
-		// Place the root joint on the first body so that we draw the pose in the right place
-		//RVec3 root_offset = RVec3(10.0f, 10.0f, 10.0f);
 
-		//SkeletonPose::JointState& joint = mPose->GetJoint(0);
-		//joint.mTranslation = Vec3::sZero(); // All the translation goes into the root offset
-		//ragdoll->GetRootTransform(root_offset, joint.mRotation);
+		BodyInterface& bi = physicsSystem.GetBodyInterface();
+		RVec3 desiredPos(transform.position.x, transform.position.y, transform.position.z);
+		Quat   desiredRot = Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
+
+		BodyID rootID = ragdoll->GetBodyID(0);
+		RVec3  currentRoot = bi.GetPosition(rootID);
+		RVec3  delta = desiredPos - currentRoot;
+		for (BodyID id : ragdoll->GetBodyIDs()) {
+			RVec3 p = bi.GetPosition(id);
+			Quat  q = bi.GetRotation(id);
+			bi.SetPositionAndRotation(id, p + delta,
+				desiredRot * q,
+				EActivation::Activate);
+		}
+
+		//bi.SetMotionType(rootID, JPH::EMotionType::Static, JPH::EActivation::Activate);
 
 		for (JPH::BodyID id : ragdoll->GetBodyIDs()) {
 
@@ -838,7 +847,7 @@ public:
 	}
 
 	/// <summary>
-	/// Infinitely far away, parallel rays — sun, moon .Has no position, only direction.
+	/// Infinitely far away, parallel rays ? sun, moon .Has no position, only direction.
 	/// </summary>
 	static bool createDirectionalLightEntity(flecs::world& ecs, flecs::entity parent, std::string name, const DirectionalLight& directionalLight) {
 
@@ -861,6 +870,7 @@ public:
 	static bool createPointLightEntity(flecs::world& ecs, flecs::entity parent, std::string name, const PointLight& pointLight) {
 
 		if (!EntityFactory::validateName(ecs, parent, name)) return false;
+
 
 		const flecs::entity entity = ecs.entity(name.c_str())
 			.set<EntityTypeComponent>({ EntityType::Light })

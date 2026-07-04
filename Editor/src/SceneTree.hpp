@@ -1,25 +1,12 @@
 ﻿#pragma once
 
 
-//Used for Scene dropdown list
-//NOTE: EntityType must have a corresponding name here to show up in the dropdown
-static const std::unordered_map<EntityType, std::string> sceneEntityNames = {
-	{EntityType::Player, "Player"},
-	{EntityType::Actor, "Actor"},
-	{EntityType::Humanoid, "Humanoid"},
-	{EntityType::Ragdoll, "Ragdoll"},
-	{EntityType::RobotArm, "RobotArm"},
-	{EntityType::Snake, "Snake"},
-	{EntityType::Capsule, "Capsule"},
-	{EntityType::Grid, "Grid"},
-	{EntityType::StaticMesh, "StaticMesh"},
-	{EntityType::Sphere, "Sphere"},
-	{EntityType::Cylinder, "Cylinder"},
-	{EntityType::Cube, "Cube"},
-	{EntityType::BoxCar, "BoxCar"},
-	{EntityType::Light, "Light"},
-	{EntityType::Generic, "Generic"},
-	{EntityType::Camera, "Camera"},
+std::unordered_map<std::string, entUpdateFn> updateFunctions{
+	{"ragdollUpdate", Scripts::ragdollUpdate},
+	{"updateRagdollNoAnim", Scripts::updateRagdollNoAnim},
+	{"updateRagdollKinematic", Scripts::updateRagdollKinematic},
+	{"updateRagdollNoAnim", Scripts::empty},
+
 };
 
 
@@ -43,6 +30,9 @@ public:
 		glm::vec3 childScale = { 1.f, 1.f, 1.f };
 
 		glm::vec3 childPositionDefault = { -3.f, 5.f, -3.f };
+
+		string selectedUpdatefuncName;
+		entUpdateFn selectedUpdatefunc;
 
 		string selectedRagdoll;
 	};
@@ -106,7 +96,7 @@ public:
 			std::string entityTypeName;
 			auto entTypeComp = s_state.selectedEntity.try_get<EntityTypeComponent>();
 			if (entTypeComp) {
-				entityTypeName = sceneEntityNames.at(entTypeComp->type);
+				entityTypeName = magic_enum::enum_name(entTypeComp->type);
 			}
 
 			ImGui::Text("Selected: %s %s", entityTypeName.c_str(),  s_state.selectedEntity.name().c_str());
@@ -231,6 +221,10 @@ public:
 		s_state.childPosition = s_state.childPositionDefault;
 		s_state.childRotation = glm::vec3(0.f);
 		s_state.childScale = glm::vec3(1.f);
+
+		s_state.selectedUpdatefunc = Scripts::empty;
+		s_state.selectedUpdatefuncName.clear();
+
 	}
 
 	static Transform buildChildTransform() {
@@ -268,14 +262,19 @@ public:
 			ImGui::SetNextItemWidth(comboWidth);
 
 			// Get the Ent type name safely
-			auto it = sceneEntityNames.find(s_state.selectedType);
-			const char* currentName = (it != sceneEntityNames.end()) ? it->second.c_str() : " ";
+			//std::string_view currentName = magic_enum::enum_name(s_state.selectedType);
+
+			const char* preview = magic_enum::enum_name(s_state.selectedType).data();
+
 
 			// Dropdown for entity Type
-			if (ImGui::BeginCombo("##entitytype", currentName)) {
-				for (const auto& [entType, name] : sceneEntityNames) {
+			if (ImGui::BeginCombo("##Entity Type", preview)) {
+				for (auto entType : magic_enum::enum_values<EntityType>()) {
+
 					bool isSelected = (s_state.selectedType == entType);
-					if (ImGui::Selectable(name.c_str(), isSelected)) {
+					const char* label = magic_enum::enum_name(entType).data();
+
+					if (ImGui::Selectable(label, isSelected)) {
 						s_state.selectedType = entType;
 					}
 					if (isSelected) {
@@ -286,7 +285,7 @@ public:
 			}
 
 			// if no entity type is selected disable the create button
-			if (!sceneEntityNames.contains(s_state.selectedType)) {
+			if (s_state.selectedType == EntityType::Empty) {
 				disableCreateButton = true;
 			}
 
@@ -358,7 +357,7 @@ public:
 				else {
 					s_state.isNameValid = true;
 
-					std::cout << "Creating " << sceneEntityNames.at(s_state.selectedType)
+					std::cout << "Creating " << magic_enum::enum_name(s_state.selectedType)
 						<< " entity '" << s_state.childNameBuffer
 						<< "' under " << s_state.contextEntity.name().c_str() << std::endl;
 
@@ -387,6 +386,12 @@ public:
 
 						createRagdollChild(ecs);
 						break;
+
+					case EntityType::JoltRagdollExample:
+
+						createTOFRagdollChild(ecs);
+						break;
+
 					case EntityType::RobotArm:
 						createRobotArmChild(ecs);
 						break;
@@ -514,6 +519,10 @@ public:
 		EntityFactory::createRagdollEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, buildChildTransform(), s_state.selectedRagdoll, Scripts::ragdollUpdate);
 	}
 
+	static void createTOFRagdollChild(flecs::world& ecs) {
+		EntityFactory::createHumanTOFRagdollEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, buildChildTransform(), s_state.selectedUpdatefunc);
+	}
+
 	static void createRobotArmChild(flecs::world& ecs) {
 		EntityFactory::createRobotArmEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, "capsule4", buildChildTransform(), Scripts::armUpdate, "pipelineUnlit");
 	}
@@ -538,6 +547,12 @@ public:
 
 			//TODO move creation to under Game
 			isValid = drawRagdollEntOptions(ecs);
+			break;
+
+		case EntityType::JoltRagdollExample:
+
+			//TODO move creation to under Game
+			isValid = drawRagdollUpdateOptions(ecs);
 			break;
 
 		case EntityType::Light:
@@ -575,6 +590,38 @@ public:
 
 		//If something is selected then return true
 		if (!s_state.selectedRagdoll.empty()) {
+
+			return true;
+		}
+
+		return false;
+	}
+
+	//If a ragdoll is selected from the dropdown return true,
+	static bool drawRagdollUpdateOptions(flecs::world& ecs) {
+
+		
+		auto it = updateFunctions.find(s_state.selectedUpdatefuncName);
+		const char* selectedName = (it != updateFunctions.end()) ? it->first.c_str() : " ";
+
+
+		if (ImGui::BeginCombo("RagdollUpdateFunctions", selectedName)) {
+			for (const auto& [name, function] : updateFunctions) {
+				bool isSelected = (s_state.selectedUpdatefuncName == name);
+				if (ImGui::Selectable(name.c_str(), isSelected)) {
+
+					s_state.selectedUpdatefuncName = name;
+					s_state.selectedUpdatefunc = function;
+				}
+				if (isSelected) {
+					ImGui::SetItemDefaultFocus();
+				}
+			}
+			ImGui::EndCombo();
+		}
+
+		//If something is selected then return true
+		if (!s_state.selectedUpdatefuncName.empty()) {
 
 			return true;
 		}

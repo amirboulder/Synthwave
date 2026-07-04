@@ -213,6 +213,7 @@ FetchContent_Declare(
 
 set(BUILD_SHARED_LIBS OFF)
 set(FASTGLTF_ENABLE_CPP_MODULES OFF CACHE BOOL "" FORCE)
+set(FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES ON)
 
 FetchContent_MakeAvailable(fastgltf)
 
@@ -379,6 +380,21 @@ FetchContent_MakeAvailable(meshoptimizer)
 
 
 #=============================================
+#magic_enum
+#=============================================
+
+FetchContent_Declare( 
+    magic_enum
+  GIT_REPOSITORY https://github.com/Neargye/magic_enum.git
+  GIT_TAG        v0.9.8
+  GIT_SHALLOW TRUE
+
+)
+
+FetchContent_MakeAvailable(magic_enum)
+
+
+#=============================================
 # IMGUI for GUI
 #=============================================
 
@@ -445,6 +461,7 @@ inih
 flecs::flecs
 xxHash::xxhash
 meshoptimizer
+magic_enum
 )
 
 

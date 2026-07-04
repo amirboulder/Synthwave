@@ -55,6 +55,8 @@ namespace fs = std::filesystem;
 #include <Jolt/Physics/Body/BodyActivationListener.h>
 #include <Jolt/Physics/Ragdoll/Ragdoll.h>
 #include <Jolt/Physics/Constraints/PointConstraint.h>
+#include <Jolt/Physics/Constraints/PathConstraint.h>
+#include <Jolt/Physics/Constraints/DistanceConstraint.h>
 #include <Jolt/Physics/Constraints/FixedConstraint.h>
 #include <Jolt/Physics/Constraints/HingeConstraint.h>
 #include <Jolt/Physics/Constraints/SliderConstraint.h>
@@ -114,6 +116,9 @@ namespace fs = std::filesystem;
 
 //INIReader
 #include "INIReader.h"
+
+//magic_enum
+#include <magic_enum/magic_enum.hpp>
 
 //Optick 
 //#include "optick.h"

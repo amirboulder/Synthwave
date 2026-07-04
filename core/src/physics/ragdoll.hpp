@@ -4,6 +4,8 @@
 #define JPH_OBJECT_STREAM
 
 #include <Jolt/Physics/Collision/Shape/ScaledShape.h>
+#include <Jolt/Physics/Constraints/SwingTwistConstraint.h>
+#include <Jolt/Skeleton/SkeletalAnimation.h>
 
 #include "AssetStream.hpp"
 
@@ -26,21 +28,49 @@ enum class Attachment
 
 #ifdef JPH_OBJECT_STREAM
 
-#endif // JPH_OBJECT_STREAM
+// Loads a SkeletalAnimation from a .tof object stream and optionally applies a
+// uniform runtime scale via Jolt's SkeletalAnimation::ScaleJoints, which
+// multiplies every keyframe's local translation (bone offsets / root position)
+// by inScale and leaves rotations and keyframe times untouched. This must
+// match the scale passed to RagdollLoader::load so the driven pose skeleton is
+// the same size as the ragdoll bodies.
+class AnimationLoader {
 
-#ifdef JPH_OBJECT_STREAM
+public:
+
+	static JPH::SkeletalAnimation* load(const char* inFileName, float scale = 1.0f)
+	{
+		JPH::SkeletalAnimation* animation = nullptr;
+		AssetStream stream(inFileName, std::ios::in);
+		if (!ObjectStreamIn::sReadObject(stream.Get(), animation)) {
+			cout << "failed reading in animation " << inFileName << "  data\n";
+			return animation;
+		}
+
+		if (scale != 1.0f)
+			animation->ScaleJoints(scale);
+
+		return animation;
+	}
+
+};
 
 class RagdollLoader {
 
 public:
 
-	static JPH::RagdollSettings* load(const char* inFileName, JPH::EMotionType inMotionType)
+	// Loads a ragdoll from a .tof object stream and optionally applies a uniform
+	// runtime scale. Scaling multiplies each part's world position, wraps its
+	// collision shape in a ScaledShape (so mass auto-scales 8x for 2x at constant
+	// density), and scales the SwingTwist constraint pivot positions. Rotations,
+	// constraint axes, angles, density and motor settings are left untouched.
+	static JPH::RagdollSettings* load(const char* inFileName, JPH::EMotionType inMotionType, float scale = 1.0f)
 	{
 		// Read the ragdoll
 		JPH::RagdollSettings* ragdoll = nullptr;
 		AssetStream stream(inFileName, std::ios::in);
 		if (!ObjectStreamIn::sReadObject(stream.Get(), ragdoll)) {
-			cout << "failed reading in ragdoll " << inFileName << "  data\n";
+			LogError(LOG_PHYSICS, "failed reading in ragdoll data in file %s", inFileName);
 			return ragdoll;
 		}
 
@@ -51,6 +81,31 @@ public:
 			p.mMotionType = inMotionType;
 			// Override layer
 			p.mObjectLayer = Layers::MOVING;
+
+			if (scale != 1.0f)
+			{
+				// Scale the part's world position
+				p.mPosition *= scale;
+
+				// Wrap the collision shape so its dimensions scale uniformly.
+				// GetShape() realizes the deserialized ShapeSettings into a
+				// runtime Shape; ScaledShape applies the factor at collide/cast
+				// time. With constant density, mass scales with volume (8x @ 2x).
+				p.SetShape(new ScaledShape(p.GetShape(), Vec3::sReplicate(scale)));
+
+				// Scale the parent-constraint pivot positions (world space).
+				// SwingTwist is the only constraint subtype used by these ragdolls;
+				// its mPosition1/mPosition2 are world-space pivots that must track
+				// the scaled part positions. Axes and limit angles stay unchanged.
+				if (p.mToParent)
+				{
+					JPH_ASSERT(dynamic_cast<SwingTwistConstraintSettings*>(p.mToParent.GetPtr()) != nullptr);
+					SwingTwistConstraintSettings* st =
+						static_cast<SwingTwistConstraintSettings*>(p.mToParent.GetPtr());
+					st->mPosition1 *= scale;
+					st->mPosition2 *= scale;
+				}
+			}
 		}
 
 		// Initialize the skeleton

@@ -3,7 +3,7 @@
 #include "modules/PhongLighting.slang"
 
 [FillMode("FILL")]
-[CullMode("BACK")]
+[CullMode("NONE")]
 [FrontFace("COUNTER_CLOCKWISE")]
 [PrimitiveType("TRIANGLELIST")]
 [DepthCompareOp("LESS")]

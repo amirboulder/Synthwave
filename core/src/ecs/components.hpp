@@ -136,7 +136,7 @@ struct JoltAnimation {
 };
 
 struct JoltPose {
-	JPH::SkeletonPose* posePtr = nullptr;
+	JPH::SkeletonPose pose;
 };
 
 struct AnimationTime {
@@ -180,6 +180,7 @@ enum class EntityType {
 	Player,
 	Humanoid,
 	Ragdoll,
+	JoltRagdollExample,
 	RobotArm,
 	Snake,
 	Actor,
