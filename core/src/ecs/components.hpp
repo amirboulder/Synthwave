@@ -131,16 +131,36 @@ struct JoltRagdoll {
 	JPH::Ragdoll* ragdollPtr = nullptr;
 };
 
+struct JoltRagdollFilter {
+	JPH::IgnoreMultipleBodiesFilter* filter = nullptr;
+};
+
 struct JoltAnimation {
 	JPH::SkeletalAnimation* animationPtr = nullptr;
 };
 
 struct JoltPose {
 	JPH::SkeletonPose pose;
+	JPH::Vec3 root_offset;
+};
+
+struct JoltPose2 {
+	JPH::SkeletonPose pose;
+	float hipsFromSoles = 0.0f;
 };
 
 struct AnimationTime {
 	float time = 0.0f;
+};
+
+
+struct PhysicsConstraint {
+	JPH::Ref<JPH::SixDOFConstraint> constraint;
+};
+
+struct JoltAnchorBody {
+	JPH::BodyID bodyID;
+	JPH::Ref<JPH::FixedConstraint> constraint;
 };
 
 //////////////////////////////////////////////
@@ -180,6 +200,7 @@ enum class EntityType {
 	Player,
 	Humanoid,
 	Ragdoll,
+	RagdollForce,
 	JoltRagdollExample,
 	RobotArm,
 	Snake,

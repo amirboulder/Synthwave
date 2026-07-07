@@ -5,7 +5,9 @@ std::unordered_map<std::string, entUpdateFn> updateFunctions{
 	{"ragdollUpdate", Scripts::ragdollUpdate},
 	{"updateRagdollNoAnim", Scripts::updateRagdollNoAnim},
 	{"updateRagdollKinematic", Scripts::updateRagdollKinematic},
-	{"updateRagdollNoAnim", Scripts::empty},
+	{"updateRagdollMotor", Scripts::updateRagdollMotor},
+	{"updateRagdollForce", Scripts::updateRagdollForce},
+	{"empty", Scripts::empty},
 
 };
 
@@ -386,7 +388,10 @@ public:
 
 						createRagdollChild(ecs);
 						break;
+					case EntityType::RagdollForce:
 
+						createRagdollForceChild(ecs);
+						break;
 					case EntityType::JoltRagdollExample:
 
 						createTOFRagdollChild(ecs);
@@ -523,6 +528,10 @@ public:
 		EntityFactory::createHumanTOFRagdollEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, buildChildTransform(), s_state.selectedUpdatefunc);
 	}
 
+	static void createRagdollForceChild(flecs::world& ecs) {
+		EntityFactory::createRagdollEntityForce(ecs, s_state.contextEntity, s_state.childNameBuffer, buildChildTransform(), s_state.selectedUpdatefunc);
+	}
+
 	static void createRobotArmChild(flecs::world& ecs) {
 		EntityFactory::createRobotArmEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, "capsule4", buildChildTransform(), Scripts::armUpdate, "pipelineUnlit");
 	}
@@ -550,6 +559,12 @@ public:
 			break;
 
 		case EntityType::JoltRagdollExample:
+
+			//TODO move creation to under Game
+			isValid = drawRagdollUpdateOptions(ecs);
+			break;
+
+		case EntityType::RagdollForce:
 
 			//TODO move creation to under Game
 			isValid = drawRagdollUpdateOptions(ecs);

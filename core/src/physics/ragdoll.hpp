@@ -104,6 +104,12 @@ public:
 						static_cast<SwingTwistConstraintSettings*>(p.mToParent.GetPtr());
 					st->mPosition1 *= scale;
 					st->mPosition2 *= scale;
+
+					st->mSwingMotorSettings.mMaxTorqueLimit = 50000.0f;
+					st->mSwingMotorSettings.mMinTorqueLimit = -50000.0f;
+
+					st->mTwistMotorSettings.mMaxTorqueLimit = 50000.0f;
+					st->mTwistMotorSettings.mMinTorqueLimit = -50000.0f;
 				}
 			}
 		}

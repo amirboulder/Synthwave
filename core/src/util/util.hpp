@@ -44,6 +44,13 @@ glm::vec3 quatToDirection(const glm::quat& q)
 	return glm::normalize(q * glm::vec3(0.0f, 0.0f, -1.0f));
 }
 
+JPH::Vec3 quatToDirection(const JPH::Quat& q)
+{
+	// Rotate the default forward vector (-Z convention)
+	return (q * JPH::Vec3(0.0f, 0.0f, -1.0f)).Normalized();
+}
+
+
 
 inline glm::quat rotationFromEulerDegrees(const glm::vec3& eulerDeg)
 {

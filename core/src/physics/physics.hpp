@@ -19,7 +19,8 @@ namespace Layers
 	static constexpr ObjectLayer NON_MOVING = 0;
 	static constexpr ObjectLayer MOVING = 1;
 	static constexpr ObjectLayer Sensors = 2;
-	static constexpr ObjectLayer NUM_LAYERS = 3;
+	static constexpr ObjectLayer CHARACTER_ANCHOR = 3;
+	static constexpr ObjectLayer NUM_LAYERS = 4;
 };
 
 // Each broadphase layer results in a separate bounding volume tree in the broad phase. You at least want to have
@@ -82,11 +83,13 @@ public:
 		switch (inObject1)
 		{
 		case Layers::NON_MOVING:
-			return inObject2 == Layers::MOVING; // Non moving only collides with moving
+			return inObject2 == Layers::MOVING || inObject2 == Layers::CHARACTER_ANCHOR;
 		case Layers::Sensors:
 			return inObject2 == Layers::MOVING; // Sensors only collides with moving
+		case Layers::CHARACTER_ANCHOR:
+			return inObject2 == Layers::NON_MOVING;
 		case Layers::MOVING:
-			return true; // Moving collides with everything
+			return inObject2 != Layers::CHARACTER_ANCHOR;
 		default:
 			JPH_ASSERT(false);
 			return false;
@@ -109,7 +112,8 @@ private:
 	ObjectLayer mExcluded;
 };
 
-ExcludeObjectLayerFilter layerFilter(Layers::Sensors);
+
+ExcludeObjectLayerFilter layerFilter(Layers::Sensors); //?
 
 
 
@@ -123,6 +127,7 @@ public:
 		// Create a mapping table from object to broad phase layer
 		mObjectToBroadPhase[Layers::NON_MOVING] = BroadPhaseLayers::NON_MOVING;
 		mObjectToBroadPhase[Layers::Sensors] = BroadPhaseLayers::NON_MOVING;
+		mObjectToBroadPhase[Layers::CHARACTER_ANCHOR] = BroadPhaseLayers::NON_MOVING;
 		mObjectToBroadPhase[Layers::MOVING] = BroadPhaseLayers::MOVING;
 	}
 
@@ -165,6 +170,8 @@ public:
 			return inLayer2 == BroadPhaseLayers::MOVING;
 		case Layers::Sensors:
 			return inLayer2 == BroadPhaseLayers::MOVING;
+		case Layers::CHARACTER_ANCHOR:
+			return inLayer2 == BroadPhaseLayers::NON_MOVING;
 		case Layers::MOVING:
 			return true;
 		default:

@@ -66,6 +66,7 @@ namespace fs = std::filesystem;
 #include <Jolt/ObjectStream/ObjectStreamIn.h>
 #include <Jolt/ObjectStream/ObjectStreamOut.h>
 #include <Jolt/core/StreamWrapper.h>
+#include <Jolt/Physics/Collision/GroupFilterTable.h>
 
 #include <Jolt/Physics/Character/Character.h>
 #include <Jolt/Physics/Character/CharacterVirtual.h>

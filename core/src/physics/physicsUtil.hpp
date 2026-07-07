@@ -1,56 +1,55 @@
 #pragma once
 
+//TODO maybe move to components.hpp
+struct GroundInfo {
+    JPH::Vec3 groundPoint;
+    JPH::Vec3 groundNormal;
+    float distanceToGround = 999999.0f;
+    JPH::BodyID groundBodyID;
+    bool isGrounded = false;
+};
+
 namespace Utils::Phys {
 
-	struct GroundInfo {
-		JPH::Vec3 groundPoint;
-		JPH::Vec3 groundNormal;
-		float distanceToGround = 0.0f;
-		JPH::BodyID groundBodyID;
-        bool isGrounded = false;
-	};
-
-    GroundInfo CheckGround(PhysicsSystem& physicsSystem, JPH::Vec3 & entityPos, JPH::AABox & entityAABOX, JPH::Vec3 & entityExtent, BodyID physicsID) {
+    GroundInfo CheckGround(PhysicsSystem& physicsSystem,const JPH::Vec3& rayStart,const BodyFilter& filter) {
         GroundInfo info;
 
         BodyInterface& bodyInterface = physicsSystem.GetBodyInterface();
 
-        //JPH::Vec3 entityPos = bodyInterface.GetPosition(ent.physicsID);
-        //JPH::AABox entityAABOX = bodyInterface.GetTransformedShape(ent.physicsID).GetWorldSpaceBounds();
-        //JPH::Vec3 entityExtent = entityAABOX.GetExtent();
+        JPH::Vec3 rayDirection = JPH::Vec3(0, -1, 0);
+        float howFarToCheck = 10.0f;
 
-        // Cast from entity bottom
-        JPH::Vec3 rayStart = JPH::Vec3(entityPos.GetX(),
-            entityPos.GetY() - entityExtent.GetY() + 0.05f,
-            entityPos.GetZ());
-        JPH::Vec3 rayDirection = JPH::Vec3(0, +1, 0);
-        float maxGroundDistance = 0.3f; // Maximum distance to consider "grounded"
+        rayDirection *= howFarToCheck;
 
-
-        JPH::RRayCast ray(rayStart, rayDirection * maxGroundDistance);
+        JPH::RRayCast ray(rayStart, rayDirection);
         JPH::RayCastResult result;
 
-        const DefaultBroadPhaseLayerFilter default_broadphase_layer_filter = physicsSystem.GetDefaultBroadPhaseLayerFilter(1);
-        const BroadPhaseLayerFilter& broadphase_layer_filter = default_broadphase_layer_filter;
+        bool didHit = physicsSystem.GetNarrowPhaseQuery().CastRay(ray, result, {}, {}, filter);
 
-        const DefaultObjectLayerFilter default_object_layer_filter = physicsSystem.GetDefaultLayerFilter(Layers::MOVING);
-        const ObjectLayerFilter& object_layer_filter = default_object_layer_filter;
-
-        const IgnoreSingleBodyFilter default_body_filter(physicsID);
-        const BodyFilter& body_filter = default_body_filter;
-
-       // physicsSystem.GetNarrowPhaseQuery().CastRay(ray, result, broadphase_layer_filter, object_layer_filter, body_filter);
-
-        if (physicsSystem.GetNarrowPhaseQuery().CastRay(ray, result, broadphase_layer_filter, object_layer_filter, body_filter)) {
+        if (didHit) {
             info.groundPoint = ray.mOrigin + ray.mDirection * result.mFraction;
-           // info.groundNormal = result.mSurfaceNormal;
-            info.distanceToGround = result.mFraction * maxGroundDistance;
+            //info.groundNormal = result.mSurfaceNormal;
+            info.distanceToGround = result.mFraction * howFarToCheck;
             info.groundBodyID = result.mBodyID;
             info.isGrounded = info.distanceToGround <= 0.1f;
         }
 
+
+#ifdef JPH_DEBUG_RENDERER
+        if (didHit) {
+            JPH::RVec3 hitPosition = rayStart + result.mFraction * rayDirection;
+            JPH::DebugRenderer::sInstance->DrawLine(rayStart, hitPosition, JPH::Color::sGreen);
+            JPH::DebugRenderer::sInstance->DrawMarker(hitPosition, JPH::Color::sYellow, 0.1f);
+        }
+        else {
+            JPH::DebugRenderer::sInstance->DrawLine(rayStart, rayStart + rayDirection, JPH::Color::sRed);
+        }
+#endif
+
         return info;
     }
+
+
 
 
     bool isPlayerVisible(JPH::PhysicsSystem* physicsSystem,
@@ -100,6 +99,92 @@ namespace Utils::Phys {
         }
 
         return true; // Nothing in the way
+    }
+
+
+    void disableCollisions(BodyID bodyID1, BodyID bodyID2, BodyInterface& bi) {
+
+        // Disable collisions between Ragdoll and JoltCharacter
+        Ref<GroupFilterTable> filterTable = new GroupFilterTable(2);
+        filterTable->DisableCollision(0, 1);
+
+    
+        CollisionGroup ragdollCollisionGroup = bi.GetCollisionGroup(bodyID1);
+        ragdollCollisionGroup.SetGroupFilter(filterTable);
+        ragdollCollisionGroup.SetGroupID(1);
+        ragdollCollisionGroup.SetSubGroupID(0);
+        bi.SetCollisionGroup(bodyID1, ragdollCollisionGroup);
+
+        CollisionGroup characterCollisionGroup = bi.GetCollisionGroup(bodyID2);
+        characterCollisionGroup.SetGroupFilter(filterTable);
+        characterCollisionGroup.SetGroupID(1);
+        characterCollisionGroup.SetSubGroupID(1);
+        bi.SetCollisionGroup(bodyID2, characterCollisionGroup);
+
+    }
+
+
+
+    void buildRagdollFilter(JPH::Ragdoll* ragdoll,IgnoreMultipleBodiesFilter& filter) {
+
+        filter.Reserve(ragdoll->GetBodyCount());
+        for (JPH::BodyID id : ragdoll->GetBodyIDs()) {
+
+            filter.IgnoreBody(id);
+
+        }
+    }
+
+    float getHipsFromSolesDist(JPH::Ragdoll* ragdoll, JPH::Skeleton* skel, BodyInterface& bi) {
+        
+        //Find Jpint by name
+        auto findJoint = [&](const char* name) -> int {
+            for (int i = 0, n = (int)skel->GetJointCount(); i < n; ++i)
+                if (std::strcmp(skel->GetJoint(i).mName.c_str(), name) == 0) return i;
+            return -1;
+        };
+
+        int footL = findJoint("L_Foot_sjnt_0");
+        int footR = findJoint("R_Foot_sjnt_0");
+
+        skel->GetJoint(footL).mParentJointIndex;
+
+        float minSoleY = FLT_MAX;
+        for (int fi : { footL, footR }) {
+            if (fi < 0) continue;
+            JPH::BodyID footID = ragdoll->GetBodyID(fi);
+            JPH::AABox wb = bi.GetTransformedShape(footID).GetWorldSpaceBounds();
+            minSoleY = std::min(minSoleY, wb.mMin.GetY());
+        }
+
+        float hipComY = bi.GetPosition(ragdoll->GetBodyID(0)).GetY();
+
+        return hipComY - minSoleY;       
+    }
+
+    void MoveAndRotateRagdoll(JPH::Ragdoll* ragdoll, BodyInterface& bi, const JPH::Vec3& desiredPos, const JPH::Quat& desiredRot, const JPH::EActivation& activation) {
+
+        BodyID rootID = ragdoll->GetBodyID(0);
+        JPH::Vec3  currentRoot = bi.GetPosition(rootID);
+        RVec3  delta = desiredPos - currentRoot;
+        for (BodyID id : ragdoll->GetBodyIDs()) {
+            RVec3 p = bi.GetPosition(id);
+            Quat  q = bi.GetRotation(id);
+            bi.SetPositionAndRotation(id, p + delta,
+                desiredRot * q,
+                activation);
+        }
+    }
+
+    JPH::AABox getRagdollBoundingBox(JPH::Ragdoll* ragdoll, BodyInterface& bi) {
+        JPH::AABox boundingBox; // starts invalid: mMin = FLT_MAX, mMax = -FLT_MAX
+
+        for (JPH::BodyID id : ragdoll->GetBodyIDs()) {
+            JPH::AABox wb = bi.GetTransformedShape(id).GetWorldSpaceBounds();
+            boundingBox.Encapsulate(wb);
+        }
+
+        return boundingBox;
     }
 
 

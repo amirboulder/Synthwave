@@ -2,7 +2,7 @@
 #include "include/Frame_data.slang"
 
 [FillMode("FILL")]
-[CullMode("BACK")]
+[CullMode("NONE")]
 [FrontFace("COUNTER_CLOCKWISE")]
 [PrimitiveType("LINELIST")]
 [DepthCompareOp("LESS")]

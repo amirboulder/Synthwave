@@ -1057,11 +1057,11 @@ struct Renderer {
 			// Does not actually draw it just puts all render batches in vector so they can be drawn during a render pass
 			physicsSystem.DrawBodies(fisiksRenderer.drawSettings, &fisiksRenderer);
 
-			fisiksRenderer.createLineBatch();
-
 			//physicsSystem.DrawConstraints(&fisiksRenderer);
 			//physicsSystem.DrawConstraintLimits(&fisiksRenderer);
 			//physicsSystem.DrawConstraintReferenceFrame(&fisiksRenderer);
+
+			fisiksRenderer.createLineBatch();
 
 		});
 
