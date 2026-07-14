@@ -137,7 +137,7 @@ namespace Utils::Phys {
 
     float getHipsFromSolesDist(JPH::Ragdoll* ragdoll, JPH::Skeleton* skel, BodyInterface& bi) {
         
-        //Find Jpint by name
+        //Find joint by name
         auto findJoint = [&](const char* name) -> int {
             for (int i = 0, n = (int)skel->GetJointCount(); i < n; ++i)
                 if (std::strcmp(skel->GetJoint(i).mName.c_str(), name) == 0) return i;
@@ -160,6 +160,14 @@ namespace Utils::Phys {
         float hipComY = bi.GetPosition(ragdoll->GetBodyID(0)).GetY();
 
         return hipComY - minSoleY;       
+    }
+
+    uint32_t findJoint(JPH::Ragdoll* ragdoll, JPH::Skeleton* skel, std::string_view jointName) {
+
+        for (int i = 0, n = (int)skel->GetJointCount(); i < n; ++i)
+            if (std::strcmp(skel->GetJoint(i).mName.c_str(), jointName.data()) == 0) return i;
+        return -1;
+
     }
 
     void MoveAndRotateRagdoll(JPH::Ragdoll* ragdoll, BodyInterface& bi, const JPH::Vec3& desiredPos, const JPH::Quat& desiredRot, const JPH::EActivation& activation) {

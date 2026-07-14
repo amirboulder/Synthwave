@@ -1,8 +1,9 @@
 #pragma once
 
 
-void sensor1Behavior(flecs::world & ecs,flecs::entity self, flecs::entity other) {
+void LogOnContactAdded(
+	const ContactData& data) {
 
-	SDL_Log("Entity %s touched %s", self.name().c_str(), other.name().c_str());
+	SDL_Log("ContactAdded between %s and %s", data.self.name().c_str(), data.other.name().c_str());
 
 }

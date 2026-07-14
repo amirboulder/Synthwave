@@ -30,12 +30,6 @@ struct UserInput {
 };
 
 
-
-
-struct SensorBehavior {
-	std::function<void(flecs::world& ecs,flecs::entity self, flecs::entity other)> onContactAdded;
-};
-
 struct ActorBehavior {
 
 	std::function<void(flecs::world& ecs, flecs::entity self)> actorUpdate;

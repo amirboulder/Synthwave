@@ -898,7 +898,7 @@ public:
 	// create a static box shaped sensor
 	static bool createBoxSensorEntity(flecs::world& ecs, const flecs::entity parent, const std::string name,
 		Transform transform, JPH::Vec3Arg size,
-		std::function<void(flecs::world& ecs, flecs::entity self, flecs::entity other)> onContactAdded) {
+		contactAddedFunction onContactAdded) {
 
 		if (!EntityFactory::validateName(ecs, parent, name)) return false;
 		if (!EntityFactory::validateTransform(transform, name)) return false;
@@ -940,7 +940,7 @@ public:
 			.add<Sensor>()
 			.set<Transform>(transform)
 			.set<JPH::BodyID>(physicsID)
-			.emplace<SensorBehavior>(onContactAdded)
+			.set<ContactAddedBehavior>({ onContactAdded })
 			.child_of(parent);
 
 		if (!validateEntityCreation(entity, name)) return false;

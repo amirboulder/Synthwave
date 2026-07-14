@@ -362,7 +362,7 @@ public:
 
 		flecs::entity parentEnt = ecs.lookup(parentName.c_str(), ".");
 		JPH::Vec3 boxSensorSize = JPH::Vec3(15.0f, 15.0f, 15.0f);
-		if (!EntityFactory::createBoxSensorEntity(ecs, parentEnt, name, transform, boxSensorSize, sensor1Behavior)) {
+		if (!EntityFactory::createBoxSensorEntity(ecs, parentEnt, name, transform, boxSensorSize, LogOnContactAdded)) {
 			return false;
 		}
 

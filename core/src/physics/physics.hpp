@@ -37,6 +37,7 @@ namespace BroadPhaseLayers
 
 #include "debugRenderer.hpp"
 #include "ragdoll.hpp"
+#include "physicsComponents.hpp"
 
 #include "../ecs/components.hpp"
 
@@ -181,17 +182,20 @@ public:
 	}
 };
 
-// An example contact listener
+
 class MyContactListener : public ContactListener
 {
 public:
 
 	flecs::world& ecs;
 
+	std::mutex queueMutex;
+
+	std::queue<ContactData> contactAddedQueue;
 
 	MyContactListener(flecs::world& ecs)
 		:ecs(ecs)
-	{
+	{	
 
 	}
 
@@ -204,10 +208,9 @@ public:
 		return ValidateResult::AcceptAllContactsForThisBodyPair;
 	}
 
+	//Check if either body's entity has a ContactAddedBehavior function, if so add it to the queue
 	virtual void OnContactAdded(const Body& inBody1, const Body& inBody2, const ContactManifold& inManifold, ContactSettings& ioSettings) override
 	{
-
-		// If either body is sensor then call their SensorBehavior
 		flecs::entity e1(ecs, (flecs::entity_t)inBody1.GetUserData());
 		flecs::entity e2(ecs, (flecs::entity_t)inBody2.GetUserData());
 
@@ -215,17 +218,26 @@ public:
 			return;
 		}
 
-		if (e1.has<SensorBehavior>())
-		{
-			e1.get<SensorBehavior>().onContactAdded(ecs, e2, e1);
+		bool e1Has = e1.has<ContactAddedBehavior>();
+		bool e2Has = e2.has<ContactAddedBehavior>();
+
+		// If neither entity cares about this event, exit early without touching the lock
+		if (!e1Has && !e2Has) {
+			return;
 		}
 
-		if (e2.has<SensorBehavior>())
+		// Lock once for all pushes in this callback invocation
+		std::lock_guard<std::mutex> lock(queueMutex);
+
+		if (e1Has)
 		{
-			e2.get<SensorBehavior>().onContactAdded(ecs, e2, e1);
+			contactAddedQueue.push({ e1, e2, inBody1.GetID(), inBody2.GetID(), inManifold, ioSettings});
 		}
 
-
+		if (e2Has)
+		{
+			contactAddedQueue.push({ e2, e1, inBody2.GetID(), inBody1.GetID(), inManifold, ioSettings });
+		}
 	}
 
 	virtual void			OnContactPersisted(const Body& inBody1, const Body& inBody2, const ContactManifold& inManifold, ContactSettings& ioSettings) override
@@ -306,7 +318,7 @@ public:
 
 	flecs::world& ecs;
 
-	flecs::query<Transform, JPH::BodyID, DynamicEnt>q1;
+	//flecs::query<Transform, JPH::BodyID, DynamicEnt>q1;
 
 	flecs::system updateSys;
 	flecs::system syncSys;
@@ -397,7 +409,7 @@ public:
 		registerPhase();
 		registerSystems();
 
-		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, GOOD "FISIKS Initialized" RESET);
+		LogSuccess(LOG_PHYSICS, "FISIKS Initialized");
 	}
 
 
@@ -445,12 +457,27 @@ public:
 
 			physicsSystem.Update(timeStep, cCollisionSteps, temp_allocator, job_system);
 
+			drainContactsQueue();
+
 		});
 
 	}
 
+	void drainContactsQueue() {
 
-	//Sync system is part of the physicsPhase
+
+		while (!contact_listener.contactAddedQueue.empty()) {
+
+			const ContactData& contactData = contact_listener.contactAddedQueue.front();
+			contactData.self.get<ContactAddedBehavior>().onContactAdded(contactData);
+
+			contact_listener.contactAddedQueue.pop();
+		}
+
+		//TODO add a loop for contact persisted once we have that
+
+	}
+	
 	void syncSystem() {
 
 		syncSys = ecs.system<Transform, JPH::BodyID, DynamicEnt>("PhysicsSyncSys")
@@ -469,6 +496,7 @@ public:
 
 		});
 	}
+
 
 
 
