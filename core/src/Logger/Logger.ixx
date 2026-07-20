@@ -32,6 +32,19 @@ export typedef enum {
     LOG_ECS = SDL_LOG_CATEGORY_CUSTOM + 2,
 } LogCategory;
 
+
+export class Logger {
+
+public:
+
+    Logger() {
+
+       // SDL_SetLogPriority(LOG_APP, SDL_LOG_PRIORITY_INFO);
+
+    }
+
+};
+
 // Helper to format variadic args into a std::string
 static std::string FormatString(const char* fmt, va_list args) {
 	va_list copy;
