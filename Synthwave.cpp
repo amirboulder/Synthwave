@@ -8,7 +8,7 @@ int main(int argc, char* argv[])
 
 	Renderer renderer(ecs);
 
-	Fisiks fisiks(ecs);
+	Physics physics(ecs);
 
 	TransformPropagation transformPropagation(ecs);
 
@@ -17,7 +17,7 @@ int main(int argc, char* argv[])
 
 	MenuSystem menuSys(ecs);
 
-	TimeManager time(fisiks.timeStep);
+	TimeManager time(physics.timeStep);
 
 	Scene scene(ecs);
 
@@ -25,7 +25,7 @@ int main(int argc, char* argv[])
 
 	Editor editor(ecs);
 
-	StateManager stateManager(ecs, renderer, fisiks, serializer, menuSys, editor, time, scene, running);
+	StateManager stateManager(ecs, renderer, physics, serializer, menuSys, editor, time, scene, running);
 
 	InputManager inputManager(ecs);
 

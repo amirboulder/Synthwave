@@ -6,7 +6,7 @@
 #include "actorBehaviors.hpp"
 #include "hud.hpp"
 
-
+//This should be renamed to Something else as its basically connects Game Code to Engine Code.
 class Scene {
 
 public:
@@ -19,6 +19,7 @@ public:
 
 	flecs::system updateActorsSys;
 	flecs::system updatePlayerSys;
+	flecs::system callScriptsSys;
 
 	flecs::system drawVirtualCharacterPhysicsBodiesSys;
 
@@ -29,47 +30,16 @@ public:
 		registerPhases();
 		registerSystems();
 
-		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, GOOD "Scene Initialized" RESET);
+		LogSuccess(LOG_APP,"Scene Initialized" );
 	}
 
 	void registerSystems() {
 
 		updateActorsSystem();
 		updatePlayerSystem();
+		callContactScripts();
 		drawVirtualCharacterPhysicsBodies();
 	}
-
-
-	void LVL1Script(PhysicsSystem& physicsSystem, JPH::Vec3Arg playerPos) {
-
-		/*
-		float moveSpeed = 3;
-		BodyInterface& bodyInterface = physicsSystem.GetBodyInterface();
-
-		for (int i = 0; i < dynamicEnts.physicsComponents.size(); i++) {
-
-			JPH::Vec3 entityPos = bodyInterface.GetPosition(dynamicEnts.physicsComponents[i].bodyID);
-			JPH::Quat entityRot = bodyInterface.GetRotation(dynamicEnts.physicsComponents[i].bodyID);
-			JPH::Quat UprightRot = JPH::Quat(0, 0, 0, 1);
-
-			JPH::TransformedShape entityShape = bodyInterface.GetTransformedShape(dynamicEnts.physicsComponents[i].bodyID);
-			JPH::AABox entityAABOX = bodyInterface.GetTransformedShape(dynamicEnts.physicsComponents[i].bodyID).GetWorldSpaceBounds();
-			JPH::Vec3 entityExtent = entityAABOX.GetExtent();
-			FUtil::GroundInfo groundInfo = FUtil::CheckGround(physicsSystem, entityPos, entityAABOX, entityExtent, dynamicEnts.physicsComponents[i].bodyID);
-			//	if (groundInfo.isGrounded ) {
-			JPH::Vec3 direction(playerPos.GetX() - entityPos.GetX(), 0, playerPos.GetZ() - entityPos.GetZ());
-			if (direction.LengthSq() > 0.0f) {
-				direction = direction.Normalized();
-			}
-			JPH::Vec3 desiredVelocity = direction * moveSpeed;
-			bodyInterface.SetLinearVelocity(dynamicEnts.physicsComponents[i].bodyID, desiredVelocity);
-			bodyInterface.SetRotation(dynamicEnts.physicsComponents[i].bodyID, entityRot, JPH::EActivation::Activate);
-			//	}
-		}
-		*/
-
-	}
-
 
 	void updateActorsSystem() {
 
@@ -81,6 +51,22 @@ public:
 
 		});
 
+	}
+
+	void callContactScripts() {
+
+		callScriptsSys = ecs.system<ContactDataList>("callScriptsSys")
+			.kind(aiUpdatePhase)
+			.with<HasContactScript>(flecs::Wildcard)
+			.each([&](flecs::iter& it, size_t i, ContactDataList & contactDataList) {
+
+			ContactFunction& contactFunction = it.field_at<ContactFunction>(1, i);
+
+			std::vector<ContactData>& contacts = contactDataList.contacts;
+			for (size_t j = 0; j < contacts.size(); j++) {
+				contactFunction(contacts[j]);
+			}
+		});
 	}
 
 	void registerPhases() {

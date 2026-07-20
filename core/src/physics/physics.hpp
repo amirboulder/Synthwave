@@ -191,10 +191,12 @@ public:
 
 	std::mutex queueMutex;
 
-	std::queue<ContactData> contactAddedQueue;
+	std::queue<ContactData> contactQueue;
 
-	MyContactListener(flecs::world& ecs)
-		:ecs(ecs)
+	const bool& frameAlternator;
+
+	MyContactListener(flecs::world& ecs, const bool& frameAlternator)
+		:ecs(ecs), frameAlternator(frameAlternator)
 	{	
 
 	}
@@ -208,7 +210,7 @@ public:
 		return ValidateResult::AcceptAllContactsForThisBodyPair;
 	}
 
-	//Check if either body's entity has a ContactAddedBehavior function, if so add it to the queue
+	//Check if either body's entity has a ContactDataList if so queue up a ContactData to be added to it after physicsUpdate
 	virtual void OnContactAdded(const Body& inBody1, const Body& inBody2, const ContactManifold& inManifold, ContactSettings& ioSettings) override
 	{
 		flecs::entity e1(ecs, (flecs::entity_t)inBody1.GetUserData());
@@ -218,8 +220,84 @@ public:
 			return;
 		}
 
-		bool e1Has = e1.has<ContactAddedBehavior>();
-		bool e2Has = e2.has<ContactAddedBehavior>();
+		bool e1Has = e1.has<ContactDataList>();
+		bool e2Has = e2.has<ContactDataList>();
+
+		// If neither entity cares about this event, exit early without touching the lock
+		if (!e1Has && !e2Has) {
+			return;
+		}
+
+		//Calculate collision response
+		JPH::CollisionEstimationResult result;
+		JPH::EstimateCollisionResponse(inBody1, inBody2, inManifold, result, ioSettings.mCombinedFriction, ioSettings.mCombinedRestitution);
+
+		float impulse = 0.0f;
+		if (result.mImpulses.size() > 0)
+			impulse = result.mImpulses[0].mContactImpulse;
+
+		// Lock once for all pushes in this callback invocation
+		std::lock_guard<std::mutex> lock(queueMutex);
+
+		if (e1Has)
+		{
+
+			ContactData contactData = {
+				.self = e1,
+				.other = e2,
+				.selfBodyID = inBody1.GetID(),
+				.otherBodyID = inBody2.GetID(),
+				.baseOffset = inManifold.mBaseOffset,
+				.normal = inManifold.mWorldSpaceNormal,
+				.centroid = calculateContactCentroidPoint(inManifold, true),
+				.selfLinearVelocity = result.mLinearVelocity1,
+				.otherLinearVelocity = result.mLinearVelocity2,
+				.selfAngularVelocity = result.mAngularVelocity1,
+				.otherAngularVelocity = result.mAngularVelocity2,
+				.impulse = impulse,
+				.penetrationDepth = inManifold.mPenetrationDepth,
+				.phase = ContactPhase::Added,
+				.frameStamp = frameAlternator,
+			};
+
+			contactQueue.push(contactData);
+		}
+
+		if (e2Has)
+		{	
+			ContactData contactData = {
+				.self = e2,
+				.other = e1,
+				.selfBodyID = inBody2.GetID(),
+				.otherBodyID = inBody1.GetID(),
+				.baseOffset = inManifold.mBaseOffset,
+				.normal = -inManifold.mWorldSpaceNormal, // Negate the normal
+				.centroid = calculateContactCentroidPoint(inManifold, false),
+				.selfLinearVelocity = result.mLinearVelocity2,
+				.otherLinearVelocity = result.mLinearVelocity1,
+				.selfAngularVelocity = result.mAngularVelocity2,
+				.otherAngularVelocity = result.mAngularVelocity1,
+				.impulse = impulse,
+				.penetrationDepth = inManifold.mPenetrationDepth,
+				.phase = ContactPhase::Added,
+				.frameStamp = frameAlternator,
+			};
+
+			contactQueue.push(contactData);
+		}
+	}
+
+	virtual void			OnContactPersisted(const Body& inBody1, const Body& inBody2, const ContactManifold& inManifold, ContactSettings& ioSettings) override
+	{
+		flecs::entity e1(ecs, (flecs::entity_t)inBody1.GetUserData());
+		flecs::entity e2(ecs, (flecs::entity_t)inBody2.GetUserData());
+
+		if (!e1 || !e2) {
+			return;
+		}
+
+		bool e1Has = e1.has<ContactDataList>();
+		bool e2Has = e2.has<ContactDataList>();
 
 		// If neither entity cares about this event, exit early without touching the lock
 		if (!e1Has && !e2Has) {
@@ -231,24 +309,72 @@ public:
 
 		if (e1Has)
 		{
-			contactAddedQueue.push({ e1, e2, inBody1.GetID(), inBody2.GetID(), inManifold, ioSettings});
+			ContactData contactData = {
+				.self = e1,
+				.other = e2,
+				.selfBodyID = inBody1.GetID(),
+				.otherBodyID = inBody2.GetID(),
+				.baseOffset = inManifold.mBaseOffset,
+				.normal = inManifold.mWorldSpaceNormal,
+				.centroid = calculateContactCentroidPoint(inManifold, true),
+				.selfLinearVelocity = inBody1.GetLinearVelocity(), 
+				.otherLinearVelocity = inBody2.GetLinearVelocity(),
+				.selfAngularVelocity = inBody1.GetAngularVelocity(),
+				.otherAngularVelocity = inBody2.GetAngularVelocity(),
+				.impulse = 0.0f,
+				.penetrationDepth = inManifold.mPenetrationDepth,
+				.phase = ContactPhase::Persisted,
+				.frameStamp = frameAlternator,
+			};
+
+			contactQueue.push(contactData);
+
 		}
 
 		if (e2Has)
 		{
-			contactAddedQueue.push({ e2, e1, inBody2.GetID(), inBody1.GetID(), inManifold, ioSettings });
+			ContactData contactData = {
+				.self = e2,
+				.other = e1,
+				.selfBodyID = inBody2.GetID(),
+				.otherBodyID = inBody1.GetID(),
+				.baseOffset = inManifold.mBaseOffset,
+				.normal = -inManifold.mWorldSpaceNormal, // Negate the normal
+				.centroid = calculateContactCentroidPoint(inManifold, false),
+				.selfLinearVelocity = inBody2.GetLinearVelocity(), 
+				.otherLinearVelocity = inBody1.GetLinearVelocity(), 
+				.selfAngularVelocity = inBody2.GetAngularVelocity(),
+				.otherAngularVelocity = inBody1.GetAngularVelocity(),
+				.impulse = 0.0f,
+				.penetrationDepth = inManifold.mPenetrationDepth, 
+				.phase = ContactPhase::Persisted,
+				.frameStamp = frameAlternator,
+			};
+
+			contactQueue.push(contactData);
 		}
 	}
 
-	virtual void			OnContactPersisted(const Body& inBody1, const Body& inBody2, const ContactManifold& inManifold, ContactSettings& ioSettings) override
+	//Nothing to do here old contacts are removed from entitles by removeStaleContactsSys
+	virtual void			OnContactRemoved(const SubShapeIDPair& inSubShapePair) override {}
+
+
+	RVec3 calculateContactCentroidPoint(const ContactManifold& inManifold, bool bodyOne)
 	{
-		//cout << "A contact was persisted" << endl;
+		const ContactPoints& points = bodyOne ? inManifold.mRelativeContactPointsOn1: inManifold.mRelativeContactPointsOn2;
+
+		uint numPoints = points.size();
+		if (numPoints == 0)
+			return inManifold.mBaseOffset; 
+
+		Vec3 centroid = Vec3::sZero();
+		for (uint i = 0; i < numPoints; i++)
+			centroid += points[i];
+		centroid /= float(numPoints);
+
+		return inManifold.mBaseOffset + centroid; 
 	}
 
-	virtual void			OnContactRemoved(const SubShapeIDPair& inSubShapePair) override
-	{
-		//cout << "A contact was removed" << std::endl;
-	}
 };
 
 // An example activation listener
@@ -267,7 +393,7 @@ public:
 };
 
 
-class Fisiks {
+class Physics {
 
 public:
 
@@ -307,6 +433,10 @@ public:
 
 	const float timeStep = 1.0f / 60.0f;
 
+	// Alternates between true and false on everyPhysics step
+	//Used to remove ContactData from last frame
+	bool frameAlternator = true;
+
 	// We need a temp allocator for temporary allocations during the physics update. We're
 	// pre-allocating 10 MB to avoid having to do allocations during the physics update.
 	// B.t.w. 10 MB is way too much for this example but it is a typical value you can use.
@@ -318,19 +448,20 @@ public:
 
 	flecs::world& ecs;
 
-	//flecs::query<Transform, JPH::BodyID, DynamicEnt>q1;
-
 	flecs::system updateSys;
 	flecs::system syncSys;
+	flecs::system removeStaleContactsSys;
 
 	flecs::entity physicsPhase;
 
-	Fisiks(flecs::world& ecs)
+
+
+	Physics(flecs::world& ecs)
 		: broad_phase_layer_interface(),
 		object_vs_broadphase_layer_filter(),
 		object_vs_object_layer_filter(),
 		body_activation_listener(),
-		contact_listener(ecs),
+		contact_listener(ecs, frameAlternator),
 		physicsSystem(),
 		bodyInterface(physicsSystem.GetBodyInterface()),
 		ecs(ecs)
@@ -380,7 +511,7 @@ public:
 		// Note: This value is low because this is a simple test. For a real project use something in the order of 10240.
 		const uint cMaxContactConstraints = 1024;
 
-
+		
 		// Now we can initialize the actual physics system.
 		physicsSystem.Init(cMaxBodies, cNumBodyMutexes, cMaxBodyPairs, cMaxContactConstraints, broad_phase_layer_interface, object_vs_broadphase_layer_filter, object_vs_object_layer_filter);
 
@@ -409,7 +540,7 @@ public:
 		registerPhase();
 		registerSystems();
 
-		LogSuccess(LOG_PHYSICS, "FISIKS Initialized");
+		LogSuccess(LOG_PHYSICS, "Physics Initialized");
 	}
 
 
@@ -417,8 +548,8 @@ public:
 
 		//Creation order determines the order in which these systems run within a phase
 		updateSystem();
+		removeStaleContactsSystem();
 		syncSystem();
-
 
 	}
 
@@ -448,12 +579,14 @@ public:
 
 	}
 
-	// Update system is part of the physics phase
 	void updateSystem() {
 
 		updateSys = ecs.system("PhysicsUpdateSys")
 			.kind(physicsPhase)
+			.immediate()
 			.run([&](flecs::iter& it) {
+
+			frameAlternator = !frameAlternator;
 
 			physicsSystem.Update(timeStep, cCollisionSteps, temp_allocator, job_system);
 
@@ -465,16 +598,59 @@ public:
 
 	void drainContactsQueue() {
 
+		while (!contact_listener.contactQueue.empty()) {
 
-		while (!contact_listener.contactAddedQueue.empty()) {
+			const ContactData& contactData = contact_listener.contactQueue.front();
 
-			const ContactData& contactData = contact_listener.contactAddedQueue.front();
-			contactData.self.get<ContactAddedBehavior>().onContactAdded(contactData);
+			//Using get_mut without a try_get here because we already checked in contact Listener
+			std::vector<ContactData> & contacts = contactData.self.get_mut<ContactDataList>().contacts;
 
-			contact_listener.contactAddedQueue.pop();
+			bool updatedContact = false;
+			for (ContactData& currentContact : contacts) {
+
+				//Checking against bodyID because one Entity can have multiple physics bodies such as ragdolls.
+				if (currentContact.otherBodyID == contactData.otherBodyID && currentContact.selfBodyID == contactData.selfBodyID) {
+
+					currentContact = contactData;
+					updatedContact = true;
+					break;
+					
+				}
+			}
+
+			//If its a new contact then add it to the list
+			if (!updatedContact) {
+				contacts.emplace_back( contactData );
+			}
+
+			contact_listener.contactQueue.pop();
 		}
+	}
 
-		//TODO add a loop for contact persisted once we have that
+	
+	void removeStaleContactsSystem() {
+
+		removeStaleContactsSys = ecs.system<ContactDataList>("RemoveStaleContactsSys")
+			.kind(physicsPhase)
+			.each([&](flecs::entity ent , ContactDataList & contactDataList) {
+
+			std::vector<ContactData>& contacts = contactDataList.contacts;
+
+			for (size_t i = 0; i < contacts.size(); i++) {
+
+				//If frameStamp is different then its stale and remove it
+				if (contacts[i].frameStamp != frameAlternator) {
+
+					//Here we can check if the body just went to sleep somehow
+					// which would allow us to set it tp ContactPhase::Sleeping and keep track of it
+					//We can then add another check to skip removing sleeping Contact
+					//But for now we have no need of sleeping contacts
+
+					contacts.erase(contacts.begin() + i);
+					i--; // needed because After erase, the next item shifts into i and then i++ would skip it.
+				}
+			}
+		});
 
 	}
 	
@@ -500,7 +676,7 @@ public:
 
 
 
-	~Fisiks() {
+	~Physics() {
 
 		// Unregisters all types with the factory and cleans up the default material
 		UnregisterTypes();

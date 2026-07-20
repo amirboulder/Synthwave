@@ -23,7 +23,7 @@ public:
 	flecs::world& ecs;
 
 	Renderer& renderer;
-	Fisiks& fisiks;
+	Physics& physics;
 	Serializer& serde;
 	MenuSystem& menuSys;
 	Editor& editor;
@@ -36,8 +36,8 @@ public:
 
 	bool & running ;
 
-	StateManager(flecs::world& ecs,Renderer& renderer,Fisiks & fisiks,Serializer & serde ,MenuSystem & menuSys,Editor & editor ,TimeManager & time,Scene& scene ,bool& running)
-		: ecs(ecs), renderer(renderer),fisiks(fisiks), serde(serde), menuSys(menuSys), editor(editor), time(time), scene(scene), running(running)
+	StateManager(flecs::world& ecs,Renderer& renderer, Physics& physics,Serializer & serde ,MenuSystem & menuSys,Editor & editor ,TimeManager & time,Scene& scene ,bool& running)
+		: ecs(ecs), renderer(renderer), physics(physics), serde(serde), menuSys(menuSys), editor(editor), time(time), scene(scene), running(running)
 	{
 		registerHooks();
 
@@ -283,7 +283,7 @@ public:
 		ecs.set<GameLoadedState>({ GameLoadedState::Loaded });
 		ecs.set<CameraState>({ CameraState::PLAYER });
 
-		fisiks.physicsPhase.enable();
+		physics.physicsPhase.enable();
 		scene.aiUpdatePhase.enable();
 		scene.playerPhase.enable();
 
@@ -426,7 +426,7 @@ public:
 			switch (newState) {
 			case PlayState::PLAY:
 
-				fisiks.physicsPhase.enable();
+				physics.physicsPhase.enable();
 				scene.aiUpdatePhase.enable();
 				scene.playerPhase.enable();
 
@@ -437,7 +437,7 @@ public:
 				break;
 			case PlayState::PAUSE:
 
-				fisiks.physicsPhase.disable();
+				physics.physicsPhase.disable();
 				scene.aiUpdatePhase.disable();
 				scene.playerPhase.disable();
 				

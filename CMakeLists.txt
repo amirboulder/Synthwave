@@ -317,7 +317,7 @@ target_include_directories(Synthwave PRIVATE ${inih_SOURCE_DIR}/cpp)
 FetchContent_Declare(
     flecs
     GIT_REPOSITORY https://github.com/SanderMertens/flecs.git
-    GIT_TAG v4.1.5
+    GIT_TAG v4.1.6
 )
 
 set(FLECS_STATIC ON CACHE BOOL "" FORCE)
