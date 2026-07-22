@@ -1621,7 +1621,8 @@ public:
 	static bool validateRagdollExistence(const std::string key, const std::map<std::string, std::string>& ragdolls) {
 
 		if (!ragdolls.contains(key)) {
-			LogError(LOG_ECS, ERROR "Ragdoll list does not have the following key : %s" RESET, key.c_str());
+			LogError(LOG_ECS, "Ragdoll list does not have the following key : %s", key.c_str());
+			LogError(LOG_ECS, "Ragdoll list does not have the following key : %s", key.c_str());
 			return false;
 		}
 

@@ -55,8 +55,7 @@ public:
 
 		disableDefaultPhases();
 
-
-		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, GOOD "StateManager Initialized" RESET);
+		LogSuccess(LOG_APP, "StateManager Initialized");
 
 	}
 
@@ -287,7 +286,7 @@ public:
 		scene.aiUpdatePhase.enable();
 		scene.playerPhase.enable();
 
-		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,GOOD "🚀 Game started" RESET);
+		LogSuccess(LOG_APP, "🚀 Game started");
 	}
 
 
@@ -907,7 +906,7 @@ public:
 		ecs.defer_resume();
 
 		if (!success) {
-			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, ERROR "Failed to load game" RESET);
+			LogError(LOG_APP, "Failed to load game");
 			ecs.entity().set<UICommand>({ UICommandType::MainMenu });
 			return;
 		}

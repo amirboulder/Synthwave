@@ -545,7 +545,7 @@ namespace Scripts {
 
 			if (!physicsSystem.GetBodyInterface().IsActive(id)) {
 
-				cout << WARN "BODY IS NOT ACTIVE" << RESET "\n";
+				LogWarn(LOG_APP, "BODY IS NOT ACTIVE");
 				physicsSystem.GetBodyInterface().ActivateBody(id);
 			}
 		}
@@ -570,7 +570,7 @@ namespace Scripts {
 				//hinge->SetMotorState(EMotorState::Off);
 				direction = Direction::backward;
 			}
-			cout << WARN "Dir::forward" << RESET "\n";
+			LogWarn(LOG_APP, "Dir::forward");
 		}
 		else {
 			float targetAngle = max;
@@ -584,7 +584,7 @@ namespace Scripts {
 				direction = Direction::forward;
 
 			}
-			cout << WARN "Dir::backward" << RESET "\n";
+			LogWarn(LOG_APP, "Dir::backward");
 		}
 
 
