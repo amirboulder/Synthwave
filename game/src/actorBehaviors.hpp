@@ -1,8 +1,37 @@
 #pragma once
 
 #include "../../core/src/ecs/components.hpp"
+#include "../../core/src/Registery/registry.hpp"
 
 enum class Direction { forward, backward };
+
+/*
+struct GameModule {
+
+	GameModule(flecs::world& world) {
+		world.module<GameModule>("GameModule");
+	}
+};
+*/
+
+
+void RegisterPlayerSystems(flecs::world& ecs) {
+	
+	//ecs.component<EnemyState>()
+	//	.on_set([](EnemyState& newState) {
+	//	LogInfo(LOG_APP, "new State %s", magic_enum::enum_name(newState).data());
+	//});
+
+	/*ecs.component<EnemyState>()
+		.on_replace([](EnemyState& prev, EnemyState& next) {
+
+		LogInfo(LOG_APP, "%s replace with %s", magic_enum::enum_name(prev).data(), magic_enum::enum_name(next).data());
+	});*/
+
+
+}
+//REGISTER_GAME_MODULE(RegisterPlayerSystems)
+
 
 namespace Scripts {
 
@@ -214,6 +243,110 @@ namespace Scripts {
 
 	}
 
+	void updateSleep() {
+
+
+	}
+
+	//Let go of constraints
+	void OnEnterSleep(JPH::Ragdoll* ragdoll, JPH::SixDOFConstraint* hipConstraint) {
+
+		for (int i = 0; i < ragdoll->GetConstraintCount(); ++i)
+		{
+			TwoBodyConstraint* constraint = ragdoll->GetConstraint(i);
+			SwingTwistConstraint* st =
+				static_cast<SwingTwistConstraint*>(constraint);
+
+			st->SetSwingMotorState(JPH::EMotorState::Off);
+			st->SetTwistMotorState(JPH::EMotorState::Off);
+		}
+
+
+		for (int i = 0; i < 3; ++i)
+		{
+			/*auto axis = SixDOFConstraintSettings::EAxis(SixDOFConstraintSettings::EAxis::TranslationX + i);
+			hipConstraint->SetMotorState(axis, EMotorState::Off);*/
+
+			//hipConstraint->SetTranslationLimits(JPH::Vec3(-10.0f, -10.0f, -10.0f), JPH::Vec3(10.0f, 10.0f, 10.0f));
+
+			/*hipConstraint->SetRotationLimits(Vec3(-FLT_MAX, -FLT_MAX, -FLT_MAX),
+				Vec3(FLT_MAX, FLT_MAX, FLT_MAX));*/
+
+
+			auto axisRot = SixDOFConstraintSettings::EAxis(SixDOFConstraintSettings::EAxis::RotationX + i);
+			hipConstraint->SetMotorState(axisRot, EMotorState::Off);
+		}
+
+		//hipConstraint->SetEnabled(false);
+	}
+
+	void onExitSleep() {
+
+	}
+
+	void updateChase() {
+
+
+	}
+
+	void OnEnterChase(JPH::Ragdoll* ragdoll, JPH::SixDOFConstraint* hipConstraint) {
+
+		for (int i = 0; i < ragdoll->GetConstraintCount(); ++i)
+		{
+			TwoBodyConstraint* constraint = ragdoll->GetConstraint(i);
+			SwingTwistConstraint* st =
+				static_cast<SwingTwistConstraint*>(constraint);
+
+			st->SetSwingMotorState(JPH::EMotorState::Position);
+			st->SetTwistMotorState(JPH::EMotorState::Position);
+		}
+
+
+		for (int i = 0; i < 3; ++i)
+		{
+			auto axisRot = SixDOFConstraintSettings::EAxis(SixDOFConstraintSettings::EAxis::RotationX + i);
+			hipConstraint->SetMotorState(axisRot, EMotorState::Position);
+		}
+	}
+
+	void onExitChase() {
+
+	}
+
+	/*
+	void deathFunction(JPH::Ragdoll* ragdoll, JPH::SixDOFConstraint* hipConstraint) {
+
+		for (int i = 0; i < ragdoll->GetConstraintCount(); ++i)
+		{
+			TwoBodyConstraint* constraint = ragdoll->GetConstraint(i);
+			SwingTwistConstraint* st =
+				static_cast<SwingTwistConstraint*>(constraint);
+
+			st->SetSwingMotorState(JPH::EMotorState::Off);
+			st->SetTwistMotorState(JPH::EMotorState::Off);
+		}
+
+
+		for (int i = 0; i < 3; ++i)
+		{
+			/*auto axis = SixDOFConstraintSettings::EAxis(SixDOFConstraintSettings::EAxis::TranslationX + i);
+			hipConstraint->SetMotorState(axis, EMotorState::Off);*/
+
+			//hipConstraint->SetTranslationLimits(JPH::Vec3(-10.0f, -10.0f, -10.0f), JPH::Vec3(10.0f, 10.0f, 10.0f));
+
+			/*hipConstraint->SetRotationLimits(Vec3(-FLT_MAX, -FLT_MAX, -FLT_MAX),
+				Vec3(FLT_MAX, FLT_MAX, FLT_MAX));
+
+
+			auto axisRot = SixDOFConstraintSettings::EAxis(SixDOFConstraintSettings::EAxis::RotationX + i);
+			hipConstraint->SetMotorState(axisRot, EMotorState::Off);
+		}
+
+		//hipConstraint->SetEnabled(false);
+	}
+	*/
+
+
 	void updateRagdollMotor(flecs::world& ecs, flecs::entity self) {
 
 		JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
@@ -221,65 +354,90 @@ namespace Scripts {
 
 		JPH::Character* joltCharacter = self.get<JoltCharacter>().characterPtr;
 		JPH::Ragdoll* ragdoll = self.get<JoltRagdoll>().ragdollPtr;
+		JPH::SixDOFConstraint* hipConstraint = self.get_mut<PhysicsConstraint>().constraint;
 		JPH::SkeletalAnimation* animation = self.get<JoltAnimation>().animationPtr;
 		JPH::SkeletonPose& pose = self.get_mut<JoltPose>().pose;
+		const EnemyState& state = self.get<EnemyState>();
 
 		joltCharacter->PostSimulation(0.1f); // PostSimulation update must happen first
 
 		JPH::Vec3 characterPos = joltCharacter->GetPosition();
 		JPH::Quat characterRot = joltCharacter->GetRotation();
 
+		switch (state)
+		{
+			case EnemyState::SLEEP:
+			{
+				updateSleep();
+				break;
+			}
+			case EnemyState::SEARCH:
+			{
+				break;
+			}
+			case EnemyState::CHASE:
+			{
+				updateChase();
+				break;
+			}
+			case EnemyState::FIGHT:
+			{
+				break;
+			}
+			case EnemyState::DEAD:
+			{	
+				
+				return;
+			}
+			default:
+			{	
+				break;
+			}
+
+		}
+
+
 		float& animTime = self.get_mut<AnimationTime>().time;
+		float animDuration = animation->GetDuration();
 		float dt = ecs.delta_time();
 
 		// Advance animation time
 		animTime += dt;
 
 		// Loop animation if needed
-		float animDuration = animation->GetDuration();
-		if (animTime > animDuration) {
-			animTime = fmod(animTime, animDuration);
-			return;
+
+		if (animDuration > 0.0f) {
+			// Advance and wrap in a single operational pass
+			animTime = std::fmod(animTime + dt, animDuration);
 		}
 		// Position ragdoll
-		//animation->Sample(animTime, pose);
-		animation->Sample(0.0f, pose);
+		animation->Sample(animTime, pose);
 
-		//Place the root joint on the first body so that we draw the pose in the right place
+		// Keep the hip's authored body frame from the pose/physics. Overwriting with
+		// characterRot drives pose motors toward the upright capsule frame and leans.
 		RVec3 root_offset;
 		SkeletonPose::JointState& joint = pose.GetJoint(0);
+		joint.mTranslation = Vec3::sZero();
+		ragdoll->GetRootTransform(root_offset, joint.mRotation);
 
-		//joint.mTranslation = characterPos; // All the translation goes into the root offset
-		//ragdoll->GetRootTransform(root_offset, characterRot);
-		joint.mRotation = characterRot;
+		JPH::BodyID rootID = ragdoll->GetBodyID(0);
 
-		JPH::BodyID rootID =  ragdoll->GetBodyID(0);
-
-		//bi.SetPositionAndRotation(rootID, characterPos, characterRot, JPH::EActivation::Activate);
-		//bi.(rootID, characterPos, JPH::EActivation::Activate);
-
-
-		pose.SetRootOffset(characterPos);
+		pose.SetRootOffset(root_offset);
 		pose.CalculateJointMatrices();
 
-
-
 		ragdoll->DriveToPoseUsingMotors(pose);
-		JPH::SixDOFConstraint* hipConstraint = self.get_mut<PhysicsConstraint>().constraint;
 
-
-		
+		// Position-only hip anchor; rotation stays free (pose motors own orientation).
 		for (int i = 0; i < 3; ++i)
 		{
-			/*auto axis = SixDOFConstraintSettings::EAxis(SixDOFConstraintSettings::EAxis::TranslationX + i);
-			hipConstraint->SetMotorState(axis, EMotorState::Position);*/
+			auto axis = SixDOFConstraintSettings::EAxis(SixDOFConstraintSettings::EAxis::TranslationX + i);
+			hipConstraint->SetMotorState(axis, EMotorState::Position);
 
-			//auto axisRot = SixDOFConstraintSettings::EAxis(SixDOFConstraintSettings::EAxis::RotationX + i);
-			//hipConstraint->SetMotorState(axisRot, EMotorState::Position);
+			auto axisRot = SixDOFConstraintSettings::EAxis(SixDOFConstraintSettings::EAxis::RotationX + i);
+			hipConstraint->SetMotorState(axisRot, EMotorState::Off);
 		}
 		//hipConstraint->SetTargetPositionCS(Vec3::sZero());
-		//hipConstraint->SetTargetOrientationCS(JPH::Quat(0.0f, 1.0f, 0.0f, 0.0f));
-		
+		//hipConstraint->SetTargetOrientationCS(characterRot);
 
 
 #ifdef JPH_DEBUG_RENDERER
@@ -290,6 +448,99 @@ namespace Scripts {
 #endif
 
 	}
+
+	void RegisterRagdollHooks(flecs::world& ecs) {
+
+		//ecs.component<EnemyState>()
+		//	.on_set([](EnemyState& newState) {
+		//	LogInfo(LOG_APP, "new State %s", magic_enum::enum_name(newState).data());
+		//});
+
+		ecs.observer<EnemyState>("OnEnterNewEnemyState")
+			.event(flecs::OnSet)
+			.with<PhysicsConstraint>()
+			.with<JoltRagdoll>()
+			.each([](flecs::entity e, EnemyState state) {
+			
+			LogInfo(LOG_APP, "state is  %s", magic_enum::enum_name(state).data());
+
+		});
+
+		ecs.component<EnemyState>()
+			.on_replace([](flecs::entity ent, EnemyState& prev, EnemyState& next) {
+
+			if (!ent.has<JoltRagdoll>() || ent.has<PhysicsConstraint>()) {
+				return;
+			}
+
+			JPH::Ragdoll* ragdoll = ent.get<JoltRagdoll>().ragdollPtr;
+			JPH::SixDOFConstraint* hipConstraint = ent.get_mut<PhysicsConstraint>().constraint;
+
+			LogInfo(LOG_APP, "%s replace with %s", magic_enum::enum_name(prev).data(), magic_enum::enum_name(next).data());
+
+
+			switch (prev)
+			{
+			case EnemyState::SLEEP:
+				onExitSleep();
+				break;
+
+			case EnemyState::SEARCH:
+
+				break;
+
+			case EnemyState::CHASE:
+
+				onExitChase();
+				break;
+
+			case EnemyState::FIGHT:
+
+				break;
+
+			case EnemyState::DEAD:
+
+				return;
+
+			default:
+
+				break;
+			}
+
+
+			switch (next)
+			{
+			case EnemyState::SLEEP:
+				OnEnterSleep(ragdoll, hipConstraint);
+				break;
+
+			case EnemyState::SEARCH:
+
+				break;
+
+			case EnemyState::CHASE:
+
+				OnEnterChase(ragdoll, hipConstraint);
+				break;
+
+			case EnemyState::FIGHT:
+
+				break;
+
+			case EnemyState::DEAD:
+
+				return;
+
+			default:
+
+				break;
+			}
+
+		});
+
+
+	}
+	REGISTER_GAME_MODULE(RegisterRagdollHooks)
 
 
 	void updateRagdollForce(flecs::world& ecs, flecs::entity self) {
@@ -374,6 +625,50 @@ namespace Scripts {
 
 	}
 
+	void updateRagdollPD(flecs::world& ecs, flecs::entity self) {
+
+		JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
+		BodyInterface& bi = physicsSystem.GetBodyInterface();
+
+		JPH::Ragdoll* ragdoll = self.get<JoltRagdoll>().ragdollPtr;
+		JPH::SkeletalAnimation* animation = self.get<JoltAnimation>().animationPtr;
+		JPH::SkeletonPose& pose = self.get_mut<JoltPose>().pose;
+		JPH::Vec3& root_offset = self.get_mut<JoltPose>().root_offset;
+
+		float& animTime = self.get_mut<AnimationTime>().time;
+		float dt = ecs.delta_time();
+
+		// Advance animation time
+		animTime += dt;
+
+		// Loop animation if needed
+		float animDuration = animation->GetDuration();
+		if (animTime > animDuration) {
+			animTime = fmod(animTime, animDuration);
+			return;
+		}
+		// Position ragdoll
+		//animation->Sample(animTime, pose);
+		animation->Sample(0.0f, pose);
+
+
+		SkeletonPose::JointState& joint = pose.GetJoint(0);
+
+
+		JPH::BodyID rootID = ragdoll->GetBodyID(0);
+
+		pose.SetRootOffset(root_offset);
+		pose.CalculateJointMatrices();
+
+		ragdoll->DriveToPoseUsingMotors(pose);
+
+
+#ifdef JPH_DEBUG_RENDERER
+		pose.Draw({}, JPH::DebugRenderer::sInstance);
+#endif
+
+	}
+
 
 	void updateRagdollNoAnim(flecs::world& ecs, flecs::entity self) {
 
@@ -444,6 +739,7 @@ namespace Scripts {
 		pose.CalculateJointMatrices();
 
 
+
 #ifdef JPH_DEBUG_RENDERER
 		pose.Draw({}, JPH::DebugRenderer::sInstance);
 #endif // JPH_DEBUG_RENDERER
@@ -451,47 +747,6 @@ namespace Scripts {
 
 		ragdoll->DriveToPoseUsingKinematics(pose, dt, true);
 	}
-
-
-	void updateRagdollSetPose() {
-
-	}
-
-
-
-	/*
-	void ragdollUpdateDMS(flecs::world& ecs, flecs::entity self) {
-
-		JPH::Ragdoll* ragdoll = self.get<JoltRagdoll>().ragdollPtr;
-		JPH::SkeletalAnimation* animation = self.get<JoltAnimation>().animationPtr;
-		JPH::SkeletonPose* pose = self.get<JoltPose>().posePtr;
-
-		float& animTime = self.get_mut<AnimationTime>().time;
-
-		// Advance animation time
-		animTime += ecs.delta_time();
-
-		// Loop animation if needed
-		float animDuration = animation->GetDuration();
-		if (animTime > animDuration) {
-			animTime = fmod(animTime, animDuration);
-		}
-
-		// Position ragdoll
-		animation->Sample(animTime, *pose);
-		pose->CalculateJointMatrices();
-
-		//JPH::RagdollSettings ragSettings;
-		//motorSettings.mMaxTorqueLimit = 1000.0f; // Increase this
-
-		const JPH::RagdollSettings* ragSettings = ragdoll->GetRagdollSettings();
-
-
-		ragdoll->DriveToPoseUsingMotors(*pose);
-		//ragdoll->DriveToPoseUsingKinematics(*pose,1.0f/60.0f);
-
-	}
-	*/
 
 
 	void SnakeUpdate(flecs::world& ecs, flecs::entity self) {
@@ -593,7 +848,6 @@ namespace Scripts {
 		cout << "Hinge max : " << RadiansToDegrees(max) << "\n";
 		cout << "Motor State  : " << int(motorState) << "\n";
 		cout << "  " << "\n";
-
 
 	}
 

@@ -87,6 +87,8 @@ struct EditorUIComponent {};
 struct OverlayComponent {};
 struct Active{};
 
+struct HasScript {};
+
 /// <summary>
 /// A Tag attached to objects that should only be rendered in while editor is enabled.
 /// Used by renderer queries.
@@ -131,6 +133,7 @@ struct JoltRagdollFilter {
 
 struct JoltAnimation {
 	JPH::SkeletalAnimation* animationPtr = nullptr;
+	float animDuration = 0.0f;
 };
 
 struct JoltPose {
@@ -138,8 +141,15 @@ struct JoltPose {
 	JPH::Vec3 root_offset;
 };
 
+//TDO delete
 struct JoltPose2 {
 	JPH::SkeletonPose pose;
+	float hipsFromSoles = 0.0f;
+};
+
+
+struct BipedalRagdollData {
+
 	float hipsFromSoles = 0.0f;
 };
 
@@ -219,3 +229,31 @@ enum class EntityType {
 struct EntityTypeComponent {
 	EntityType type;
 };
+
+
+enum class EnemyState {
+
+	SLEEP, //UnAware the player exits Standing Pose
+	SEARCH, //Know the player exists but unaware of the location looks/walks around randomly
+	CHASE, //know player location and is running towards out of punching range
+	FIGHT, //Withing punching range of player engaging in combat
+	DISABLED, //The AI system for this robot is temporarily turned off
+	CRAWLING, //(MAYBE) The robots legs are blown of but it will still chase slowly using arms
+	PARALYSED, // The robot cannot chase but can still spot the player
+	DEAD, // Enough damage is taken to destroy the Robot
+
+};
+
+/*
+struct EnemyStates {
+
+	EnemyState current;
+	EnemyState previous;
+
+	void setState(flecs::entity ent, EnemyState newState) {
+		ent.set<EnemyStates>({ newState, current });
+	}
+};
+*/
+
+

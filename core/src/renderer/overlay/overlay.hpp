@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../UI/UITemplates.hpp"
 
 class Overlay {
 
@@ -7,6 +8,7 @@ class Overlay {
 
     flecs::query<ActorDebugInfo> actorDebugInfo;
     flecs::query<JoltRagdoll> ragdollquery;
+    flecs::query<EnemyState> enemyStateQuery;
 
 public:
 
@@ -46,6 +48,15 @@ public:
             .emplace<Draw>(drawFunction2)
             .add<OverlayComponent>();
 
+
+        std::function<void()> drawFunction3 =
+            [this]() {
+            this->stateController();
+        };
+
+        flecs::entity EnemyStateEntity = ecs.entity("EnemyState")
+            .emplace<Draw>(drawFunction3)
+            .add<OverlayComponent>();
     }
 
    //For now we can place it wherever
@@ -78,6 +89,9 @@ public:
             .build();
 
         ragdollquery = ecs.query_builder<JoltRagdoll>()
+            .build();
+
+        enemyStateQuery = ecs.query_builder<EnemyState>()
             .build();
     }
 
@@ -129,6 +143,29 @@ public:
         });
 
         ImGui::End();
+    }
+
+    void stateController() {
+
+        enemyStateQuery.each([&](flecs::entity entity, EnemyState & state) {
+
+            ImGui::NewLine();
+            ImGui::SeparatorText("--------------");
+
+            uint32_t entID = (uint32_t)entity.id();
+            std::string name = entity.name().c_str();
+
+            name.append(" State : ");
+
+            std::optional<EnemyState> newState = ImGui::EnumCombo(name.c_str(), &state);
+
+            if (newState.has_value()) {
+
+                entity.set<EnemyState>(newState.value());
+            }
+
+        });
+
 
     }
 

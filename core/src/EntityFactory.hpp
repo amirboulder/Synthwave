@@ -438,6 +438,7 @@ public:
 			.set<EntityTypeComponent>({ EntityType::Ragdoll })
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
+			.set<EnemyState>({ EnemyState::SLEEP})
 			.set<AnimationTime>({})
 			.emplace<ActorBehavior>(updateFunction)
 			.child_of(parent);
@@ -463,13 +464,12 @@ public:
 		mPose.SetSkeleton(ragdollSettings->GetSkeleton());
 		//mAnimation->Sample(0.0f, mPose); //Setting the pose to this makes it a valid pose
 
-
 		RVec3 desiredPos(transform.position.x, transform.position.y, transform.position.z);
 		Quat   desiredRot = Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
 
 		Utils::Phys::MoveAndRotateRagdoll(ragdoll, bi, desiredPos, desiredRot, JPH::EActivation::Activate);
+		float HipsFromSolesDist = Utils::Phys::getHipsFromSolesDist(ragdoll, ragdollSettings->GetSkeleton(), bi);
 
-		float HipsFromSolesDist =  Utils::Phys::getHipsFromSolesDist(ragdoll, ragdollSettings->GetSkeleton(), bi);
 
 		for (JPH::BodyID id : ragdoll->GetBodyIDs()) {
 			if (!validatePhysicsBodyCreation(id, name)) return false;
@@ -484,10 +484,15 @@ public:
 		float characterRadius = ((xExtent + zExtent) * 0.5f) * 0.5f;
 		float characterCylinderHalfHeight = std::max(0.01f, (totalHeight - characterRadius * 2.0f) * 0.5f);
 
+		float cylHalfHeight = HipsFromSolesDist - characterRadius;
+
+		Quat rootRot = bi.GetRotation(ragdoll->GetBodyID(0));
+		LogInfo(LOG_APP, "Hip Rotation COM : %f %f %f %f", rootRot.GetX(), rootRot.GetY(), rootRot.GetZ(), rootRot.GetW());
+
 		// Character settings
 		JPH::CharacterSettings characterSettings;
-		characterSettings.mShape = new CapsuleShape(characterCylinderHalfHeight, characterRadius);
-		characterSettings.mMass = 200.0f;
+		characterSettings.mShape = new CapsuleShape(cylHalfHeight, characterRadius);
+		characterSettings.mMass = 20.0f;
 		characterSettings.mMaxSlopeAngle = DegreesToRadians(20.0f); // Max walkable slope
 		characterSettings.mLayer = Layers::CHARACTER_ANCHOR;
 		characterSettings.mGravityFactor = 1;
@@ -517,45 +522,57 @@ public:
 		JPH::BodyID characterBodyID = joltCharacter->GetBodyID();
 		JPH::BodyID hipBodyID = ragdoll->GetBodyID(0);
 
+		// Hip anchor: spring hip COM to character COM. Leave rotation free so pose
+		// motors own hip orientation (hip body frame != upright capsule frame).
 		SixDOFConstraintSettings settings;
 		settings.mSpace = EConstraintSpace::LocalToBodyCOM;
-		settings.mPosition1 = Vec3::sZero(); // anchor point on the character body
-		settings.mPosition2 = Vec3::sZero();     // anchor point on the hip body (its COM)
+		settings.mPosition1 = Vec3::sZero(); // character COM
+		settings.mPosition2 = Vec3::sZero(); // hip COM
 
-		float maxHoldForce = 10000.0f;
+		float maxHoldForce = 1000000.0f;
 
+		float limXZ = 0.1f;
 
-		// Translation: motorized "position" spring so it follows the character but can be pushed off
+		settings.SetLimitedAxis(SixDOFConstraintSettings::EAxis::TranslationX, -limXZ, limXZ);
+		settings.mMotorSettings[SixDOFConstraintSettings::EAxis::TranslationX] = MotorSettings(2.0f, 1.0f);
+		settings.mMotorSettings[SixDOFConstraintSettings::EAxis::TranslationX].mMinForceLimit = -maxHoldForce;
+		settings.mMotorSettings[SixDOFConstraintSettings::EAxis::TranslationX].mMaxForceLimit = maxHoldForce;
 
-		SixDOFConstraintSettings::EAxis axisTX = SixDOFConstraintSettings::EAxis(SixDOFConstraintSettings::EAxis::TranslationX);
-		settings.SetLimitedAxis(axisTX, -1.0f, 1.0f); 
-		settings.mMotorSettings[axisTX] = MotorSettings(2.0f, 1.0f); 
-		settings.mMotorSettings[axisTX].mMinForceLimit = -maxHoldForce;
-		settings.mMotorSettings[axisTX].mMaxForceLimit = maxHoldForce; 
+		settings.SetLimitedAxis(SixDOFConstraintSettings::EAxis::TranslationY, -HipsFromSolesDist, HipsFromSolesDist );
+		settings.mMotorSettings[SixDOFConstraintSettings::EAxis::TranslationY] = MotorSettings(2.0f, 1.0f);
+		settings.mMotorSettings[SixDOFConstraintSettings::EAxis::TranslationY].mMinForceLimit = -maxHoldForce;
+		settings.mMotorSettings[SixDOFConstraintSettings::EAxis::TranslationY].mMaxForceLimit = maxHoldForce;
 
-		SixDOFConstraintSettings::EAxis axisTY = SixDOFConstraintSettings::EAxis(SixDOFConstraintSettings::EAxis::TranslationY);
-		settings.SetLimitedAxis(axisTY, -1.0f, 1.0f);
-		settings.mMotorSettings[axisTY] = MotorSettings(2.0f, 1.0f); 
-		settings.mMotorSettings[axisTY].mMinForceLimit = -maxHoldForce;
-		settings.mMotorSettings[axisTY].mMaxForceLimit = maxHoldForce; 
+		settings.SetLimitedAxis(SixDOFConstraintSettings::EAxis::TranslationZ, -limXZ, limXZ);
+		settings.mMotorSettings[SixDOFConstraintSettings::EAxis::TranslationZ] = MotorSettings(2.0f, 1.0f);
+		settings.mMotorSettings[SixDOFConstraintSettings::EAxis::TranslationZ].mMinForceLimit = -maxHoldForce;
+		settings.mMotorSettings[SixDOFConstraintSettings::EAxis::TranslationZ].mMaxForceLimit = maxHoldForce;
 
-		SixDOFConstraintSettings::EAxis axisTZ = SixDOFConstraintSettings::EAxis(SixDOFConstraintSettings::EAxis::TranslationZ);
-		settings.SetLimitedAxis(axisTZ, -1.0f, 1.0f);
-		settings.mMotorSettings[axisTZ] = MotorSettings(2.0f, 1.0f);
-		settings.mMotorSettings[axisTZ].mMinForceLimit = -maxHoldForce;
-		settings.mMotorSettings[axisTZ].mMaxForceLimit = maxHoldForce;
+		//setupTranslationAxis(SixDOFConstraintSettings::EAxis::TranslationX);
+		//setupTranslationAxis(SixDOFConstraintSettings::EAxis::TranslationY);
+		//setupTranslationAxis(SixDOFConstraintSettings::EAxis::TranslationZ);
 
+		settings.MakeFixedAxis(SixDOFConstraintSettings::EAxis::RotationX);
+		//settings.MakeFixedAxis(SixDOFConstraintSettings::EAxis::RotationY);
+		settings.MakeFixedAxis(SixDOFConstraintSettings::EAxis::RotationZ);
 
-		// Rotation
-		//SixDOFConstraintSettings::EAxis axisRX = SixDOFConstraintSettings::EAxis(SixDOFConstraintSettings::EAxis::RotationX);
-		//settings.SetLimitedAxis(axisRX, 0.0f, 0.0f);
-		//settings.mMotorSettings[axisRX] = MotorSettings(2.0f, 1.0f);
-		//settings.mMotorSettings[axisRX].mMinForceLimit = -maxHoldForce;
-		//settings.mMotorSettings[axisRX].mMaxForceLimit = maxHoldForce;
+		//settings.MakeFreeAxis(SixDOFConstraintSettings::EAxis::RotationX);
+		//settings.MakeFreeAxis(SixDOFConstraintSettings::EAxis::RotationY);
+		//settings.MakeFreeAxis(SixDOFConstraintSettings::EAxis::RotationZ);
 
-		settings.MakeFreeAxis(SixDOFConstraintSettings::EAxis(SixDOFConstraintSettings::EAxis::RotationX));
-		settings.MakeFreeAxis(SixDOFConstraintSettings::EAxis(SixDOFConstraintSettings::EAxis::RotationY));
-		settings.MakeFreeAxis(SixDOFConstraintSettings::EAxis(SixDOFConstraintSettings::EAxis::RotationZ));
+		/*
+		auto setupRotationAxis = [&](SixDOFConstraintSettings::EAxis axis) {
+			settings.SetLimitedAxis(axis, 0.0f, 0.0f);
+			settings.mMotorSettings[axis] = MotorSettings(2.0f, 1.0f);
+			settings.mMotorSettings[axis].mMinTorqueLimit = -maxHoldForce;
+			settings.mMotorSettings[axis].mMaxTorqueLimit = maxHoldForce;
+		};
+
+		setupRotationAxis(SixDOFConstraintSettings::EAxis::RotationX);
+		setupRotationAxis(SixDOFConstraintSettings::EAxis::RotationY);
+		setupRotationAxis(SixDOFConstraintSettings::EAxis::RotationZ);
+		*/
+
 
 		Ref<SixDOFConstraint> hipConstraint = dynamic_cast<SixDOFConstraint*>(bi.CreateConstraint(&settings, characterBodyID, hipBodyID));
 
@@ -607,6 +624,8 @@ public:
 
 		if (!validateEntityCreation(entity, name)) return false;
 
+
+
 		JPH::SkeletonPose mPose;
 
 		JPH::Ragdoll* ragdoll = ragdollSettings->CreateRagdoll(0, entity.id(), &physicsSystem);
@@ -653,6 +672,7 @@ public:
 		}
 
 		/////////////////////////////////////
+		// 	//TOOD extract this pattern
 		//Find the distance from hipToSoles
 		JPH::Skeleton* skel = ragdollSettings->GetSkeleton();
 		auto findJoint = [&](const char* name) -> int {
@@ -675,7 +695,7 @@ public:
 		float hipComY = desiredPos.GetY();                 // hip COM after the move
 		float hipsFromSoles = hipComY - minSoleY;          // > 0
 		
-		//TOOD extract this pattern
+	
 
 		IgnoreMultipleBodiesFilter* filter = new IgnoreMultipleBodiesFilter;
 
@@ -707,6 +727,123 @@ public:
 		entity.set<JoltPose2>({ mPose, hipsFromSoles });
 		entity.set<JoltAnimation>({ mAnimation });
 		//entity.set<JoltAnchorBody>({ anchorBodyID, hipConstraint });
+
+		return true;
+	}
+
+	//creates jolts Human.tof 
+	static bool createRagdollEntityPID(
+		flecs::world& ecs,
+		const flecs::entity parent,
+		const std::string name,
+		const Transform transform,
+		entUpdateFn updateFunction) {
+
+		if (!validateName(ecs, parent, name)) return false;
+		if (!validateTransform(transform, name.c_str())) return false;
+
+		JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
+		BodyInterface& bi = physicsSystem.GetBodyInterface();
+
+
+		constexpr float ragdollScale = 3.0f;
+
+		Ref<RagdollSettings> ragdollSettings =
+			RagdollLoader::load("assets/ragdolls/Human.tof", EMotionType::Dynamic, ragdollScale);
+
+		if (!ragdollSettings) {
+
+			LogError(LOG_PHYSICS, "ragdollSettings is null for entity %s", name.c_str());
+			return false;
+		}
+
+		const flecs::entity entity = ecs.entity(name.c_str())
+			.set<EntityTypeComponent>({ EntityType::Ragdoll })
+			.add<DynamicEnt>()
+			.set<Transform>(transform)
+			.set<AnimationTime>({})
+			.emplace<ActorBehavior>(updateFunction)
+			.child_of(parent);
+
+		if (!validateEntityCreation(entity, name)) return false;
+
+		JPH::SkeletonPose mPose;
+
+		JPH::Ragdoll* ragdoll = ragdollSettings->CreateRagdoll(0, entity.id(), &physicsSystem);
+		ragdoll->AddToPhysicsSystem(JPH::EActivation::Activate);
+		ragdoll->SetGroupID(static_cast<uint32>(entity.id()));
+
+		cout << "Ragdoll body count : " << ragdoll->GetBodyCount() << std::endl;
+		cout << "Ragdoll GetConstraintCount : " << ragdoll->GetConstraintCount() << std::endl;
+		cout << "GetSkeleton GetJointCount : " << ragdollSettings->GetSkeleton()->GetJointCount() << std::endl;
+
+		// Load animation (same scale as ragdoll so pose bone offsets match body positions)
+		JPH::SkeletalAnimation* mAnimation =
+			AnimationLoader::load("assets/ragdolls/neutral.tof", ragdollScale);
+		if (!mAnimation) {
+			LogError(LOG_PHYSICS, "failed loading animation for entity %s", name.c_str());
+			return false;
+		}
+
+		// Initialize pose
+		mPose.SetSkeleton(ragdollSettings->GetSkeleton());
+		mAnimation->Sample(0.0f, mPose); //Setting the pose to this makes it a valid pose
+		JPH::Vec3 rootOffset = mPose.GetRootOffset();
+
+
+
+		RVec3 desiredPos(transform.position.x, transform.position.y, transform.position.z);
+		Quat   desiredRot = Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
+
+		BodyID rootID = ragdoll->GetBodyID(0);
+		RVec3  currentRoot = bi.GetPosition(rootID);
+		RVec3  delta = desiredPos - currentRoot;
+		for (BodyID id : ragdoll->GetBodyIDs()) {
+			RVec3 p = bi.GetPosition(id);
+			Quat  q = bi.GetRotation(id);
+			bi.SetPositionAndRotation(id, p + delta,
+				desiredRot * q,
+				EActivation::Activate);
+		}
+
+		for (JPH::BodyID id : ragdoll->GetBodyIDs()) {
+
+			if (!validatePhysicsBodyCreation(id, name)) return false;
+
+		}
+
+		/////////////////////////////////////
+		//Find the distance from hipToSoles
+		JPH::Skeleton* skel = ragdollSettings->GetSkeleton();
+
+		int footL = Utils::Phys::findJoint(ragdoll, skel, "L_Foot_sjnt_0");
+		int footR = Utils::Phys::findJoint(ragdoll, skel, "R_Foot_sjnt_0");
+
+
+		float minSoleY = FLT_MAX;
+		for (int fi : { footL, footR }) {
+			if (fi < 0) continue;
+			JPH::BodyID footID = ragdoll->GetBodyID(fi);
+			JPH::AABox wb = bi.GetTransformedShape(footID).GetWorldSpaceBounds();
+			minSoleY = std::min(minSoleY, wb.mMin.GetY());
+		}
+
+		float hipComY = desiredPos.GetY();                 // hip COM after the move
+		float hipsFromSoles = hipComY - minSoleY;          // > 0
+
+		
+
+		IgnoreMultipleBodiesFilter* filter = new IgnoreMultipleBodiesFilter;
+
+		entity.set<JoltRagdollFilter>({ filter });
+		Utils::Phys::buildRagdollFilter(ragdoll, *filter);
+
+		JPH::BodyID hipID = ragdoll->GetBodyID(0);
+
+		entity.set<JoltRagdoll>({ ragdoll });
+
+		entity.set<JoltPose2>({ mPose, hipsFromSoles });
+		entity.set<JoltAnimation>({ mAnimation });
 
 		return true;
 	}

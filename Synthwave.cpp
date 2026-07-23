@@ -15,6 +15,8 @@ int main(int argc, char* argv[])
 	AssetLibrary assetLib(ecs);
 	AssetManager assetManager(ecs, assetLib.manifest);
 
+	Registrar registrar(ecs);
+
 	MenuSystem menuSys(ecs);
 
 	TimeManager time(physics.timeStep);

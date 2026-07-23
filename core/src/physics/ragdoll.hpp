@@ -9,6 +9,8 @@
 
 #include "AssetStream.hpp"
 
+#include "Biped.hpp"
+
 namespace JPH {
 	class RagdollSettings;
 	enum class EMotionType : uint8;
@@ -105,11 +107,13 @@ public:
 					st->mPosition1 *= scale;
 					st->mPosition2 *= scale;
 
-					st->mSwingMotorSettings.mMaxTorqueLimit = 50000.0f;
-					st->mSwingMotorSettings.mMinTorqueLimit = -50000.0f;
+					float MaxTorque = 5000000.0f;
 
-					st->mTwistMotorSettings.mMaxTorqueLimit = 50000.0f;
-					st->mTwistMotorSettings.mMinTorqueLimit = -50000.0f;
+					st->mSwingMotorSettings.mMaxTorqueLimit = MaxTorque;
+					st->mSwingMotorSettings.mMinTorqueLimit = -MaxTorque;
+
+					st->mTwistMotorSettings.mMaxTorqueLimit = MaxTorque;
+					st->mTwistMotorSettings.mMinTorqueLimit = -MaxTorque;
 				}
 			}
 		}

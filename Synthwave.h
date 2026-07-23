@@ -13,6 +13,10 @@ import ShaderCompiler;
 
 #include "core/src/physics/physics.hpp"
 
+#include "core/src/AI/AI.hpp"
+
+#include "core/src/Registery/registry.hpp"
+
 #include "core/src/InputSystem/InputManager.hpp"
 
 #include "core/src/time/timeManager.hpp"

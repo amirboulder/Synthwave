@@ -4,12 +4,13 @@ namespace ImGui
 {
     // Combo box — works for any enum, no boilerplate needed.
     template <typename EnumT>
-    bool EnumCombo(const char* label, EnumT* value)
+    std::optional<EnumT> EnumCombo(const char* label, EnumT* value)
     {
         static_assert(std::is_enum_v<EnumT>, "EnumCombo requires an enum type");
 
         constexpr auto entries = magic_enum::enum_entries<EnumT>();
         bool changed = false;
+        EnumT newValue;
 
         const char* previewName = magic_enum::enum_name(*value).data();
 
@@ -20,7 +21,7 @@ namespace ImGui
                 bool selected = (*value == enumValue);
                 if (ImGui::Selectable(name.data(), selected))
                 {
-                    *value = enumValue;
+                    newValue = enumValue;
                     changed = true;
                 }
                 if (selected)
@@ -28,7 +29,14 @@ namespace ImGui
             }
             ImGui::EndCombo();
         }
-        return changed;
+
+        if (changed) {
+            return newValue;
+        }
+        else {
+            return std::nullopt;
+        }
+   
     }
 
 
