@@ -34,7 +34,7 @@ public:
 
 		std::ofstream iniFile(filepath);
 		if (!iniFile) {
-			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to create INI file: %s", filepath.c_str());
+			LogError(LOG_APP, "Failed to create INI file: %s", filepath.c_str());
 		}
 
 		const RenderConfig& cfg = ecs.get<RenderConfig>();
@@ -48,7 +48,9 @@ public:
 		iniFile << "sampleCountMSAA=" << static_cast<int>(cfg.sampleCount) << "\n";
 		iniFile << "RendererPhysics=" << (cfg.RenderPhysics ? "true" : "false") << "\n";
 		iniFile << "DrawBoundingBoxPhysics=" << (cfg.DrawBoundingBoxPhysics ? "true" : "false") << "\n";
-		iniFile << "DrawShapeWireframePhysics=" << (cfg.DrawShapeWireframePhysics ? "true" : "false") << "\n\n";
+		iniFile << "DrawShapeWireframePhysics=" << (cfg.DrawShapeWireframePhysics ? "true" : "false") << "\n";
+		iniFile << "Colorspace=" << magic_enum::enum_name(cfg.colorspace) << "\n";
+		iniFile << "PresentMode=" << magic_enum::enum_name(cfg.presentMode) << "\n\n";
 
 		iniFile << "[camera]\n";
 		iniFile << "FreeCamPos=" << cfg.FreeCamPos.x << "," << cfg.FreeCamPos.y << "," << cfg.FreeCamPos.z << "\n";
@@ -64,7 +66,7 @@ public:
 
 		iniFile.close();
 
-		SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Renderer config saved to: %s", filepath.c_str());
+		LogInfo(LOG_APP, "Renderer config saved to: %s", filepath.c_str());
 
 	}
 
@@ -73,14 +75,14 @@ public:
 	static void loadRendererConfigINIFile(flecs::world& ecs,const std::string& filepath) {
 
 		if (!std::filesystem::exists(filepath)) {
-			SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "renderConfig file does not exist. Creating a new one");
+			LogInfo(LOG_APP, "renderConfig file does not exist. Creating a new one");
 			RenderConfig::saveRendererConfigINIFile(ecs,filepath);
 		}
 
 		INIReader reader(filepath);
 
 		if (reader.ParseError() < 0) {
-			SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to load file: %s loading using default settings", filepath.c_str());
+			LogError(LOG_APP, "Failed to load file: %s loading using default settings", filepath.c_str());
 			return;
 		}
 
@@ -94,6 +96,22 @@ public:
 		cfg.sampleCount = static_cast<SDL_GPUSampleCount>(
 			reader.GetInteger("renderer", "sampleCountMSAA", defaultCfg.sampleCount)
 			);
+
+
+		auto presentModeOptional = magic_enum::enum_cast<SDL_GPUPresentMode>(
+			reader.GetString("renderer", "PresentMode",
+				std::string(magic_enum::enum_name(defaultCfg.presentMode))));
+		if (presentModeOptional.has_value()) {
+			cfg.presentMode = presentModeOptional.value();
+		}
+
+		auto colorspaceOptional = magic_enum::enum_cast<SDL_GPUSwapchainComposition>(
+			reader.GetString("renderer", "Colorspace",
+				std::string(magic_enum::enum_name(defaultCfg.colorspace))));
+		if (colorspaceOptional.has_value()) {
+			cfg.colorspace = colorspaceOptional.value();
+		}
+
 
 		cfg.RenderPhysics = reader.GetBoolean("renderer", "RendererPhysics", defaultCfg.RenderPhysics);
 		cfg.DrawBoundingBoxPhysics = reader.GetBoolean("renderer", "DrawBoundingBoxPhysics", defaultCfg.DrawBoundingBoxPhysics);

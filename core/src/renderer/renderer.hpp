@@ -352,6 +352,7 @@ struct Renderer {
 		SDL_SetPointerProperty(props, SDL_PROP_GPU_DEVICE_CREATE_VULKAN_OPTIONS_POINTER, &vulkanProps);
 
 		RenderContext& renderContext = ecs.get_mut<RenderContext>();
+		RenderConfig& config = ecs.get_mut<RenderConfig>();
 
 		renderContext.device = SDL_CreateGPUDeviceWithProperties(props);
 		if (!renderContext.device)
@@ -369,10 +370,20 @@ struct Renderer {
 		//cleanup
 		SDL_DestroyProperties(props);
 
+
+		if (!SDL_WindowSupportsGPUPresentMode(renderContext.device, renderContext.window, config.presentMode)) {
+			LogWarn(LOG_RENDER, "PresentMode unsupported, falling back to VSYNC");
+			config.presentMode = SDL_GPU_PRESENTMODE_VSYNC;
+		}
+
 		// SDL_GPU_PRESENTMODE_IMMEDIATE for uncapped fps
 		// SDL_GPU_PRESENTMODE_VSYNC for VSYNC
-		SDL_SetGPUSwapchainParameters(renderContext.device, renderContext.window,
-			SDL_GPU_SWAPCHAINCOMPOSITION_SDR, SDL_GPU_PRESENTMODE_IMMEDIATE);
+		if (!SDL_SetGPUSwapchainParameters(renderContext.device, renderContext.window,
+			config.colorspace, config.presentMode)) {
+
+			LogError(LOG_RENDER, "SDL_SetGPUSwapchainParameters failed: %s", SDL_GetError());
+			return false;
+		}
 
 		LogInfo(LOG_RENDER, "created AndClaimed GPU Vulkan");
 

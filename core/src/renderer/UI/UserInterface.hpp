@@ -31,7 +31,7 @@ public:
         IMGUI_CHECKVERSION();
         ImGui::CreateContext();
         ImGuiIO& io = ImGui::GetIO(); (void)io;
-       // io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+        io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
         io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
         io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
         //io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
@@ -51,10 +51,12 @@ public:
         ImGui_ImplSDLGPU3_InitInfo init_info = {};
         init_info.Device = renderContext.device;
         init_info.ColorTargetFormat = SDL_GetGPUSwapchainTextureFormat(renderContext.device, renderContext.window);
-        //init_info.MSAASamples = config.sampleCountMSAA;                      // Only used in multi-viewports mode.
-        //init_info.SwapchainComposition = SDL_GPU_SWAPCHAINCOMPOSITION_SDR;  // Only used in multi-viewports mode.
+
+        //unwanted for now
+        //init_info.MSAASamples = config.sampleCount;                      // Only used in multi-viewports mode.
+        init_info.SwapchainComposition = config.colorspace;  // Only used in multi-viewports mode.
         // Only used in multi-viewports mode. this gets overwritten by RendererConfig when rendering in the same view port
-        //init_info.PresentMode = SDL_GPU_PRESENTMODE_VSYNC;  
+        init_info.PresentMode = config.presentMode;
 
 
         ImGui_ImplSDLGPU3_Init(&init_info);
@@ -174,11 +176,11 @@ public:
         SDL_EndGPURenderPass(renderPass);
 
         //Needeed for multiview ports
-        /* ImGuiIO& io = ImGui::GetIO();
+         ImGuiIO& io = ImGui::GetIO();
         if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
             ImGui::UpdatePlatformWindows();
             ImGui::RenderPlatformWindowsDefault();
-        }*/
+        }
 
     }
 };
