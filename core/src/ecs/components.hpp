@@ -133,7 +133,18 @@ struct JoltRagdollFilter {
 
 struct JoltAnimation {
 	JPH::SkeletalAnimation* animationPtr = nullptr;
-	float animDuration = 0.0f;
+};
+
+
+struct JoltAnimationList {
+
+	std::vector<std::pair<std::string, JPH::SkeletalAnimation*>> animations; 
+
+	JPH::SkeletalAnimation* find(const std::string& name) const {
+		for (auto& [n, a] : animations)
+			if (n == name) return a;
+		return nullptr;
+	}
 };
 
 struct JoltPose {
@@ -205,6 +216,7 @@ enum class EntityType {
 	Humanoid,
 	Ragdoll,
 	RagdollForce,
+	RagdollKinematic,
 	JoltRagdollExample,
 	RobotArm,
 	Snake,
@@ -234,13 +246,14 @@ struct EntityTypeComponent {
 enum class EnemyState {
 
 	SLEEP, //UnAware the player exits Standing Pose
+	IDLE,
 	SEARCH, //Know the player exists but unaware of the location looks/walks around randomly
 	CHASE, //know player location and is running towards out of punching range
 	FIGHT, //Withing punching range of player engaging in combat
 	DISABLED, //The AI system for this robot is temporarily turned off
 	CRAWLING, //(MAYBE) The robots legs are blown of but it will still chase slowly using arms
 	PARALYSED, // The robot cannot chase but can still spot the player
-	DEAD, // Enough damage is taken to destroy the Robot
+	CORPSE, // Enough damage is taken to destroy the Robot
 
 };
 

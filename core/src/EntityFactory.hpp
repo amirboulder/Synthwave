@@ -5,6 +5,7 @@
 //Maybe Use this everywhere
 using entUpdateFn = std::function<void(flecs::world&, flecs::entity)>;
 
+constexpr float ragdollScaleDefault = 3.0f;
 
 /// <summary>
 /// All member functions are static so other systems don't need to instantiate the class in order to use them.
@@ -420,14 +421,13 @@ public:
 		if (!validateName(ecs, parent, name)) return false;
 		if (!validateTransform(transform, name.c_str())) return false;
 
+		AssetManager* assetManager = ecs.get<AssetManagerRef>().assetManager;
+
 		JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
 		BodyInterface& bi = physicsSystem.GetBodyInterface();
 
-	
-		constexpr float ragdollScale = 3.0f;
-
 		Ref<RagdollSettings> ragdollSettings =
-			RagdollLoader::load("assets/ragdolls/Human.tof", EMotionType::Dynamic, ragdollScale);
+			RagdollLoader::load("assets/ragdolls/Human.tof", EMotionType::Dynamic, ragdollScaleDefault);
 
 		if (!ragdollSettings) {
 			LogError(LOG_PHYSICS, "ragdollSettings is null for entity %s", name.c_str());
@@ -438,7 +438,7 @@ public:
 			.set<EntityTypeComponent>({ EntityType::Ragdoll })
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
-			.set<EnemyState>({ EnemyState::SLEEP})
+			.set<EnemyState>({ EnemyState::IDLE})
 			.set<AnimationTime>({})
 			.emplace<ActorBehavior>(updateFunction)
 			.child_of(parent);
@@ -452,13 +452,28 @@ public:
 
 		JPH::AABox ragdollAABox = Utils::Phys::getRagdollBoundingBox(ragdoll, bi);
 
-		// Load animation (same scale as ragdoll so pose bone offsets match body positions)
-		JPH::SkeletalAnimation* mAnimation =
-			AnimationLoader::load("assets/ragdolls/neutral.tof", ragdollScale);
-		if (!mAnimation) {
+		JoltAnimationList animationList;
+
+		JPH::SkeletalAnimation* neutralAnimation = assetManager->requestAnimation("assets/ragdolls/neutral.tof", ragdollScaleDefault);
+		if (!neutralAnimation) {
 			LogError(LOG_PHYSICS, "failed loading animation for entity %s", name.c_str());
 			return false;
 		}
+		animationList.animations.emplace_back("idle", neutralAnimation);
+
+		JPH::SkeletalAnimation* sprintAnimation = assetManager->requestAnimation("assets/ragdolls/sprint.tof", ragdollScaleDefault);
+		if (!sprintAnimation) {
+			LogError(LOG_PHYSICS, "failed loading animation for entity %s", name.c_str());
+			return false;
+		}
+		animationList.animations.emplace_back("sprint", sprintAnimation);
+
+		JPH::SkeletalAnimation* walkAnimation = assetManager->requestAnimation("assets/ragdolls/walk.tof", ragdollScaleDefault);
+		if (!walkAnimation) {
+			LogError(LOG_PHYSICS, "failed loading animation for entity %s", name.c_str());
+			return false;
+		}
+		animationList.animations.emplace_back("walk", walkAnimation);
 
 		// Initialize pose
 		mPose.SetSkeleton(ragdollSettings->GetSkeleton());
@@ -486,13 +501,12 @@ public:
 
 		float cylHalfHeight = HipsFromSolesDist - characterRadius;
 
-		Quat rootRot = bi.GetRotation(ragdoll->GetBodyID(0));
-		LogInfo(LOG_APP, "Hip Rotation COM : %f %f %f %f", rootRot.GetX(), rootRot.GetY(), rootRot.GetZ(), rootRot.GetW());
 
 		// Character settings
 		JPH::CharacterSettings characterSettings;
 		characterSettings.mShape = new CapsuleShape(cylHalfHeight, characterRadius);
-		characterSettings.mMass = 20.0f;
+		characterSettings.mMass = 1.0f;
+		characterSettings.mFriction = 0.0f;
 		characterSettings.mMaxSlopeAngle = DegreesToRadians(20.0f); // Max walkable slope
 		characterSettings.mLayer = Layers::CHARACTER_ANCHOR;
 		characterSettings.mGravityFactor = 1;
@@ -548,30 +562,35 @@ public:
 		settings.mMotorSettings[SixDOFConstraintSettings::EAxis::TranslationZ].mMinForceLimit = -maxHoldForce;
 		settings.mMotorSettings[SixDOFConstraintSettings::EAxis::TranslationZ].mMaxForceLimit = maxHoldForce;
 
-		//setupTranslationAxis(SixDOFConstraintSettings::EAxis::TranslationX);
-		//setupTranslationAxis(SixDOFConstraintSettings::EAxis::TranslationY);
-		//setupTranslationAxis(SixDOFConstraintSettings::EAxis::TranslationZ);
 
 		settings.MakeFixedAxis(SixDOFConstraintSettings::EAxis::RotationX);
 		//settings.MakeFixedAxis(SixDOFConstraintSettings::EAxis::RotationY);
 		settings.MakeFixedAxis(SixDOFConstraintSettings::EAxis::RotationZ);
 
-		//settings.MakeFreeAxis(SixDOFConstraintSettings::EAxis::RotationX);
-		//settings.MakeFreeAxis(SixDOFConstraintSettings::EAxis::RotationY);
-		//settings.MakeFreeAxis(SixDOFConstraintSettings::EAxis::RotationZ);
+		/*settings.MakeFreeAxis(SixDOFConstraintSettings::EAxis::RotationX);
+		settings.MakeFreeAxis(SixDOFConstraintSettings::EAxis::RotationY);
+		settings.MakeFreeAxis(SixDOFConstraintSettings::EAxis::RotationZ);*/
 
-		/*
+		float maxHoldForceRotation = 100.0f;
+		
 		auto setupRotationAxis = [&](SixDOFConstraintSettings::EAxis axis) {
 			settings.SetLimitedAxis(axis, 0.0f, 0.0f);
 			settings.mMotorSettings[axis] = MotorSettings(2.0f, 1.0f);
-			settings.mMotorSettings[axis].mMinTorqueLimit = -maxHoldForce;
-			settings.mMotorSettings[axis].mMaxTorqueLimit = maxHoldForce;
+			settings.mMotorSettings[axis].mMinTorqueLimit = -maxHoldForceRotation;
+			settings.mMotorSettings[axis].mMaxTorqueLimit = maxHoldForceRotation;
 		};
 
-		setupRotationAxis(SixDOFConstraintSettings::EAxis::RotationX);
-		setupRotationAxis(SixDOFConstraintSettings::EAxis::RotationY);
-		setupRotationAxis(SixDOFConstraintSettings::EAxis::RotationZ);
-		*/
+		//setupRotationAxis(SixDOFConstraintSettings::EAxis::RotationX);
+		//setupRotationAxis(SixDOFConstraintSettings::EAxis::RotationY);
+		//setupRotationAxis(SixDOFConstraintSettings::EAxis::RotationZ);
+		
+
+		
+
+		IgnoreMultipleBodiesFilter* filter = new IgnoreMultipleBodiesFilter;
+
+		entity.set<JoltRagdollFilter>({ filter });
+		Utils::Phys::buildRagdollFilter(ragdoll, *filter);
 
 
 		Ref<SixDOFConstraint> hipConstraint = dynamic_cast<SixDOFConstraint*>(bi.CreateConstraint(&settings, characterBodyID, hipBodyID));
@@ -581,7 +600,8 @@ public:
 		entity.set<PhysicsConstraint>({ hipConstraint });
 		entity.set<JoltRagdoll>({ ragdoll });
 		entity.set<JoltPose>({ mPose });
-		entity.set<JoltAnimation>({ mAnimation });
+		entity.set<JoltAnimation>({ neutralAnimation }); //this can be relationship eventually once we want animation blending 
+		entity.set<JoltAnimationList>(std::move(animationList));
 		entity.set<JoltCharacter>({ joltCharacter });
 
 		return true;
@@ -603,10 +623,10 @@ public:
 		BodyInterface& bi = physicsSystem.GetBodyInterface();
 
 		
-		constexpr float ragdollScale = 3.0f;
+		
 
 		Ref<RagdollSettings> ragdollSettings =
-			RagdollLoader::load("assets/ragdolls/Human.tof", EMotionType::Dynamic, ragdollScale);
+			RagdollLoader::load("assets/ragdolls/Human.tof", EMotionType::Dynamic, ragdollScaleDefault);
 
 		if (!ragdollSettings) {
 
@@ -637,16 +657,17 @@ public:
 		cout << "GetSkeleton GetJointCount : " << ragdollSettings->GetSkeleton()->GetJointCount() << std::endl;
 
 		// Load animation (same scale as ragdoll so pose bone offsets match body positions)
-		JPH::SkeletalAnimation* mAnimation =
-			AnimationLoader::load("assets/ragdolls/neutral.tof", ragdollScale);
-		if (!mAnimation) {
+		JPH::SkeletalAnimation* neutralAnimation =
+			AnimationLoader::load("assets/ragdolls/neutral.tof", ragdollScaleDefault);
+		if (!neutralAnimation) {
 			LogError(LOG_PHYSICS, "failed loading animation for entity %s", name.c_str());
 			return false;
 		}
 
+
 		// Initialize pose
 		mPose.SetSkeleton(ragdollSettings->GetSkeleton());
-		mAnimation->Sample(0.0f, mPose); //Setting the pose to this makes it a valid pose
+		neutralAnimation->Sample(0.0f, mPose); //Setting the pose to this makes it a valid pose
 		JPH::Vec3 rootOffset = mPose.GetRootOffset();
 
 
@@ -725,7 +746,7 @@ public:
 		entity.set<JoltRagdoll>({ ragdoll});
 		
 		entity.set<JoltPose2>({ mPose, hipsFromSoles });
-		entity.set<JoltAnimation>({ mAnimation });
+		entity.set<JoltAnimation>({ neutralAnimation });
 		//entity.set<JoltAnchorBody>({ anchorBodyID, hipConstraint });
 
 		return true;
@@ -844,6 +865,90 @@ public:
 
 		entity.set<JoltPose2>({ mPose, hipsFromSoles });
 		entity.set<JoltAnimation>({ mAnimation });
+
+		return true;
+	}
+
+	static bool createRagdollEntityKinematic(flecs::world& ecs,
+		const flecs::entity parent,
+		const std::string name,
+		const Transform transform,
+		entUpdateFn updateFunction) {
+
+		if (!validateName(ecs, parent, name)) return false;
+		if (!validateTransform(transform, name.c_str())) return false;
+
+		AssetManager* assetManager = ecs.get<AssetManagerRef>().assetManager;
+
+		JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
+		BodyInterface& bi = physicsSystem.GetBodyInterface();
+
+		Ref<RagdollSettings> ragdollSettings =
+			RagdollLoader::load("assets/ragdolls/Human.tof", EMotionType::Kinematic, ragdollScaleDefault);
+
+		if (!ragdollSettings) {
+			LogError(LOG_PHYSICS, "ragdollSettings is null for entity %s", name.c_str());
+			return false;
+		}
+
+		const flecs::entity entity = ecs.entity(name.c_str())
+			.set<EntityTypeComponent>({ EntityType::Ragdoll })
+			.add<DynamicEnt>()
+			.set<Transform>(transform)
+			.set<AnimationTime>({})
+			.emplace<ActorBehavior>(updateFunction)
+			.child_of(parent);
+
+		if (!validateEntityCreation(entity, name)) return false;
+
+		JPH::SkeletonPose mPose;
+		JPH::Ragdoll* ragdoll = ragdollSettings->CreateRagdoll(0, entity.id(), &physicsSystem);
+		ragdoll->AddToPhysicsSystem(JPH::EActivation::Activate);
+		ragdoll->SetGroupID(static_cast<uint32>(entity.id()));
+
+		JPH::AABox ragdollAABox = Utils::Phys::getRagdollBoundingBox(ragdoll, bi);
+
+		JoltAnimationList animationList;
+
+		JPH::SkeletalAnimation* neutralAnimation = assetManager->requestAnimation("assets/ragdolls/neutral.tof", ragdollScaleDefault);
+		if (!neutralAnimation) {
+			LogError(LOG_PHYSICS, "failed loading animation for entity %s", name.c_str());
+			return false;
+		}
+		animationList.animations.emplace_back("idle", neutralAnimation);
+
+		JPH::SkeletalAnimation* sprintAnimation = assetManager->requestAnimation("assets/ragdolls/sprint.tof", ragdollScaleDefault);
+		if (!sprintAnimation) {
+			LogError(LOG_PHYSICS, "failed loading animation for entity %s", name.c_str());
+			return false;
+		}
+		animationList.animations.emplace_back("sprint", sprintAnimation);
+
+		JPH::SkeletalAnimation* walkAnimation = assetManager->requestAnimation("assets/ragdolls/walk.tof", ragdollScaleDefault);
+		if (!walkAnimation) {
+			LogError(LOG_PHYSICS, "failed loading animation for entity %s", name.c_str());
+			return false;
+		}
+		animationList.animations.emplace_back("walk", walkAnimation);
+
+		// Initialize pose
+		mPose.SetSkeleton(ragdollSettings->GetSkeleton());
+		//mAnimation->Sample(0.0f, mPose); //Setting the pose to this makes it a valid pose
+
+		RVec3 desiredPos(transform.position.x, transform.position.y, transform.position.z);
+		Quat   desiredRot = Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
+
+		Utils::Phys::MoveAndRotateRagdoll(ragdoll, bi, desiredPos, desiredRot, JPH::EActivation::Activate);
+		float HipsFromSolesDist = Utils::Phys::getHipsFromSolesDist(ragdoll, ragdollSettings->GetSkeleton(), bi);
+
+		for (JPH::BodyID id : ragdoll->GetBodyIDs()) {
+			if (!validatePhysicsBodyCreation(id, name)) return false;
+		}
+
+		entity.set<JoltRagdoll>({ ragdoll });
+		entity.set<JoltPose>({ mPose });
+		entity.set<JoltAnimation>({ walkAnimation }); //this can be relationship eventually once we want animation blending 
+		entity.set<JoltAnimationList>(std::move(animationList));
 
 		return true;
 	}

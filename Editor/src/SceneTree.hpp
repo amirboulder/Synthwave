@@ -396,6 +396,14 @@ public:
 
 						createTOFRagdollChild(ecs);
 						break;
+					case EntityType::RagdollKinematic:
+
+						EntityFactory::createRagdollEntityKinematic(ecs,
+							s_state.contextEntity,
+							s_state.childNameBuffer,
+							buildChildTransform(),
+							s_state.selectedUpdatefunc);
+						break;
 
 					case EntityType::RobotArm:
 						createRobotArmChild(ecs);
@@ -505,12 +513,6 @@ public:
 		EntityFactory::createGridEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, buildChildTransform(), 256);
 	}
 
-	//static void createStaticMeshChild(flecs::world& ecs) {
-	//	Transform mtnTransform;
-	//	mtnTransform.position = glm::vec3(0.0f, -40.0f, 0.0f);
-	//	mtnTransform.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
-	//	EntityFactory::createStaticMeshEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, mtnTransform, 12180758562205882676);
-	//}
 
 	static void createMountainChild(flecs::world& ecs) {
 		EntityFactory::createMTNEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, buildChildTransform());
@@ -565,6 +567,12 @@ public:
 			break;
 
 		case EntityType::RagdollForce:
+
+			//TODO move creation to under Game
+			isValid = drawRagdollUpdateOptions(ecs);
+			break;
+
+		case EntityType::RagdollKinematic:
 
 			//TODO move creation to under Game
 			isValid = drawRagdollUpdateOptions(ecs);

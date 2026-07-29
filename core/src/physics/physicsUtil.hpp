@@ -157,7 +157,7 @@ namespace Utils::Phys {
             minSoleY = std::min(minSoleY, wb.mMin.GetY());
         }
 
-        float hipComY = bi.GetPosition(ragdoll->GetBodyID(0)).GetY();
+        float hipComY = bi.GetCenterOfMassPosition(ragdoll->GetBodyID(0)).GetY();
 
         return hipComY - minSoleY;       
     }

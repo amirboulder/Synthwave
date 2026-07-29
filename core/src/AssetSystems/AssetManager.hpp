@@ -34,6 +34,8 @@ public:
 	std::unordered_map<uint64_t, MeshNode> meshNodes;
 	std::unordered_map<uint64_t, ModelData> models;
 
+	std::unordered_map<uint64_t, JPH::SkeletalAnimation*> physicsAnimations;
+
 	std::vector<SubMeshComponent> subMeshes;
 
 	std::unordered_map<uint64_t, uint32_t> materialIdToIndex; //Maps material Id to their index in materials Vector
@@ -454,6 +456,39 @@ public:
 
 			return textureIndex;
 		}
+
+	}
+
+
+
+	JPH::SkeletalAnimation* requestAnimation(const fs::path& path, float scale) {
+
+		//For now just hash it
+		//TODO create a proper loading mechanism through asset importer manifest
+		uint64_t id = util::generateAssetID(path.string());
+
+		auto it = physicsAnimations.find(id);
+
+		if (it != physicsAnimations.end()) {
+
+			return  it->second;
+		}
+		// If not in the map then load it
+		else {
+
+			// Load animation (same scale as ragdoll so pose bone offsets match body positions)
+			JPH::SkeletalAnimation* animation =
+				AnimationLoader::load(path.string().c_str(), scale);
+			if (!animation) {
+				LogError(LOG_PHYSICS, "failed loading Jolt animation animation %s", path.string().c_str());
+				return nullptr;
+			}
+
+			physicsAnimations.emplace(id, animation);
+			return animation;
+		}
+
+		
 	}
 
 

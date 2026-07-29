@@ -106,6 +106,21 @@ public:
 			hipConstraint->SetMotorState(axisRot, EMotorState::Position);
 		}
 	}
+
+
+	void calculateTotalMass(JPH::PhysicsSystem& physicsSystem) {
+
+		float total = 0.0f;
+		const BodyLockInterface& lockInterface = physicsSystem.GetBodyLockInterfaceNoLock();
+		for (BodyID id : ragdoll->GetBodyIDs()) {
+			BodyLockRead lock(lockInterface, id);
+			if (!lock.Succeeded()) continue;
+			float m = 1.0f / lock.GetBody().GetMotionProperties()->GetInverseMass();
+			total += m;
+			LogInfo(LOG_APP, "body %u mass %.2f kg", id.GetIndex(), m);
+		}
+		LogInfo(LOG_APP, "total ragdoll mass %.2f kg", total);
+	}
 };
 
 
@@ -150,7 +165,7 @@ public:
 			break;
 		case EnemyState::PARALYSED:
 			break;
-		case EnemyState::DEAD:
+		case EnemyState::CORPSE:
 			break;
 		default:
 			break;
@@ -181,7 +196,7 @@ public:
 			break;
 		case EnemyState::PARALYSED:
 			break;
-		case EnemyState::DEAD:
+		case EnemyState::CORPSE:
 			break;
 		default:
 			break;

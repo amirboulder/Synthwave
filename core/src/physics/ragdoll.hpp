@@ -40,6 +40,7 @@ class AnimationLoader {
 
 public:
 
+	//TODO this should take in a fs::path instead of const char *
 	static JPH::SkeletalAnimation* load(const char* inFileName, float scale = 1.0f)
 	{
 		JPH::SkeletalAnimation* animation = nullptr;
@@ -63,9 +64,10 @@ public:
 
 	// Loads a ragdoll from a .tof object stream and optionally applies a uniform
 	// runtime scale. Scaling multiplies each part's world position, wraps its
-	// collision shape in a ScaledShape (so mass auto-scales 8x for 2x at constant
-	// density), and scales the SwingTwist constraint pivot positions. Rotations,
-	// constraint axes, angles, density and motor settings are left untouched.
+	// collision shape in a ScaledShape, and scales the SwingTwist constraint pivot
+	// positions. Total mass is held at the unscaled value rather than following
+	// volume, so a scaled ragdoll weighs the same as it would at scale 1.
+	// Rotations, constraint axes and angles are left untouched.
 	static JPH::RagdollSettings* load(const char* inFileName, JPH::EMotionType inMotionType, float scale = 1.0f)
 	{
 		// Read the ragdoll
@@ -92,8 +94,19 @@ public:
 				// Wrap the collision shape so its dimensions scale uniformly.
 				// GetShape() realizes the deserialized ShapeSettings into a
 				// runtime Shape; ScaledShape applies the factor at collide/cast
-				// time. With constant density, mass scales with volume (8x @ 2x).
+				// time.
+				const float unscaledMass = p.GetMassProperties().mMass;
+
 				p.SetShape(new ScaledShape(p.GetShape(), Vec3::sReplicate(scale)));
+
+				// ScaledShape holds density constant, so mass would follow volume (27x
+				// at 3x). Pin each part back to its unscaled mass. CalculateInertia
+				// derives the tensor from the scaled geometry then rescales it to this
+				// mass, which is the correct inertia for a body of this mass at this
+				// size. Stabilize() below redistributes mass within a chain but
+				// preserves the chain total, so this survives it.
+				p.mOverrideMassProperties = EOverrideMassProperties::CalculateInertia;
+				p.mMassPropertiesOverride.mMass = unscaledMass;
 
 				// Scale the parent-constraint pivot positions (world space).
 				// SwingTwist is the only constraint subtype used by these ragdolls;
@@ -107,13 +120,14 @@ public:
 					st->mPosition1 *= scale;
 					st->mPosition2 *= scale;
 
+					/*
 					float MaxTorque = 5000000.0f;
-
 					st->mSwingMotorSettings.mMaxTorqueLimit = MaxTorque;
 					st->mSwingMotorSettings.mMinTorqueLimit = -MaxTorque;
-
 					st->mTwistMotorSettings.mMaxTorqueLimit = MaxTorque;
 					st->mTwistMotorSettings.mMinTorqueLimit = -MaxTorque;
+					*/
+
 				}
 			}
 		}
