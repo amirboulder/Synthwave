@@ -138,6 +138,9 @@ public:
 		// Stabilize the constraints of the ragdoll
 		ragdoll->Stabilize();
 
+
+		ragdoll->DisableParentChildCollisions();
+
 		ragdoll->CalculateConstraintPriorities();
 
 		// Calculate body <-> constraint map

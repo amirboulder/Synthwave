@@ -3,12 +3,29 @@
 
 #include "../common.hpp"
 
+enum class ControlMode {
+	KBM,
+	GAMEPAD
+};
+
+
+struct InputMap {
+
+	SDL_Scancode scanCode = SDL_SCANCODE_UNKNOWN;
+	SDL_GamepadButton gamepadButton = SDL_GAMEPAD_BUTTON_INVALID;
+	MouseButtons button = MouseButtons::BUTTON_INVALID;
+};
+
+struct InteractEvent {
+	uint8_t occurrenceCount;
+};
+
+
 struct MouseClickLeftEvent {
 
 	float x = 0;
 	float y = 0;
 };
-
 
 struct ExitEvent {
 	bool occurred = false;

@@ -182,10 +182,10 @@ namespace Scripts {
 
 		float t;
 		t = 1.0f - expf(-8.0f * deltaTime);
-		
+
 		JPH::Quat newRot = actorRot.SLERP(targetRot, t);
 		joltCharacter->SetRotation(newRot);
-		
+
 		//Move towards the player
 
 		float actorSpeed = 10.0f; //TODO parameterize this
@@ -207,7 +207,7 @@ namespace Scripts {
 
 		float dt = ecs.delta_time();
 
-		
+
 		// Advance animation time
 		animTime += dt;
 
@@ -220,7 +220,7 @@ namespace Scripts {
 		// Position ragdoll
 		//animation->Sample(animTime, pose);
 		animation->Sample(animTime, pose);
-		
+
 		//Place the root joint on the first body so that we draw the pose in the right place
 		RVec3 root_offset;
 		SkeletonPose::JointState& joint = pose.GetJoint(0);
@@ -283,7 +283,7 @@ namespace Scripts {
 
 	//TODO if we just want to disabled the constraint then maybe we don't need to cast it to sub_type.
 	void disableConstraint(JPH::Ragdoll* ragdoll, JPH::TwoBodyConstraint* constraint) {
-		
+
 		EConstraintSubType sub_type = constraint->GetSubType();
 
 		if (sub_type != EConstraintSubType::SixDOF) {
@@ -325,7 +325,7 @@ namespace Scripts {
 	}
 
 
-	void driveToPose(JPH::PhysicsSystem& physicsSystem, JPH::Ragdoll* ragdoll, JPH::SixDOFConstraint* hipConstraint,const JPH::Quat& characterRot, const JPH::SkeletalAnimation* animation, JPH::SkeletonPose& pose,float& animTime) {
+	void driveToPose(JPH::PhysicsSystem& physicsSystem, JPH::Ragdoll* ragdoll, JPH::SixDOFConstraint* hipConstraint, const JPH::Quat& characterRot, const JPH::SkeletalAnimation* animation, JPH::SkeletonPose& pose, float& animTime) {
 
 		float animDuration = animation->GetDuration();
 
@@ -364,54 +364,40 @@ namespace Scripts {
 
 	}
 
+	bool checkVisibility(
+		JPH::PhysicsSystem& physicsSystem,
+		const JPH::IgnoreSingleBodyFilterChained& bodyFilter,
+		float maxVisibilityRange,
+		JPH::Vec3 sourceEyePos,
+		JPH::Quat sourceRotation,
+		JPH::Vec3 targetPos,
+		JPH::BodyID srcBodyID,
+		JPH::BodyID targetBodyID) {
 
-	void rotateCharacterTowardsPlayer(JPH::PhysicsSystem& physicsSystem, JPH::IgnoreMultipleBodiesFilter* ragdollFilter, JPH::Character* joltCharacter, const Player& player) {
+		JPH::Vec3 sourceForward = sourceRotation.RotateAxisZ();
+		JPH::Vec3 toTarget = targetPos - sourceEyePos;
 
-		//get all the actor info
-		JPH::Vec3 actorPos = joltCharacter->GetPosition();
-		JPH::Quat actorRot = joltCharacter->GetRotation();
-		float actorEyeHeight = 1.3f;
-		JPH::Vec3 actorEyePos = actorPos + JPH::Vec3(0.0f, actorEyeHeight, 0.0f);
-		JPH::Vec3 actorForward = actorRot.RotateAxisZ();
+		float distanceToTarget = toTarget.Length();
 
-		JPH::Vec3 playerPos = player.position;
-		//float playerEyeHeight = 1.3f;
-		//JPH::Vec3 playerEyePos = actorPos + JPH::Vec3(0.0f, playerEyeHeight, 0.0f);
-
-		JPH::Vec3 toPlayer = playerPos - actorEyePos;
-
-		float distanceToPlayer = toPlayer.Length();
-		float maxVisibilityRange = 50.0f;
-
-		bool playerVisible = false;
-
-		//runs on function exit
-		//We want this code to run but don't want to repeat ourselves
-		//TODO fix
-		/*scope_exit sendVisibilityInfo([&]() {
-			self.set<ActorDebugInfo>({ playerVisible });
-		});*/
 
 		// Test 1. Distance
-		if (distanceToPlayer > maxVisibilityRange)
-			return;
+		if (distanceToTarget > maxVisibilityRange)
+			return false;
 
-		// Test 2. FOV check (Is the player within a 90-degree cone forward?)
-		JPH::Vec3 dirToPlayer = toPlayer / distanceToPlayer; // Normalized
-		float dotProduct = actorForward.Dot(dirToPlayer);
+		// Test 2. FOV check (Is the target within a 90-degree cone forward?)
+		JPH::Vec3 dirToTarget = toTarget / distanceToTarget; // Normalized
+		float dotProduct = sourceForward.Dot(dirToTarget);
 
 		// cos(45 degrees) is ~0.707. Higher dot product means closer to center of view cone.
-		if (dotProduct < 0.707f) //TODO parametrized this 
-			return;
+		if (dotProduct < 0.707f) //TODO parametrize this 
+			return false;
 
-		// unnormalized displacement vector 
-		JPH::Vec3 direction = dirToPlayer * maxVisibilityRange;
+		JPH::Vec3 direction = dirToTarget * maxVisibilityRange; // unnormalized displacement vector 
 
 		// Perform the raycast
 		//We are casting one ray should we cast more maybe 3 ?
-		JPH::RRayCast ray{ actorEyePos, direction };
+		JPH::RRayCast ray{ sourceEyePos, direction };
 		JPH::RayCastResult hit;
-		JPH::IgnoreSingleBodyFilterChained bodyFilter(joltCharacter->GetBodyID(), *ragdollFilter);
 
 
 		//Filter out sensors
@@ -423,41 +409,44 @@ namespace Scripts {
 		//If casting a ray then visualize it for debugging
 #ifdef JPH_DEBUG_RENDERER
 		if (didHit) {
-			JPH::RVec3 hitPosition = actorEyePos + hit.mFraction * direction;
-			JPH::DebugRenderer::sInstance->DrawLine(actorEyePos, hitPosition, JPH::Color::sGreen);
+			JPH::RVec3 hitPosition = sourceEyePos + hit.mFraction * direction;
+			JPH::DebugRenderer::sInstance->DrawLine(sourceEyePos, hitPosition, JPH::Color::sGreen);
 			JPH::DebugRenderer::sInstance->DrawMarker(hitPosition, JPH::Color::sYellow, 0.1f);
 		}
 		else {
-			JPH::DebugRenderer::sInstance->DrawLine(actorEyePos, actorEyePos + direction, JPH::Color::sRed);
+			JPH::DebugRenderer::sInstance->DrawLine(sourceEyePos, sourceEyePos + direction, JPH::Color::sRed);
 		}
 #endif
 
 		if (!didHit)
-			return;
+			return false;
 
-		if (hit.mBodyID == player.innerBodyID) {
-			playerVisible = true;
-		}
-		else {
-			return;
+		if (hit.mBodyID == targetBodyID) {
+			return true;
 		}
 
-		float deltaTime = 0.016666;;
+		return false;
+	}
 
+	//TODO parameterize this more
+	void rotateCharacterTowardsTarget(JPH::Character* joltCharacter, JPH::Quat currentRot, JPH::Vec3 dirToTarget) {
+
+		float deltaTime = 0.016666;//TODO Parameterize
 		//Turn towards the player
 		float turnSpeed = 1.0f;
-		JPH::Vec3 flatDir(dirToPlayer.GetX(), 0.0f, dirToPlayer.GetZ());
+		JPH::Vec3 flatDir(dirToTarget.GetX(), 0.0f, dirToTarget.GetZ());
 
 		JPH::Quat targetRot = targetRot = dirToQuat(flatDir);
 
 		float t;
 		t = 1.0f - expf(-8.0f * deltaTime);
 
-		JPH::Quat newRot = actorRot.SLERP(targetRot, t);
+		JPH::Quat newRot = currentRot.SLERP(targetRot, t);
 		joltCharacter->SetRotation(newRot);
-
-
 	}
+
+
+	
 
 
 	void switchAnimation(const JoltAnimationList& joltAnimationList, JoltAnimation& animation, const std::string& newAnimationName) {
@@ -490,8 +479,12 @@ namespace Scripts {
 
 	}
 
+	//Check Visibility
+	//IF visible then Transition to chase
+	//IF not visible then keep maintaining idle pose
 	void updateIdle(
 		JPH::PhysicsSystem& physicsSystem,
+		flecs::entity self,
 		JPH::SixDOFConstraint* hipConstraint,
 		const JPH::Quat& characterRot,
 		JPH::IgnoreMultipleBodiesFilter* ragdollFilter,
@@ -500,8 +493,38 @@ namespace Scripts {
 		JPH::SkeletalAnimation* animation,
 		JPH::SkeletonPose& pose,
 		float& animTime) {
+		
+		
+		JPH::Vec3 actorPos = joltCharacter->GetPosition();
+		JPH::Quat actorRot = joltCharacter->GetRotation();
+		float actorEyeHeight = 1.3f;
+		JPH::Vec3 actorEyePos = actorPos + JPH::Vec3(0.0f, actorEyeHeight, 0.0f);
 
-		rotateCharacterTowardsPlayer(physicsSystem, ragdollFilter, joltCharacter, player);
+
+		JPH::Vec3 playerPos = player.position;
+		JPH::Vec3 toPlayer = playerPos - actorEyePos;
+
+		float distanceToPlayer = toPlayer.Length();
+		float maxVisibilityRange = 50.0f; //TODO parameterize
+		JPH::Vec3 dirToPlayer = toPlayer / distanceToPlayer; // Normalized
+
+		JPH::IgnoreSingleBodyFilterChained bodyFilter(joltCharacter->GetBodyID(), *ragdollFilter);
+
+		if (checkVisibility(
+			physicsSystem,
+			bodyFilter,
+			maxVisibilityRange,
+			actorEyePos,
+			actorRot,
+			playerPos,
+			joltCharacter->GetBodyID(),
+			player.innerBodyID))
+		{
+			self.set<EnemyState>(EnemyState::CHASE);
+			return;
+		}
+
+		
 		driveToPose(physicsSystem, ragdoll, hipConstraint, characterRot, animation, pose, animTime);
 	}
 
@@ -517,6 +540,7 @@ namespace Scripts {
 
 	void updateChase(
 		JPH::PhysicsSystem& physicsSystem,
+		flecs::entity self,
 		JPH::SixDOFConstraint* hipConstraint,
 		const JPH::Quat& characterRot,
 		JPH::IgnoreMultipleBodiesFilter* ragdollFilter,
@@ -526,7 +550,42 @@ namespace Scripts {
 		JPH::SkeletonPose& pose,
 		float& animTime) {
 
-		rotateCharacterTowardsPlayer(physicsSystem, ragdollFilter, joltCharacter, player);
+		//Check Visibility
+		// IF visible then rotateTowards player and chase
+		//IF not visible then transition to 'ToLastKnownLocation'
+		
+		//get all the actor info
+		JPH::Vec3 actorPos = joltCharacter->GetPosition();
+		JPH::Quat actorRot = joltCharacter->GetRotation();
+		float actorEyeHeight = 1.3f;
+		JPH::Vec3 actorEyePos = actorPos + JPH::Vec3(0.0f, actorEyeHeight, 0.0f);
+
+
+		JPH::Vec3 playerPos = player.position;
+		JPH::Vec3 toPlayer = playerPos - actorEyePos;
+
+		float distanceToPlayer = toPlayer.Length();
+		float maxVisibilityRange = 50.0f; //TODO parameterize
+		JPH::Vec3 dirToPlayer = toPlayer / distanceToPlayer; // Normalized
+
+		JPH::IgnoreSingleBodyFilterChained bodyFilter(joltCharacter->GetBodyID(), *ragdollFilter);
+
+		if (!checkVisibility(
+			physicsSystem,
+			bodyFilter,
+			maxVisibilityRange,
+			actorEyePos,
+			actorRot,
+			playerPos,
+			joltCharacter->GetBodyID(),
+			player.innerBodyID))
+		{
+			self.set<EnemyState>(EnemyState::IDLE); 
+			return;
+		}
+
+		rotateCharacterTowardsTarget(joltCharacter, actorRot, dirToPlayer);
+
 		driveToPose(physicsSystem, ragdoll, hipConstraint, characterRot, animation, pose, animTime);
 
 	}
@@ -557,26 +616,31 @@ namespace Scripts {
 		JPH::SkeletalAnimation* animation = self.get<JoltAnimation>().animationPtr;
 		JPH::IgnoreMultipleBodiesFilter* ragdollFilter = self.get_mut<JoltRagdollFilter>().filter;
 		JPH::SkeletonPose& pose = self.get_mut<JoltPose>().pose;
-		const EnemyState& state = self.get<EnemyState>();
+		EnemyState& state = self.get_mut<EnemyState>();
 		float& animTime = self.get_mut<AnimationTime>().time;
 		const Player& player = ecs.get<PlayerRef>().value.get<Player>();
+		const std::vector<ContactData> & contactList = self.get<ContactDataList>().contacts;
 
 		joltCharacter->PostSimulation(0.1f); // PostSimulation update must happen first
 
 		JPH::Quat characterRot = joltCharacter->GetRotation();
 
-		
+		float totalImpulse = 0.0f;
+		for (const ContactData& contactData : contactList) {
+			totalImpulse += contactData.impulse;
+		}
+
+		LogInfo(LOG_APP, "Total Impulse for %s : %f", self.name().c_str(), totalImpulse);
 
 		switch (state)
 		{
 			case EnemyState::SLEEP:
 			{
-				//deathFunction(ragdoll, hipConstraint);
 				break;
 			}
 			case EnemyState::IDLE:
 			{
-				updateIdle(physicsSystem, hipConstraint, characterRot, ragdollFilter, joltCharacter, player, ragdoll, animation, pose, animTime);
+				updateIdle(physicsSystem, self, hipConstraint, characterRot, ragdollFilter, joltCharacter, player, ragdoll, animation, pose, animTime);
 				break;
 			}
 			case EnemyState::SEARCH:
@@ -585,7 +649,7 @@ namespace Scripts {
 			}
 			case EnemyState::CHASE:
 			{
-				updateChase(physicsSystem, hipConstraint, characterRot, ragdollFilter, joltCharacter, player, ragdoll, animation, pose, animTime);
+				updateChase(physicsSystem, self, hipConstraint, characterRot, ragdollFilter, joltCharacter, player, ragdoll, animation, pose, animTime);
 				break;
 			}
 			case EnemyState::FIGHT:
@@ -613,7 +677,7 @@ namespace Scripts {
 
 	}
 
-	void RegisterRagdollHooks(flecs::world& ecs) {
+	void RegisterRagdollObserver(flecs::world& ecs) {
 
 		ecs.observer<EnemyState, PhysicsConstraint, JoltRagdoll, JoltAnimation, JoltAnimationList>("OnEnterNewEnemyState")
 			.term_at(0).event(flecs::OnSet)
@@ -668,7 +732,7 @@ namespace Scripts {
 		});
 
 	}
-	REGISTER_GAME_MODULE(RegisterRagdollHooks)
+	REGISTER_GAME_MODULE(RegisterRagdollObserver)
 
 
 	void updateRagdollForce(flecs::world& ecs, flecs::entity self) {

@@ -441,6 +441,7 @@ public:
 			.set<EnemyState>({ EnemyState::IDLE})
 			.set<AnimationTime>({})
 			.emplace<ActorBehavior>(updateFunction)
+			.add<ContactDataList>()
 			.child_of(parent);
 
 		if (!validateEntityCreation(entity, name)) return false;

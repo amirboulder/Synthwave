@@ -30,7 +30,7 @@ public:
 		registerPhases();
 		registerSystems();
 
-		LogSuccess(LOG_APP,"Scene Initialized" );
+		LogSuccess(LOG_APP,"Scene Initialized");
 	}
 
 	void registerSystems() {

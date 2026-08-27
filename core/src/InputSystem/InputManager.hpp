@@ -5,6 +5,15 @@
 
 #include "../common.hpp"
 
+enum class MouseButtons {
+
+	BUTTON_INVALID,
+	BUTTON_LEFT,
+	BUTTON_RIGHT,
+	BUTTON_X1,
+	BUTTON_X2,
+};
+
 
 /// <summary>
 /// Processes input and emits events when appropriate.
@@ -28,9 +37,15 @@ public:
 
 	uint16_t closeWindowKey = SDL_SCANCODE_END;
 
-	uint16_t leftClickKey = SDL_BUTTON_LEFT;
-	uint16_t rightClickKey = SDL_BUTTON_LEFT;
+	uint16_t testGamePadButton = SDL_GAMEPAD_BUTTON_SOUTH;           /**< Bottom face button (e.g. Xbox A button) */
 
+	uint16_t leftClickKey = SDL_BUTTON_LEFT;
+	uint16_t rightClickKey = SDL_BUTTON_RIGHT;
+
+	//Maps the key/button to the Event that is mapped to it
+	std::vector<std::pair<SDL_Scancode, uint64_t>> keyboardMappings;
+	std::vector<std::pair<MouseButtons, uint64_t>> MouseMappings;
+	std::vector<std::pair<SDL_GamepadButton, uint64_t>> gamepadMappings;
 
 	InputManager(flecs::world& ecs)
 		: ecs(ecs)
@@ -69,12 +84,54 @@ public:
 		ecs.component<PrintSystemsEvent>().add(flecs::Singleton);
 		ecs.set<PrintSystemsEvent>({});
 
+		ecs.component<InteractEvent>().add(flecs::Singleton);
+		ecs.set<InteractEvent>({});
+
+		ecs.component<InteractEvent>().add(flecs::Singleton);
+		ecs.set<InteractEvent>({});
+		flecs::id_t id = ecs.id<InteractEvent>();
+		bindEventToKeyboard(SDL_SCANCODE_E, id);
+
 		LogSuccess(LOG_APP, "InputManager Initialized");
 	}
 
-	/// <summary>
-	/// Resolves input based on the current input device
-	/// </summary>
+
+	bool bindEventToKeyboard(SDL_Scancode key, uint64_t eventID) {
+
+		flecs::entity e = ecs.entity(eventID);
+		if (!e.is_valid()) {
+			LogError(LOG_APP, "Entity with ID %d is invalid cannot bind to key", eventID);
+			return false;
+		}
+
+		const char* eventName = e.name();
+
+		//If the key is already mapped then reassign it
+		for (std::pair<SDL_Scancode, uint64_t> & map : keyboardMappings) {
+
+			if (map.first == key) {
+				 
+				LogWarn(LOG_APP, " Key %s is already bound to event %s rebinding it!", magic_enum::enum_name(key), eventName);
+				map.second = eventID;
+			}
+		}
+
+		//If the Event is mapped to a Mouse button remove that mapping 
+		for (int i = 0; i < MouseMappings.size(); i++) {
+
+			std::pair<MouseButtons, uint64_t>& map = MouseMappings[i];
+
+			if (map.second == eventID) {
+
+				LogWarn(LOG_APP, "Event %s is already mapped to Mouse Button", eventName, magic_enum::enum_name(map.first));
+				MouseMappings.erase(MouseMappings.begin() + i);
+			}
+		}
+
+		//If not bound at all simply bind it
+		keyboardMappings.emplace_back(key, eventID);
+	}
+
 	void handleInput() {
 
 		//TODO implement switching based on InputDeviceState as well once we get there
@@ -107,6 +164,11 @@ public:
 		}
 
 		handleEditorEvents(event);
+	}
+
+	void handleEvents2(SDL_Event& event) {
+
+
 	}
 
 
@@ -237,7 +299,6 @@ public:
 		if (glm::length2(input.direction) > 0.0f) {
 			input.direction = glm::normalize(input.direction);
 		}
-
 
 		// Handle mouse input for rotation
 		float deltaX, deltaY;

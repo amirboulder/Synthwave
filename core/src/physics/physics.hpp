@@ -220,6 +220,11 @@ public:
 			return;
 		}
 
+		//// Lets not keep track of different phyiscs bodies contacts with each other (FOR NOW)
+		//if (e1 == e2) {
+		//	return;
+		//}
+
 		bool e1Has = e1.has<ContactDataList>();
 		bool e2Has = e2.has<ContactDataList>();
 
@@ -295,6 +300,11 @@ public:
 		if (!e1 || !e2) {
 			return;
 		}
+
+		// Lets not keep track of different phyiscs bodies contacts with each other (FOR NOW)
+	/*	if (e1 == e2) {
+			return;
+		}*/
 
 		bool e1Has = e1.has<ContactDataList>();
 		bool e2Has = e2.has<ContactDataList>();
