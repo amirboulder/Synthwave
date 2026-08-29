@@ -5,6 +5,8 @@ import ShaderCompiler;
 
 #include "core/src/pch.h"
 
+#include "core/src/ecs/components.hpp"
+
 #include "core/src/renderer/renderer.hpp"
 
 #include "core/src/TransformPropagation/TransformPropagation.hpp"
@@ -14,6 +16,8 @@ import ShaderCompiler;
 #include "core/src/physics/physics.hpp"
 
 #include "core/src/AI/AI.hpp"
+
+#include "core/src/EntityFactory.hpp"
 
 #include "core/src/Registery/registry.hpp"
 

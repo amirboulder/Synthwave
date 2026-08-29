@@ -1,6 +1,5 @@
 #pragma once
 
-#include "../ecs/components.hpp"
 #include "ProceduralMeshes.hpp"
 
 constexpr uint8_t numberOfLODs = 3;

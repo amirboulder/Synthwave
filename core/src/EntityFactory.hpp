@@ -2,6 +2,8 @@
 
 #include "../../core/src/AssetSystems/AssetLibrary.hpp"
 
+#include "player.hpp"
+
 //Maybe Use this everywhere
 using entUpdateFn = std::function<void(flecs::world&, flecs::entity)>;
 

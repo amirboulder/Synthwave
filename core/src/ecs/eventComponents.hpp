@@ -1,7 +1,7 @@
 #pragma once
 
 
-#include "../common.hpp"
+struct InteractEvent {
 
 enum class ControlMode {
 	KBM,

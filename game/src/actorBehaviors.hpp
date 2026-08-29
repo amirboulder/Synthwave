@@ -1,6 +1,5 @@
 #pragma once
 
-#include "../../core/src/ecs/components.hpp"
 #include "../../core/src/Registery/registry.hpp"
 
 enum class Direction { forward, backward };

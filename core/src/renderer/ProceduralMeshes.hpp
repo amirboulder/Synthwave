@@ -1,6 +1,5 @@
 #pragma once
 
-//#include "../ecs/components.hpp"
 
 namespace MeshGen {
 

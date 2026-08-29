@@ -1,9 +1,8 @@
 #pragma once
 
-#include "../ecs/components.hpp"
-#include "../ecs/eventComponents.hpp"
 
-#include "../common.hpp"
+
+
 
 enum class MouseButtons {
 

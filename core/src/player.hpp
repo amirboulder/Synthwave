@@ -1,6 +1,5 @@
 #pragma once 
 
-#include "renderer/Camera.hpp"
 
 
 //TODO create class PlayerContactListener : public JPH::CharacterContactListener 
@@ -43,7 +42,8 @@ public:
 	//how many pixel to rotate the camera
 	float offsetX = 0.0f;
 	float offsetY = 0.0f;
-
+	
+	uint32_t ballCounter = 0;
 
 	Player(flecs::world& ecs)
 		:ecs(ecs)
@@ -328,6 +328,24 @@ public:
 
 
 		camera.updateVectors();
+
+	}
+
+	void shootBall() {
+
+		InteractEvent& event = ecs.get_mut<InteractEvent>();
+
+		if (event.occurrenceCount > 0) {
+
+			std::string ballName = std::format("Ball {} ", ballCounter);
+			ballCounter++;
+
+			Transform ballTransform;
+
+			flecs::entity parent = ecs.get<PlayerRef>().value.parent();
+
+			//EntityFactory::createSphereEntity(ecs, parent, ballName, ballTransform);
+		}
 
 	}
 };

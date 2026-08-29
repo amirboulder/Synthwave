@@ -1,8 +1,6 @@
 #pragma once
 
 
-#include "../EntityFactory.hpp"
-
 #include "MenuFunctions.hpp"
 
 class MenuSystem {

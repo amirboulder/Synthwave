@@ -3,16 +3,8 @@
 #include "../renderer/renderer.hpp"
 #include"../renderer/RendererConfig.hpp"
 
-#include "../time/timeManager.hpp"
-
-#include "../MenuSystem/MenuSystem.hpp"
-
-#include "../../../Editor/src/editor.hpp"
-
 #include "../Serialization/serialization.hpp"
 
-#include "../common.hpp"
-#include "../ecs/eventComponents.hpp"
 
 //TODO separate all event based systems into their own class
 

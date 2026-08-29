@@ -39,8 +39,6 @@ namespace BroadPhaseLayers
 #include "ragdoll.hpp"
 #include "physicsComponents.hpp"
 
-#include "../ecs/components.hpp"
-
 
 #include "physicsUtil.hpp"
 
