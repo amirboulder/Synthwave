@@ -1,7 +1,20 @@
 #pragma once
 
+enum class ControlMode {
+	KBM,
+	GAMEPAD
+};
 
+enum class PollingMode : std::uint16_t {
+	DISCRETE,
+	CONTINUOUS,
+};
 
+enum class InputContext : std::uint16_t {
+	
+	MOVEMENT,
+	COMBAT,
+};
 
 
 enum class MouseButtons {
@@ -14,9 +27,29 @@ enum class MouseButtons {
 };
 
 
+
+struct KeyboardBinding {
+	SDL_Scancode key;
+	PollingMode pollingMode;
+	flecs::entity entity;
+};
+
+struct MouseBinding {
+	MouseButtons button;
+	PollingMode pollingMode;
+	flecs::entity entity;
+};
+
+struct GamepadBinding {
+	SDL_Scancode button;
+	PollingMode pollingMode;
+	flecs::entity entity;
+};
+
+
+
 /// <summary>
-/// Processes input and emits events when appropriate.
-/// This class is responsible for creating input components
+///
 /// </summary>
 class InputManager {
 
@@ -24,34 +57,32 @@ class InputManager {
 
 public:
 
-	//TODO Key mappings should be loaded from a config file.
-	uint16_t forwardKey = SDL_SCANCODE_W;
-	uint16_t leftKey = SDL_SCANCODE_A;
-	uint16_t rightKey = SDL_SCANCODE_D;
-	uint16_t backwardKey = SDL_SCANCODE_S;
+	SDL_Gamepad* gamepad;
+	SDL_Gamepad* gamepad2; //Unused
 
-	uint16_t jumpKey = SDL_SCANCODE_SPACE;
+	ControlMode controlMode = ControlMode::KBM;
 
 	uint16_t escapeMenuKey = SDL_SCANCODE_ESCAPE;
-
 	uint16_t closeWindowKey = SDL_SCANCODE_END;
-
 	uint16_t testGamePadButton = SDL_GAMEPAD_BUTTON_SOUTH;           /**< Bottom face button (e.g. Xbox A button) */
-
 	uint16_t leftClickKey = SDL_BUTTON_LEFT;
 	uint16_t rightClickKey = SDL_BUTTON_RIGHT;
 
-	//Maps the key/button to the Event that is mapped to it
-	std::vector<std::pair<SDL_Scancode, uint64_t>> keyboardMappings;
-	std::vector<std::pair<MouseButtons, uint64_t>> MouseMappings;
-	std::vector<std::pair<SDL_GamepadButton, uint64_t>> gamepadMappings;
+	flecs::entity inputPhase;
+	flecs::system clearInputSys;
+
+	std::vector<KeyboardBinding> keyboardBindings;
+	std::vector<MouseBinding> mouseBindings;
+	std::vector<GamepadBinding> gamepadBindings;
+
+	SDL_Event sdlEvent;
 
 	InputManager(flecs::world& ecs)
 		: ecs(ecs)
 	{
 
-		ecs.component<UserInput>().add(flecs::Singleton);
-		ecs.set<UserInput>({});
+		registerPhase();
+		registerSystems();
 
 		ecs.component<Direction>().add(flecs::Singleton);
 		ecs.set<Direction>({ Direction::forward });
@@ -59,84 +90,270 @@ public:
 		ecs.component<MouseClickLeftEvent>().add(flecs::Singleton);
 		//ecs.set<MouseClickEvent>({});
 
-		ecs.component<ExitEvent>().add(flecs::Singleton);
-		ecs.set<ExitEvent>({});
+		flecs::entity interactEventEnt = ecs.entity("InteractEvent")
+			.set<ActionState>({});
+		bindInputToKeyboard(SDL_SCANCODE_E, interactEventEnt, PollingMode::DISCRETE);
 
-		ecs.component<WindowLostFocusEvent>().add(flecs::Singleton);
-		ecs.set<WindowLostFocusEvent>({});
+		flecs::entity forwardMVMTEnt = ecs.entity("forwardMVMTEnt")
+			.set<ActionState>({});
+		bindInputToKeyboard(SDL_SCANCODE_W, forwardMVMTEnt, PollingMode::CONTINUOUS);
 
-		ecs.component<GamePauseEvent>().add(flecs::Singleton);
-		ecs.set<GamePauseEvent>({});
+		flecs::entity backwardMVMTEnt = ecs.entity("backwardMVMTEnt")
+			.set<ActionState>({});
+		bindInputToKeyboard(SDL_SCANCODE_S, backwardMVMTEnt, PollingMode::CONTINUOUS);
 
-		ecs.component<EditorToggleEvent>().add(flecs::Singleton);
-		ecs.set<EditorToggleEvent>({});
+		flecs::entity leftMVMTEnt = ecs.entity("leftMVMTEnt")
+			.set<ActionState>({});
+		bindInputToKeyboard(SDL_SCANCODE_A, leftMVMTEnt, PollingMode::CONTINUOUS);
 
-		ecs.component<CameraSwitchEvent>().add(flecs::Singleton);
-		ecs.set<CameraSwitchEvent>({});
+		flecs::entity rightMVMTEnt = ecs.entity("rightMVMTEnt")
+			.set<ActionState>({});
+		bindInputToKeyboard(SDL_SCANCODE_D, rightMVMTEnt, PollingMode::CONTINUOUS);
 
-		ecs.component<PhysicsRenderToggleEvent>().add(flecs::Singleton);
-		ecs.set<PhysicsRenderToggleEvent>({});
-		
-		ecs.component<SaveGameSrcEvent>().add(flecs::Singleton);
-		ecs.set<SaveGameSrcEvent>({});
+		flecs::entity jumpMVMTEnt = ecs.entity("jumpMVMTEnt")
+			.set<ActionState>({});
+		bindInputToKeyboard(SDL_SCANCODE_SPACE, jumpMVMTEnt, PollingMode::CONTINUOUS);
 
-		ecs.component<PrintSystemsEvent>().add(flecs::Singleton);
-		ecs.set<PrintSystemsEvent>({});
-
-		ecs.component<InteractEvent>().add(flecs::Singleton);
-		ecs.set<InteractEvent>({});
-
-		ecs.component<InteractEvent>().add(flecs::Singleton);
-		ecs.set<InteractEvent>({});
-		flecs::id_t id = ecs.id<InteractEvent>();
-		bindEventToKeyboard(SDL_SCANCODE_E, id);
+		ecs.component<MouseMovementState>().add(flecs::Singleton);
+		ecs.set<MouseMovementState>({});
 
 		LogSuccess(LOG_APP, "InputManager Initialized");
 	}
 
+	void registerPhase() {
 
-	bool bindEventToKeyboard(SDL_Scancode key, uint64_t eventID) {
+		// Each phase has its own dependency, it ensures that
+		// 1.phases can be disabled without affecting other phases (disabling is transitive in flecs)
+		// 2.Phases can run in the order we want regardless of creation order 
+		//PhaseDependencies depend on each other, that's handled in StateManager.RegisterPhaseDependencies()
+		// that way phases created earlier in initialization can depend on phases created after them
+		flecs::entity inputPhaseDependency = ecs.entity("InputPhaseDependency");
+		inputPhase = ecs.entity("InputPhase").add(flecs::Phase).depends_on(inputPhaseDependency);
 
-		flecs::entity e = ecs.entity(eventID);
-		if (!e.is_valid()) {
-			LogError(LOG_APP, "Entity with ID %d is invalid cannot bind to key", eventID);
-			return false;
+	}
+
+	void registerSystems() {
+
+		clearInputSystem();
+	}
+
+
+	/// <summary>
+	/// Handles all input
+	/// Note this runs for every draw ,
+	/// but acts as a latch meaning it it runs multiple times before an ecs.progress() it will accumulate input
+	/// meaning it will all be considered as a part of one frame until its cleared in clearInputSystem during flecs::post frame
+	/// </summary>
+	void accumulateInput() {
+
+		const float dt = ecs.get<DeltaTime>().dt;
+
+		while (SDL_PollEvent(&sdlEvent)) {
+
+			ImGui_ImplSDL3_ProcessEvent(&sdlEvent);
+			ImGuiIO& io = ImGui::GetIO();
+
+			// We handle quit and escape BEFORE yielding to ImGui,
+			// so escape can close the pause menu even when ImGui has focus
+			if (sdlEvent.type == SDL_EVENT_QUIT) {
+				ecs.set<ExitEvent>({ true });
+			}
+			if (sdlEvent.type == SDL_EVENT_KEY_DOWN && sdlEvent.key.repeat == 0
+				&& sdlEvent.key.scancode == escapeMenuKey) {
+				ecs.set<GamePauseEvent>({ true });
+			}
+
+			if (sdlEvent.type == SDL_EVENT_GAMEPAD_ADDED) {
+
+				if (gamepad != NULL) {
+					LogWarn(LOG_APP, "A gamepad is already connected, adding a new gamepad will override the old one fix this!!!");
+				}
+
+				gamepad = SDL_OpenGamepad(sdlEvent.gdevice.which);
+				SDL_GamepadType gamepadType = SDL_GetGamepadType(gamepad);
+				LogInfo(LOG_APP, "Gamepad %s added", magic_enum::enum_name(gamepadType).data());
+			}
+
+			if (sdlEvent.type == SDL_EVENT_GAMEPAD_REMOVED && SDL_GetGamepadID(gamepad) == sdlEvent.gdevice.which) {
+
+				SDL_GamepadType gamepadType = SDL_GetGamepadType(gamepad);
+				LogInfo(LOG_APP, "Gamepad %s removed", magic_enum::enum_name(gamepadType).data());
+
+				SDL_CloseGamepad(gamepad);
+				gamepad = NULL;
+			}
+
+			// The rest of the input is now gated
+			//If imgui want the input then it will go to it
+			if (io.WantTextInput || io.WantCaptureMouse) {
+				return;
+			}
+
+			if (sdlEvent.type == SDL_EVENT_MOUSE_BUTTON_DOWN
+				&& sdlEvent.button.button == leftClickKey) {
+				ecs.set<MouseClickLeftEvent>({ sdlEvent.button.x, sdlEvent.button.y });
+			}
+			handleEditorEvents(sdlEvent);
+
+
+
+			//Handle input Mode switch
+			if (sdlEvent.type == SDL_EVENT_KEY_DOWN || sdlEvent.type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
+
+				if (controlMode != ControlMode::KBM) {
+					controlMode = ControlMode::KBM;
+					LogInfo(LOG_APP, "Switched to KBM mode!");
+				}
+
+
+				handleInputKBM(sdlEvent, dt);
+			}
+			else if (sdlEvent.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN) {
+
+				//controlMode = ControlMode::KBM;
+				LogWarn(LOG_APP, "Switched to Gamepad mode NOT YET IMPLEMENTED!");
+			}
+
+
+
+
 		}
 
-		const char* eventName = e.name();
+		//check Continuous input
+		
+		pollInputKBM();
 
-		//If the key is already mapped then reassign it
-		for (std::pair<SDL_Scancode, uint64_t> & map : keyboardMappings) {
+	}
 
-			if (map.first == key) {
-				 
-				LogWarn(LOG_APP, " Key %s is already bound to event %s rebinding it!", magic_enum::enum_name(key), eventName);
-				map.second = eventID;
+	/// <summary>
+	///This happens last in the frame and sets up input state for the next frame
+	/// </summary>
+	void clearInputSystem() {
+
+		//Clear last frames input input
+		clearInputSys = ecs.system("ClearInputSys")
+			.kind(flecs::PostFrame)
+			.run([&](flecs::iter& it) {
+
+			for (KeyboardBinding& keyBinding : keyboardBindings) {
+
+				ActionState& state = keyBinding.entity.get_mut<ActionState>();
+
+				//TODO set the rest of ActionState data.
+				if (!state.occurred) {
+					state.heldTime = 0.0f;
+				}
+
+				state.occurred = false; //Setting occurred to false as we're beginning a new frame
+
+			}
+
+			//clear the accumulated mouse input
+			MouseMovementState& mouseMovement = ecs.get_mut<MouseMovementState>();
+			mouseMovement.deltaX = 0.0f;
+			mouseMovement.deltaY = 0.0f;
+
+		});
+
+	}
+
+	void handleInputKBM(SDL_Event& sdlEvent, const float dt) {
+
+
+		for (KeyboardBinding& keyBinding : keyboardBindings) {
+
+			if (keyBinding.pollingMode == PollingMode::CONTINUOUS) {
+				continue;
+			}
+
+			if (keyBinding.key == sdlEvent.key.scancode) {
+
+				ActionState& state = keyBinding.entity.get_mut<ActionState>();
+
+				//TODO set the rest of ActionState data. 	
+				if (!state.occurredLast) {
+					state.justPressed = true;
+				}
+
+				state.occurred = true;
+
+				state.heldTime += dt;
+			}
+		}
+	}
+
+	void pollInputKBM() {
+
+		const bool* keyStates = SDL_GetKeyboardState(NULL);
+
+		MouseMovementState& mouseMovement = ecs.get_mut<MouseMovementState>();
+
+		float deltaX, deltaY;
+		SDL_MouseButtonFlags mouseState = SDL_GetRelativeMouseState(&deltaX, &deltaY);
+
+		//Accumulate mouse movement because we handle input more often
+		mouseMovement.deltaX += deltaX;
+		mouseMovement.deltaY += deltaY;
+
+		for (KeyboardBinding keyBinding : keyboardBindings) {
+
+			if (keyBinding.pollingMode == PollingMode::DISCRETE) {
+				continue;
+			}
+
+			if (keyStates[keyBinding.key]) {
+
+				ActionState& state = keyBinding.entity.get_mut<ActionState>();
+				state.occurred = true;
 			}
 		}
 
+		for (MouseBinding mouseBinding : mouseBindings) {
+
+			if (mouseBinding.pollingMode == PollingMode::DISCRETE) {
+				continue;
+			}
+
+			if (mouseState & SDL_BUTTON_MASK(static_cast<int>(mouseBinding.button))) {
+
+				ActionState& state = mouseBinding.entity.get_mut<ActionState>();
+				state.occurred = true;
+			}
+		}
+	}
+
+	bool bindInputToKeyboard(SDL_Scancode key, flecs::entity entity, PollingMode pollingMode) {
+
 		//If the Event is mapped to a Mouse button remove that mapping 
-		for (int i = 0; i < MouseMappings.size(); i++) {
+		for (int i = 0; i < mouseBindings.size(); i++) {
 
-			std::pair<MouseButtons, uint64_t>& map = MouseMappings[i];
+			MouseBinding mouseBinding = mouseBindings[i];
 
-			if (map.second == eventID) {
+			if (mouseBinding.entity == entity) {
 
-				LogWarn(LOG_APP, "Event %s is already mapped to Mouse Button", eventName, magic_enum::enum_name(map.first));
-				MouseMappings.erase(MouseMappings.begin() + i);
+				LogWarn(LOG_INPUT, "Event %s is already mapped to Mouse Button %s removing it", entity.name().c_str(), magic_enum::enum_name(mouseBinding.button));
+				mouseBindings.erase(mouseBindings.begin() + i);
+				break;
+			}
+		}
+
+		//If the key is already mapped then reassign it
+		for (KeyboardBinding& keyBinding : keyboardBindings) {
+
+			if (keyBinding.key == key) {
+
+				LogWarn(LOG_INPUT, " Key %s is already bound to event %s, rebinding it!", magic_enum::enum_name(key), entity.name().c_str());
+				keyBinding.entity = entity;
+				return true;
 			}
 		}
 
 		//If not bound at all simply bind it
-		keyboardMappings.emplace_back(key, eventID);
+		keyboardBindings.emplace_back(key, pollingMode, entity);
+
+		return true;
 	}
-
-	void handleInput() {
-
-		//TODO implement switching based on InputDeviceState as well once we get there
-		captureInputKeyboardMouse();
-	}
-
+	
 	void handleEvents(SDL_Event& event) {
 
 		ImGui_ImplSDL3_ProcessEvent(&event);
@@ -152,7 +369,28 @@ public:
 			ecs.set<GamePauseEvent>({ true });
 		}
 
+		if (event.type == SDL_EVENT_GAMEPAD_ADDED ) {
+
+			if (gamepad != NULL) {
+				LogWarn(LOG_APP, "A gamepad is already connected, adding a new gamepad will override the old one fix this!!!");
+			}
+
+			gamepad = SDL_OpenGamepad(event.gdevice.which);
+			SDL_GamepadType gamepadType =  SDL_GetGamepadType(gamepad);
+			LogInfo(LOG_APP, "Gamepad %s added", magic_enum::enum_name(gamepadType).data());
+		}
+
+		if (event.type == SDL_EVENT_GAMEPAD_REMOVED && SDL_GetGamepadID(gamepad) == event.gdevice.which) {
+			
+			SDL_GamepadType gamepadType = SDL_GetGamepadType(gamepad);
+			LogInfo(LOG_APP, "Gamepad %s removed" , magic_enum::enum_name(gamepadType).data());
+
+			SDL_CloseGamepad(gamepad);
+			gamepad = NULL;
+		}
+
 		// The rest of the input is now gated
+		//IMGUI should be an input Context that we push to the context stack
 		if (io.WantTextInput || io.WantCaptureMouse) {
 			return;
 		}
@@ -163,11 +401,6 @@ public:
 		}
 
 		handleEditorEvents(event);
-	}
-
-	void handleEvents2(SDL_Event& event) {
-
-
 	}
 
 
@@ -203,14 +436,13 @@ public:
 		//TODO change these to buttons in the editor
 		if (event.type == SDL_EVENT_KEY_DOWN && event.key.repeat == 0 && event.key.scancode == SDL_SCANCODE_F3) {
 
-			//stateManager.printSystems();
 			ecs.set<PrintSystemsEvent>({ true });
 
 		}
 
 		if (event.type == SDL_EVENT_KEY_DOWN && event.key.repeat == 0 && event.key.scancode == SDL_SCANCODE_F4) {
 
-			//stateManager.printPhases();
+			ecs.set<PrintPhasesEvent>({ true });
 		}
 
 		// disable physics Renderer Phase
@@ -257,63 +489,5 @@ public:
 	}
 
 
-	/// <summary>
-	/// captures all relevant Keyboard and Mouse input and updates the ECS.
-	/// </summary>
-	void captureInputKeyboardMouse() {
-
-		const bool* keystates = SDL_GetKeyboardState(NULL);
-
-		UserInput& input = ecs.get_mut<UserInput>();
-
-		// Reset each frame before accumulating
-		input.direction = glm::vec2(0);
-		input.jump = false;
-
-		if (keystates[forwardKey]) {
-
-			input.direction.y += 1;
-		}
-		if (keystates[backwardKey]) {
-
-			input.direction.y -= 1;
-		}
-		if (keystates[leftKey]) {
-
-			input.direction.x -= 1;
-		}
-		if (keystates[rightKey]) {
-
-			input.direction.x += 1;
-		}
-
-		if (keystates[jumpKey] && input.jumpConsumed) {
-			input.jump = true;
-			input.jumpConsumed = false;
-		}
-		if (!keystates[jumpKey])
-			input.jumpConsumed = true; // ready to jump again
-
-		// Normalize direction to prevent faster diagonal movement
-		if (glm::length2(input.direction) > 0.0f) {
-			input.direction = glm::normalize(input.direction);
-		}
-
-		// Handle mouse input for rotation
-		float deltaX, deltaY;
-		SDL_GetRelativeMouseState(&deltaX, &deltaY);
-
-		//TODO parameterize
-		float smoothingFactor = 0.7f; // Adjust between 0-1 (lower = smoother)
-		static float smoothedXOffset = 0.0f, smoothedYOffset = 0.0f;
-
-		// Apply smoothing
-		smoothedXOffset = smoothedXOffset * (1.0f - smoothingFactor) + deltaX * smoothingFactor;
-		smoothedYOffset = smoothedYOffset * (1.0f - smoothingFactor) + deltaY * smoothingFactor;
-
-		input.offsetX = smoothedXOffset;
-		input.offsetY = smoothedYOffset;
-	}
-
-
+	
 };

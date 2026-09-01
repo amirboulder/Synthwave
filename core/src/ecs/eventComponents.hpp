@@ -1,25 +1,17 @@
 #pragma once
 
-
-struct InteractEvent {
-
-enum class ControlMode {
-	KBM,
-	GAMEPAD
+struct ActionState {
+	float heldTime = 0.0f;   // accumulates while down, useful for charge-up
+	bool occurred = false;   // currently held
+	bool occurredLast = false;   // held last frame persisted
+	bool justPressed = false;  // true for exactly one frame
+	bool justReleased = false;  // true for exactly one frame
 };
 
+struct MouseMovementState {
 
-struct InputMap {
-
-	SDL_Scancode scanCode = SDL_SCANCODE_UNKNOWN;
-	SDL_GamepadButton gamepadButton = SDL_GAMEPAD_BUTTON_INVALID;
-	MouseButtons button = MouseButtons::BUTTON_INVALID;
+	float deltaX, deltaY;
 };
-
-struct InteractEvent {
-	uint8_t occurrenceCount;
-};
-
 
 struct MouseClickLeftEvent {
 
@@ -60,5 +52,9 @@ struct RagdollSavedEvent {
 };
 
 struct PrintSystemsEvent {
+	bool occurred = false;
+};
+
+struct PrintPhasesEvent {
 	bool occurred = false;
 };

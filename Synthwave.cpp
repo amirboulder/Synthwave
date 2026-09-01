@@ -6,6 +6,8 @@ int main(int argc, char* argv[])
 
 	flecs::world ecs;
 
+	InputManager inputManager(ecs);
+
 	Renderer renderer(ecs);
 
 	Physics physics(ecs);
@@ -19,7 +21,7 @@ int main(int argc, char* argv[])
 
 	MenuSystem menuSys(ecs);
 
-	TimeManager time(physics.timeStep);
+	TimeManager time(ecs, physics.timeStep);
 
 	Scene scene(ecs);
 
@@ -29,27 +31,19 @@ int main(int argc, char* argv[])
 
 	StateManager stateManager(ecs, renderer, physics, serializer, menuSys, editor, time, scene, running);
 
-	InputManager inputManager(ecs);
-
 	stateManager.init();
 
 	LogSynth(LOG_APP,"Initializing Simulation 🤖");
-	SDL_Event event;
+
 	while (running) {
 
 		//OPTICK_FRAME("MainThread");
 
-		while (SDL_PollEvent(&event)) {
-
-			inputManager.handleEvents(event);
-		}
+		inputManager.accumulateInput();
 
 		time.tick();
 		while (time.accumulator >= time.timeStep) {
 
-			//TODO input can be handled at a faster rate which would enable faster camera movement (less latency),
-			// which would then require interpolation
-			inputManager.handleInput(); 
 
 			ecs.progress(); //All systems except rendering happen here.
 

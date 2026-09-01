@@ -6,6 +6,10 @@
 #include "eventComponents.hpp"
 
 
+struct DeltaTime {
+	float dt = 0.0f;
+};
+
 
 struct Position {
 	glm::vec3 position = glm::vec3(1);

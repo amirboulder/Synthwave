@@ -39,11 +39,17 @@ public:
 	Vec3 movementDirection = Vec3::sZero();
 	bool mJumpPressed = false;
 	
-	//how many pixel to rotate the camera
-	float offsetX = 0.0f;
-	float offsetY = 0.0f;
 	
 	uint32_t ballCounter = 0;
+
+	flecs::entity interactEventEnt;
+	flecs::entity forwardMVMTEnt;
+	flecs::entity backwardMVMTEnt;
+	flecs::entity leftMVMTEnt;
+	flecs::entity rightMVMTEnt;
+	flecs::entity jumpMVMTEnt;
+
+	UserInput input;
 
 	Player(flecs::world& ecs)
 		:ecs(ecs)
@@ -117,6 +123,52 @@ public:
 		innerBodyID = mCharacter->GetInnerBodyID();
 
 		mCharacter->SetListener(this);
+
+		lookupEventEnts();
+	}
+
+	bool lookupEventEnts() {
+
+		//Get the required Event entities.
+
+		interactEventEnt = ecs.lookup("InteractEvent");
+		if (!interactEventEnt) {
+			LogError(LOG_APP, "interactEventEnt is null");
+			return false;
+		}
+
+		forwardMVMTEnt = ecs.lookup("forwardMVMTEnt");
+		if (!forwardMVMTEnt) {
+			LogError(LOG_APP, "forwardMVMTEnt is null");
+			return false;
+		}
+
+		backwardMVMTEnt = ecs.lookup("backwardMVMTEnt");
+		if (!backwardMVMTEnt) {
+			LogError(LOG_APP, "backwardMVMTEnt is null");
+			return false;
+		}
+
+		leftMVMTEnt = ecs.lookup("leftMVMTEnt");
+		if (!leftMVMTEnt) {
+			LogError(LOG_APP, "leftMVMTEnt is null");
+			return false;
+		}
+
+		rightMVMTEnt = ecs.lookup("rightMVMTEnt");
+		if (!rightMVMTEnt) {
+			LogError(LOG_APP, "rightMVMTEnt is null");
+			return false;
+		}
+
+		jumpMVMTEnt = ecs.lookup("jumpMVMTEnt");
+		if (!jumpMVMTEnt) {
+			LogError(LOG_APP, "jumpMVMTEnt is null");
+			return false;
+		}
+
+
+		return true;
 	}
 
 	void reset() {
@@ -209,7 +261,7 @@ public:
 
 		if (ecs.get<CameraState>() != CameraState::PLAYER) return;
 
-		UserInput& input = ecs.get_mut<UserInput>();
+		getMovementState();
 
 		flecs::entity cameraEnt = ecs.get<PlayerCamRef>().value;
 		Camera& camera = cameraEnt.get_mut<Camera>();
@@ -217,8 +269,9 @@ public:
 		glm::vec3 forward = glm::normalize(glm::vec3(camera.front.x, 0.0f, camera.front.z));
 		glm::vec3 right = glm::normalize(glm::vec3(camera.right.x, 0.0f, camera.right.z));
 
-		offsetX = input.offsetX;
-		offsetY = input.offsetY;
+
+		input.offsetX;
+		input.offsetY;
 
 		forward *= input.direction.y;
 		right *= input.direction.x;
@@ -233,7 +286,6 @@ public:
 		movementDirection.SetZ(playerInput.z);
 
 		if (input.jump) {
-
 			//attempts jump if player is grounded.
 			mJumpPressed = true;
 		}
@@ -241,6 +293,65 @@ public:
 		UpdateVelocity();
 		UpdateCharacter();
 		updatePlayerCam();
+
+		shootBall();
+	}
+
+	void getMovementState() {
+
+		const ActionState& forwardState = forwardMVMTEnt.get<ActionState>();
+		const ActionState& backwardState = backwardMVMTEnt.get<ActionState>();
+		const ActionState& leftState = leftMVMTEnt.get<ActionState>();
+		const ActionState& rightState = rightMVMTEnt.get<ActionState>();
+		const ActionState& jumpState = jumpMVMTEnt.get<ActionState>();
+
+		const MouseMovementState& mouseMovement = ecs.get<MouseMovementState>();
+
+		// Reset each frame before accumulating
+		input.direction = glm::vec2(0);
+		input.jump = false;
+
+		if (forwardState.occurred) {
+
+			input.direction.y += 1;
+		}
+		if (backwardState.occurred) {
+
+			input.direction.y -= 1;
+		}
+		if (leftState.occurred) {
+
+			input.direction.x -= 1;
+		}
+		if (rightState.occurred) {
+
+			input.direction.x += 1;
+		}
+
+		//cannot jump again until jump is consumed,prevents bunny hopping.
+		if (jumpState.occurred && input.jumpConsumed) {
+			input.jump = true;
+			input.jumpConsumed = false;
+		}
+		if (!jumpState.occurred)
+			input.jumpConsumed = true; // ready to jump again
+
+		// Normalize direction to prevent faster diagonal movement
+		if (glm::length2(input.direction) > 0.0f) {
+			input.direction = glm::normalize(input.direction);
+		}
+
+		//TODO parameterize
+		float smoothingFactor = 0.7f; // Adjust between 0-1 (lower = smoother)
+		static float smoothedXOffset = 0.0f, smoothedYOffset = 0.0f;
+
+		// Apply smoothing
+		smoothedXOffset = smoothedXOffset * (1.0f - smoothingFactor) + mouseMovement.deltaX * smoothingFactor;
+		smoothedYOffset = smoothedYOffset * (1.0f - smoothingFactor) + mouseMovement.deltaY * smoothingFactor;
+
+		input.offsetX = smoothedXOffset;
+		input.offsetY = smoothedYOffset;
+
 	}
 
 	void UpdateVelocity() {
@@ -315,7 +426,7 @@ public:
 
 		position = mCharacter->GetPosition();
 
-		camera.rotateCamera(offsetX,offsetY);
+		camera.rotateCamera(input.offsetX, input.offsetY);
 
 		glm::vec3 characterPosGLM = glm::vec3(position.GetX(), position.GetY(), position.GetZ());
 		camera.position = characterPosGLM + glm::vec3(cameraOffset.x, cameraOffset.y, cameraOffset.z);
@@ -333,9 +444,9 @@ public:
 
 	void shootBall() {
 
-		InteractEvent& event = ecs.get_mut<InteractEvent>();
+		const ActionState& interactEventState = interactEventEnt.get<ActionState>();
 
-		if (event.occurrenceCount > 0) {
+		if (interactEventState.occurred) {
 
 			std::string ballName = std::format("Ball {} ", ballCounter);
 			ballCounter++;
@@ -344,9 +455,21 @@ public:
 
 			flecs::entity parent = ecs.get<PlayerRef>().value.parent();
 
+			LogInfo(LOG_APP, "Interact Event occurred");
+			//LogInfo(LOG_APP, "LastOccurred :  %s", interactEventState.occurredLast ? "true" : "false");
+			//LogInfo(LOG_APP, "justPressed :  %s", interactEventState.justPressed ? "true" : "false");
+			//LogInfo(LOG_APP, "heldTime :  %f", interactEventState.heldTime);
+			LogInfo(LOG_APP, "---------------------");
+			
 			//EntityFactory::createSphereEntity(ecs, parent, ballName, ballTransform);
 		}
 
+		if (interactEventState.justReleased) {
+
+			//LogInfo(LOG_APP, "justReleased :  %s", interactEventState.justReleased ? "true" : "false");
+			//LogInfo(LOG_APP, "-----------");
+
+		}
 	}
 };
 

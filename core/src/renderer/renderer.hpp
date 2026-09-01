@@ -282,7 +282,7 @@ struct Renderer {
 
 	bool createWindow() {
 
-		if (!SDL_Init(SDL_INIT_VIDEO)) {
+		if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD)) {
 			LogError(LOG_RENDER, "SDL_Init failed: %s\n", SDL_GetError());
 			return false;
 		}

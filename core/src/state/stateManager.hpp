@@ -22,8 +22,6 @@ public:
 	Scene& scene;
 	TimeManager& time;
 
-
-	flecs::entity inputPhase;
 	flecs::system processUICommandsSys;
 
 	bool & running ;
@@ -38,8 +36,6 @@ public:
 		registerObservers();
 
 		createEntities();
-
-		registerPhase();
 
 		RegisterSystems();
 		
@@ -103,6 +99,7 @@ public:
 		InputStateOnSetHook();
 		EditorStateOnSetHook();
 
+
 		//Event hooks
 		mouseLeftClickEventHook();
 		exitEventHook();
@@ -114,6 +111,32 @@ public:
 		saveGameSrcEventHook();
 		ragdollSavedEventHook();
 		PrintSystemsEventHook();
+		PrintPhasesEventHook();
+
+
+		ecs.component<ExitEvent>().add(flecs::Singleton);
+		ecs.set<ExitEvent>({});
+
+		ecs.component<WindowLostFocusEvent>().add(flecs::Singleton);
+		ecs.set<WindowLostFocusEvent>({});
+
+		ecs.component<GamePauseEvent>().add(flecs::Singleton);
+		ecs.set<GamePauseEvent>({});
+
+		ecs.component<EditorToggleEvent>().add(flecs::Singleton);
+		ecs.set<EditorToggleEvent>({});
+
+		ecs.component<CameraSwitchEvent>().add(flecs::Singleton);
+		ecs.set<CameraSwitchEvent>({});
+
+		ecs.component<PhysicsRenderToggleEvent>().add(flecs::Singleton);
+		ecs.set<PhysicsRenderToggleEvent>({});
+
+		ecs.component<SaveGameSrcEvent>().add(flecs::Singleton);
+		ecs.set<SaveGameSrcEvent>({});
+
+		ecs.component<PrintSystemsEvent>().add(flecs::Singleton);
+		ecs.set<PrintSystemsEvent>({});
 
 	}
 
@@ -146,17 +169,6 @@ public:
 		gameLoadedStateObserver();
 	}
 
-	void registerPhase() {
-
-		// Each phase has its own dependency, it ensures that
-		// 1.phases can be disabled without affecting other phases (disabling is transitive in flecs)
-		// 2.Phases can run in the order we want regardless of creation order 
-		//PhaseDependencies depend on each other, thats handled in StateManager.RegisterPhaseDependencies()
-		// that way phases created earlier in initialization can depend on phases created after them
-		flecs::entity inputPhaseDependency = ecs.entity("InputPhaseDependency");
-		inputPhase = ecs.entity("InputPhase").add(flecs::Phase).depends_on(inputPhaseDependency);
-
-	}
 
 	//sets the order of execution for systems
 	void RegisterCustomPhaseDeps() {
@@ -175,6 +187,7 @@ public:
 
 		flecs::entity renderPhaseDependency = ecs.lookup("RenderPhaseDependency").depends_on(transformPropPhaseDependency);
 
+		ecs.entity(flecs::PostFrame).depends_on(renderPhaseDependency);
 
 		/* This still works with flecs builtin pipeline query :
 		world.pipeline()
@@ -211,6 +224,8 @@ public:
 	}
 
 	void processUICommandsSystem() {
+
+		flecs::entity inputPhase = ecs.lookup("InputPhase");
 
 		processUICommandsSys = ecs.system<UICommand>("processUICommandsSys")
 			.kind(inputPhase)
@@ -651,10 +666,6 @@ public:
 				else if (state == CameraState::FREECAM) {
 					ecs.set<CameraState>({ CameraState::PLAYER });
 				}
-
-				// Clear input so nothing acts on stale data
-				UserInput& input = ecs.get_mut<UserInput>();
-				input = UserInput{}; // reset to defaults
 			}
 		});
 	}
@@ -707,6 +718,15 @@ public:
 
 				printSystems();
 			}
+		});
+	}
+
+	void PrintPhasesEventHook() {
+
+		ecs.component<PrintPhasesEvent>()
+			.on_set([&](PrintPhasesEvent& event) {
+
+				printPhases();
 		});
 	}
 	
