@@ -39,12 +39,12 @@ int main(int argc, char* argv[])
 
 		//OPTICK_FRAME("MainThread");
 
-		inputManager.accumulateInput();
+		
 
 		time.tick();
 		while (time.accumulator >= time.timeStep) {
 
-
+			inputManager.accumulateInput();
 			ecs.progress(); //All systems except rendering happen here.
 
 			time.accumulator -= time.timeStep;

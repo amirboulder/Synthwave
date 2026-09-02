@@ -163,6 +163,14 @@ public:
 				ecs.set<GamePauseEvent>({ true });
 			}
 
+			if (sdlEvent.type == SDL_EVENT_WINDOW_FOCUS_LOST) {
+
+				ecs.set<WindowLostFocusEvent>({ true });
+			}
+			if (sdlEvent.type == SDL_EVENT_WINDOW_FOCUS_GAINED) {
+				LogDebug(LOG_INPUT, "Window gained focus!");
+			}
+
 			if (sdlEvent.type == SDL_EVENT_GAMEPAD_ADDED) {
 
 				if (gamepad != NULL) {
@@ -184,7 +192,7 @@ public:
 			}
 
 			// The rest of the input is now gated
-			//If imgui want the input then it will go to it
+			//If imgui wants the input then it will go to it
 			if (io.WantTextInput || io.WantCaptureMouse) {
 				return;
 			}
@@ -195,19 +203,18 @@ public:
 			}
 			handleEditorEvents(sdlEvent);
 
+			//Verify that this check is comprehensive
+			if (sdlEvent.type == SDL_EVENT_KEY_DOWN || sdlEvent.type == SDL_EVENT_KEY_UP) {
 
-
-			//Handle input Mode switch
-			if (sdlEvent.type == SDL_EVENT_KEY_DOWN || sdlEvent.type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
-
+				// Switch to KBM if needed
 				if (controlMode != ControlMode::KBM) {
 					controlMode = ControlMode::KBM;
 					LogInfo(LOG_APP, "Switched to KBM mode!");
 				}
 
-
-				handleInputKBM(sdlEvent, dt);
+				handleEventKeyboard(sdlEvent, dt);
 			}
+			
 			else if (sdlEvent.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN) {
 
 				//controlMode = ControlMode::KBM;
@@ -215,12 +222,8 @@ public:
 			}
 
 
-
-
 		}
 
-		//check Continuous input
-		
 		pollInputKBM();
 
 	}
@@ -235,19 +238,6 @@ public:
 			.kind(flecs::PostFrame)
 			.run([&](flecs::iter& it) {
 
-			for (KeyboardBinding& keyBinding : keyboardBindings) {
-
-				ActionState& state = keyBinding.entity.get_mut<ActionState>();
-
-				//TODO set the rest of ActionState data.
-				if (!state.occurred) {
-					state.heldTime = 0.0f;
-				}
-
-				state.occurred = false; //Setting occurred to false as we're beginning a new frame
-
-			}
-
 			//clear the accumulated mouse input
 			MouseMovementState& mouseMovement = ecs.get_mut<MouseMovementState>();
 			mouseMovement.deltaX = 0.0f;
@@ -257,7 +247,7 @@ public:
 
 	}
 
-	void handleInputKBM(SDL_Event& sdlEvent, const float dt) {
+	void handleEventKeyboard(SDL_Event& sdlEvent, const float dt) {
 
 
 		for (KeyboardBinding& keyBinding : keyboardBindings) {
@@ -270,14 +260,31 @@ public:
 
 				ActionState& state = keyBinding.entity.get_mut<ActionState>();
 
-				//TODO set the rest of ActionState data. 	
-				if (!state.occurredLast) {
-					state.justPressed = true;
+				if (sdlEvent.type == SDL_EVENT_KEY_DOWN) {
+
+					LogInfo(LOG_APP, "KeyDOWN ");
+
+					state.occurred = true;
+
+					if (sdlEvent.key.repeat == 0) {
+						state.justPressed = true;
+						LogInfo(LOG_APP, "KeyDOWN NEW");
+					}
+					else {
+						state.justPressed = false;
+						state.occurredLast = true;
+						LogInfo(LOG_APP, "KeyDOWN repeat");
+					}
+
+					state.heldTime += dt;
 				}
 
-				state.occurred = true;
-
-				state.heldTime += dt;
+				if(sdlEvent.type == SDL_EVENT_KEY_UP){
+					state.occurred = false;
+					state.justReleased = true;
+					state.occurredLast = true;
+					//LogInfo(LOG_APP, "KeyUP");
+				}
 			}
 		}
 	}
@@ -306,6 +313,10 @@ public:
 				ActionState& state = keyBinding.entity.get_mut<ActionState>();
 				state.occurred = true;
 			}
+			else {
+				ActionState& state = keyBinding.entity.get_mut<ActionState>();
+				state.occurred = false;
+			}
 		}
 
 		for (MouseBinding mouseBinding : mouseBindings) {
@@ -318,6 +329,10 @@ public:
 
 				ActionState& state = mouseBinding.entity.get_mut<ActionState>();
 				state.occurred = true;
+			}
+			else {
+				ActionState& state = mouseBinding.entity.get_mut<ActionState>();
+				state.occurred = false;
 			}
 		}
 	}
@@ -354,56 +369,6 @@ public:
 		return true;
 	}
 	
-	void handleEvents(SDL_Event& event) {
-
-		ImGui_ImplSDL3_ProcessEvent(&event);
-		ImGuiIO& io = ImGui::GetIO();
-
-		// We handle quit and escape BEFORE yielding to ImGui,
-		// so escape can close the pause menu even when ImGui has focus
-		if (event.type == SDL_EVENT_QUIT) {
-			ecs.set<ExitEvent>({ true });
-		}
-		if (event.type == SDL_EVENT_KEY_DOWN && event.key.repeat == 0
-			&& event.key.scancode == escapeMenuKey) {
-			ecs.set<GamePauseEvent>({ true });
-		}
-
-		if (event.type == SDL_EVENT_GAMEPAD_ADDED ) {
-
-			if (gamepad != NULL) {
-				LogWarn(LOG_APP, "A gamepad is already connected, adding a new gamepad will override the old one fix this!!!");
-			}
-
-			gamepad = SDL_OpenGamepad(event.gdevice.which);
-			SDL_GamepadType gamepadType =  SDL_GetGamepadType(gamepad);
-			LogInfo(LOG_APP, "Gamepad %s added", magic_enum::enum_name(gamepadType).data());
-		}
-
-		if (event.type == SDL_EVENT_GAMEPAD_REMOVED && SDL_GetGamepadID(gamepad) == event.gdevice.which) {
-			
-			SDL_GamepadType gamepadType = SDL_GetGamepadType(gamepad);
-			LogInfo(LOG_APP, "Gamepad %s removed" , magic_enum::enum_name(gamepadType).data());
-
-			SDL_CloseGamepad(gamepad);
-			gamepad = NULL;
-		}
-
-		// The rest of the input is now gated
-		//IMGUI should be an input Context that we push to the context stack
-		if (io.WantTextInput || io.WantCaptureMouse) {
-			return;
-		}
-
-		if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN
-			&& event.button.button == leftClickKey) {
-			ecs.set<MouseClickLeftEvent>({ event.button.x, event.button.y });
-		}
-
-		handleEditorEvents(event);
-	}
-
-
 	// Put things in here that we don't want in distribution mode.
 	void handleEditorEvents(SDL_Event& event) {
 
@@ -416,14 +381,6 @@ public:
 		if (event.type == SDL_EVENT_KEY_DOWN && event.key.repeat == 0 && event.key.scancode == SDL_SCANCODE_F1) {
 
 			ecs.set<EditorToggleEvent>({ true });
-		}
-
-		if (event.type == SDL_EVENT_WINDOW_FOCUS_LOST) {
-
-			ecs.set<WindowLostFocusEvent>({ true });
-		}
-		if (event.type == SDL_EVENT_WINDOW_FOCUS_GAINED) {
-			LogDebug(LOG_INPUT, "Window gained focus!");
 		}
 
 		// Switch between playerCam and freeCam

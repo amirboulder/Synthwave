@@ -446,7 +446,7 @@ public:
 
 		const ActionState& interactEventState = interactEventEnt.get<ActionState>();
 
-		if (interactEventState.occurred) {
+		if (interactEventState.occurred && interactEventState.justPressed) {
 
 			std::string ballName = std::format("Ball {} ", ballCounter);
 			ballCounter++;
@@ -459,7 +459,7 @@ public:
 			//LogInfo(LOG_APP, "LastOccurred :  %s", interactEventState.occurredLast ? "true" : "false");
 			//LogInfo(LOG_APP, "justPressed :  %s", interactEventState.justPressed ? "true" : "false");
 			//LogInfo(LOG_APP, "heldTime :  %f", interactEventState.heldTime);
-			LogInfo(LOG_APP, "---------------------");
+			//LogInfo(LOG_APP, "---------------------");
 			
 			//EntityFactory::createSphereEntity(ecs, parent, ballName, ballTransform);
 		}
