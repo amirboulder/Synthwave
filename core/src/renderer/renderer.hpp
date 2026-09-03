@@ -385,7 +385,7 @@ struct Renderer {
 			return false;
 		}
 
-		LogInfo(LOG_RENDER, "created AndClaimed GPU Vulkan");
+		LogInfo(LOG_RENDER, "created And Claimed GPU using Vulkan");
 
 		return true;
 	}
@@ -450,7 +450,7 @@ struct Renderer {
 			return false;
 		}
 
-		LogInfo(LOG_RENDER, "created Samplers");
+		LogDebug(LOG_RENDER, "created Samplers");
 
 		return true;
 	}
@@ -590,7 +590,7 @@ struct Renderer {
 			return false;
 		}
 
-		LogInfo(LOG_RENDER, "created Render Targets");
+		LogDebug(LOG_RENDER, "created Render Targets");
 
 		return true;
 	}

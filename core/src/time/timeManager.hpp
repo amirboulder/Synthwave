@@ -12,7 +12,7 @@ public:
 
 	flecs::world& ecs;
 
-	float timeStep = 1.0f / 60.0f;
+	const float timeStep = 1.0f / 60.0f;
 	float accumulator = 0.0f;
 
 	uint64_t lastTime = 0;
@@ -25,8 +25,8 @@ public:
 	{
 		appStartTime = SDL_GetTicks();
 
-		ecs.component<DeltaTime>();
-		ecs.set<DeltaTime>({});
+		ecs.component<TimeStep>();
+		ecs.set<TimeStep>({ timeStep });
 
 		LogSuccess(LOG_APP, "TimeManager Initialized");
 	}
@@ -44,7 +44,6 @@ public:
 		deltaTime = std::min(deltaTime, 0.05f); // clamp before accumulating
 		accumulator += deltaTime;
 
-		ecs.set<DeltaTime>({ deltaTime });
 	}
 
 };

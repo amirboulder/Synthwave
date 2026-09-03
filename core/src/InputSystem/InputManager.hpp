@@ -5,51 +5,52 @@ enum class ControlMode {
 	GAMEPAD
 };
 
-enum class PollingMode : std::uint16_t {
-	DISCRETE,
-	CONTINUOUS,
-};
-
 enum class InputContext : std::uint16_t {
 	
 	MOVEMENT,
 	COMBAT,
 };
 
-
 enum class MouseButtons {
 
 	BUTTON_INVALID,
 	BUTTON_LEFT,
+	BUTTON_MIDDLE,
 	BUTTON_RIGHT,
 	BUTTON_X1,
 	BUTTON_X2,
 };
 
-
-
 struct KeyboardBinding {
-	SDL_Scancode key;
-	PollingMode pollingMode;
 	flecs::entity entity;
+	SDL_Scancode key;
 };
 
 struct MouseBinding {
-	MouseButtons button;
-	PollingMode pollingMode;
 	flecs::entity entity;
+	MouseButtons button;
+
 };
 
 struct GamepadBinding {
-	SDL_Scancode button;
-	PollingMode pollingMode;
 	flecs::entity entity;
+	SDL_GamepadButton button;
 };
 
 
+/// TODO handle gamepad input
+/// TODO translate mouseMovement and gamepad stick movement into movement intent for player class to consume,
+/// that way we won't need to publish raw mouse movement data.
 
 /// <summary>
-///
+/// Polls for input every render frame by reading keyboard and mouse state.
+/// Also polls the event queue for missed input using a latch mechanism and miscellaneous events such as losing window focus.
+/// Comprised of three main parts
+/// 1.accumulateInput this is where raw input is read non gameplay events are triggered. Runs every render frame
+/// 2.postInputSystem runs fist thing every ECS frame and sets ActionState for every occurred/ latched event.
+/// 3.clearInputSystem runs last thing every ECS frame and clears mouse input.
+/// Allows for input to be remapped to any key/button
+/// An input cannot be mapped to a keyboard key and mouse button at the same time.
 /// </summary>
 class InputManager {
 
@@ -57,8 +58,8 @@ class InputManager {
 
 public:
 
-	SDL_Gamepad* gamepad;
-	SDL_Gamepad* gamepad2; //Unused
+	SDL_Gamepad* gamepad = nullptr;
+	SDL_Gamepad* gamepad2 = nullptr; //Unused for now
 
 	ControlMode controlMode = ControlMode::KBM;
 
@@ -70,6 +71,7 @@ public:
 
 	flecs::entity inputPhase;
 	flecs::system clearInputSys;
+	flecs::system postInputSys;
 
 	std::vector<KeyboardBinding> keyboardBindings;
 	std::vector<MouseBinding> mouseBindings;
@@ -88,31 +90,34 @@ public:
 		ecs.set<Direction>({ Direction::forward });
 
 		ecs.component<MouseClickLeftEvent>().add(flecs::Singleton);
-		//ecs.set<MouseClickEvent>({});
 
 		flecs::entity interactEventEnt = ecs.entity("InteractEvent")
 			.set<ActionState>({});
-		bindInputToKeyboard(SDL_SCANCODE_E, interactEventEnt, PollingMode::DISCRETE);
+		bindInputToKeyboard(SDL_SCANCODE_E, interactEventEnt);
+
+		flecs::entity Attack1EventEnt = ecs.entity("Attack1EventEnt")
+			.set<ActionState>({});
+		bindInputToMouse(MouseButtons::BUTTON_LEFT, Attack1EventEnt);
 
 		flecs::entity forwardMVMTEnt = ecs.entity("forwardMVMTEnt")
 			.set<ActionState>({});
-		bindInputToKeyboard(SDL_SCANCODE_W, forwardMVMTEnt, PollingMode::CONTINUOUS);
+		bindInputToKeyboard(SDL_SCANCODE_W, forwardMVMTEnt);
 
 		flecs::entity backwardMVMTEnt = ecs.entity("backwardMVMTEnt")
 			.set<ActionState>({});
-		bindInputToKeyboard(SDL_SCANCODE_S, backwardMVMTEnt, PollingMode::CONTINUOUS);
+		bindInputToKeyboard(SDL_SCANCODE_S, backwardMVMTEnt);
 
 		flecs::entity leftMVMTEnt = ecs.entity("leftMVMTEnt")
 			.set<ActionState>({});
-		bindInputToKeyboard(SDL_SCANCODE_A, leftMVMTEnt, PollingMode::CONTINUOUS);
+		bindInputToKeyboard(SDL_SCANCODE_A, leftMVMTEnt);
 
 		flecs::entity rightMVMTEnt = ecs.entity("rightMVMTEnt")
 			.set<ActionState>({});
-		bindInputToKeyboard(SDL_SCANCODE_D, rightMVMTEnt, PollingMode::CONTINUOUS);
+		bindInputToKeyboard(SDL_SCANCODE_D, rightMVMTEnt);
 
 		flecs::entity jumpMVMTEnt = ecs.entity("jumpMVMTEnt")
 			.set<ActionState>({});
-		bindInputToKeyboard(SDL_SCANCODE_SPACE, jumpMVMTEnt, PollingMode::CONTINUOUS);
+		bindInputToKeyboard(SDL_SCANCODE_SPACE, jumpMVMTEnt);
 
 		ecs.component<MouseMovementState>().add(flecs::Singleton);
 		ecs.set<MouseMovementState>({});
@@ -135,18 +140,17 @@ public:
 	void registerSystems() {
 
 		clearInputSystem();
+		postInputSystem();
 	}
 
 
 	/// <summary>
-	/// Handles all input
-	/// Note this runs for every draw ,
-	/// but acts as a latch meaning it it runs multiple times before an ecs.progress() it will accumulate input
-	/// meaning it will all be considered as a part of one frame until its cleared in clearInputSystem during flecs::post frame
+	/// accumulates all input data, Runs every Render frame
+	/// Note the events triggered in this function should be non-gameplay events such as WindowLostFocusEvent,
+	/// since Flecs observers/hook are called immediately.
 	/// </summary>
 	void accumulateInput() {
 
-		const float dt = ecs.get<DeltaTime>().dt;
 
 		while (SDL_PollEvent(&sdlEvent)) {
 
@@ -166,6 +170,7 @@ public:
 			if (sdlEvent.type == SDL_EVENT_WINDOW_FOCUS_LOST) {
 
 				ecs.set<WindowLostFocusEvent>({ true });
+				LogDebug(LOG_INPUT, "Window lost focus!");
 			}
 			if (sdlEvent.type == SDL_EVENT_WINDOW_FOCUS_GAINED) {
 				LogDebug(LOG_INPUT, "Window gained focus!");
@@ -192,9 +197,9 @@ public:
 			}
 
 			// The rest of the input is now gated
-			//If imgui wants the input then it will go to it
+			//If IMGUI wants the input then it will go to it
 			if (io.WantTextInput || io.WantCaptureMouse) {
-				return;
+				continue;
 			}
 
 			if (sdlEvent.type == SDL_EVENT_MOUSE_BUTTON_DOWN
@@ -203,8 +208,8 @@ public:
 			}
 			handleEditorEvents(sdlEvent);
 
-			//Verify that this check is comprehensive
-			if (sdlEvent.type == SDL_EVENT_KEY_DOWN || sdlEvent.type == SDL_EVENT_KEY_UP) {
+
+			if (sdlEvent.type == SDL_EVENT_KEY_DOWN || sdlEvent.type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
 
 				// Switch to KBM if needed
 				if (controlMode != ControlMode::KBM) {
@@ -212,24 +217,30 @@ public:
 					LogInfo(LOG_APP, "Switched to KBM mode!");
 				}
 
-				handleEventKeyboard(sdlEvent, dt);
+				handleInput(sdlEvent);
 			}
 			
 			else if (sdlEvent.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN) {
 
-				//controlMode = ControlMode::KBM;
+				//controlMode = ControlMode::GAMEPAD;
 				LogWarn(LOG_APP, "Switched to Gamepad mode NOT YET IMPLEMENTED!");
 			}
 
-
 		}
 
-		pollInputKBM();
+		if (controlMode == ControlMode::KBM) {
+			pollInputKBM();
+
+		}
+		else {
+			//TODO pollGamepad input.
+		}
+
 
 	}
 
 	/// <summary>
-	///This happens last in the frame and sets up input state for the next frame
+	///This clears mouse movement before the start of the next ecs frame
 	/// </summary>
 	void clearInputSystem() {
 
@@ -247,46 +258,71 @@ public:
 
 	}
 
-	void handleEventKeyboard(SDL_Event& sdlEvent, const float dt) {
+	void postInputSystem() {
 
+		//Happens first thing in the frame after input has been polled
+		postInputSys = ecs.system("PostInputSys")
+			.kind(inputPhase)
+			.run([&](flecs::iter& it) {
 
-		for (KeyboardBinding& keyBinding : keyboardBindings) {
+			const float timeStep = ecs.get<TimeStep>().step;
 
-			if (keyBinding.pollingMode == PollingMode::CONTINUOUS) {
-				continue;
-			}
+			const ecs_world_info_t* info = ecs.get_info();
+			int64_t currentFrame = info->frame_count_total;
 
-			if (keyBinding.key == sdlEvent.key.scancode) {
+			for (KeyboardBinding& keyBinding : keyboardBindings) {
 
 				ActionState& state = keyBinding.entity.get_mut<ActionState>();
 
-				if (sdlEvent.type == SDL_EVENT_KEY_DOWN) {
-
-					LogInfo(LOG_APP, "KeyDOWN ");
-
-					state.occurred = true;
-
-					if (sdlEvent.key.repeat == 0) {
-						state.justPressed = true;
-						LogInfo(LOG_APP, "KeyDOWN NEW");
-					}
-					else {
-						state.justPressed = false;
-						state.occurredLast = true;
-						LogInfo(LOG_APP, "KeyDOWN repeat");
-					}
-
-					state.heldTime += dt;
-				}
-
-				if(sdlEvent.type == SDL_EVENT_KEY_UP){
-					state.occurred = false;
-					state.justReleased = true;
-					state.occurredLast = true;
-					//LogInfo(LOG_APP, "KeyUP");
-				}
+				setActionState(state, currentFrame, timeStep);
 			}
+
+			for (MouseBinding& mouseBinding : mouseBindings) {
+
+				ActionState& state = mouseBinding.entity.get_mut<ActionState>();
+
+				setActionState(state, currentFrame, timeStep);
+			}
+
+			//TODO gamepad input
+		});
+
+	}
+
+	void setActionState(ActionState& state, const int64_t& currentFrame, const float& timeStep) {
+
+		if (state.occurred || state.latch) {
+
+			if (state.frameStamp == currentFrame - 1) {
+				state.justPressed = false;
+				state.occurredLast = true;
+			}
+			else {
+				state.justPressed = true;
+				state.occurredLast = false;
+			}
+
+			state.heldTime += timeStep;
+			state.frameStamp = currentFrame;
+			state.justReleased = false;
 		}
+		else {
+
+			if (state.frameStamp == currentFrame - 1) {
+				state.justReleased = true;
+				state.occurredLast = true;
+			}
+			else {
+				state.occurredLast = false;
+				state.justReleased = false;
+			}
+
+			state.heldTime = 0.0f;
+			state.justPressed = false;
+		}
+
+		state.latch = false;
+
 	}
 
 	void pollInputKBM() {
@@ -298,15 +334,11 @@ public:
 		float deltaX, deltaY;
 		SDL_MouseButtonFlags mouseState = SDL_GetRelativeMouseState(&deltaX, &deltaY);
 
-		//Accumulate mouse movement because we handle input more often
+		//Accumulate mouse movement because we may handle input more often than read it.
 		mouseMovement.deltaX += deltaX;
 		mouseMovement.deltaY += deltaY;
 
-		for (KeyboardBinding keyBinding : keyboardBindings) {
-
-			if (keyBinding.pollingMode == PollingMode::DISCRETE) {
-				continue;
-			}
+		for (const KeyboardBinding& keyBinding : keyboardBindings) {
 
 			if (keyStates[keyBinding.key]) {
 
@@ -319,11 +351,7 @@ public:
 			}
 		}
 
-		for (MouseBinding mouseBinding : mouseBindings) {
-
-			if (mouseBinding.pollingMode == PollingMode::DISCRETE) {
-				continue;
-			}
+		for (const MouseBinding& mouseBinding : mouseBindings) {
 
 			if (mouseState & SDL_BUTTON_MASK(static_cast<int>(mouseBinding.button))) {
 
@@ -337,16 +365,44 @@ public:
 		}
 	}
 
-	bool bindInputToKeyboard(SDL_Scancode key, flecs::entity entity, PollingMode pollingMode) {
+	void handleInput(SDL_Event& sdlEvent) {
+
+		for (const KeyboardBinding& keyBinding : keyboardBindings) {
+
+			if (sdlEvent.type == SDL_EVENT_KEY_DOWN) {
+				if (sdlEvent.key.scancode == keyBinding.key && !sdlEvent.key.repeat) {
+
+					ActionState& state = keyBinding.entity.get_mut<ActionState>();
+					state.latch = true;
+				}
+			}
+			
+		}
+
+		for (const MouseBinding& mouseBinding : mouseBindings) {
+
+			if (sdlEvent.type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
+
+				//Do we need to check for repeat ?
+				if (sdlEvent.button.button == static_cast<int>(mouseBinding.button)) {
+
+					ActionState& state = mouseBinding.entity.get_mut<ActionState>();
+					state.latch = true;
+				}
+			}
+		}
+	}
+
+	bool bindInputToKeyboard(SDL_Scancode key, flecs::entity entity) {
 
 		//If the Event is mapped to a Mouse button remove that mapping 
-		for (int i = 0; i < mouseBindings.size(); i++) {
+		for (size_t i = 0; i < mouseBindings.size(); i++) {
 
-			MouseBinding mouseBinding = mouseBindings[i];
+			MouseBinding& mouseBinding = mouseBindings[i];
 
 			if (mouseBinding.entity == entity) {
 
-				LogWarn(LOG_INPUT, "Event %s is already mapped to Mouse Button %s removing it", entity.name().c_str(), magic_enum::enum_name(mouseBinding.button));
+				LogWarn(LOG_INPUT, "Event %s is already mapped to Mouse Button %s removing it", entity.name().c_str(), magic_enum::enum_name(mouseBinding.button).data());
 				mouseBindings.erase(mouseBindings.begin() + i);
 				break;
 			}
@@ -357,14 +413,49 @@ public:
 
 			if (keyBinding.key == key) {
 
-				LogWarn(LOG_INPUT, " Key %s is already bound to event %s, rebinding it!", magic_enum::enum_name(key), entity.name().c_str());
+				LogWarn(LOG_INPUT, " Key %s is already bound to event %s, rebinding it to %s", magic_enum::enum_name(keyBinding.key).data(), keyBinding.entity.name().c_str(), entity.name().c_str());
 				keyBinding.entity = entity;
 				return true;
 			}
 		}
 
 		//If not bound at all simply bind it
-		keyboardBindings.emplace_back(key, pollingMode, entity);
+		keyboardBindings.emplace_back(entity, key);
+		LogVerbose(LOG_INPUT, "Key %s bound to event %s", magic_enum::enum_name(key).data(), entity.name().c_str());
+
+
+		return true;
+	}
+
+	bool bindInputToMouse(const MouseButtons& button, flecs::entity entity) {
+
+		//If the Event is mapped to a keyboard Key remove that mapping 
+		for (size_t i = 0; i < keyboardBindings.size(); i++) {
+
+			KeyboardBinding& keyBinding = keyboardBindings[i];
+
+			if (keyBinding.entity == entity) {
+
+				LogWarn(LOG_INPUT, "Event %s is already mapped to Keyboard key %s removing it", entity.name().c_str(), magic_enum::enum_name(keyBinding.key).data());
+				keyboardBindings.erase(keyboardBindings.begin() + i);
+				break;
+			}
+		}
+
+		//If the key is already mapped then reassign it
+		for (MouseBinding& mouseBinding : mouseBindings) {
+
+			if (mouseBinding.button == button) {
+
+				LogWarn(LOG_INPUT, "Button %s is already bound to event %s, rebinding it to %s", magic_enum::enum_name(mouseBinding.button).data(), mouseBinding.entity.name().c_str(), entity.name().c_str());
+				mouseBinding.entity = entity;
+				return true;
+			}
+		}
+
+		//If not bound at all simply bind it
+		mouseBindings.emplace_back(entity, button);
+		LogVerbose(LOG_INPUT, "Button %s bound to event %s", magic_enum::enum_name(button).data(), entity.name().c_str());
 
 		return true;
 	}
@@ -445,6 +536,4 @@ public:
 
 	}
 
-
-	
 };

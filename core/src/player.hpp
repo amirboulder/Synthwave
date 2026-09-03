@@ -43,6 +43,7 @@ public:
 	uint32_t ballCounter = 0;
 
 	flecs::entity interactEventEnt;
+	flecs::entity attackEventEnt;
 	flecs::entity forwardMVMTEnt;
 	flecs::entity backwardMVMTEnt;
 	flecs::entity leftMVMTEnt;
@@ -136,6 +137,13 @@ public:
 			LogError(LOG_APP, "interactEventEnt is null");
 			return false;
 		}
+
+		attackEventEnt = ecs.lookup("Attack1EventEnt");
+		if (!interactEventEnt) {
+			LogError(LOG_APP, "Attack1EventEnt is null");
+			return false;
+		}
+
 
 		forwardMVMTEnt = ecs.lookup("forwardMVMTEnt");
 		if (!forwardMVMTEnt) {
@@ -446,6 +454,9 @@ public:
 
 		const ActionState& interactEventState = interactEventEnt.get<ActionState>();
 
+		const ecs_world_info_t* info = ecs.get_info();
+		int64_t current_frame = info->frame_count_total;
+
 		if (interactEventState.occurred && interactEventState.justPressed) {
 
 			std::string ballName = std::format("Ball {} ", ballCounter);
@@ -455,21 +466,32 @@ public:
 
 			flecs::entity parent = ecs.get<PlayerRef>().value.parent();
 
-			LogInfo(LOG_APP, "Interact Event occurred");
+			//LogInfo(LOG_APP, "Interact NEW Event occurred in frame %d", current_frame);
 			//LogInfo(LOG_APP, "LastOccurred :  %s", interactEventState.occurredLast ? "true" : "false");
 			//LogInfo(LOG_APP, "justPressed :  %s", interactEventState.justPressed ? "true" : "false");
 			//LogInfo(LOG_APP, "heldTime :  %f", interactEventState.heldTime);
 			//LogInfo(LOG_APP, "---------------------");
-			
 			//EntityFactory::createSphereEntity(ecs, parent, ballName, ballTransform);
 		}
 
-		if (interactEventState.justReleased) {
+		const ActionState& atttackEventState = attackEventEnt.get<ActionState>();
 
-			//LogInfo(LOG_APP, "justReleased :  %s", interactEventState.justReleased ? "true" : "false");
-			//LogInfo(LOG_APP, "-----------");
+		//Single fire
+		if (atttackEventState.occurred && atttackEventState.justPressed) {
 
+			std::string ballName = std::format("Ball {} ", ballCounter);
+			ballCounter++;
+
+			Transform ballTransform;
+
+			flecs::entity parent = ecs.get<PlayerRef>().value.parent();
+			//EntityFactory::createSphereEntity(ecs, parent, ballName, ballTransform);
 		}
+		// Auto fire
+		if (atttackEventState.occurred) {
+			
+		}
+
 	}
 };
 

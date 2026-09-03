@@ -39,8 +39,17 @@ public:
 
     Logger() {
 
-       // SDL_SetLogPriority(LOG_APP, SDL_LOG_PRIORITY_INFO);
-
+       SDL_SetLogPriority(LOG_ERR, SDL_LOG_PRIORITY_INFO);
+       SDL_SetLogPriority(LOG_SYS, SDL_LOG_PRIORITY_INFO);
+       SDL_SetLogPriority(LOG_AUDIO, SDL_LOG_PRIORITY_INFO);
+       SDL_SetLogPriority(LOG_VIDEO, SDL_LOG_PRIORITY_INFO);
+       SDL_SetLogPriority(LOG_RENDER, SDL_LOG_PRIORITY_INFO);
+       SDL_SetLogPriority(LOG_INPUT, SDL_LOG_PRIORITY_INFO);
+       SDL_SetLogPriority(LOG_TEST, SDL_LOG_PRIORITY_INFO);
+       SDL_SetLogPriority(LOG_GPU, SDL_LOG_PRIORITY_INFO);
+       SDL_SetLogPriority(LOG_PHYSICS, SDL_LOG_PRIORITY_INFO);
+       SDL_SetLogPriority(LOG_AI, SDL_LOG_PRIORITY_INFO);
+       SDL_SetLogPriority(LOG_ECS, SDL_LOG_PRIORITY_INFO);
     }
 
 };

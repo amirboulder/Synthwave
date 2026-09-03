@@ -6,10 +6,14 @@
 #include "eventComponents.hpp"
 
 
-struct DeltaTime {
-	float dt = 0.0f;
+struct TimeStep {
+	float step = 0.0f;
 };
 
+
+struct FrameCounter {
+	uint64_t count = 0;
+};
 
 struct Position {
 	glm::vec3 position = glm::vec3(1);
