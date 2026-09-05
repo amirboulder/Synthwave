@@ -484,13 +484,13 @@ public:
 		//TODO change these to buttons in the editor
 		if (event.type == SDL_EVENT_KEY_DOWN && event.key.repeat == 0 && event.key.scancode == SDL_SCANCODE_F3) {
 
-			ecs.set<PrintSystemsEvent>({ true });
+			ecs.set<PrintActiveSystemsEvent>({ true });
 
 		}
 
 		if (event.type == SDL_EVENT_KEY_DOWN && event.key.repeat == 0 && event.key.scancode == SDL_SCANCODE_F4) {
 
-			ecs.set<PrintPhasesEvent>({ true });
+			ecs.set<PrintAllSystemsEvent>({ true });
 		}
 
 		// disable physics Renderer Phase

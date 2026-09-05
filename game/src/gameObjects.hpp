@@ -104,6 +104,9 @@ public:
 			.add(flecs::Phase)
 			.depends_on(playerPhaseDependency);
 
+		if (!playerPhaseDependency || !playerPhase)
+			LogError(LOG_APP, "playerPhaseDependency and/or playerPhase do not exist");
+
 		// disabled by default so that we don't start simulating until a level is loaded
 		playerPhase.disable();
 	}

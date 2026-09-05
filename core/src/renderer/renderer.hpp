@@ -399,10 +399,7 @@ struct Renderer {
 		// that way phases created earlier in initialization can depend on phases created after them
 		flecs::entity renderPhaseDependency = ecs.entity("RenderPhaseDependency");
 
-		renderPhase = ecs.entity("RenderPhase")
-			.add(flecs::Phase)
-			.depends_on(renderPhaseDependency);
-
+		renderPhase = ecs.entity("RenderPhase").add(flecs::Phase).depends_on(renderPhaseDependency);
 	}
 
 	void registerSystems() {

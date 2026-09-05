@@ -1,11 +1,6 @@
 #pragma once
 
 
-#include "../common.hpp"
-#include "GraphicsComponents.hpp"
-#include "eventComponents.hpp"
-
-
 struct TimeStep {
 	float step = 0.0f;
 };
@@ -277,5 +272,4 @@ struct EnemyStates {
 	}
 };
 */
-
 

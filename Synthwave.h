@@ -5,6 +5,10 @@ import ShaderCompiler;
 
 #include "core/src/pch.h"
 
+#include "core/src/common.hpp"
+
+#include "core/src/ecs/GraphicsComponents.hpp"
+#include "core/src/ecs/eventComponents.hpp"
 #include "core/src/ecs/components.hpp"
 
 #include "core/src/renderer/renderer.hpp"

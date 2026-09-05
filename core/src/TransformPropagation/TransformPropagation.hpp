@@ -27,7 +27,7 @@ public:
 		// that way phases created earlier in initialization can depend on phases created after them
 		flecs::entity transformPropagationPhaseDependency = ecs.entity("TransformPropagationPhaseDependency");
 
-		TransformPropagationPhase = ecs.entity("RenderPhase")
+		TransformPropagationPhase = ecs.entity("TransformPropagationPhase")
 			.add(flecs::Phase)
 			.depends_on(transformPropagationPhaseDependency);
 
@@ -45,23 +45,29 @@ public:
 
 	void TransformPropagationSystem() {
 		
+		//This updates the world matrix for every 'root' entity, based on the roots transform.
+		//A root entity is any entity that has a flecs::Parent relationship to other ents.(different than child_of).
+		// The child ents rely their parents WorldMatrix to be updated so they update their own accordingly. 
 		ecs.system<const Transform, WorldMatrix>("RootTransformSys")
 			.without<flecs::Parent>()
 			.kind(TransformPropagationPhase)
-			.each([&](const Transform& t, WorldMatrix& worldMat) {
+			.each([&](flecs::entity ent, const Transform& t, WorldMatrix& worldMat) {
 			worldMat.matrix = createWorldMatrix(t);
 		});
 
-
+		
+		//This system processes every child entity(ents with flecs::Parent) think wheel in a car model where base body is the parent.
+		// It updates their world matrix based on the position of their parent to ensure they are in the correct place.
 		ecs.system<MeshComponent, Transform, WorldMatrix, const flecs::Parent>("TransformPropagationSys")
 			.kind(TransformPropagationPhase)
 			.group_by(flecs::ParentDepth)
-			.each([&](const MeshComponent& meshComp, const Transform& transform,
+			.query_flags(EcsQueryGroupByOrdered)
+			.each([&](flecs::entity ent, const MeshComponent& meshComp, const Transform& transform,
 				WorldMatrix& worldMat, const flecs::Parent parent) {
 
 			flecs::entity parentEnt = ecs.entity(parent.value);
 
-			//Assuming parent has worldMatrix
+			//Parent MUST have world matrix so we don't check
 			const glm::mat4& parentWorldMat = parentEnt.get<WorldMatrix>().matrix;
 
 			worldMat.matrix = parentWorldMat * createWorldMatrix(transform);

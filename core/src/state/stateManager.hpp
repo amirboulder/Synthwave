@@ -135,8 +135,11 @@ public:
 		ecs.component<SaveGameSrcEvent>().add(flecs::Singleton);
 		ecs.set<SaveGameSrcEvent>({});
 
-		ecs.component<PrintSystemsEvent>().add(flecs::Singleton);
-		ecs.set<PrintSystemsEvent>({});
+		ecs.component<PrintActiveSystemsEvent>().add(flecs::Singleton);
+		ecs.set<PrintActiveSystemsEvent>({});
+
+		ecs.component<PrintAllSystemsEvent>().add(flecs::Singleton);
+		ecs.set<PrintAllSystemsEvent>({});
 
 	}
 
@@ -174,18 +177,36 @@ public:
 	void RegisterCustomPhaseDeps() {
 
 		flecs::entity inputPhaseDependency = ecs.lookup("InputPhaseDependency");
+		if (!inputPhaseDependency)
+			LogError(LOG_APP, "StateManager::RegisterCustomPhaseDeps inputPhaseDependency does not exist");
 
-		flecs::entity editorPhaseDependency = ecs.lookup("EditorPhaseDependency");
+		/*flecs::entity editorPhaseDependency = ecs.lookup("EditorPhaseDependency");
+		if (!editorPhaseDependency)
+			LogError(LOG_APP, "StateManager::RegisterCustomPhaseDeps editorPhaseDependency does not exist");*/
 
 		flecs::entity physicsPhaseDependency = ecs.lookup("PhysicsPhaseDependency").depends_on(inputPhaseDependency);
+		if (!physicsPhaseDependency)
+			LogError(LOG_APP, "StateManager::RegisterCustomPhaseDeps physicsPhaseDependency does not exist");
+
 		flecs::entity aiPhaseDependency = ecs.lookup("AIPhaseDependency").depends_on(physicsPhaseDependency);
+		if (!aiPhaseDependency)
+			LogError(LOG_APP, "StateManager::RegisterCustomPhaseDeps aiPhaseDependency does not exist");
+
+
 		//TODO Audio phase
 		//TODO maybe gameState phase
+
 		flecs::entity playerPhaseDependency = ecs.lookup("PlayerPhaseDependency").depends_on(aiPhaseDependency);
+		if (!playerPhaseDependency)
+			LogError(LOG_APP, "StateManager::RegisterCustomPhaseDeps playerPhaseDependency does not exist");
 
 		flecs::entity transformPropPhaseDependency = ecs.lookup("TransformPropagationPhaseDependency").depends_on(playerPhaseDependency);
+		if (!transformPropPhaseDependency)
+			LogError(LOG_APP, "StateManager::RegisterCustomPhaseDeps TransformPropagationPhaseDependency does not exist");
 
 		flecs::entity renderPhaseDependency = ecs.lookup("RenderPhaseDependency").depends_on(transformPropPhaseDependency);
+		if (!renderPhaseDependency)
+			LogError(LOG_APP, "StateManager::RegisterCustomPhaseDeps renderPhaseDependency does not exist");
 
 		ecs.entity(flecs::PostFrame).depends_on(renderPhaseDependency);
 
@@ -711,22 +732,22 @@ public:
 
 	void PrintSystemsEventHook() {
 
-		ecs.component<PrintSystemsEvent>()
-			.on_set([&](PrintSystemsEvent& event) {
+		ecs.component<PrintActiveSystemsEvent>()
+			.on_set([&](PrintActiveSystemsEvent& event) {
 
 			if (event.occurred == true) {
 
-				printSystems();
+				printAllActiveSystem();
 			}
 		});
 	}
 
 	void PrintPhasesEventHook() {
 
-		ecs.component<PrintPhasesEvent>()
-			.on_set([&](PrintPhasesEvent& event) {
+		ecs.component<PrintAllSystemsEvent>()
+			.on_set([&](PrintAllSystemsEvent& event) {
 
-				printPhases();
+				printAllSystems();
 		});
 	}
 	
@@ -958,8 +979,8 @@ public:
 		ecs.set<GameLoadedState>({ GameLoadedState::NotLoaded });
 	}
 
-
-	void printSystems() {
+	// Prints all active system seperated by the phase they belong to.
+	void printAllActiveSystem() {
 
 		
 		// Query phase dependent systems in pipeline execution order
@@ -970,15 +991,33 @@ public:
 			.without(flecs::Disabled).up(flecs::ChildOf)
 			.build();
 
-		auto allSystemsQuery = ecs.query_builder<>()
-			.with(flecs::System)
-			.without(flecs::Disabled)
-			.build();
+		
+		flecs::entity phase = flecs::entity::null();
 
 		LogInfo(LOG_APP, "Printing systems that depend on a phase in pipeline execution order");
 		dependentSystemsQuery.each([&](flecs::entity system) {
-			LogInfo(LOG_APP, "  System: %s", system.name().c_str());
+			
+			if (phase != system.target(flecs::DependsOn)) {
+				LogInfo(LOG_APP, " ");
+				phase = system.target(flecs::DependsOn);
+			}
+
+			LogInfo(LOG_APP, "System %s in phase %s %s", system.name().c_str(), phase.name().c_str(), phase.enabled() ? " " : "DISABLED");
 		});
+
+		LogInfo(LOG_APP, " ");
+		LogInfo(LOG_APP, " ");
+		LogInfo(LOG_APP, " ");
+
+		
+	}
+
+	//Prints all systems regardless of wheaher they belong to a phase or are disableds
+	void printAllSystems() {
+
+		auto allSystemsQuery = ecs.query_builder<>()
+			.with(flecs::System)
+			.build();
 
 		LogInfo(LOG_APP, " ");
 		LogInfo(LOG_APP, " ");
@@ -992,25 +1031,7 @@ public:
 		LogInfo(LOG_APP, " ");
 		LogInfo(LOG_APP, " ");
 		LogInfo(LOG_APP, " ");
-	}
 
-	void printPhases() {
-
-		LogInfo(LOG_APP, "Print phases in pipeline execution order");
-		// Query systems in pipeline execution order
-		auto pipeline_query = ecs.query_builder<>()
-			.with(flecs::Phase)
-			.without(flecs::Disabled).up(flecs::DependsOn)
-			.without(flecs::Disabled).up(flecs::ChildOf)
-			.build();
-
-
-		pipeline_query.each([&](flecs::iter& it, size_t i) {
-
-			flecs::entity phase = it.entity(i);
-			LogInfo(LOG_APP, " Phase: %s ", phase.name().c_str());
-
-		});
 	}
 
 	void exitCallback() {

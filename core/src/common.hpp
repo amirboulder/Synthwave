@@ -1,13 +1,14 @@
 #pragma once
 
+//TODO put this in util or just in inputManager
 namespace CMN {
 
-	void flushMouseMovement() {
+	
+	inline void flushMouseMovement() {
 		// flushing all the mouse movement accumulated during pause/load to avoid camera jerk
 		float dx, dy;
 		SDL_GetRelativeMouseState(&dx, &dy);
 	}
-
 
 }
 

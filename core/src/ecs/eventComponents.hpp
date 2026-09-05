@@ -53,10 +53,10 @@ struct RagdollSavedEvent {
 	bool occurred = false;
 };
 
-struct PrintSystemsEvent {
+struct PrintActiveSystemsEvent {
 	bool occurred = false;
 };
 
-struct PrintPhasesEvent {
+struct PrintAllSystemsEvent {
 	bool occurred = false;
 };
