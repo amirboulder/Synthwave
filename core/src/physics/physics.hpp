@@ -464,7 +464,7 @@ public:
 
 
 
-	Physics(flecs::world& ecs)
+	Physics(flecs::world& ecs, const float timeStep)
 		: broad_phase_layer_interface(),
 		object_vs_broadphase_layer_filter(),
 		object_vs_object_layer_filter(),
@@ -472,9 +472,8 @@ public:
 		contact_listener(ecs, frameAlternator),
 		physicsSystem(),
 		bodyInterface(physicsSystem.GetBodyInterface()),
-		ecs(ecs)
-
-
+		ecs(ecs),
+		timeStep(timeStep)
 
 	{
 		// Register allocation hook. In this example we'll just let Jolt use 
