@@ -4,17 +4,21 @@ int main(int argc, char* argv[])
 {
 	bool running = true;
 
+	//TODO should come from a config file.
 	SDL_SetAppMetadata("Synthwave", "0.0.1", "SynthID");
+	float timeStep = 1.0f / 60.0f; 
 
 	flecs::world ecs;
 
 	Logger logger; //sets all log categories to SDL_LOG_PRIORITY_INFO.
 
+	TimeManager time(ecs, timeStep);
+
 	InputManager inputManager(ecs);
 
 	Renderer renderer(ecs);
 
-	Physics physics(ecs);
+	Physics physics(ecs, timeStep);
 
 	TransformPropagation transformPropagation(ecs);
 
@@ -24,8 +28,6 @@ int main(int argc, char* argv[])
 	Registrar registrar(ecs);
 
 	MenuSystem menuSys(ecs);
-
-	TimeManager time(ecs, physics.timeStep);
 
 	Scene scene(ecs);
 
@@ -42,6 +44,7 @@ int main(int argc, char* argv[])
 	ecs.set<FrameCounter>({});
 	uint64_t& frameCounter = ecs.get_mut<FrameCounter>().count;
 
+
 	LogSynth(LOG_APP,"Initializing Simulation 🤖");
 
 	while (running) {
@@ -53,7 +56,7 @@ int main(int argc, char* argv[])
 		while (time.accumulator >= time.timeStep) {
 
 			
-			ecs.progress(); //All systems except rendering happen here.
+			ecs.progress(); //All systems except draw calls happen here.
 
 			time.accumulator -= time.timeStep;
 		}

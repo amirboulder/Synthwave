@@ -746,8 +746,11 @@ public:
 
 		ecs.component<PrintAllSystemsEvent>()
 			.on_set([&](PrintAllSystemsEvent& event) {
+				
+			if (event.occurred == true) {
 
 				printAllSystems();
+			}
 		});
 	}
 	

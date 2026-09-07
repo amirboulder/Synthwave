@@ -2,6 +2,8 @@
 
 import Logger;
 import ShaderCompiler;
+import TimeManager;
+import InputManager2;
 
 #include "core/src/pch.h"
 
@@ -26,8 +28,6 @@ import ShaderCompiler;
 #include "core/src/Registery/registry.hpp"
 
 #include "core/src/InputSystem/InputManager.hpp"
-
-#include "core/src/time/timeManager.hpp"
 
 #include "core/src/MenuSystem/MenuSystem.hpp"
 

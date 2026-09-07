@@ -1,4 +1,17 @@
-#pragma once
+module;
+
+#include <SDL3/SDL_timer.h>
+#include <flecs.h>
+
+
+export module TimeManager;
+
+import Logger;
+
+export struct TimeStep {
+	float step = 0.0f;
+};
+
 
 /// <summary>
 /// Keeps track of how much times is consumed in every frame.
@@ -6,7 +19,7 @@
 /// Note: When game is paused we DO NOT pause time but rather disable game systems.
 /// Note: deltaTime has been capped 50ms to avoid doing too many updates when debugging.
 /// </summary>
-class TimeManager {
+export class TimeManager {
 
 public:
 
@@ -32,7 +45,7 @@ public:
 	}
 
 	void startGameTime()
-		
+
 	{
 		lastTime = SDL_GetTicks();
 	}

@@ -4,7 +4,7 @@ struct ActionState {
 	int64_t frameStamp = 0;
 	float heldTime = 0.0f;   // accumulates while down, useful for charge-up
 	bool occurred = false;   // currently held
-	bool latch = false;   //  triggred by sdlEvents,used for missed events
+	bool latch = false;   //  triggered by sdlEvents,used for missed events
 	bool occurredLast = false;   // held last frame / persisted
 	bool justPressed = false;  // true for exactly one frame
 	bool justReleased = false;  // true for exactly one frame

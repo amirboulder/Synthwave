@@ -1,6 +1,13 @@
 #pragma once 
 
-
+struct UserInput {
+	glm::vec2 direction = glm::vec2(0);
+	float offsetX = 0.0f;
+	float offsetY = 0.0f;
+	float magnitude = 0.0f;         // 0-1, for speed scaling
+	bool jump = false;
+	bool jumpConsumed = true;
+};
 
 //TODO create class PlayerContactListener : public JPH::CharacterContactListener 
 class Player : public CharacterContactListener {
@@ -30,8 +37,7 @@ public:
 	float terminalVelocity = -50.0f;
 	JPH::Vec3 gravity = Vec3(0, -20.0f, 0);
 
-	//TODO query it from FISIKS FIX FIX FIX
-	float physicsTickRate = 1.0f / 60.0f;
+	float timeStep = 1.0f / 60.0f;
 
 	glm::vec3 cameraOffset = glm::vec3(0.0f, 2.0f, 0.0f);
 
@@ -56,6 +62,8 @@ public:
 		:ecs(ecs)
 	{
 		//TODO Player can create it own phase here
+
+		timeStep = ecs.get<TimeStep>().step;
 
 		temp_allocator = new TempAllocatorImpl(1 * 1024 * 1024);
 	
@@ -379,7 +387,7 @@ public:
 		}
 		else {
 			// In air: Apply gravity manually
-			mVerticalVelocity += gravity * physicsTickRate;
+			mVerticalVelocity += gravity * timeStep;
 
 			// Clamp to terminal velocity
 			if (mVerticalVelocity.GetY() < terminalVelocity) {
@@ -412,7 +420,7 @@ public:
 		const ShapeFilter shapeFilter;
 
 
-		mCharacter->Update(physicsTickRate, gravity, broadphase_layer_filter, object_layer_filter, body_filter, shapeFilter, *temp_allocator);
+		mCharacter->Update(timeStep, gravity, broadphase_layer_filter, object_layer_filter, body_filter, shapeFilter, *temp_allocator);
 
 		//mCharacter->ExtendedUpdate(physicsTickRate, gravity, broadphase_layer_filter, object_layer_filter, body_filter, shapeFilter, *fisiks.temp_allocator);
 
@@ -489,7 +497,7 @@ public:
 		}
 		// Auto fire
 		if (atttackEventState.occurred) {
-			
+			//LogInfo(LOG_APP, "heldTime :  %f", atttackEventState.heldTime);
 		}
 
 	}

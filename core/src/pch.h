@@ -35,7 +35,6 @@ namespace fs = std::filesystem;
 #include <flecs.h>
 
 //Jolt
-
 #include <Jolt/Jolt.h>
 
 #include <Jolt/RegisterTypes.h>
@@ -75,7 +74,6 @@ namespace fs = std::filesystem;
 #include <Jolt/Physics/Collision/CastResult.h>
 
 //fastgltf
-
 #include "fastgltf/core.hpp"
 #include "fastgltf/util.hpp"
 #include "fastgltf/math.hpp"

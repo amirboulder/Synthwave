@@ -24,6 +24,15 @@ public:
 
 	flecs::world& ecs;
 
+	glm::vec2 direction = glm::vec2(0);
+	float offsetX = 0.0f;
+	float offsetY = 0.0f;
+
+	flecs::entity forwardMVMTEnt;
+	flecs::entity backwardMVMTEnt;
+	flecs::entity leftMVMTEnt;
+	flecs::entity rightMVMTEnt;
+
 	Editor(flecs::world& ecs)
 		: ecs(ecs)
 	{
@@ -49,12 +58,44 @@ public:
 
 		registerVisualizations();
 
+		lookupEventEnts();
+
 		editorToggle.disable();
 
 		registerPhase();
 		registerSystems();
 
 		LogSuccess(LOG_APP, "Editor Initialized");
+	}
+
+	bool lookupEventEnts() {
+
+		//Get the required Event entities.
+		forwardMVMTEnt = ecs.lookup("forwardMVMTEnt");
+		if (!forwardMVMTEnt) {
+			LogError(LOG_APP, "forwardMVMTEnt is null");
+			return false;
+		}
+
+		backwardMVMTEnt = ecs.lookup("backwardMVMTEnt");
+		if (!backwardMVMTEnt) {
+			LogError(LOG_APP, "backwardMVMTEnt is null");
+			return false;
+		}
+
+		leftMVMTEnt = ecs.lookup("leftMVMTEnt");
+		if (!leftMVMTEnt) {
+			LogError(LOG_APP, "leftMVMTEnt is null");
+			return false;
+		}
+
+		rightMVMTEnt = ecs.lookup("rightMVMTEnt");
+		if (!rightMVMTEnt) {
+			LogError(LOG_APP, "rightMVMTEnt is null");
+			return false;
+		}
+
+		return true;
 	}
 
 	// All editor Items are created using the prefab editorComponent this allows us to disable all of them by disabling editorComponent
@@ -189,24 +230,26 @@ public:
 		Transform transform;
 		transform.position = config.FreeCamPos;
 
-		MeshStandalone mesh = Camera::createMesh(config.freeCamFov);
-
-
+		//TODO Fix the camera editor Mesh generation
+		//But Also does editor free cam really need a mesh ?
+		//We will still want the mesh for knowing where the players camera is located.
+	
+		/*MeshStandalone mesh = Camera::createMesh(config.freeCamFov);
 		RenderUtil::uploadBufferData(renderContext.device, mesh.vertexBuffer, mesh.vertices.data(),
 			mesh.vertices.size() * sizeof(Vertex), SDL_GPU_BUFFERUSAGE_VERTEX);
 		RenderUtil::uploadBufferData(renderContext.device, mesh.indexBuffer, mesh.indices.data(),
-			mesh.indices.size() * sizeof(unsigned int), SDL_GPU_BUFFERUSAGE_INDEX);
+			mesh.indices.size() * sizeof(unsigned int), SDL_GPU_BUFFERUSAGE_INDEX);*/
 
-		mesh.indexCount = mesh.indices.size();
+		//mesh.indexCount = mesh.indices.size();
 
 		freeCam = ecs.entity("FreeCam")
 			.emplace<Camera>(config)
 			.set<Transform>(transform)
-			.set<ModelSourceName>({ "camera" })
-			.set<MeshStandalone>({ std::move(mesh) })
+			//.set<ModelSourceName>({ "camera" })
+			//.set<MeshStandalone>({ std::move(mesh) })
 			.add<RenderPipeline>(ecs.lookup("pipelineWireframe-non-instanced"))
-			.set<CameraMVMTState>({ false })
-			.add<EditorMesh>();
+			.set<CameraMVMTState>({ false });
+			//.add<EditorMesh>();
 	}
 
 	//Set selected entity based on mouse click position if editor is enabled
@@ -277,16 +320,58 @@ public:
 			return;
 		}
 
-		//check which camera is active
+		const ActionState& forwardState = forwardMVMTEnt.get<ActionState>();
+		const ActionState& backwardState = backwardMVMTEnt.get<ActionState>();
+		const ActionState& leftState = leftMVMTEnt.get<ActionState>();
+		const ActionState& rightState = rightMVMTEnt.get<ActionState>();
 
-		const UserInput& input = ecs.get<UserInput>();
+		const MouseMovementState& mouseMovement = ecs.get<MouseMovementState>();
+
+		// Reset each frame before accumulating
+		direction = glm::vec2(0);
+
+		if (forwardState.occurred) {
+
+			direction.y += 1;
+		}
+		if (backwardState.occurred) {
+
+			direction.y -= 1;
+		}
+		if (leftState.occurred) {
+
+			direction.x -= 1;
+		}
+		if (rightState.occurred) {
+
+			direction.x += 1;
+		}
+
+		// Normalize direction to prevent faster diagonal movement
+		if (glm::length2(direction) > 0.0f) {
+			direction = glm::normalize(direction);
+		}
+
+		//TODO parameterize
+		float smoothingFactor = 0.7f; // Adjust between 0-1 (lower = smoother)
+		static float smoothedXOffset = 0.0f, smoothedYOffset = 0.0f;
+
+		// Apply smoothing
+		smoothedXOffset = smoothedXOffset * (1.0f - smoothingFactor) + mouseMovement.deltaX * smoothingFactor;
+		smoothedYOffset = smoothedYOffset * (1.0f - smoothingFactor) + mouseMovement.deltaY * smoothingFactor;
+
+		offsetX = smoothedXOffset;
+		offsetY = smoothedYOffset;
+
+		
+		
 		Camera& camera = freeCam.get_mut<Camera>();
 
-		camera.rotateCamera(input.offsetX, input.offsetY);
+		camera.rotateCamera(offsetX, offsetY);
 
 
-		camera.position += camera.front * input.direction.y * camera.movementSpeed;
-		camera.position += camera.right * input.direction.x * camera.movementSpeed;
+		camera.position += camera.front * direction.y * camera.movementSpeed;
+		camera.position += camera.right * direction.x * camera.movementSpeed;
 
 		camera.updateVectors();
 

@@ -1,11 +1,6 @@
 #pragma once
 
 
-struct TimeStep {
-	float step = 0.0f;
-};
-
-
 struct FrameCounter {
 	uint64_t count = 0;
 };
@@ -15,22 +10,8 @@ struct Position {
 };
 
 
-
 struct LinearVelocity {
 	glm::vec3 position = glm::vec3(1);
-};
-
-/// <summary>
-/// Created by InputManager and consumed by player and freeCam.
-/// Data is reset when camera switches.
-/// </summary>
-struct UserInput {
-	glm::vec2 direction = glm::vec2(0);
-	float offsetX = 0.0f;
-	float offsetY = 0.0f;
-	float magnitude = 0.0f;         // 0-1, for speed scaling
-	bool jump = false;
-	bool jumpConsumed = true; //TODO we can store multiple bools in an int if we have many
 };
 
 
