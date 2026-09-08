@@ -196,6 +196,9 @@ public:
 				gamepad = NULL;
 			}
 
+			//We handle editor events before giveing the input to imgui
+			handleEditorEvents(sdlEvent);
+
 			// The rest of the input is now gated
 			//If IMGUI wants the input then it will go to it
 			if (io.WantTextInput || io.WantCaptureMouse) {
@@ -205,8 +208,7 @@ public:
 			if (sdlEvent.type == SDL_EVENT_MOUSE_BUTTON_DOWN
 				&& sdlEvent.button.button == leftClickKey) {
 				ecs.set<MouseClickLeftEvent>({ sdlEvent.button.x, sdlEvent.button.y });
-			}
-			handleEditorEvents(sdlEvent);
+			}		
 
 
 			if (sdlEvent.type == SDL_EVENT_KEY_DOWN || sdlEvent.type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
