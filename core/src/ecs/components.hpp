@@ -1,34 +1,14 @@
 #pragma once
 
+//All general components should live here
+//All components that rely on third-party dependencies should not go here. (STL is ok)
 
 struct FrameCounter {
 	uint64_t count = 0;
 };
 
-struct Position {
-	glm::vec3 position = glm::vec3(1);
-};
 
 
-struct LinearVelocity {
-	glm::vec3 position = glm::vec3(1);
-};
-
-
-struct ActorBehavior {
-
-	std::function<void(flecs::world& ecs, flecs::entity self)> actorUpdate;
-
-};
-
-//These two are the same thing get rid of one
-//TODO find a better name for this
-struct HudRender {
-	std::function<void(flecs::world& ecs)> draw;
-};
-struct Render {
-	std::function<void(flecs::world& ecs)> draw;
-};
 struct Draw {
 	std::function<void()> draw;
 };
@@ -84,92 +64,14 @@ struct EditorMesh {};
 
 struct IsActive {};
 
-//=============================================
-// Physics
-//=============================================
 
-/// <summary>
-/// Reference to the physics system which allows other system query it from the ECS
-/// instead of having to pass around references.
-/// </summary>
-struct PhysicsSystemRef {
-	JPH::PhysicsSystem & physicsSystem;
-};
-
-struct PhysicsBody {
-	JPH::BodyID ID;
-};
-
-struct PhysicsBodyGroup {
-	std::vector<JPH::BodyID> IDs;
-};
-
-struct JoltCharacter {
-	JPH::Character* characterPtr = nullptr;
-};
-
-struct JoltRagdoll {
-	JPH::Ragdoll* ragdollPtr = nullptr;
-};
-
-struct JoltRagdollFilter {
-	JPH::IgnoreMultipleBodiesFilter* filter = nullptr;
-};
-
-struct JoltAnimation {
-	JPH::SkeletalAnimation* animationPtr = nullptr;
-};
-
-
-struct JoltAnimationList {
-
-	std::vector<std::pair<std::string, JPH::SkeletalAnimation*>> animations; 
-
-	JPH::SkeletalAnimation* find(const std::string& name) const {
-		for (auto& [n, a] : animations)
-			if (n == name) return a;
-		return nullptr;
-	}
-};
-
-struct JoltPose {
-	JPH::SkeletonPose pose;
-	JPH::Vec3 root_offset;
-};
-
-//TDO delete
-struct JoltPose2 {
-	JPH::SkeletonPose pose;
-	float hipsFromSoles = 0.0f;
-};
-
-
-struct BipedalRagdollData {
-
-	float hipsFromSoles = 0.0f;
-};
-
-struct AnimationTime {
-	float time = 0.0f;
-};
-
-
-struct PhysicsConstraint {
-	JPH::Ref<JPH::SixDOFConstraint> constraint;
-};
-
-struct JoltAnchorBody {
-	JPH::BodyID bodyID;
-	JPH::Ref<JPH::FixedConstraint> constraint;
-};
 
 //////////////////////////////////////////////
 
 struct Game {};
 struct _Scene {};
 
-struct PlayerRef { flecs::entity value = flecs::entity::null(); };
-struct PlayerCamRef { flecs::entity value = flecs::entity::null(); };
+
 
 
 
@@ -184,9 +86,6 @@ struct ObjectType {
 	std::string name; 
 };
 
-struct HighlightedEntRef {
-	flecs::entity ent;
-};
 
 /// <summary>
 /// Used for Serialization
@@ -241,16 +140,4 @@ enum class EnemyState {
 	CORPSE, // Enough damage is taken to destroy the Robot
 
 };
-
-/*
-struct EnemyStates {
-
-	EnemyState current;
-	EnemyState previous;
-
-	void setState(flecs::entity ent, EnemyState newState) {
-		ent.set<EnemyStates>({ newState, current });
-	}
-};
-*/
 

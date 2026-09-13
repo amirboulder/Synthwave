@@ -2,7 +2,7 @@
 
 #include "../../core/src/AssetSystems/AssetLibrary.hpp"
 
-#include "player.hpp"
+//TODO turn this into a module. It should only rely on the componentHeaders
 
 //Maybe Use this everywhere
 using entUpdateFn = std::function<void(flecs::world&, flecs::entity)>;

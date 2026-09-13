@@ -218,8 +218,8 @@ set(FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES ON)
 FetchContent_MakeAvailable(fastgltf)
 
 
-get_property(all_targets DIRECTORY ${fastgltf_SOURCE_DIR} PROPERTY BUILDSYSTEM_TARGETS)
-message(STATUS "fastgltf targets: ${all_targets}")
+#get_property(all_targets DIRECTORY ${fastgltf_SOURCE_DIR} PROPERTY BUILDSYSTEM_TARGETS)
+#message(STATUS "fastgltf targets: ${all_targets}")
 
 #=============================================
 #glm

@@ -3,7 +3,7 @@
 import Logger;
 import ShaderCompiler;
 import TimeManager;
-import InputManager2;
+
 
 #include "core/src/pch.h"
 
@@ -11,6 +11,9 @@ import InputManager2;
 
 #include "core/src/ecs/GraphicsComponents.hpp"
 #include "core/src/ecs/eventComponents.hpp"
+#include "core/src/ecs/MathComponents.hpp"
+#include "core/src/ecs/ECS_Components.hpp"
+#include "core/src/ecs/PhysicsComponents.hpp"
 #include "core/src/ecs/components.hpp"
 
 #include "core/src/renderer/renderer.hpp"
