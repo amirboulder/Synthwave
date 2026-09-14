@@ -1,12 +1,6 @@
 #pragma once
 
 
-#define JPH_OBJECT_STREAM
-
-#include <Jolt/Physics/Collision/Shape/ScaledShape.h>
-#include <Jolt/Physics/Constraints/SwingTwistConstraint.h>
-#include <Jolt/Skeleton/SkeletalAnimation.h>
-
 #include "AssetStream.hpp"
 
 #include "Biped.hpp"

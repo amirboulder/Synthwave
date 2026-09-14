@@ -330,13 +330,11 @@ namespace Scripts {
 
 		//TODO dt should not be hardcoded but also should not be gotten from ecs.delta_time either
 		//Since physics runs at a fixed timestep we should get that value once use its
-		const float dt = 0.0166666;
+		const float dt = 1.0f / 60.0f;
 		animTime += dt;// Advance animation time
 
 		animation->Sample(animTime, pose);
 
-		// Keep the hip's authored body frame from the pose/physics. Overwriting with
-		// characterRot drives pose motors toward the upright capsule frame and leans.
 		RVec3 root_offset;
 		SkeletonPose::JointState& joint = pose.GetJoint(0);
 		joint.mTranslation = Vec3::sZero();

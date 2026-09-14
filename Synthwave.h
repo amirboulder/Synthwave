@@ -3,6 +3,8 @@
 import Logger;
 import ShaderCompiler;
 import TimeManager;
+import Jolt;
+import PhysicsComponents;
 
 
 #include "core/src/pch.h"
@@ -13,7 +15,6 @@ import TimeManager;
 #include "core/src/ecs/eventComponents.hpp"
 #include "core/src/ecs/MathComponents.hpp"
 #include "core/src/ecs/ECS_Components.hpp"
-#include "core/src/ecs/PhysicsComponents.hpp"
 #include "core/src/ecs/components.hpp"
 
 #include "core/src/renderer/renderer.hpp"

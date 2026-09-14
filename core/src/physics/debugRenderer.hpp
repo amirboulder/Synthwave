@@ -9,7 +9,6 @@
 
 
 JPH_NAMESPACE_BEGIN
-
 using namespace JPH;
 
 // This class is a part of the renderer because the call to draw all needs to happen
@@ -19,11 +18,11 @@ class fisiksDebugRenderer : public JPH::DebugRenderer
 {
 
 	/// Last provided camera position
-	RVec3						mCameraPos;
+	JPH::RVec3						mCameraPos;
 	bool						mCameraPosSet = false;
 
 	/// Implementation specific batch object
-	class BatchImpl : public RefTargetVirtual
+	class BatchImpl : public JPH::RefTargetVirtual
 	{
 	public:
 		JPH_OVERRIDE_NEW_DELETE
@@ -31,14 +30,14 @@ class fisiksDebugRenderer : public JPH::DebugRenderer
 		virtual void			AddRef() override { ++mRefCount; }
 		virtual void			Release() override { if (--mRefCount == 0) delete this; }
 
-		Array<Triangle>			mTriangles;
+		JPH::Array<Triangle>			mTriangles;
 
 		SDL_GPUBuffer* vertexBuffer = NULL;
 
 		glm::vec4 color;
 
 	private:
-		atomic<uint32>			mRefCount = 0;
+		JPH::atomic<JPH::uint32>			mRefCount = 0;
 	};
 	
 public:
@@ -58,7 +57,7 @@ public:
 	glm::mat4 view;
 	glm::mat4 proj;
 
-	vector<Ref<BatchImpl>> batches;
+	vector<JPH::Ref<BatchImpl>> batches;
 	vector<glm::mat4> modelMatrices;
 	vector<LineVertex> lines;
 
@@ -341,7 +340,6 @@ public:
 		return result;
 	}
 };
-
 
 JPH_NAMESPACE_END
 

@@ -10,6 +10,7 @@
 #include <filesystem>
 #include <queue>
 #include <chrono>
+#include <random>
 
 using std::vector;
 using std::cout;
@@ -34,44 +35,10 @@ namespace fs = std::filesystem;
 //Flecs 
 #include <flecs.h>
 
+
 //Jolt
 #include <Jolt/Jolt.h>
 
-#include <Jolt/RegisterTypes.h>
-#include <Jolt/Core/Factory.h>
-#include <Jolt/Core/TempAllocator.h>
-#include <Jolt/Core/JobSystemThreadPool.h>
-#include <Jolt/Physics/PhysicsSettings.h>
-#include <Jolt/Physics/PhysicsSystem.h>
-#include <Jolt/Physics/Collision/Shape/BoxShape.h>
-#include <Jolt/Physics/Collision/Shape/SphereShape.h>
-#include <Jolt/Physics/Collision/Shape/CapsuleShape.h>
-#include <Jolt/Physics/Collision/Shape/CylinderShape.h>
-#include <Jolt/Physics/Collision/Shape/MeshShape.h>
-#include <Jolt/Physics/Collision/Shape/EmptyShape.h>
-#include <Jolt/Physics/Collision/Shape/StaticCompoundShape.h>
-#include <Jolt/Physics/Collision/EstimateCollisionResponse.h>
-#include <Jolt/Physics/Body/BodyCreationSettings.h>
-#include <Jolt/Physics/Body/BodyActivationListener.h>
-#include <Jolt/Physics/Ragdoll/Ragdoll.h>
-#include <Jolt/Physics/Constraints/PointConstraint.h>
-#include <Jolt/Physics/Constraints/PathConstraint.h>
-#include <Jolt/Physics/Constraints/DistanceConstraint.h>
-#include <Jolt/Physics/Constraints/FixedConstraint.h>
-#include <Jolt/Physics/Constraints/HingeConstraint.h>
-#include <Jolt/Physics/Constraints/SliderConstraint.h>
-#include <Jolt/Physics/Constraints/ConeConstraint.h>
-#include <Jolt/Physics/Constraints/SwingTwistConstraint.h>
-#include <Jolt/Physics/Constraints/SixDOFConstraint.h>
-#include <Jolt/ObjectStream/ObjectStreamIn.h>
-#include <Jolt/ObjectStream/ObjectStreamOut.h>
-#include <Jolt/core/StreamWrapper.h>
-#include <Jolt/Physics/Collision/GroupFilterTable.h>
-
-#include <Jolt/Physics/Character/Character.h>
-#include <Jolt/Physics/Character/CharacterVirtual.h>
-#include <Jolt/Physics/Collision/RayCast.h>
-#include <Jolt/Physics/Collision/CastResult.h>
 
 //fastgltf
 #include "fastgltf/core.hpp"

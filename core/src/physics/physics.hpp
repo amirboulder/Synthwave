@@ -16,11 +16,11 @@ using namespace JPH::literals;
 // but only if you do collision testing).
 namespace Layers
 {
-	static constexpr ObjectLayer NON_MOVING = 0;
-	static constexpr ObjectLayer MOVING = 1;
-	static constexpr ObjectLayer Sensors = 2;
-	static constexpr ObjectLayer CHARACTER_ANCHOR = 3;
-	static constexpr ObjectLayer NUM_LAYERS = 4;
+	static constexpr JPH::ObjectLayer NON_MOVING = 0;
+	static constexpr JPH::ObjectLayer MOVING = 1;
+	static constexpr JPH::ObjectLayer Sensors = 2;
+	static constexpr JPH::ObjectLayer CHARACTER_ANCHOR = 3;
+	static constexpr JPH::ObjectLayer NUM_LAYERS = 4;
 };
 
 // Each broadphase layer results in a separate bounding volume tree in the broad phase. You at least want to have
@@ -30,14 +30,13 @@ namespace Layers
 // your broadphase layers define JPH_TRACK_BROADPHASE_STATS and look at the stats reported on the TTY.
 namespace BroadPhaseLayers
 {
-	static constexpr BroadPhaseLayer NON_MOVING(0);
-	static constexpr BroadPhaseLayer MOVING(1);
-	static constexpr uint NUM_LAYERS(2);
+	static constexpr JPH::BroadPhaseLayer NON_MOVING(0);
+	static constexpr JPH::BroadPhaseLayer MOVING(1);
+	static constexpr JPH::uint NUM_LAYERS(2);
 };
 
 #include "debugRenderer.hpp"
 #include "ragdoll.hpp"
-#include "physicsComponents.hpp"
 
 
 #include "physicsUtil.hpp"
@@ -181,7 +180,7 @@ public:
 };
 
 
-class MyContactListener : public ContactListener
+class MyContactListener : public JPH::ContactListener
 {
 public:
 
@@ -686,11 +685,11 @@ public:
 	~Physics() {
 
 		// Unregisters all types with the factory and cleans up the default material
-		UnregisterTypes();
+		JPH::UnregisterTypes();
 
 		// Destroy the factory
-		delete Factory::sInstance;
-		Factory::sInstance = nullptr;
+		delete JPH::Factory::sInstance;
+		JPH::Factory::sInstance = nullptr;
 	}
 };
 
