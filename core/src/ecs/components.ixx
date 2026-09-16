@@ -1,32 +1,35 @@
-#pragma once
+module;
 
-//All general components should live here
-//All components that rely on third-party dependencies should not go here. (STL is ok)
+#include <functional>
+#include <string>
+#include <flecs.h>
 
-struct FrameCounter {
+export module Components;
+
+export struct FrameCounter {
 	uint64_t count = 0;
 };
 
 
 
-struct Draw {
+export struct Draw {
 	std::function<void()> draw;
 };
 
 
 //TODO rename CallbackComponent
-struct Callback {
+export struct Callback {
 	std::function<void()> callbackFunction;
 };
 
-enum class GameLoadedState { NotLoaded, Loaded, Failed };
-enum class MenuState { MAIN, OPTIONS, PAUSE, NONE };
-enum class CameraState { PLAYER, FREECAM, NONE };
-enum class PlayState {PLAY,PAUSE, NONE};
-enum class EditorState {Enabled,Disabled, NONE};
-enum class InputDeviceState {KBM,CONTROLLER};
+export enum class GameLoadedState { NotLoaded, Loaded, Failed };
+export enum class MenuState { MAIN, OPTIONS, PAUSE, NONE };
+export enum class CameraState { PLAYER, FREECAM, NONE };
+export enum class PlayState {PLAY,PAUSE, NONE};
+export enum class EditorState {Enabled,Disabled, NONE};
+export enum class InputDeviceState {KBM,CONTROLLER};
 
-enum class UICommandType {
+export enum class UICommandType {
 	NewGame,
 	SaveGame,
 	LoadGame,
@@ -37,39 +40,39 @@ enum class UICommandType {
 	ExitGame
 };
 
-struct UICommand {
+export struct UICommand {
 	UICommandType type;
 };
 
 // Tags 
-struct DynamicEnt {};
-struct StaticEnt {};
-struct Sensor {};
+export struct DynamicEnt {};
+export struct StaticEnt {};
+export struct Sensor {};
 
-struct MenuComponent {};
-struct HudComponent {};
-struct EditorUIComponent {};
-struct OverlayComponent {};
-struct Active{};
+export struct MenuComponent {};
+export struct HudComponent {};
+export struct EditorUIComponent {};
+export struct OverlayComponent {};
+export struct Active{};
 
-struct HasScript {};
+export struct HasScript {};
 
 /// <summary>
 /// A Tag attached to objects that should only be rendered in while editor is enabled.
 /// Used by renderer queries.
 /// </summary>
-struct EditorMesh {};
+export struct EditorMesh {};
 
 
 
-struct IsActive {};
+export struct IsActive {};
 
 
 
 //////////////////////////////////////////////
 
-struct Game {};
-struct _Scene {};
+export struct Game {};
+export struct _Scene {};
 
 
 
@@ -78,11 +81,11 @@ struct _Scene {};
 /// <summary>
 /// Used for locking the camera
 /// </summary>
-struct CameraMVMTState {
+export struct CameraMVMTState {
 	bool locked = false;
 };
 
-struct ObjectType {
+export struct ObjectType {
 	std::string name; 
 };
 
@@ -90,7 +93,7 @@ struct ObjectType {
 /// <summary>
 /// Used for Serialization
 /// </summary>
-enum class EntityType {
+export enum class EntityType {
 	Empty,
 	Generic,
 	Game,
@@ -122,12 +125,12 @@ enum class EntityType {
 // This exists to keep entities of different EntityType in the same table ie prevent fragmentation,
 // but is that even desirable ???
 // TODO verify this behaves as expected using flecs api
-struct EntityTypeComponent {
+export struct EntityTypeComponent {
 	EntityType type;
 };
 
 
-enum class EnemyState {
+export enum class EnemyState {
 
 	SLEEP, //UnAware the player exits Standing Pose
 	IDLE,
@@ -141,3 +144,31 @@ enum class EnemyState {
 
 };
 
+
+
+
+
+export struct ActorBehavior {
+
+	std::function<void(flecs::world& ecs, flecs::entity self)> actorUpdate;
+
+};
+
+//These two are the same thing get rid of one
+//TODO find a better name for this
+export struct HudRender {
+	std::function<void(flecs::world& ecs)> draw;
+};
+export struct Render {
+	std::function<void(flecs::world& ecs)> draw;
+};
+
+
+export struct PlayerRef { flecs::entity value = flecs::entity::null(); };
+export struct PlayerCamRef { flecs::entity value = flecs::entity::null(); };
+
+
+//TODO MOVE THIS
+export struct HighlightedEntRef {
+	flecs::entity ent;
+};

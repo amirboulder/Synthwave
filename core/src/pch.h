@@ -44,21 +44,11 @@ namespace fs = std::filesystem;
 #include "fastgltf/core.hpp"
 #include "fastgltf/util.hpp"
 #include "fastgltf/math.hpp"
-#include "fastgltf/glm_element_traits.hpp"
 #include "fastgltf/tools.hpp"
 
 //stb_image
 //#define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
-
-
-//GLM
-#define GLM_ENABLE_EXPERIMENTAL
-#include <glm/glm.hpp>
-#include <glm/gtc/quaternion.hpp>
-#include <glm/gtx/quaternion.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtx/matrix_decompose.hpp>
 
 
 //IMGUI

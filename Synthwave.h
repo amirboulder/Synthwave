@@ -4,18 +4,17 @@ import Logger;
 import ShaderCompiler;
 import TimeManager;
 import Jolt;
+import GLM;
 import PhysicsComponents;
+import MathComponents;
+import GraphicsComponents;
+import Components;
+import EventComponents;
 
 
 #include "core/src/pch.h"
 
 #include "core/src/common.hpp"
-
-#include "core/src/ecs/GraphicsComponents.hpp"
-#include "core/src/ecs/eventComponents.hpp"
-#include "core/src/ecs/MathComponents.hpp"
-#include "core/src/ecs/ECS_Components.hpp"
-#include "core/src/ecs/components.hpp"
 
 #include "core/src/renderer/renderer.hpp"
 

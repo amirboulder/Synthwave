@@ -1,72 +1,82 @@
+module;
 
-struct Vertex {
+#include <vector>
+#include <string>
+
+#include <flecs.h>
+
+export module GraphicsComponents;
+
+import GLM;
+
+export struct Vertex {
 	glm::vec3 position;
 	glm::vec3 normal;
 	glm::vec2 texCoord;
 	glm::vec4 color;
 };
 
-struct LineVertex {
+export struct LineVertex {
 	glm::vec3 position;
 	glm::vec4 color;
 };
 
-struct EntIdVertex {
+export struct EntIdVertex {
 	glm::vec3 position;
-	glm::uint32 entID;
+	uint32_t entID;
 };
 
 
-struct Transform {
+export struct Transform {
 	glm::vec3 position = glm::vec3(0);
 	glm::quat rotation = glm::quat(0.0f, 0.0f, 0.0f, 1.0f);
 	glm::vec3 scale = glm::vec3(1);
 };
 
-struct WorldMatrix {
+export struct WorldMatrix {
 	glm::mat4 matrix = glm::mat4(1.0f);
 };
 
 
-struct LineVertices {
+export struct LineVertices {
 	std::vector<LineVertex> data;
 };
 
 
-struct RenderState {
+export struct RenderState {
 	flecs::entity activePipeline;
 };
 
-struct PipelineRef {
+export struct PipelineRef {
 	flecs::entity pipeline;
 };
 
 
-struct ModelSourceName {
+export struct ModelSourceName {
 	std::string name;
 };
 
-struct RenderPipeline {};
+export struct RenderPipeline {};
 
-struct ActiveCamera {};
+export struct ActiveCamera {};
 
 
 /// <summary>
 /// A Tag attached to objects that should be rendered in game.
 /// Used by renderer queries.
 /// </summary>
-struct Renderable {};
+export struct Renderable {};
 
 /// <summary>
 /// Attached to Lights.
 /// Used by renderer queries.
 /// </summary>
-struct Light {};
+export struct Light {};
 
 /// <summary>
 /// Infinitely far away, parallel rays — sun, moon
 /// </summary>
-struct DirectionalLight {
+export struct DirectionalLight {
 	glm::vec3 direction = glm::vec3(0.0f, 1.0f, 0.0f);
 	float     intensity = 0.3f;
 	glm::vec3 color = glm::vec3(1.0f, 0.95f, 0.80f);
@@ -76,7 +86,7 @@ struct DirectionalLight {
 /// <summary>
 /// Radiates in all directions from a point, fades with distance
 /// </summary>
-struct PointLight {
+export struct PointLight {
 	glm::vec3 position = { 1.0, 1.0 ,1.0 };
 	float     radius = 10.0f;   // max influence distance (for attenuation cutoff)
 	float     intensity = 0.1f;
@@ -85,7 +95,7 @@ struct PointLight {
 };
 
 // Cone-shaped light — flashlight, stage light
-struct SpotLight {
+export struct SpotLight {
 	float     radius = 10.0f;
 	float     innerConeAngle = 15.0f; // degrees — full intensity inside this
 	float     outerConeAngle = 30.0f; // degrees — fades to zero at outer edge
@@ -93,13 +103,12 @@ struct SpotLight {
 
 
 // Emits from a surface area
-struct AreaLight {
+export struct AreaLight {
 	glm::vec2 size = glm::vec2(1.0f); // width and height of the emitting surface
 };
 
 
-struct ActorDebugInfo {
+export struct ActorDebugInfo {
 
 	bool playerVisible = false;
 };
-

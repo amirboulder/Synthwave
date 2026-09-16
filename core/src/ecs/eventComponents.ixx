@@ -1,6 +1,10 @@
-#pragma once
+module;
 
-struct ActionState {
+#include <cstdint>
+
+export module EventComponents;
+
+export struct ActionState {
 	int64_t frameStamp = 0;
 	float heldTime = 0.0f;   // accumulates while down, useful for charge-up
 	bool occurred = false;   // currently held
@@ -10,53 +14,53 @@ struct ActionState {
 	bool justReleased = false;  // true for exactly one frame
 };
 
-struct MouseMovementState {
+export struct MouseMovementState {
 
 	float deltaX, deltaY;
 };
 
-struct MouseClickLeftEvent {
+export struct MouseClickLeftEvent {
 
 	float x = 0;
 	float y = 0;
 };
 
-struct ExitEvent {
+export struct ExitEvent {
 	bool occurred = false;
 };
 
-struct WindowLostFocusEvent {
+export struct WindowLostFocusEvent {
 	bool occurred = false;
 };
 
-struct GamePauseEvent {
+export struct GamePauseEvent {
 	bool occurred = false;
 };
 
-struct EditorToggleEvent{
+export struct EditorToggleEvent{
 	bool occurred = false;
 };
 
-struct CameraSwitchEvent {
+export struct CameraSwitchEvent {
 	bool occurred = false;
 };
 
-struct PhysicsRenderToggleEvent {
+export struct PhysicsRenderToggleEvent {
 	bool occurred = false;
 };
 
-struct SaveGameSrcEvent {
+export struct SaveGameSrcEvent {
 	bool occurred = false;
 };
 
-struct RagdollSavedEvent {
+export struct RagdollSavedEvent {
 	bool occurred = false;
 };
 
-struct PrintActiveSystemsEvent {
+export struct PrintActiveSystemsEvent {
 	bool occurred = false;
 };
 
-struct PrintAllSystemsEvent {
+export struct PrintAllSystemsEvent {
 	bool occurred = false;
 };

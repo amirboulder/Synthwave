@@ -1,10 +1,13 @@
 // All Components that depend on GLM go here.
 
+export module MathComponents;
 
-struct Position {
+import GLM;
+
+export struct Position {
 	glm::vec3 position = glm::vec3(1);
 };
 
-struct LinearVelocity {
+export struct LinearVelocity {
 	glm::vec3 position = glm::vec3(1);
 };

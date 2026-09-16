@@ -231,7 +231,11 @@ FetchContent_Declare(
     GIT_SHALLOW TRUE
 )
 
+
 FetchContent_MakeAvailable(glm)
+
+target_compile_definitions(glm INTERFACE GLM_ENABLE_EXPERIMENTAL)
+
 
 #=============================================
 #JOLT physics
