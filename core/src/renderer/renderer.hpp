@@ -23,7 +23,6 @@
 
 #include "pipeline.hpp"
 
-#include "../AssetSystems/Manifest.hpp"
 #include "../AssetSystems/AssetManager.hpp"
 
 

@@ -1,6 +1,26 @@
-﻿#pragma once
+﻿module;
 
-enum class AssetType {
+#include <cstdint>
+#include <vector>
+#include <string>
+#include <fstream>
+#include <filesystem>
+#include <unordered_map>
+#include <functional>
+
+//rapidjson
+#include "rapidjson/document.h"
+#include "rapidjson/writer.h"
+#include "rapidjson/stringbuffer.h"
+#include "rapidjson/prettywriter.h"
+#include "rapidjson/istreamwrapper.h"
+
+export module Manifest;
+
+
+namespace fs = std::filesystem;
+
+export enum class AssetType {
     Unknown,
     Mesh,
     Model,
@@ -11,7 +31,7 @@ enum class AssetType {
     Scene,
 };
 
-struct AssetMetadata {
+export struct AssetMetadata {
     uint64_t                id = 0;
     std::string             name;
     std::string             cookedPath;
@@ -24,7 +44,7 @@ struct AssetMetadata {
 };
 
 
-inline AssetType AssetTypeFromString(const std::string& str) {
+export inline AssetType AssetTypeFromString(const std::string& str) {
     if (str == "Mesh")      return AssetType::Mesh;
     if (str == "Model")      return AssetType::Model;
     if (str == "Texture2D") return AssetType::Texture2D;
@@ -35,7 +55,7 @@ inline AssetType AssetTypeFromString(const std::string& str) {
     return AssetType::Unknown;
 }
 
-inline std::string AssetTypeToString(AssetType type) {
+export inline std::string AssetTypeToString(AssetType type) {
     switch (type) {
     case AssetType::Mesh:      return "Mesh";
     case AssetType::Model:      return "Model";
@@ -50,7 +70,7 @@ inline std::string AssetTypeToString(AssetType type) {
 
 namespace rj = rapidjson;
 
-class Manifest {
+export class Manifest {
 
 private:
 

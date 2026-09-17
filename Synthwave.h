@@ -11,6 +11,7 @@ import GraphicsComponents;
 import Components;
 import EventComponents;
 
+import Manifest;
 
 //The following should only be needed in renderer module
 import Mesh;

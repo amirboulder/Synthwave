@@ -1,7 +1,5 @@
 #pragma once
 
-#include "Manifest.hpp"
-
 
 namespace AssetImporter {
 

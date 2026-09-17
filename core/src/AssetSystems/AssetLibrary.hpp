@@ -1,4 +1,5 @@
 ﻿#pragma once 
+import Manifest;
 
 #include "AssetImporter.hpp"
 
