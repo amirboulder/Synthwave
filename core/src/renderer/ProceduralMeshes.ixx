@@ -1,10 +1,20 @@
-#pragma once
+module;
 
+#include <cstdint>
+#include <vector>
+#include <string>
+#include <cmath>
 
-namespace MeshGen {
+export module ProceduralMeshes;
+
+import Logger;
+import GLM;
+import GraphicsComponents;
+
+export namespace MeshGen {
 
     // Generates a centered axis-aligned cube.
-    void generateCube(float scale, std::vector<Vertex>& vertices, std::vector<uint32_t>& indices) {
+    export void generateCube(float scale, std::vector<Vertex>& vertices, std::vector<uint32_t>& indices) {
 
         if (scale < 0.01f) {
             LogError(LOG_APP, "Cannot generate cube mesh: scale %f too small", scale);
@@ -65,7 +75,7 @@ namespace MeshGen {
     }
 
 
-    void generateGrid(int size, std::vector<Vertex>& vertices, std::vector<unsigned int>& indices) {
+    export void generateGrid(int size, std::vector<Vertex>& vertices, std::vector<unsigned int>& indices) {
         if (size <= 0) return;
 
         vertices.clear();
@@ -122,7 +132,7 @@ namespace MeshGen {
 
     // Generates a UV Sphere centered at (0, 0, 0)
     // Generates a UV Sphere centered at (0, 0, 0) with CCW outer winding
-    void generateSphere(float radius, int sectors, int stacks, std::vector<Vertex>& vertices, std::vector<unsigned int>& indices) {
+    export void generateSphere(float radius, int sectors, int stacks, std::vector<Vertex>& vertices, std::vector<unsigned int>& indices) {
         if (radius <= 0.0f || sectors < 3 || stacks < 2) return;
 
         vertices.clear();
@@ -181,7 +191,7 @@ namespace MeshGen {
     }
 
     // Generates a centered cylinder along the Y-axis
-    void generateCylinder(float radius, float height, int segments, std::vector<Vertex>& vertices, std::vector<unsigned int>& indices) {
+    export void generateCylinder(float radius, float height, int segments, std::vector<Vertex>& vertices, std::vector<unsigned int>& indices) {
         if (radius <= 0.0f || height <= 0.0f || segments < 3) return;
 
         vertices.clear();
@@ -302,7 +312,7 @@ namespace MeshGen {
 
     // Generates a capsule centered at (0, 0, 0) aligned along the Y-axis.
     // Total tip-to-tip height is 'height'. Inner cylinder height is (height - 2*radius).
-    void generateCapsule(float radius, float cylHalfHeight, int sectors, int ringsPerDome, std::vector<Vertex>& vertices, std::vector<unsigned int>& indices) {
+    export void generateCapsule(float radius, float cylHalfHeight, int sectors, int ringsPerDome, std::vector<Vertex>& vertices, std::vector<unsigned int>& indices) {
         if (radius <= 0.0f || cylHalfHeight < 0.0f || sectors < 3 || ringsPerDome < 1) return;
 
         vertices.clear();

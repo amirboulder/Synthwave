@@ -12,6 +12,9 @@ import Components;
 import EventComponents;
 
 
+//The following should only be needed in renderer module
+import Mesh;
+
 #include "core/src/pch.h"
 
 #include "core/src/common.hpp"

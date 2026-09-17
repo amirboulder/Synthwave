@@ -2,7 +2,6 @@
 
 
 #include "RendererConfig.hpp"
-#include "Mesh.hpp"
 
 
 class Camera {

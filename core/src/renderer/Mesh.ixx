@@ -1,15 +1,28 @@
-#pragma once
+module;
 
-#include "ProceduralMeshes.hpp"
+#include <cstdint>
+#include <vector>
+#include <array>
+#include <string>
+
+#include <SDL3/SDL_gpu.h>
+
+export module Mesh;
+
+import Logger;
+import GLM;
+import GraphicsComponents;
+import ProceduralMeshes;
+
 
 constexpr uint8_t numberOfLODs = 3;
 
-struct AABB {
+export struct AABB {
 	glm::vec3 center = glm::vec3(0.0f);
 	glm::vec3 extents = glm::vec3(0.0f); // half-size
 };
 
-struct MeshHeader {
+export struct MeshHeader {
 	uint32_t magic = 0x4D455348; // 'MESH' catches corrupted files on load
 	uint32_t version = 1;
 	uint32_t vertexCount = 0;
@@ -24,19 +37,13 @@ struct MeshHeader {
 };
 
 
-//struct LOD {
-//
-//	std::vector<uint32_t> indices;
-//	float error;
-//};
-
-struct LODComponent {
+export struct LODComponent {
 	uint32_t firstIndex = UINT32_MAX;
 	uint32_t indexCount = 0;
 	float error;
 };
 
-struct SubMesh {
+export struct SubMesh {
 
 	uint32_t firstIndex = UINT32_MAX;
 	uint32_t indexCount = 0;
@@ -46,7 +53,7 @@ struct SubMesh {
 };
 
 
-struct SubMeshComponent {
+export struct SubMeshComponent {
 
 	uint32_t firstIndex = UINT32_MAX;
 	uint32_t indexCount = 0;
@@ -60,7 +67,7 @@ struct SubMeshComponent {
 };
 
 
-struct MeshNode {
+export struct MeshNode {
 	std::string name;
 	uint64_t meshID = { 0 };
 	uint64_t assetID = { 0 };
@@ -69,7 +76,7 @@ struct MeshNode {
 };
 
 
-struct ModelHeader {
+export struct ModelHeader {
 	static constexpr uint64_t magic = 0x4D4F44454C; //MODEL 
 	uint64_t assetID;       
 	uint64_t rootNodeID;    // assetID of the root MeshNode
@@ -78,7 +85,7 @@ struct ModelHeader {
 };
 
 
-struct ModelData {
+export struct ModelData {
 
 	uint64_t assetID;
 	uint64_t rootNodeID;
@@ -87,7 +94,7 @@ struct ModelData {
 
 
 //TODO use this 
-struct MeshComponent {
+export struct MeshComponent {
 
 	uint64_t index = 0; // relative to the geometry buffer used for sorting
 	AABB aabb; // local aabb used for culling
@@ -99,7 +106,7 @@ struct MeshComponent {
 
 
 
-class Mesh {
+export class Mesh {
 
 public:
 
@@ -196,7 +203,7 @@ void generateLODs(Mesh& mesh)
 /// <summary>
 /// A standalone mesh, not a part of the mesh registry or mega buffers
 /// </summary>
-struct MeshStandalone {
+export struct MeshStandalone {
 
 	std::vector<Vertex> vertices;
 	std::vector <uint32_t> indices;
@@ -213,7 +220,7 @@ struct MeshStandalone {
 };
 
 
- Mesh createGridMesh(uint32_t size) {
+export  Mesh createGridMesh(uint32_t size) {
 
 	Mesh mesh;
 
@@ -232,7 +239,7 @@ struct MeshStandalone {
 	return mesh;
 }
 
-Mesh createCubeMesh(float scale = 1.0f) {
+export Mesh createCubeMesh(float scale = 1.0f) {
 
 	Mesh mesh;
 	mesh.subMeshes.emplace_back();
@@ -251,7 +258,7 @@ Mesh createCubeMesh(float scale = 1.0f) {
 }
 
 
-Mesh createSphereMesh(float radius = 1, int sectors = 32, int stacks = 16) {
+export Mesh createSphereMesh(float radius = 1, int sectors = 32, int stacks = 16) {
 
 	Mesh mesh;
 	mesh.subMeshes.emplace_back();
@@ -269,7 +276,7 @@ Mesh createSphereMesh(float radius = 1, int sectors = 32, int stacks = 16) {
 	return mesh;
 }
 
-Mesh generateCylinderMesh(float radius = 1, int height = 1, int segments = 32) {
+export Mesh generateCylinderMesh(float radius = 1, int height = 1, int segments = 32) {
 
 	Mesh mesh;
 	mesh.subMeshes.emplace_back();
@@ -287,7 +294,7 @@ Mesh generateCylinderMesh(float radius = 1, int height = 1, int segments = 32) {
 	return mesh;
 }
 
-Mesh generateCapsuleMesh(float radius = 1.0f, int height = 2.0f, int sectors = 32, int ringsPerDome = 32) {
+export Mesh generateCapsuleMesh(float radius = 1.0f, int height = 2.0f, int sectors = 32, int ringsPerDome = 32) {
 
 	Mesh mesh;
 	mesh.subMeshes.emplace_back();

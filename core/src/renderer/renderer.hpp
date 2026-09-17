@@ -4,9 +4,7 @@
 
 #include "Texture.hpp"
 #include "Material.hpp"
-#include "Mesh.hpp"
 
-#include "ProceduralMeshes.hpp"
 
 #include "renderUtil.hpp"
 
