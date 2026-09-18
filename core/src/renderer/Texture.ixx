@@ -1,22 +1,41 @@
-#pragma once
+module;
 
-#define STB_IMAGE_IMPLEMENTATION
+#include <iostream>
+#include <vector>
+#include <iomanip> 
+#include <string>
+#include <unordered_map>
+
+
+#define STB_IMAGE_IMPLEMENTATION // This should only be defined in ONE Translation UNIT
 #include "stb_image.h"
 
-struct StbImageDelete {
+#include <SDL3/SDL_gpu.h>
+
+#include "fastgltf/core.hpp"
+//#include "fastgltf/util.hpp"
+//#include "fastgltf/math.hpp"
+//#include "fastgltf/tools.hpp"
+
+export module Texture;
+
+import Logger;
+
+export struct StbImageDelete {
 	void operator()(void* data) const {
 		stbi_image_free(data);
 	}
 };
-using StbImage = std::unique_ptr<stbi_uc, StbImageDelete>;
 
-enum class TextureFormat : uint32_t {
+export using StbImage = std::unique_ptr<stbi_uc, StbImageDelete>;
+
+export enum class TextureFormat : uint32_t {
 	Unknown = 0,
 	RGBA8_UNorm,
 	RGBA8_SRGB,
 };
 
-std::unordered_map<TextureFormat, SDL_PixelFormat> mapToSDLPixelFormat = {
+export std::unordered_map<TextureFormat, SDL_PixelFormat> mapToSDLPixelFormat = {
 
 	{TextureFormat::Unknown, SDL_PIXELFORMAT_UNKNOWN},
 	{TextureFormat::RGBA8_UNorm, SDL_PIXELFORMAT_RGBA32},
@@ -24,9 +43,9 @@ std::unordered_map<TextureFormat, SDL_PixelFormat> mapToSDLPixelFormat = {
 };
 
 
-constexpr int kForcedChannels = 4;
+export constexpr int kForcedChannels = 4;
 
-struct TexHeader {
+export struct TexHeader {
 	uint32_t magic = 0x544558;    //'TEX' for format validation on load
 	int32_t  width;
 	int32_t  height;
@@ -36,7 +55,7 @@ struct TexHeader {
 	uint64_t AssetID;        
 };
 
-struct TextureArray {
+export struct TextureArray {
 
 	SDL_GPUTexture* textureArray = nullptr;
 	uint32_t usedLayers = 0;
@@ -59,9 +78,9 @@ struct TextureArray {
 	}
 };
 
-namespace Texture {
+export namespace Texture {
 
-	bool loadImageFromGLTF(std::string_view filename, fastgltf::Asset& asset, fastgltf::Image& image, StbImage& imageData, int& width, int& height, int& channels)
+	export bool loadImageFromGLTF(std::string_view filename, fastgltf::Asset& asset, fastgltf::Image& image, StbImage& imageData, int& width, int& height, int& channels)
 	{
 		
 		std::visit(fastgltf::visitor{
@@ -118,7 +137,7 @@ namespace Texture {
 		return true;
 	}
 
-	static void createSDLGPUTexture(SDL_Surface* imageData, SDL_GPUTexture*& TextureSDL, const std::string textureName, SDL_GPUDevice* device) {
+	export void createSDLGPUTexture(SDL_Surface* imageData, SDL_GPUTexture*& TextureSDL, const std::string textureName, SDL_GPUDevice* device) {
 
 		// Set up texture data
 		const Uint32 imageSizeInBytes = imageData->w * imageData->h * 4; //This assumes rgba maybe add this as a parameter
@@ -136,7 +155,7 @@ namespace Texture {
 		TextureSDL = SDL_CreateGPUTexture(device, &textureCreateInfo);
 
 		if (!TextureSDL) {
-			SDL_Log("Could not create GPU texture");
+			LogError(LOG_RENDER, "Could not create GPU texture %s" , textureName.c_str());
 			return;
 		}
 
@@ -188,7 +207,6 @@ namespace Texture {
 		SDL_ReleaseGPUTransferBuffer(device, textureTransferBuffer);
 
 	}
-
 }
 
 

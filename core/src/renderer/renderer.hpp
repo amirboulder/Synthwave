@@ -1,12 +1,5 @@
 ﻿#pragma once
 
-#include "../util/util.hpp"
-
-#include "Texture.hpp"
-#include "Material.hpp"
-
-
-#include "renderUtil.hpp"
 
 #include "GeometryPool.hpp"
 

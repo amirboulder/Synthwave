@@ -1,16 +1,39 @@
-#pragma once
+module;
 
-using SDLSurface = std::unique_ptr<SDL_Surface, decltype(&SDL_DestroySurface)>;
+#include <iostream>
+#include <vector>
+#include <iomanip> 
+#include <string>
+#include <unordered_map>
+#include <fstream>
+#include <filesystem>
 
-struct SDLTransferBufferDeleter {
+#include <SDL3/SDL_gpu.h>
+
+export module RenderUtil;
+
+
+namespace fs = std::filesystem;
+
+import GLM;
+import Logger;
+import Mesh;
+import Texture;
+import Material;
+
+
+export using SDLSurface = std::unique_ptr<SDL_Surface, decltype(&SDL_DestroySurface)>;
+
+export struct SDLTransferBufferDeleter {
 	SDL_GPUDevice* device = nullptr;
 	void operator()(SDL_GPUTransferBuffer* tb) const {
 		SDL_ReleaseGPUTransferBuffer(device, tb);
 	}
 };
-using SDLTransferBuffer = std::unique_ptr<SDL_GPUTransferBuffer, SDLTransferBufferDeleter>;
+export using SDLTransferBuffer = std::unique_ptr<SDL_GPUTransferBuffer, SDLTransferBufferDeleter>;
 
-struct Context {
+//TODO pick one of the two below
+export struct Context {
 	SDL_GPUDevice* device;
 	SDL_Window* window;
 	SDL_GPUCommandBuffer* commandBuffer;
@@ -19,19 +42,19 @@ struct Context {
 	SDL_GPUSampleCount sampleCountMSAA;
 };
 
-struct RenderContext {
+export struct RenderContext {
 	SDL_GPUDevice* device = NULL;
 	SDL_Window* window = NULL;
 };
 
-struct FrameContext {
+export struct FrameContext {
 	SDL_GPUCommandBuffer* commandBuffer;
 	SDL_GPUTexture* swapchainTexture;
 };
 
 
 
-struct FrameDataUniforms {
+export struct FrameDataUniforms {
     glm::mat4 view;
     glm::mat4 projection;
     glm::mat4 viewProjection;
@@ -39,13 +62,13 @@ struct FrameDataUniforms {
 	float _pad;
 };
 
-struct PerModelUniforms {
+export struct PerModelUniforms {
     glm::mat4 model;
     glm::mat4 mvp;
 };
 
 
-class RenderUtil {
+export class RenderUtil {
 
 public:
 
@@ -142,7 +165,9 @@ public:
 		}
 		else
 		{
-			SDL_assert(!"Unexpected desiredChannels");
+			//assert(!"Unexpected desiredChannels");
+			LogError(LOG_RENDER, "Unexpected desiredChannels %s", path);
+
 			SDL_DestroySurface(result);
 			return NULL;
 		}

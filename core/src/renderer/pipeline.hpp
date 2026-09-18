@@ -1,6 +1,5 @@
 #pragma once
 
-#include "renderUtil.hpp"
 
 /// <summary>
 /// Pipeline class is a wrapper around SDL_GPUGraphicsPipeline and is responsible for creating graphics pipelines.

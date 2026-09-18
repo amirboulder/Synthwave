@@ -1,6 +1,5 @@
 #pragma once
 
-#include "renderUtil.hpp"
 
 class ComputePipeline {
 

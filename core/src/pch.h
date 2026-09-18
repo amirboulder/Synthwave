@@ -11,6 +11,7 @@
 #include <queue>
 #include <chrono>
 #include <random>
+#include <mutex>
 
 using std::vector;
 using std::cout;
@@ -40,15 +41,7 @@ namespace fs = std::filesystem;
 #include <Jolt/Jolt.h>
 
 
-//fastgltf
-#include "fastgltf/core.hpp"
-#include "fastgltf/util.hpp"
-#include "fastgltf/math.hpp"
-#include "fastgltf/tools.hpp"
 
-//stb_image
-//#define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
 
 
 //IMGUI
@@ -65,8 +58,7 @@ namespace fs = std::filesystem;
 #include "rapidjson/prettywriter.h"
 #include "rapidjson/istreamwrapper.h"
 
-//xxhash
-#include <xxhash.h>
+
 
 //meshoptimizer
 #include <meshoptimizer.h>

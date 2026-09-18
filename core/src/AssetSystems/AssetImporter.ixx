@@ -1,9 +1,32 @@
-#pragma once
+module;
+
+#include <vector>
+#include <string>
+#include <filesystem>
+
+//fastgltf
+#include "fastgltf/core.hpp"
+#include "fastgltf/util.hpp"
+#include "fastgltf/math.hpp"
+#include "fastgltf/tools.hpp"
+
+#include "stb_image.h"
 
 
-namespace AssetImporter {
+export module AssetImporter;
 
-	bool processMeshNodeRecursive(fastgltf::Asset& gltf,
+import Logger;
+import Mesh;
+import Util;
+import Manifest;
+import Texture;
+import RenderUtil;
+
+namespace fs = std::filesystem;
+
+export namespace AssetImporter {
+
+	 bool processMeshNodeRecursive(fastgltf::Asset& gltf,
 		fastgltf::Node& node, uint32_t nodeIndex, std::vector<MeshNode>& meshNodeList,
 		const std::unordered_map<uint32_t, uint64_t>& localToMeshId,
 		std::unordered_map<uint32_t, uint64_t>& localToMeshNodeId,
@@ -119,7 +142,7 @@ namespace AssetImporter {
 	/// inserts AssetMetadata into the manifest, saves the manifest.
 	/// Enforces assets having names.
 	/// </summary>
-	bool ImportGLTF(const fs::path& filePath, const fs::path& destFolder, Manifest& manifest)
+	export bool ImportGLTF(const fs::path& filePath, const fs::path& destFolder, Manifest& manifest)
 	{
 		//Used to map local texture/materials/meshes to their AssetIDs,
 		//materials store AssetIDs of textures,
@@ -524,7 +547,7 @@ namespace AssetImporter {
 	
 
 	//TODO
-	static bool reImportGLTF(const fs::path& filePath, const fs::path& destFolder, Manifest& manifest)
+	export bool reImportGLTF(const fs::path& filePath, const fs::path& destFolder, Manifest& manifest)
 	{
 		return true;
 	}

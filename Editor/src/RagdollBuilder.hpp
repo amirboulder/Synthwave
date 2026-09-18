@@ -1,7 +1,6 @@
 ﻿#pragma once
 
 #include "core/src/physics/ragdoll.hpp"
-#include "core/src/util/util.hpp"
 
 enum class ShapeType
 {
