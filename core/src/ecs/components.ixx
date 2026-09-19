@@ -2,9 +2,10 @@ module;
 
 #include <functional>
 #include <string>
-#include <flecs.h>
 
 export module Components;
+
+import Flecs;
 
 export struct FrameCounter {
 	uint64_t count = 0;

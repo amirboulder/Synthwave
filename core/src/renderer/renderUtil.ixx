@@ -12,9 +12,6 @@ module;
 
 export module RenderUtil;
 
-
-namespace fs = std::filesystem;
-
 import GLM;
 import Logger;
 import Mesh;
@@ -22,6 +19,7 @@ import Texture;
 import Material;
 import GraphicsComponents;
 
+namespace fs = std::filesystem;
 
 export using SDLSurface = std::unique_ptr<SDL_Surface, decltype(&SDL_DestroySurface)>;
 

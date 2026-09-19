@@ -3,11 +3,10 @@ module;
 #include <vector>
 #include <string>
 
-#include <flecs.h>
-
 export module GraphicsComponents;
 
 import GLM;
+import Flecs;
 
 export struct Vertex {
 	glm::vec3 position;

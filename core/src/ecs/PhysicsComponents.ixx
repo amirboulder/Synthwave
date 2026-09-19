@@ -4,11 +4,10 @@ module;
 #include <string>
 #include <functional>
 
-#include <flecs.h>
-
 export module PhysicsComponents;
 
 import Jolt;
+import Flecs;
 
 
 //=============================================
