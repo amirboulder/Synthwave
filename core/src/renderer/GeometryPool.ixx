@@ -1,6 +1,16 @@
-﻿#pragma once
+﻿module;
 
-class GeometryPool {
+#include <cstdint>
+
+#include <SDL3/SDL_gpu.h>
+
+export module GeometryPool;
+
+import Logger;
+import Mesh;
+import GraphicsComponents;
+
+export class GeometryPool {
 
 public:
 

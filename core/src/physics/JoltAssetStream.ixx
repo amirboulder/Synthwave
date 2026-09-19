@@ -1,8 +1,14 @@
-#pragma once
+module;
 
+#include <fstream>
+
+export module JoltAssetStream;
+
+import Jolt;
+import Logger;
 
 /// An istream interface that reads data from a file in the Assets folder
-class AssetStream
+export class AssetStream
 {
 public:
     /// Constructor
@@ -10,14 +16,15 @@ public:
       :  mStream(inFileName, inOpenMode)
     {
         if (!mStream.is_open())
-            cout << "ERROR: Failed to open file " << inFileName << "\n";
+            LogError(LOG_PHYSICS, "AssetStream failed to open file %s", inFileName);
+            
     }
 
     AssetStream(const JPH::String& inFileName, std::ios_base::openmode inOpenMode)
         : AssetStream(inFileName.c_str(), inOpenMode)
     {
         if (!mStream.is_open())
-            cout << "ERROR: Failed to open file " << inFileName << "\n";
+            LogError(LOG_PHYSICS, "AssetStream failed to open file %s", inFileName);
     }
 
     /// Get the stream

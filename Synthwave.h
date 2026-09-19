@@ -15,11 +15,16 @@ import Texture;
 import Material;
 import RenderUtil;
 import AssetImporter;
+import AssetManager;
+import JoltAssetStream;
+import PhysicsAnimation;
+
 
 import Manifest;
 
 //The following should only be needed in renderer module
 import Mesh;
+import GeometryPool;
 
 #include "core/src/pch.h"
 
@@ -44,7 +49,6 @@ import Mesh;
 #include "core/src/MenuSystem/MenuSystem.hpp"
 
 #include "core/src/AssetSystems/AssetLibrary.hpp"
-#include "core/src/AssetSystems/AssetManager.hpp"
 
 #include "Editor/src/editor.hpp"
 

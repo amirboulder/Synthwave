@@ -1,6 +1,30 @@
-#pragma once
+module;
 
-enum class DefaultAssets {
+#include <string>
+#include <format>
+#include <filesystem>
+#include <unordered_map>
+
+#include <flecs.h>
+
+#include <SDL3/SDL_gpu.h>
+
+export module AssetManager;
+
+namespace fs = std::filesystem;
+
+import Logger;
+import Mesh;
+import Material;
+import Manifest;
+import GeometryPool;
+import Jolt;
+import RenderUtil;
+import Util;
+import PhysicsAnimation;
+
+
+export enum class DefaultAssets {
 
 	CUBE,
 	SPHERE,
@@ -12,14 +36,13 @@ enum class DefaultAssets {
 };
 
 
-class AssetManager;
+export class AssetManager;
 
-struct AssetManagerRef {
+export struct AssetManagerRef {
 	AssetManager* assetManager;
 };
 
-
-class AssetManager {
+export class AssetManager {
 
 public:
 

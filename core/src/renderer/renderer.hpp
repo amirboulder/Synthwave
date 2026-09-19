@@ -1,8 +1,6 @@
 ﻿#pragma once
 
 
-#include "GeometryPool.hpp"
-
 #include "../physics/physics.hpp"
 
 #include "UI/UserInterface.hpp"
@@ -15,8 +13,6 @@
 
 
 #include "pipeline.hpp"
-
-#include "../AssetSystems/AssetManager.hpp"
 
 
 // One per unique mesh instance — shared by all its submeshes
