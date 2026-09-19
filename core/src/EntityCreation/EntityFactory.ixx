@@ -1,11 +1,38 @@
-#pragma once
+module;
 
-#include "../../core/src/AssetSystems/AssetLibrary.hpp"
+#include <iostream>
+#include <string>
+#include <sstream>
+#include <functional>
+#include <map>
+#include <fstream>
+#include <format>
 
-//TODO turn this into a module. It should only rely on the componentHeaders
+#include <flecs.h>
+
+export module EntityFactory;
+
+import Logger;
+import GLM;
+import Jolt;
+import Mesh;
+import GraphicsComponents;
+import PhysicsComponents;
+import AssetManager;
+import AssetLibrary;
+import Components;
+import Ragdoll;
+import Util;
+import PhysicsUtil;
+import PhysicsAnimation;
+import RenderConfig;
+import Camera;
+import Pipeline;
+import Player;
+
 
 //Maybe Use this everywhere
-using entUpdateFn = std::function<void(flecs::world&, flecs::entity)>;
+export using entUpdateFn = std::function<void(flecs::world&, flecs::entity)>;
 
 constexpr float ragdollScaleDefault = 3.0f;
 
@@ -14,7 +41,7 @@ constexpr float ragdollScaleDefault = 3.0f;
 /// Used for creating various entity types that the engine supports,
 /// does a lot of error handling since we getting input from the user and users can't be trusted!
 /// </summary>
-class EntityFactory {
+export class EntityFactory {
 
 private:
 
@@ -49,7 +76,7 @@ public:
 		}
 
 		// Ref<> manages reference counting - no manual cleanup needed
-		Ref<Shape> capsuleShape = new JPH::CapsuleShape(physicsCylHalf, physicsRadius);
+		JPH::Ref<JPH::Shape> capsuleShape = new JPH::CapsuleShape(physicsCylHalf, physicsRadius);
 
 		JPH::Vec3 joltPosition(transform.position.x, transform.position.y, transform.position.z);
 		JPH::Quat joltRotation(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
@@ -74,7 +101,7 @@ public:
 		JPH::BodyInterface& bodyInterface = ecs.get<PhysicsSystemRef>().physicsSystem.GetBodyInterface();
 
 		// Create and add body
-		const BodyID physicsID = bodyInterface.CreateAndAddBody(pillSettings, JPH::EActivation::Activate);
+		const JPH::BodyID physicsID = bodyInterface.CreateAndAddBody(pillSettings, JPH::EActivation::Activate);
 
 		if (!validatePhysicsBodyCreation(physicsID, name.data())) return false;
 
@@ -114,10 +141,10 @@ public:
 
 		glm::vec3 scaledSize = meshComp.aabb.extents * transform.scale;
 
-		Vec3 boxHalfExtents(scaledSize.x , scaledSize.y, scaledSize.z );
+		JPH::Vec3 boxHalfExtents(scaledSize.x , scaledSize.y, scaledSize.z );
 
 		// Ref<> manages reference counting - no manual cleanup needed
-		Ref<Shape> boxShape = new BoxShape(boxHalfExtents);
+		JPH::Ref<JPH::Shape> boxShape = new JPH::BoxShape(boxHalfExtents);
 
 		// Convert GLM to Jolt types
 		JPH::Vec3 joltPos(transform.position.x, transform.position.y, transform.position.z);
@@ -137,7 +164,7 @@ public:
 		JPH::BodyInterface& bodyInterface = ecs.get<PhysicsSystemRef>().physicsSystem.GetBodyInterface();
 
 		// Create and add body
-		const BodyID physicsID = bodyInterface.CreateAndAddBody(bodySettings, JPH::EActivation::Activate);
+		const JPH::BodyID physicsID = bodyInterface.CreateAndAddBody(bodySettings, JPH::EActivation::Activate);
 
 		if (!validatePhysicsBodyCreation(physicsID, name.data())) return false;
 
@@ -180,7 +207,7 @@ public:
 		glm::vec3 scaledSize = meshComp.aabb.extents * transform.scale;
 
 		// Ref<> manages reference counting - no manual cleanup needed
-		Ref<Shape> shape = new SphereShape(scaledSize.x); //Assuming uniform scaling
+		JPH::Ref<JPH::Shape> shape = new JPH::SphereShape(scaledSize.x); //Assuming uniform scaling
 
 		// Convert GLM to Jolt types
 		JPH::Vec3 joltPos(transform.position.x, transform.position.y, transform.position.z);
@@ -200,7 +227,7 @@ public:
 		JPH::BodyInterface& bodyInterface = ecs.get<PhysicsSystemRef>().physicsSystem.GetBodyInterface();
 
 		// Create and add body
-		const BodyID physicsID = bodyInterface.CreateAndAddBody(bodySettings, JPH::EActivation::Activate);
+		const JPH::BodyID physicsID = bodyInterface.CreateAndAddBody(bodySettings, JPH::EActivation::Activate);
 
 		if (!validatePhysicsBodyCreation(physicsID, name.data())) return false;
 
@@ -243,7 +270,7 @@ public:
 		float physicsHalfHeight = scaledSize.y;
 
 		// Ref<> manages reference counting - no manual cleanup needed
-		Ref<Shape> shape = new CylinderShape(physicsHalfHeight, physicsRadius); 
+		JPH::Ref<JPH::Shape> shape = new JPH::CylinderShape(physicsHalfHeight, physicsRadius);
 
 		// Convert GLM to Jolt types
 		JPH::Vec3 joltPos(transform.position.x, transform.position.y, transform.position.z);
@@ -263,7 +290,7 @@ public:
 		JPH::BodyInterface& bodyInterface = ecs.get<PhysicsSystemRef>().physicsSystem.GetBodyInterface();
 
 		// Create and add body
-		const BodyID physicsID = bodyInterface.CreateAndAddBody(bodySettings, JPH::EActivation::Activate);
+		const JPH::BodyID physicsID = bodyInterface.CreateAndAddBody(bodySettings, JPH::EActivation::Activate);
 
 		if (!validatePhysicsBodyCreation(physicsID, name.data())) return false;
 
@@ -379,7 +406,7 @@ public:
 
 		JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
 
-		Ref<RagdollSettings> ragdollSettings = RagdollLoader::create(2.0f);
+		JPH::Ref<JPH::RagdollSettings> ragdollSettings = RagdollLoader::create(2.0f);
 
 		if (!ragdollSettings) {
 			LogError(LOG_PHYSICS, "ragdollSettings is null for entity %s", name.c_str());
@@ -426,10 +453,10 @@ public:
 		AssetManager* assetManager = ecs.get<AssetManagerRef>().assetManager;
 
 		JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
-		BodyInterface& bi = physicsSystem.GetBodyInterface();
+		JPH::BodyInterface& bi = physicsSystem.GetBodyInterface();
 
-		Ref<RagdollSettings> ragdollSettings =
-			RagdollLoader::load("assets/ragdolls/Human.tof", EMotionType::Dynamic, ragdollScaleDefault);
+		JPH::Ref<JPH::RagdollSettings> ragdollSettings =
+			RagdollLoader::load("assets/ragdolls/Human.tof", JPH::EMotionType::Dynamic, ragdollScaleDefault);
 
 		if (!ragdollSettings) {
 			LogError(LOG_PHYSICS, "ragdollSettings is null for entity %s", name.c_str());
@@ -451,7 +478,7 @@ public:
 		JPH::SkeletonPose mPose;
 		JPH::Ragdoll* ragdoll = ragdollSettings->CreateRagdoll(0, entity.id(), &physicsSystem);
 		ragdoll->AddToPhysicsSystem(JPH::EActivation::Activate);
-		ragdoll->SetGroupID(static_cast<uint32>(entity.id()));
+		ragdoll->SetGroupID(static_cast<uint32_t>(entity.id()));
 
 		JPH::AABox ragdollAABox = Utils::Phys::getRagdollBoundingBox(ragdoll, bi);
 
@@ -482,8 +509,8 @@ public:
 		mPose.SetSkeleton(ragdollSettings->GetSkeleton());
 		//mAnimation->Sample(0.0f, mPose); //Setting the pose to this makes it a valid pose
 
-		RVec3 desiredPos(transform.position.x, transform.position.y, transform.position.z);
-		Quat   desiredRot = Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
+		JPH::RVec3 desiredPos(transform.position.x, transform.position.y, transform.position.z);
+		JPH::Quat   desiredRot = JPH::Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
 
 		Utils::Phys::MoveAndRotateRagdoll(ragdoll, bi, desiredPos, desiredRot, JPH::EActivation::Activate);
 		float HipsFromSolesDist = Utils::Phys::getHipsFromSolesDist(ragdoll, ragdollSettings->GetSkeleton(), bi);
@@ -507,10 +534,10 @@ public:
 
 		// Character settings
 		JPH::CharacterSettings characterSettings;
-		characterSettings.mShape = new CapsuleShape(cylHalfHeight, characterRadius);
+		characterSettings.mShape = new JPH::CapsuleShape(cylHalfHeight, characterRadius);
 		characterSettings.mMass = 1.0f;
 		characterSettings.mFriction = 0.0f;
-		characterSettings.mMaxSlopeAngle = DegreesToRadians(20.0f); // Max walkable slope
+		characterSettings.mMaxSlopeAngle = JPH::DegreesToRadians(20.0f); // Max walkable slope
 		characterSettings.mLayer = Layers::CHARACTER_ANCHOR;
 		characterSettings.mGravityFactor = 1;
 
@@ -541,62 +568,62 @@ public:
 
 		// Hip anchor: spring hip COM to character COM. Leave rotation free so pose
 		// motors own hip orientation (hip body frame != upright capsule frame).
-		SixDOFConstraintSettings settings;
-		settings.mSpace = EConstraintSpace::LocalToBodyCOM;
-		settings.mPosition1 = Vec3::sZero(); // character COM
-		settings.mPosition2 = Vec3::sZero(); // hip COM
+		JPH::SixDOFConstraintSettings settings;
+		settings.mSpace = JPH::EConstraintSpace::LocalToBodyCOM;
+		settings.mPosition1 = JPH::Vec3::sZero(); // character COM
+		settings.mPosition2 = JPH::Vec3::sZero(); // hip COM
 
 		float maxHoldForce = 1000000.0f;
 
 		float limXZ = 0.1f;
 
-		settings.SetLimitedAxis(SixDOFConstraintSettings::EAxis::TranslationX, -limXZ, limXZ);
-		settings.mMotorSettings[SixDOFConstraintSettings::EAxis::TranslationX] = MotorSettings(2.0f, 1.0f);
-		settings.mMotorSettings[SixDOFConstraintSettings::EAxis::TranslationX].mMinForceLimit = -maxHoldForce;
-		settings.mMotorSettings[SixDOFConstraintSettings::EAxis::TranslationX].mMaxForceLimit = maxHoldForce;
+		settings.SetLimitedAxis(JPH::SixDOFConstraintSettings::EAxis::TranslationX, -limXZ, limXZ);
+		settings.mMotorSettings[JPH::SixDOFConstraintSettings::EAxis::TranslationX] = JPH::MotorSettings(2.0f, 1.0f);
+		settings.mMotorSettings[JPH::SixDOFConstraintSettings::EAxis::TranslationX].mMinForceLimit = -maxHoldForce;
+		settings.mMotorSettings[JPH::SixDOFConstraintSettings::EAxis::TranslationX].mMaxForceLimit = maxHoldForce;
 
-		settings.SetLimitedAxis(SixDOFConstraintSettings::EAxis::TranslationY, -HipsFromSolesDist, HipsFromSolesDist );
-		settings.mMotorSettings[SixDOFConstraintSettings::EAxis::TranslationY] = MotorSettings(2.0f, 1.0f);
-		settings.mMotorSettings[SixDOFConstraintSettings::EAxis::TranslationY].mMinForceLimit = -maxHoldForce;
-		settings.mMotorSettings[SixDOFConstraintSettings::EAxis::TranslationY].mMaxForceLimit = maxHoldForce;
+		settings.SetLimitedAxis(JPH::SixDOFConstraintSettings::EAxis::TranslationY, -HipsFromSolesDist, HipsFromSolesDist );
+		settings.mMotorSettings[JPH::SixDOFConstraintSettings::EAxis::TranslationY] = JPH::MotorSettings(2.0f, 1.0f);
+		settings.mMotorSettings[JPH::SixDOFConstraintSettings::EAxis::TranslationY].mMinForceLimit = -maxHoldForce;
+		settings.mMotorSettings[JPH::SixDOFConstraintSettings::EAxis::TranslationY].mMaxForceLimit = maxHoldForce;
 
-		settings.SetLimitedAxis(SixDOFConstraintSettings::EAxis::TranslationZ, -limXZ, limXZ);
-		settings.mMotorSettings[SixDOFConstraintSettings::EAxis::TranslationZ] = MotorSettings(2.0f, 1.0f);
-		settings.mMotorSettings[SixDOFConstraintSettings::EAxis::TranslationZ].mMinForceLimit = -maxHoldForce;
-		settings.mMotorSettings[SixDOFConstraintSettings::EAxis::TranslationZ].mMaxForceLimit = maxHoldForce;
+		settings.SetLimitedAxis(JPH::SixDOFConstraintSettings::EAxis::TranslationZ, -limXZ, limXZ);
+		settings.mMotorSettings[JPH::SixDOFConstraintSettings::EAxis::TranslationZ] = JPH::MotorSettings(2.0f, 1.0f);
+		settings.mMotorSettings[JPH::SixDOFConstraintSettings::EAxis::TranslationZ].mMinForceLimit = -maxHoldForce;
+		settings.mMotorSettings[JPH::SixDOFConstraintSettings::EAxis::TranslationZ].mMaxForceLimit = maxHoldForce;
 
 
-		settings.MakeFixedAxis(SixDOFConstraintSettings::EAxis::RotationX);
-		//settings.MakeFixedAxis(SixDOFConstraintSettings::EAxis::RotationY);
-		settings.MakeFixedAxis(SixDOFConstraintSettings::EAxis::RotationZ);
+		settings.MakeFixedAxis(JPH::SixDOFConstraintSettings::EAxis::RotationX);
+		//settings.MakeFixedAxis(JPH::SixDOFConstraintSettings::EAxis::RotationY);
+		settings.MakeFixedAxis(JPH::SixDOFConstraintSettings::EAxis::RotationZ);
 
-		/*settings.MakeFreeAxis(SixDOFConstraintSettings::EAxis::RotationX);
-		settings.MakeFreeAxis(SixDOFConstraintSettings::EAxis::RotationY);
-		settings.MakeFreeAxis(SixDOFConstraintSettings::EAxis::RotationZ);*/
+		/*settings.MakeFreeAxis(JPH::SixDOFConstraintSettings::EAxis::RotationX);
+		settings.MakeFreeAxis(JPH::SixDOFConstraintSettings::EAxis::RotationY);
+		settings.MakeFreeAxis(JPH::SixDOFConstraintSettings::EAxis::RotationZ);*/
 
 		float maxHoldForceRotation = 100.0f;
 		
-		auto setupRotationAxis = [&](SixDOFConstraintSettings::EAxis axis) {
+		auto setupRotationAxis = [&](JPH::SixDOFConstraintSettings::EAxis axis) {
 			settings.SetLimitedAxis(axis, 0.0f, 0.0f);
-			settings.mMotorSettings[axis] = MotorSettings(2.0f, 1.0f);
+			settings.mMotorSettings[axis] = JPH::MotorSettings(2.0f, 1.0f);
 			settings.mMotorSettings[axis].mMinTorqueLimit = -maxHoldForceRotation;
 			settings.mMotorSettings[axis].mMaxTorqueLimit = maxHoldForceRotation;
 		};
 
-		//setupRotationAxis(SixDOFConstraintSettings::EAxis::RotationX);
-		//setupRotationAxis(SixDOFConstraintSettings::EAxis::RotationY);
-		//setupRotationAxis(SixDOFConstraintSettings::EAxis::RotationZ);
+		//setupRotationAxis(JPH::SixDOFConstraintSettings::EAxis::RotationX);
+		//setupRotationAxis(JPH::SixDOFConstraintSettings::EAxis::RotationY);
+		//setupRotationAxis(JPH::SixDOFConstraintSettings::EAxis::RotationZ);
 		
 
 		
 
-		IgnoreMultipleBodiesFilter* filter = new IgnoreMultipleBodiesFilter;
+		JPH::IgnoreMultipleBodiesFilter* filter = new JPH::IgnoreMultipleBodiesFilter;
 
 		entity.set<JoltRagdollFilter>({ filter });
 		Utils::Phys::buildRagdollFilter(ragdoll, *filter);
 
 
-		Ref<SixDOFConstraint> hipConstraint = dynamic_cast<SixDOFConstraint*>(bi.CreateConstraint(&settings, characterBodyID, hipBodyID));
+		JPH::Ref<JPH::SixDOFConstraint> hipConstraint = dynamic_cast<JPH::SixDOFConstraint*>(bi.CreateConstraint(&settings, characterBodyID, hipBodyID));
 
 		physicsSystem.AddConstraint(hipConstraint);
 
@@ -623,13 +650,13 @@ public:
 		if (!validateTransform(transform, name.c_str())) return false;
 
 		JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
-		BodyInterface& bi = physicsSystem.GetBodyInterface();
+		JPH::BodyInterface& bi = physicsSystem.GetBodyInterface();
 
 		
 		
 
-		Ref<RagdollSettings> ragdollSettings =
-			RagdollLoader::load("assets/ragdolls/Human.tof", EMotionType::Dynamic, ragdollScaleDefault);
+		JPH::Ref<JPH::RagdollSettings> ragdollSettings =
+			RagdollLoader::load("assets/ragdolls/Human.tof", JPH::EMotionType::Dynamic, ragdollScaleDefault);
 
 		if (!ragdollSettings) {
 
@@ -653,11 +680,11 @@ public:
 
 		JPH::Ragdoll* ragdoll = ragdollSettings->CreateRagdoll(0, entity.id(), &physicsSystem);
 		ragdoll->AddToPhysicsSystem(JPH::EActivation::Activate);
-		ragdoll->SetGroupID(static_cast<uint32>(entity.id()));
+		ragdoll->SetGroupID(static_cast<uint32_t>(entity.id()));
 
-		cout << "Ragdoll body count : " << ragdoll->GetBodyCount() << std::endl;
-		cout << "Ragdoll GetConstraintCount : " << ragdoll->GetConstraintCount() << std::endl;
-		cout << "GetSkeleton GetJointCount : " << ragdollSettings->GetSkeleton()->GetJointCount() << std::endl;
+		std::cout << "Ragdoll body count : " << ragdoll->GetBodyCount() << std::endl;
+		std::cout << "Ragdoll GetConstraintCount : " << ragdoll->GetConstraintCount() << std::endl;
+		std::cout << "GetSkeleton GetJointCount : " << ragdollSettings->GetSkeleton()->GetJointCount() << std::endl;
 
 		// Load animation (same scale as ragdoll so pose bone offsets match body positions)
 		JPH::SkeletalAnimation* neutralAnimation =
@@ -675,18 +702,18 @@ public:
 
 
 		
-		RVec3 desiredPos(transform.position.x, transform.position.y, transform.position.z);
-		Quat   desiredRot = Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
+		JPH::RVec3 desiredPos(transform.position.x, transform.position.y, transform.position.z);
+		JPH::Quat   desiredRot = JPH::Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
 
-		BodyID rootID = ragdoll->GetBodyID(0);
-		RVec3  currentRoot = bi.GetPosition(rootID);
-		RVec3  delta = desiredPos - currentRoot;
-		for (BodyID id : ragdoll->GetBodyIDs()) {
-			RVec3 p = bi.GetPosition(id);
-			Quat  q = bi.GetRotation(id);
+		JPH::BodyID rootID = ragdoll->GetBodyID(0);
+		JPH::RVec3  currentRoot = bi.GetPosition(rootID);
+		JPH::RVec3  delta = desiredPos - currentRoot;
+		for (JPH::BodyID id : ragdoll->GetBodyIDs()) {
+			JPH::RVec3 p = bi.GetPosition(id);
+			JPH::Quat  q = bi.GetRotation(id);
 			bi.SetPositionAndRotation(id, p + delta,
 				desiredRot * q,
-				EActivation::Activate);
+				JPH::EActivation::Activate);
 		}
 		
 		for (JPH::BodyID id : ragdoll->GetBodyIDs()) {
@@ -721,7 +748,7 @@ public:
 		
 	
 
-		IgnoreMultipleBodiesFilter* filter = new IgnoreMultipleBodiesFilter;
+		JPH::IgnoreMultipleBodiesFilter* filter = new JPH::IgnoreMultipleBodiesFilter;
 
 		entity.set<JoltRagdollFilter>({ filter });
 		Utils::Phys::buildRagdollFilter(ragdoll, *filter);
@@ -767,13 +794,13 @@ public:
 		if (!validateTransform(transform, name.c_str())) return false;
 
 		JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
-		BodyInterface& bi = physicsSystem.GetBodyInterface();
+		JPH::BodyInterface& bi = physicsSystem.GetBodyInterface();
 
 
 		constexpr float ragdollScale = 3.0f;
 
-		Ref<RagdollSettings> ragdollSettings =
-			RagdollLoader::load("assets/ragdolls/Human.tof", EMotionType::Dynamic, ragdollScale);
+		JPH::Ref<JPH::RagdollSettings> ragdollSettings =
+			RagdollLoader::load("assets/ragdolls/Human.tof", JPH::EMotionType::Dynamic, ragdollScale);
 
 		if (!ragdollSettings) {
 
@@ -795,11 +822,11 @@ public:
 
 		JPH::Ragdoll* ragdoll = ragdollSettings->CreateRagdoll(0, entity.id(), &physicsSystem);
 		ragdoll->AddToPhysicsSystem(JPH::EActivation::Activate);
-		ragdoll->SetGroupID(static_cast<uint32>(entity.id()));
+		ragdoll->SetGroupID(static_cast<uint32_t>(entity.id()));
 
-		cout << "Ragdoll body count : " << ragdoll->GetBodyCount() << std::endl;
-		cout << "Ragdoll GetConstraintCount : " << ragdoll->GetConstraintCount() << std::endl;
-		cout << "GetSkeleton GetJointCount : " << ragdollSettings->GetSkeleton()->GetJointCount() << std::endl;
+		std::cout << "Ragdoll body count : " << ragdoll->GetBodyCount() << std::endl;
+		std::cout << "Ragdoll GetConstraintCount : " << ragdoll->GetConstraintCount() << std::endl;
+		std::cout << "GetSkeleton GetJointCount : " << ragdollSettings->GetSkeleton()->GetJointCount() << std::endl;
 
 		// Load animation (same scale as ragdoll so pose bone offsets match body positions)
 		JPH::SkeletalAnimation* mAnimation =
@@ -816,18 +843,18 @@ public:
 
 
 
-		RVec3 desiredPos(transform.position.x, transform.position.y, transform.position.z);
-		Quat   desiredRot = Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
+		JPH::RVec3  desiredPos(transform.position.x, transform.position.y, transform.position.z);
+		JPH::Quat   desiredRot = JPH::Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
 
-		BodyID rootID = ragdoll->GetBodyID(0);
-		RVec3  currentRoot = bi.GetPosition(rootID);
-		RVec3  delta = desiredPos - currentRoot;
-		for (BodyID id : ragdoll->GetBodyIDs()) {
-			RVec3 p = bi.GetPosition(id);
-			Quat  q = bi.GetRotation(id);
+		JPH::BodyID rootID = ragdoll->GetBodyID(0);
+		JPH::RVec3  currentRoot = bi.GetPosition(rootID);
+		JPH::RVec3  delta = desiredPos - currentRoot;
+		for (JPH::BodyID id : ragdoll->GetBodyIDs()) {
+			JPH::RVec3 p = bi.GetPosition(id);
+			JPH::Quat  q = bi.GetRotation(id);
 			bi.SetPositionAndRotation(id, p + delta,
 				desiredRot * q,
-				EActivation::Activate);
+				JPH::EActivation::Activate);
 		}
 
 		for (JPH::BodyID id : ragdoll->GetBodyIDs()) {
@@ -857,7 +884,7 @@ public:
 
 		
 
-		IgnoreMultipleBodiesFilter* filter = new IgnoreMultipleBodiesFilter;
+		JPH::IgnoreMultipleBodiesFilter* filter = new JPH::IgnoreMultipleBodiesFilter;
 
 		entity.set<JoltRagdollFilter>({ filter });
 		Utils::Phys::buildRagdollFilter(ragdoll, *filter);
@@ -884,10 +911,10 @@ public:
 		AssetManager* assetManager = ecs.get<AssetManagerRef>().assetManager;
 
 		JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
-		BodyInterface& bi = physicsSystem.GetBodyInterface();
+		JPH::BodyInterface& bi = physicsSystem.GetBodyInterface();
 
-		Ref<RagdollSettings> ragdollSettings =
-			RagdollLoader::load("assets/ragdolls/Human.tof", EMotionType::Kinematic, ragdollScaleDefault);
+		JPH::Ref<JPH::RagdollSettings> ragdollSettings =
+			RagdollLoader::load("assets/ragdolls/Human.tof", JPH::EMotionType::Kinematic, ragdollScaleDefault);
 
 		if (!ragdollSettings) {
 			LogError(LOG_PHYSICS, "ragdollSettings is null for entity %s", name.c_str());
@@ -907,7 +934,7 @@ public:
 		JPH::SkeletonPose mPose;
 		JPH::Ragdoll* ragdoll = ragdollSettings->CreateRagdoll(0, entity.id(), &physicsSystem);
 		ragdoll->AddToPhysicsSystem(JPH::EActivation::Activate);
-		ragdoll->SetGroupID(static_cast<uint32>(entity.id()));
+		ragdoll->SetGroupID(static_cast<uint32_t>(entity.id()));
 
 		JPH::AABox ragdollAABox = Utils::Phys::getRagdollBoundingBox(ragdoll, bi);
 
@@ -938,8 +965,8 @@ public:
 		mPose.SetSkeleton(ragdollSettings->GetSkeleton());
 		//mAnimation->Sample(0.0f, mPose); //Setting the pose to this makes it a valid pose
 
-		RVec3 desiredPos(transform.position.x, transform.position.y, transform.position.z);
-		Quat   desiredRot = Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
+		JPH::RVec3 desiredPos(transform.position.x, transform.position.y, transform.position.z);
+		JPH::Quat   desiredRot = JPH::Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
 
 		Utils::Phys::MoveAndRotateRagdoll(ragdoll, bi, desiredPos, desiredRot, JPH::EActivation::Activate);
 		float HipsFromSolesDist = Utils::Phys::getHipsFromSolesDist(ragdoll, ragdollSettings->GetSkeleton(), bi);
@@ -990,8 +1017,8 @@ public:
 		}
 
 
-		StreamInWrapper stream_in(dataIn);
-		RagdollSettings::RagdollResult result = RagdollSettings::sRestoreFromBinaryState(stream_in);
+		JPH::StreamInWrapper stream_in(dataIn);
+		JPH::RagdollSettings::RagdollResult result = JPH::RagdollSettings::sRestoreFromBinaryState(stream_in);
 		if (result.HasError()) {
 			LogError(LOG_SYS, "Failed to load binary file: %s", result.GetError().c_str());
 			return false;
@@ -999,7 +1026,7 @@ public:
 
 
 		JPH::Ragdoll* ragdoll = result.Get()->CreateRagdoll(0, 0, &physicsSystem);
-		ragdoll->AddToPhysicsSystem(EActivation::Activate);
+		ragdoll->AddToPhysicsSystem(JPH::EActivation::Activate);
 
 		const flecs::entity entity = ecs.entity(name.c_str())
 			.set<EntityTypeComponent>({ EntityType::Humanoid })
@@ -1039,9 +1066,9 @@ public:
 
 		JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
 
-		Vec3 pos = RVec3(1.0f, 7.0f, 0.0f);
+		JPH::Vec3 pos = JPH::RVec3(1.0f, 7.0f, 0.0f);
 
-		Ref<RagdollSettings> mRagdollSettings = RagdollLoader::createArm(pos,1.0f);
+		JPH::Ref<JPH::RagdollSettings> mRagdollSettings = RagdollLoader::createArm(pos,1.0f);
 
 		const flecs::entity entity = ecs.entity(name.c_str())
 			.set<EntityTypeComponent>({ EntityType::Humanoid })
@@ -1059,9 +1086,9 @@ public:
 		ragdoll->AddToPhysicsSystem(JPH::EActivation::Activate);
 
 
-		cout << "Ragdoll body count : " << ragdoll->GetBodyCount() << std::endl;
-		cout << "Ragdoll GetConstraintCount : " << ragdoll->GetConstraintCount() << std::endl;
-		cout << "GetSkeleton GetJointCount : " << mRagdollSettings->GetSkeleton()->GetJointCount() << std::endl;
+		std::cout << "Ragdoll body count : " << ragdoll->GetBodyCount() << std::endl;
+		std::cout << "Ragdoll GetConstraintCount : " << ragdoll->GetConstraintCount() << std::endl;
+		std::cout << "GetSkeleton GetJointCount : " << mRagdollSettings->GetSkeleton()->GetJointCount() << std::endl;
 
 
 		for (JPH::BodyID id : ragdoll->GetBodyIDs()) {
@@ -1070,11 +1097,11 @@ public:
 
 		}
 
-		TwoBodyConstraint* constraint1 = ragdoll->GetConstraint(1);
-		HingeConstraint* hinge = static_cast<HingeConstraint*>(constraint1);
-		hinge->SetMotorState(EMotorState::Position);
+		JPH::TwoBodyConstraint* constraint1 = ragdoll->GetConstraint(1);
+		JPH::HingeConstraint* hinge = static_cast<JPH::HingeConstraint*>(constraint1);
+		hinge->SetMotorState(JPH::EMotorState::Position);
 
-		MotorSettings& motorSettings = hinge->GetMotorSettings();
+		JPH::MotorSettings& motorSettings = hinge->GetMotorSettings();
 		motorSettings.mSpringSettings.mDamping = 1.0f;
 
 		entity.set<JoltRagdoll>({ ragdoll });
@@ -1100,9 +1127,9 @@ public:
 
 		JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
 
-		RVec3 pos = RVec3(transform.position.x, transform.position.y, transform.position.z);
+		JPH::RVec3 pos = JPH::RVec3(transform.position.x, transform.position.y, transform.position.z);
 
-		Ref<RagdollSettings> mRagdollSettings = RagdollLoader::createSnake(pos, 1.0f);
+		JPH::Ref<JPH::RagdollSettings> mRagdollSettings = RagdollLoader::createSnake(pos, 1.0f);
 
 		const flecs::entity entity = ecs.entity(name.c_str())
 			.set<EntityTypeComponent>({ EntityType::Humanoid })
@@ -1121,9 +1148,9 @@ public:
 
 
 
-		cout << "Ragdoll body count : " << ragdoll->GetBodyCount() << std::endl;
-		cout << "Ragdoll GetConstraintCount : " << ragdoll->GetConstraintCount() << std::endl;
-		cout << "GetSkeleton GetJointCount : " << mRagdollSettings->GetSkeleton()->GetJointCount() << std::endl;
+		std::cout << "Ragdoll body count : " << ragdoll->GetBodyCount() << std::endl;
+		std::cout << "Ragdoll GetConstraintCount : " << ragdoll->GetConstraintCount() << std::endl;
+		std::cout << "GetSkeleton GetJointCount : " << mRagdollSettings->GetSkeleton()->GetJointCount() << std::endl;
 
 
 		for (JPH::BodyID id : ragdoll->GetBodyIDs()) {
@@ -1150,10 +1177,10 @@ public:
 		if (!EntityFactory::validateSize(size, name,/*isDynamic=*/false)) return false;
 
 
-		Vec3 boxHalfExtents(size.GetX() * 0.5, size.GetY() * 0.5, size.GetZ() * 0.5);
+		JPH::Vec3 boxHalfExtents(size.GetX() * 0.5, size.GetY() * 0.5, size.GetZ() * 0.5);
 
 		// Ref<> manages reference counting - no manual cleanup needed
-		Ref<Shape> boxShape = new BoxShape(boxHalfExtents);
+		JPH::Ref<JPH::Shape> boxShape = new JPH::BoxShape(boxHalfExtents);
 
 		// Convert GLM to Jolt types
 		JPH::Vec3 joltPosition(transform.position.x, transform.position.y, transform.position.z);
@@ -1175,7 +1202,7 @@ public:
 
 		JPH::BodyInterface & bodyInterface = ecs.get<PhysicsSystemRef>().physicsSystem.GetBodyInterface();
 
-		BodyID physicsID = bodyInterface.CreateAndAddBody(sensorSetting, JPH::EActivation::Activate);
+		JPH::BodyID physicsID = bodyInterface.CreateAndAddBody(sensorSetting, JPH::EActivation::Activate);
 
 		if (!validatePhysicsBodyCreation(physicsID, name)) return false;
 
@@ -1231,9 +1258,9 @@ public:
 
 		// Character settings
 		JPH::CharacterSettings settings2;
-		settings2.mShape = new CapsuleShape(physicsCylHalf, physicsRadius);
+		settings2.mShape = new JPH::CapsuleShape(physicsCylHalf, physicsRadius);
 		settings2.mMass = 2000.0f;
-		settings2.mMaxSlopeAngle = DegreesToRadians(20.0f); // Max walkable slope
+		settings2.mMaxSlopeAngle = JPH::DegreesToRadians(20.0f); // Max walkable slope
 		settings2.mLayer = Layers::MOVING;
 		settings2.mGravityFactor = 1;
 
@@ -1401,16 +1428,16 @@ public:
 
 		//Create physics body from mesh data
 		// Scale vertices
-		VertexList scaledVertexList;
+		JPH::VertexList scaledVertexList;
 		for (const Vertex& vertexData : meshSrc.vertices) {
 			glm::vec3 scaledVertex = vertexData.position * transform.scale; // Apply scale
-			scaledVertexList.push_back(Float3(scaledVertex.x, scaledVertex.y, scaledVertex.z));
+			scaledVertexList.push_back(JPH::Float3(scaledVertex.x, scaledVertex.y, scaledVertex.z));
 		}
 
 		// Create triangle list
-		IndexedTriangleList triangleList;
+		JPH::IndexedTriangleList triangleList;
 		for (size_t i = 0; i < meshSrc.indices.size(); i += 3) {
-			triangleList.push_back(IndexedTriangle(
+			triangleList.push_back(JPH::IndexedTriangle(
 				meshSrc.indices[i],
 				meshSrc.indices[i + 1],
 				meshSrc.indices[i + 2]
@@ -1425,17 +1452,17 @@ public:
 		}
 
 		// Create MeshShapeSettings
-		MeshShapeSettings meshSettings(scaledVertexList, triangleList);
+		JPH::MeshShapeSettings meshSettings(scaledVertexList, triangleList);
 
 		// Create MeshShape
-		Ref<Shape> meshShape = meshSettings.Create().Get();
+		JPH::Ref<JPH::Shape> meshShape = meshSettings.Create().Get();
 
 		// Create BodyCreationSettings
-		BodyCreationSettings meshBodySettings(
+		JPH::BodyCreationSettings meshBodySettings(
 			meshShape,
 			joltPosition,
 			joltRotation,
-			EMotionType::Static,
+			JPH::EMotionType::Static,
 			Layers::NON_MOVING
 		);
 
@@ -1443,9 +1470,9 @@ public:
 
 
 		// Create and add body
-		BodyID physicsID = bodyInterface.CreateAndAddBody(
+		JPH::BodyID physicsID = bodyInterface.CreateAndAddBody(
 			meshBodySettings,
-			EActivation::DontActivate
+			JPH::EActivation::DontActivate
 		);
 
 		if (!validatePhysicsBodyCreation(physicsID, name.data())) return false;
@@ -1499,24 +1526,24 @@ public:
 
 		// any thickness less than 0.01 will break jolt!
 		float boxThickness = 1;
-		Vec3 boxHalfExtents(size * 0.5, boxThickness * 0.5, size * 0.5);
+		JPH::Vec3 boxHalfExtents(size * 0.5, boxThickness * 0.5, size * 0.5);
 
-		Ref<Shape> boxShape = new BoxShape(boxHalfExtents);
+		JPH::Ref<JPH::Shape> boxShape = new JPH::BoxShape(boxHalfExtents);
 
 		// - 0.5 is needed to visually align the grid render with the physics body #MAGICNUMBER
 		//TODO find out why the grid render slightly below its physics body by default
-		Vec3 joltPosition(transform.position.x, transform.position.y - boxThickness * 0.5, transform.position.z);
-		Quat joltRotation(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
+		JPH::Vec3 joltPosition(transform.position.x, transform.position.y - boxThickness * 0.5, transform.position.z);
+		JPH::Quat joltRotation(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
 		if (!joltRotation.IsNormalized()) {
 			joltRotation = joltRotation.Normalized();
 		}
 
 		// Create BodyCreationSettings
-		BodyCreationSettings boxBodySettings(
+		JPH::BodyCreationSettings boxBodySettings(
 			boxShape,
 			joltPosition,
 			joltRotation,
-			EMotionType::Static,
+			JPH::EMotionType::Static,
 			Layers::NON_MOVING
 		);
 
@@ -1525,7 +1552,7 @@ public:
 
 		JPH::BodyInterface& bodyInterface = ecs.get<PhysicsSystemRef>().physicsSystem.GetBodyInterface();
 
-		BodyID physicsID = bodyInterface.CreateAndAddBody(boxBodySettings, EActivation::Activate);
+		JPH::BodyID physicsID = bodyInterface.CreateAndAddBody(boxBodySettings, JPH::EActivation::Activate);
 
 		if (!validatePhysicsBodyCreation(physicsID, name.data())) return false;
 
@@ -1563,8 +1590,8 @@ public:
 
 		const RenderConfig& config = ecs.get<RenderConfig>();
 
-		string playerName = "player";
-		string playerCamName = "PlayerCam";
+		std::string playerName = "player";
+		std::string playerCamName = "PlayerCam";
 
 		if (!validateName(ecs, parent, playerName)) return false;
 		if (!validateName(ecs, parent, playerCamName)) return false;

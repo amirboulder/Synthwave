@@ -428,6 +428,8 @@ export namespace JPH {
 	using JPH::DebugRenderer;
 #endif
 
+	using JPH::EBackFaceMode;
+
 	//--- 0.0_r literal (physics.hpp does "using namespace JPH::literals") ----
 	namespace literals {
 		using JPH::literals::operator ""_r;

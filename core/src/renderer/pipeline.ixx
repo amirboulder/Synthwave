@@ -1,12 +1,25 @@
-#pragma once
+module;
 
+#include <string>
+#include <vector>
+
+#include <flecs.h>
+
+#include <SDL3/SDL_gpu.h>
+
+export module Pipeline;
+
+import Logger;
+import RenderUtil;
+import RenderConfig;
+import ShaderReflection;
 
 /// <summary>
 /// Pipeline class is a wrapper around SDL_GPUGraphicsPipeline and is responsible for creating graphics pipelines.
 /// Some PipelineTypes needs both singleSampled and multiSampled versions,
 /// This is because the main render pass may of may not use MSAA or a pipeline may be used outside of the main render pass as well.
 /// </summary>
-class Pipeline {
+export class Pipeline {
 
 public:
 

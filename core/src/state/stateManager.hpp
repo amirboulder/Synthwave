@@ -1,7 +1,6 @@
 ﻿#pragma once
 
 #include "../renderer/renderer.hpp"
-#include"../renderer/RendererConfig.hpp"
 
 #include "../Serialization/serialization.hpp"
 

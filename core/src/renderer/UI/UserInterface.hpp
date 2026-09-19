@@ -1,7 +1,5 @@
 #pragma once
 
-#include "../RendererConfig.hpp"
-
 class UserInterface {
 
 public:

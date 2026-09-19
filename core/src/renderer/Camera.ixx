@@ -1,10 +1,14 @@
-﻿#pragma once 
+﻿module;
 
+#include <vector>
 
-#include "RendererConfig.hpp"
+export module Camera;
 
+import GLM;
+import Mesh;
+import RenderConfig;
 
-class Camera {
+export class Camera {
 
 public:
 

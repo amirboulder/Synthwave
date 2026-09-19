@@ -1,7 +1,14 @@
-#pragma once
+module;
 
-//TODO maybe move to components.hpp
-struct GroundInfo {
+#include <string>
+#include <cmath>
+#include <algorithm>
+
+export module PhysicsUtil;
+
+import Jolt;
+
+export struct GroundInfo {
     JPH::Vec3 groundPoint;
     JPH::Vec3 groundNormal;
     float distanceToGround = 999999.0f;
@@ -9,12 +16,12 @@ struct GroundInfo {
     bool isGrounded = false;
 };
 
-namespace Utils::Phys {
+export namespace Utils::Phys {
 
-    GroundInfo CheckGround(PhysicsSystem& physicsSystem,const JPH::Vec3& rayStart,const BodyFilter& filter) {
+    export GroundInfo CheckGround(JPH::PhysicsSystem& physicsSystem,const JPH::Vec3& rayStart,const JPH::BodyFilter& filter) {
         GroundInfo info;
 
-        BodyInterface& bodyInterface = physicsSystem.GetBodyInterface();
+        JPH::BodyInterface& bodyInterface = physicsSystem.GetBodyInterface();
 
         JPH::Vec3 rayDirection = JPH::Vec3(0, -1, 0);
         float howFarToCheck = 10.0f;
@@ -52,7 +59,7 @@ namespace Utils::Phys {
 
 
 
-    bool isPlayerVisible(JPH::PhysicsSystem* physicsSystem,
+    export bool isPlayerVisible(JPH::PhysicsSystem* physicsSystem,
         JPH::Vec3 fromPos,
         JPH::Vec3 toPos,
         JPH::BodyID actorBodyID,
@@ -77,7 +84,7 @@ namespace Utils::Phys {
     }
 
 
-    bool checkVisibilityRayCast(const JPH::PhysicsSystem& physicsSystem,
+    export bool checkVisibilityRayCast(const JPH::PhysicsSystem& physicsSystem,
         JPH::Vec3 fromPos,
         JPH::Vec3 toPos,
         JPH::BodyID sourceBody,
@@ -102,20 +109,20 @@ namespace Utils::Phys {
     }
 
 
-    void disableCollisions(BodyID bodyID1, BodyID bodyID2, BodyInterface& bi) {
+    export void disableCollisions(JPH::BodyID bodyID1, JPH::BodyID bodyID2, JPH::BodyInterface& bi) {
 
         // Disable collisions between Ragdoll and JoltCharacter
-        Ref<GroupFilterTable> filterTable = new GroupFilterTable(2);
+        JPH::Ref<JPH::GroupFilterTable> filterTable = new JPH::GroupFilterTable(2);
         filterTable->DisableCollision(0, 1);
 
     
-        CollisionGroup ragdollCollisionGroup = bi.GetCollisionGroup(bodyID1);
+        JPH::CollisionGroup ragdollCollisionGroup = bi.GetCollisionGroup(bodyID1);
         ragdollCollisionGroup.SetGroupFilter(filterTable);
         ragdollCollisionGroup.SetGroupID(1);
         ragdollCollisionGroup.SetSubGroupID(0);
         bi.SetCollisionGroup(bodyID1, ragdollCollisionGroup);
 
-        CollisionGroup characterCollisionGroup = bi.GetCollisionGroup(bodyID2);
+        JPH::CollisionGroup characterCollisionGroup = bi.GetCollisionGroup(bodyID2);
         characterCollisionGroup.SetGroupFilter(filterTable);
         characterCollisionGroup.SetGroupID(1);
         characterCollisionGroup.SetSubGroupID(1);
@@ -125,7 +132,7 @@ namespace Utils::Phys {
 
 
 
-    void buildRagdollFilter(JPH::Ragdoll* ragdoll,IgnoreMultipleBodiesFilter& filter) {
+    export void buildRagdollFilter(JPH::Ragdoll* ragdoll, JPH::IgnoreMultipleBodiesFilter& filter) {
 
         filter.Reserve(ragdoll->GetBodyCount());
         for (JPH::BodyID id : ragdoll->GetBodyIDs()) {
@@ -135,7 +142,7 @@ namespace Utils::Phys {
         }
     }
 
-    float getHipsFromSolesDist(JPH::Ragdoll* ragdoll, JPH::Skeleton* skel, BodyInterface& bi) {
+    export float getHipsFromSolesDist(JPH::Ragdoll* ragdoll, JPH::Skeleton* skel, JPH::BodyInterface& bi) {
         
         //Find joint by name
         auto findJoint = [&](const char* name) -> int {
@@ -162,7 +169,7 @@ namespace Utils::Phys {
         return hipComY - minSoleY;       
     }
 
-    uint32_t findJoint(JPH::Ragdoll* ragdoll, JPH::Skeleton* skel, std::string_view jointName) {
+    export uint32_t findJoint(JPH::Ragdoll* ragdoll, JPH::Skeleton* skel, std::string_view jointName) {
 
         for (int i = 0, n = (int)skel->GetJointCount(); i < n; ++i)
             if (std::strcmp(skel->GetJoint(i).mName.c_str(), jointName.data()) == 0) return i;
@@ -170,21 +177,21 @@ namespace Utils::Phys {
 
     }
 
-    void MoveAndRotateRagdoll(JPH::Ragdoll* ragdoll, BodyInterface& bi, const JPH::Vec3& desiredPos, const JPH::Quat& desiredRot, const JPH::EActivation& activation) {
+    export void MoveAndRotateRagdoll(JPH::Ragdoll* ragdoll, JPH::BodyInterface& bi, const JPH::Vec3& desiredPos, const JPH::Quat& desiredRot, const JPH::EActivation& activation) {
 
-        BodyID rootID = ragdoll->GetBodyID(0);
+        JPH::BodyID rootID = ragdoll->GetBodyID(0);
         JPH::Vec3  currentRoot = bi.GetPosition(rootID);
-        RVec3  delta = desiredPos - currentRoot;
-        for (BodyID id : ragdoll->GetBodyIDs()) {
-            RVec3 p = bi.GetPosition(id);
-            Quat  q = bi.GetRotation(id);
+        JPH::RVec3  delta = desiredPos - currentRoot;
+        for (JPH::BodyID id : ragdoll->GetBodyIDs()) {
+            JPH::RVec3 p = bi.GetPosition(id);
+            JPH::Quat  q = bi.GetRotation(id);
             bi.SetPositionAndRotation(id, p + delta,
                 desiredRot * q,
                 activation);
         }
     }
 
-    JPH::AABox getRagdollBoundingBox(JPH::Ragdoll* ragdoll, BodyInterface& bi) {
+    export JPH::AABox getRagdollBoundingBox(JPH::Ragdoll* ragdoll, JPH::BodyInterface& bi) {
         JPH::AABox boundingBox; // starts invalid: mMin = FLT_MAX, mMax = -FLT_MAX
 
         for (JPH::BodyID id : ragdoll->GetBodyIDs()) {
@@ -195,30 +202,6 @@ namespace Utils::Phys {
         return boundingBox;
     }
 
-
-    void PrintJPHMat4(const JPH::Mat44& mat, unsigned int index) {
-        std::cout << "JPH Matrix with index: " << index << "\n";
-        for (int row = 0; row < 4; ++row) {
-            std::cout << "| ";
-            for (int col = 0; col < 4; ++col) {
-                // Access matrix in column-major order, but print as row-major for readability
-                std::cout << std::setw(10) << std::setprecision(4)
-                    << std::fixed << mat.GetColumn4(col)[row] << " ";
-            }
-            std::cout << "|\n";
-        }
-        std::cout << "\n"; // Add newline for separation
-    }
-
-    void PrintGLMMat4(const glm::mat4& mat, const unsigned int index) {
-        std::cout << "GLM Matrix with index : " << index << ":\n";
-        for (int row = 0; row < 4; ++row) {
-            std::cout << "| ";
-            for (int col = 0; col < 4; ++col) {
-                std::cout << std::setw(10) << std::setprecision(4) << mat[col][row] << " ";
-            }
-            std::cout << "|\n";
-        }
-    }
+ 
 
 }

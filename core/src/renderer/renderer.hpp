@@ -6,13 +6,8 @@
 #include "UI/UserInterface.hpp"
 #include "PipelineLibrary/PipelineLibrary.hpp"
 
-#include "RendererConfig.hpp"
-#include "Camera.hpp"
 #include "text/textRenderer.hpp"
 #include "overlay/overlay.hpp"
-
-
-#include "pipeline.hpp"
 
 
 // One per unique mesh instance — shared by all its submeshes

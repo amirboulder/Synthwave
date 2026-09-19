@@ -1,9 +1,25 @@
-﻿#pragma once 
+﻿module;
+
+#include <vector>
+#include <filesystem>
+#include <map>
+
+#include <flecs.h>
+
+export module AssetLibrary;
+
+namespace fs = std::filesystem;
+
+import Logger;
+import Manifest;
+import RenderUtil;
+import Util;
+import AssetImporter;
 
 
-class AssetLibrary;
+export class AssetLibrary;
 
-struct AssetLibRef {
+export struct AssetLibRef {
     AssetLibrary * assetLib;
 };
 
@@ -15,7 +31,7 @@ struct AssetLibRef {
 /// This class is responsible Importing / reimporting assets.
 /// Only needed when editing the game.
 /// </summary>
-class AssetLibrary {
+export class AssetLibrary {
 
 public:
 

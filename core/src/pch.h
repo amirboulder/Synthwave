@@ -63,8 +63,6 @@ namespace fs = std::filesystem;
 //meshoptimizer
 #include <meshoptimizer.h>
 
-//INIReader
-#include "INIReader.h"
 
 //magic_enum
 #include <magic_enum/magic_enum.hpp>

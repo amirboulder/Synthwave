@@ -1,7 +1,5 @@
 ﻿#pragma once
 
-#include "core/src/physics/ragdoll.hpp"
-
 enum class ShapeType
 {
 	Capsule,

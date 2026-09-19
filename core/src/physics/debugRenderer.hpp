@@ -3,7 +3,6 @@
 #ifdef JPH_DEBUG_RENDERER
 
 
-#include "../renderer/rendererConfig.hpp"
 #include "../renderer/PipelineLibrary/PipelineLibrary.hpp"
 
 

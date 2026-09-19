@@ -18,13 +18,22 @@ import AssetImporter;
 import AssetManager;
 import JoltAssetStream;
 import PhysicsAnimation;
-
+import PhysicsUtil;
+import AssetLibrary;
+import EntityFactory;
+import Ragdoll;
+import Player;
+import PhysicsUtil;
 
 import Manifest;
 
 //The following should only be needed in renderer module
 import Mesh;
 import GeometryPool;
+import RenderConfig;
+import Camera;
+import Pipeline;
+import ShaderReflection;
 
 #include "core/src/pch.h"
 
@@ -40,15 +49,12 @@ import GeometryPool;
 
 #include "core/src/AI/AI.hpp"
 
-#include "core/src/EntityFactory.hpp"
-
 #include "core/src/Registery/registry.hpp"
 
 #include "core/src/InputSystem/InputManager.hpp"
 
 #include "core/src/MenuSystem/MenuSystem.hpp"
 
-#include "core/src/AssetSystems/AssetLibrary.hpp"
 
 #include "Editor/src/editor.hpp"
 

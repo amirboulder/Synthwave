@@ -1,6 +1,23 @@
-#pragma once 
+module;
 
-struct UserInput {
+#include <string>
+#include <format>
+
+#include <flecs.h>
+
+export module Player;
+
+import Logger;
+import Camera;
+import GLM;
+import Jolt;
+import PhysicsComponents;
+import TimeManager;
+import Components;
+import EventComponents;
+import GraphicsComponents;
+
+export struct UserInput {
 	glm::vec2 direction = glm::vec2(0);
 	float offsetX = 0.0f;
 	float offsetY = 0.0f;
@@ -10,42 +27,42 @@ struct UserInput {
 };
 
 //TODO create class PlayerContactListener : public JPH::CharacterContactListener 
-class Player : public CharacterContactListener {
+export class Player : public JPH::CharacterContactListener {
 
 
 public:
 
-	TempAllocatorImpl* temp_allocator;
+	JPH::TempAllocatorImpl* temp_allocator;
 
 	//Maybe not needed
 	//CharacterVsCharacterCollisionSimple mCharacterVsCharacterCollision;
 
 	flecs::world& ecs;
 
-	Ref<CharacterVirtual>	mCharacter;
-	Vec3					mDesiredVelocity = Vec3::sZero();
-	BodyID innerBodyID;
-	Ref<Shape> bodyShape = new JPH::CapsuleShape(2.0f, 1.0f);
+	JPH::Ref<JPH::CharacterVirtual>	mCharacter;
+	JPH::Vec3					mDesiredVelocity = JPH::Vec3::sZero();
+	JPH::BodyID innerBodyID;
+	JPH::Ref<JPH::Shape> bodyShape = new JPH::CapsuleShape(2.0f, 1.0f);
 
 	JPH::Vec3 position = JPH::Vec3(1.0f, 15.0f, 0.0f);
 	JPH::Quat rotation = JPH::Quat(0.0f, 0.0f, 0.0f, 1.0f);
 
 	// Movement state
-	JPH::Vec3 mVerticalVelocity = Vec3::sZero();
+	JPH::Vec3 mVerticalVelocity = JPH::Vec3::sZero();
 	float moveSpeed = 16.0f;
 	float jumpSpeed = 8.0f;
 	float terminalVelocity = -50.0f;
-	JPH::Vec3 gravity = Vec3(0, -20.0f, 0);
+	JPH::Vec3 gravity = JPH::Vec3(0, -20.0f, 0);
 
 	float timeStep = 1.0f / 60.0f;
 
 	glm::vec3 cameraOffset = glm::vec3(0.0f, 2.0f, 0.0f);
 
 	// Input state
-	Vec3 movementDirection = Vec3::sZero();
+	JPH::Vec3 movementDirection = JPH::Vec3::sZero();
 	bool mJumpPressed = false;
-	
-	
+
+
 	uint32_t ballCounter = 0;
 
 	flecs::entity interactEventEnt;
@@ -65,22 +82,22 @@ public:
 
 		timeStep = ecs.get<TimeStep>().step;
 
-		temp_allocator = new TempAllocatorImpl(1 * 1024 * 1024);
-	
+		temp_allocator = new JPH::TempAllocatorImpl(1 * 1024 * 1024);
+
 	}
 
 	Player(flecs::world& ecs, JPH::Vec3Arg position, JPH::QuatArg rotation, float height, float radius, uint64_t entityID, bool sCreateInnerBody = false)
-		:ecs(ecs) 
+		:ecs(ecs)
 	{
 
-		temp_allocator = new TempAllocatorImpl(1 * 1024 * 1024);
+		temp_allocator = new JPH::TempAllocatorImpl(1 * 1024 * 1024);
 
 		init(position, rotation, height, radius, entityID, sCreateInnerBody);
 
 	}
 
 	~Player() {
-		
+
 		// Clean up custom allocator
 		if (temp_allocator != nullptr) {
 			delete temp_allocator;
@@ -88,13 +105,13 @@ public:
 		}
 	}
 
-	void init(JPH::Vec3Arg position,JPH::QuatArg rotation,float height, float radius, uint64_t entityID, bool sCreateInnerBody = false) {
+	void init(JPH::Vec3Arg position, JPH::QuatArg rotation, float height, float radius, uint64_t entityID, bool sCreateInnerBody = false) {
 
-		
-		EBackFaceMode sBackFaceMode = EBackFaceMode::CollideWithBackFaces;
+
+		JPH::EBackFaceMode sBackFaceMode = JPH::EBackFaceMode::CollideWithBackFaces;
 		//float		sUpRotationX = 0;
 		//float		sUpRotationZ = 0;
-		float		sMaxSlopeAngle = DegreesToRadians(45.0f);
+		float		sMaxSlopeAngle = JPH::DegreesToRadians(45.0f);
 		float		sMaxStrength = 10000.0f;
 		float		sMass = 70;
 		float		sCharacterPadding = 0.02f;
@@ -108,7 +125,7 @@ public:
 		//bool		sOtherCharactersCanPushPlayer = true;
 
 		// Create 'player' character
-		Ref<CharacterVirtualSettings> settings = new CharacterVirtualSettings();
+		JPH::Ref<JPH::CharacterVirtualSettings> settings = new JPH::CharacterVirtualSettings();
 		settings->mMaxSlopeAngle = sMaxSlopeAngle;
 		settings->mMaxStrength = sMaxStrength;
 		settings->mMass = sMass;
@@ -118,14 +135,14 @@ public:
 		settings->mPenetrationRecoverySpeed = sPenetrationRecoverySpeed;
 		settings->mPredictiveContactDistance = sPredictiveContactDistance;
 
-		settings->mSupportingVolume = Plane(Vec3::sAxisY(), -radius); // Accept contacts that touch the lower sphere of the capsule
+		settings->mSupportingVolume = JPH::Plane(JPH::Vec3::sAxisY(), -radius); // Accept contacts that touch the lower sphere of the capsule
 		settings->mEnhancedInternalEdgeRemoval = sEnhancedInternalEdgeRemoval;
 		settings->mInnerBodyShape = sCreateInnerBody ? bodyShape : nullptr;
 		settings->mInnerBodyLayer = Layers::MOVING;
 
 		JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
 
-		mCharacter = new CharacterVirtual(settings, position, rotation, entityID, &physicsSystem);
+		mCharacter = new JPH::CharacterVirtual(settings, position, rotation, entityID, &physicsSystem);
 		//mCharacter->SetCharacterVsCharacterCollision(&mCharacterVsCharacterCollision);
 		//mCharacterVsCharacterCollision.Add(mCharacter);
 
@@ -192,19 +209,19 @@ public:
 	}
 
 	// Callback to adjust the velocity of a body as seen by the character.
-	virtual void OnAdjustBodyVelocity( const CharacterVirtual* inCharacter, const Body& inBody2,
-		Vec3& ioLinearVelocity, 
-		Vec3& ioAngularVelocity) override {
-		
-	//	cout << "player2:: OnAdjustBodyVelocity\n";
-	
+	virtual void OnAdjustBodyVelocity(const JPH::CharacterVirtual* inCharacter, const JPH::Body& inBody2,
+		JPH::Vec3& ioLinearVelocity,
+		JPH::Vec3& ioAngularVelocity) override {
+
+		//	cout << "player2:: OnAdjustBodyVelocity\n";
+
 	};
 
 
 	// Called whenever the character collides with a body.
-	virtual void			OnContactAdded(const CharacterVirtual* inCharacter, const BodyID& inBodyID2, const SubShapeID& inSubShapeID2,
-		RVec3Arg inContactPosition, Vec3Arg inContactNormal, CharacterContactSettings& ioSettings) override {
-		
+	virtual void			OnContactAdded(const JPH::CharacterVirtual* inCharacter, const JPH::BodyID& inBodyID2, const JPH::SubShapeID& inSubShapeID2,
+		JPH::RVec3Arg inContactPosition, JPH::Vec3Arg inContactNormal, JPH::CharacterContactSettings& ioSettings) override {
+
 		//cout << "player2:: OnContactAdded \n";
 
 		//ioSettings.mCanReceiveImpulses = true;
@@ -213,63 +230,63 @@ public:
 		JPH::BodyInterface& bodyInterface = ecs.get<PhysicsSystemRef>().physicsSystem.GetBodyInterface();
 
 		bodyInterface.SetLinearVelocity(inBodyID2, inContactNormal * 10);
-		
+
 
 	};
 
 	// Called whenever the character persists colliding with a body.
-	virtual void			OnContactPersisted(const CharacterVirtual* inCharacter, const BodyID& inBodyID2,
-		const SubShapeID& inSubShapeID2, RVec3Arg inContactPosition, Vec3Arg inContactNormal, CharacterContactSettings& ioSettings) override {
-		
+	virtual void			OnContactPersisted(const JPH::CharacterVirtual* inCharacter, const JPH::BodyID& inBodyID2,
+		const JPH::SubShapeID& inSubShapeID2, JPH::RVec3Arg inContactPosition, JPH::Vec3Arg inContactNormal, JPH::CharacterContactSettings& ioSettings) override {
+
 		//cout << "player2:: OnContactPersisted \n";
 	};
 
 	// Called whenever the character loses contact with a body.
-	virtual void			OnContactRemoved(const CharacterVirtual* inCharacter, const BodyID& inBodyID2,
-		const SubShapeID& inSubShapeID2) override {
-		
+	virtual void			OnContactRemoved(const JPH::CharacterVirtual* inCharacter, const JPH::BodyID& inBodyID2,
+		const JPH::SubShapeID& inSubShapeID2) override {
+
 		//cout << "player2:: OnContactRemoved \n";
 	};
 
 	// Called whenever the character collides with a virtual character.
-	virtual void			OnCharacterContactAdded(const CharacterVirtual* inCharacter, 
-		const CharacterVirtual* inOtherCharacter,
-		const SubShapeID& inSubShapeID2, RVec3Arg inContactPosition, Vec3Arg inContactNormal, 
-		CharacterContactSettings& ioSettings) override {
+	virtual void			OnCharacterContactAdded(const JPH::CharacterVirtual* inCharacter,
+		const JPH::CharacterVirtual* inOtherCharacter,
+		const JPH::SubShapeID& inSubShapeID2, JPH::RVec3Arg inContactPosition, JPH::Vec3Arg inContactNormal,
+		JPH::CharacterContactSettings& ioSettings) override {
 
 		//cout << "player2:: OnCharacterContactAdded \n";
-	
+
 	};
 
 	// Called whenever the character persists colliding with a virtual character.
-	virtual void			OnCharacterContactPersisted(const CharacterVirtual* inCharacter, 
-		const CharacterVirtual* inOtherCharacter,
-		const SubShapeID& inSubShapeID2, RVec3Arg inContactPosition, Vec3Arg inContactNormal, 
-		CharacterContactSettings& ioSettings) override {
+	virtual void			OnCharacterContactPersisted(const JPH::CharacterVirtual* inCharacter,
+		const JPH::CharacterVirtual* inOtherCharacter,
+		const JPH::SubShapeID& inSubShapeID2, JPH::RVec3Arg inContactPosition, JPH::Vec3Arg inContactNormal,
+		JPH::CharacterContactSettings& ioSettings) override {
 
 		//cout << "player2:: OnCharacterContactAdded \n";
-	
+
 	};
 
 	// Called whenever the character loses contact with a virtual character.
-	virtual void			OnCharacterContactRemoved(const CharacterVirtual* inCharacter, 
-		const CharacterID& inOtherCharacterID,
-		const SubShapeID& inSubShapeID2) override {
+	virtual void			OnCharacterContactRemoved(const JPH::CharacterVirtual* inCharacter,
+		const JPH::CharacterID& inOtherCharacterID,
+		const JPH::SubShapeID& inSubShapeID2) override {
 
 		//cout << "player2:: OnCharacterContactRemoved \n";
-	
+
 	};
 
 	// Called whenever the character movement is solved and a constraint is hit. Allows the listener to override the resulting character velocity (e.g. by preventing sliding along certain surfaces).
-	virtual void			OnContactSolve(const CharacterVirtual* inCharacter, 
-		const BodyID& inBodyID2, const SubShapeID& inSubShapeID2,
-		RVec3Arg inContactPosition, Vec3Arg inContactNormal, Vec3Arg inContactVelocity, 
-		const PhysicsMaterial* inContactMaterial,
-		Vec3Arg inCharacterVelocity, Vec3& ioNewCharacterVelocity) override {
+	virtual void			OnContactSolve(const JPH::CharacterVirtual* inCharacter,
+		const JPH::BodyID& inBodyID2, const JPH::SubShapeID& inSubShapeID2,
+		JPH::RVec3Arg inContactPosition, JPH::Vec3Arg inContactNormal, JPH::Vec3Arg inContactVelocity,
+		const JPH::PhysicsMaterial* inContactMaterial,
+		JPH::Vec3Arg inCharacterVelocity, JPH::Vec3& ioNewCharacterVelocity) override {
 
 
 		//cout << "player2:: OnContactSolve \n";
-	
+
 
 	};
 
@@ -371,16 +388,16 @@ public:
 	}
 
 	void UpdateVelocity() {
-		CharacterVirtual::EGroundState groundState = mCharacter->GetGroundState();
+		JPH::CharacterVirtual::EGroundState groundState = mCharacter->GetGroundState();
 
-		if (groundState == CharacterVirtual::EGroundState::OnGround) {
+		if (groundState == JPH::CharacterVirtual::EGroundState::OnGround) {
 			// On ground
-			mVerticalVelocity = Vec3::sZero();
+			mVerticalVelocity = JPH::Vec3::sZero();
 
 			// Jump
 			if (mJumpPressed) {
-				if (mCharacter->GetGroundState() == CharacterVirtual::EGroundState::OnGround) {
-					mVerticalVelocity = Vec3(0, jumpSpeed, 0);
+				if (mCharacter->GetGroundState() == JPH::CharacterVirtual::EGroundState::OnGround) {
+					mVerticalVelocity = JPH::Vec3(0, jumpSpeed, 0);
 					mJumpPressed = false;  // Consume jump input
 				}
 			}
@@ -396,28 +413,28 @@ public:
 		}
 	}
 
-	
+
 	void UpdateCharacter() {
 
 		// Horizontal movement (player controlled)
-		Vec3 horizontalVelocity = movementDirection * moveSpeed;
+		JPH::Vec3 horizontalVelocity = movementDirection * moveSpeed;
 		horizontalVelocity.SetY(0);  // Keep horizontal only
 
 		// Combine with vertical velocity (gravity/jump)
-		Vec3 totalVelocity = horizontalVelocity + mVerticalVelocity;
+		JPH::Vec3 totalVelocity = horizontalVelocity + mVerticalVelocity;
 
 		mCharacter->SetLinearVelocity(totalVelocity);
 
 		JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
 
-		const DefaultBroadPhaseLayerFilter default_broadphase_layer_filter = physicsSystem.GetDefaultBroadPhaseLayerFilter(1);
-		const BroadPhaseLayerFilter& broadphase_layer_filter = default_broadphase_layer_filter;
+		const JPH::DefaultBroadPhaseLayerFilter default_broadphase_layer_filter = physicsSystem.GetDefaultBroadPhaseLayerFilter(1);
+		const JPH::BroadPhaseLayerFilter& broadphase_layer_filter = default_broadphase_layer_filter;
 
-		const DefaultObjectLayerFilter default_object_layer_filter = physicsSystem.GetDefaultLayerFilter(Layers::MOVING);
-		const ObjectLayerFilter& object_layer_filter = default_object_layer_filter;
+		const JPH::DefaultObjectLayerFilter default_object_layer_filter = physicsSystem.GetDefaultLayerFilter(Layers::MOVING);
+		const JPH::ObjectLayerFilter& object_layer_filter = default_object_layer_filter;
 
-		const BodyFilter body_filter;
-		const ShapeFilter shapeFilter;
+		const JPH::BodyFilter body_filter;
+		const JPH::ShapeFilter shapeFilter;
 
 
 		mCharacter->Update(timeStep, gravity, broadphase_layer_filter, object_layer_filter, body_filter, shapeFilter, *temp_allocator);

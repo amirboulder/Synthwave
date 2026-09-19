@@ -10,18 +10,6 @@ using namespace JPH;
 // If you want your code to compile using single or double precision write 0.0_r to get a Real value that compiles to double or float depending if JPH_DOUBLE_PRECISION is XX or not.
 using namespace JPH::literals;
 
-// Layer that objects can be in, determines which other objects it can collide with
-// Typically you at least want to have 1 layer for moving bodies and 1 layer for static bodies, but you can have more
-// layers if you want. E.g. you could have a layer for high detail collision (which is not used by the physics simulation
-// but only if you do collision testing).
-namespace Layers
-{
-	static constexpr JPH::ObjectLayer NON_MOVING = 0;
-	static constexpr JPH::ObjectLayer MOVING = 1;
-	static constexpr JPH::ObjectLayer Sensors = 2;
-	static constexpr JPH::ObjectLayer CHARACTER_ANCHOR = 3;
-	static constexpr JPH::ObjectLayer NUM_LAYERS = 4;
-};
 
 // Each broadphase layer results in a separate bounding volume tree in the broad phase. You at least want to have
 // a layer for non-moving and moving objects to avoid having to update a tree full of static objects every frame.
@@ -36,10 +24,6 @@ namespace BroadPhaseLayers
 };
 
 #include "debugRenderer.hpp"
-#include "ragdoll.hpp"
-
-
-#include "physicsUtil.hpp"
 
 
 // Callback for traces, connect this to your own trace function if you have one

@@ -1,6 +1,29 @@
-#pragma once
+module;
+
+#include <cstdint>
+#include <fstream>
+#include <string>
+#include <filesystem>
+
+#include <flecs.h>
+
+#include <SDL3/SDL_gpu.h>
+
+//INIReader
+#include "INIReader.h"
+
+#include <magic_enum/magic_enum.hpp>
+
+export module RenderConfig;
+
+import Logger;
+import GLM;
+
 //TODO take out freeCam pos/front and put it in the save file
-class RenderConfig {
+//TODO ensure that the layout of the config file is correct if not correct it
+//TODO version the config file
+//TODO just use JSON for this
+export class RenderConfig {
 public:
 
 	SDL_GPUSampleCount sampleCount = SDL_GPU_SAMPLECOUNT_8;

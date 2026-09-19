@@ -1,7 +1,5 @@
 #pragma once
 
-#include "../../core/src/player.hpp"
-
 #include "sensorBehaviors.hpp"
 #include "actorBehaviors.hpp"
 #include "hud.hpp"

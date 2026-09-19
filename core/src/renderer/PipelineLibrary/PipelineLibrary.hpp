@@ -1,7 +1,5 @@
 #pragma once
 
-#include "../ShaderCompilation/ShaderReflection.hpp"
-#include "../pipeline.hpp"
 #include "../computePipeline.hpp"
 
 //TODO Add HOT reloading for shaders!!!
