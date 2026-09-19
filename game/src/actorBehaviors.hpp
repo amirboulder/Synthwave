@@ -2,7 +2,7 @@
 
 #include "../../core/src/Registery/registry.hpp"
 
-enum class Direction { forward, backward };
+
 
 /*
 struct GameModule {

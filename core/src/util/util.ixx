@@ -14,6 +14,8 @@ module;
 #include <xxhash.h>
 
 #include <SDL3/SDL_error.h>
+#include <SDL3/SDL_mouse.h>
+
 
 export module Util;
 
@@ -249,6 +251,12 @@ export namespace util {
 		return XXH3_64bits(buffer.data(), buffer.size());
 	}
 
+	export void flushMouseMovement() {
+		// flushing all the mouse movement accumulated during pause/load to avoid camera jerk
+		float dx, dy;
+		SDL_GetRelativeMouseState(&dx, &dy);
+	}
+
 
 	export void PrintJPHMat4(const JPH::Mat44& mat, unsigned int index) {
 		std::cout << "JPH Matrix with index: " << index << "\n";
@@ -274,5 +282,8 @@ export namespace util {
 			std::cout << "|\n";
 		}
 	}
+
+
+
 }
 

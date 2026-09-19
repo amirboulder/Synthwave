@@ -34,10 +34,15 @@ if(MSVC)
 endif()
 
 
-#Get all the .ixx files and add them as modules,
-#When a new modules is added we must save this file again so it runs, TODO maybe check when we run the application
-# This would have to be changed to "*.cppm" most likely we use compile with clang
-file(GLOB_RECURSE MODULE_INTERFACE_UNITS "*.ixx")
+# Module interface units. Scoped to our own source dirs on purpose:
+# a root-level glob also picks up .ixx files under out/_deps (e.g. fastgltf's),
+# which then get compiled into this target with our flags.
+file(GLOB_RECURSE MODULE_INTERFACE_UNITS CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/core/*.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/game/*.ixx"
+    "${CMAKE_CURRENT_SOURCE_DIR}/Editor/*.ixx"
+)
+
 
 target_sources(Synthwave
     PUBLIC
@@ -212,7 +217,7 @@ FetchContent_Declare(
 )
 
 set(BUILD_SHARED_LIBS OFF)
-set(FASTGLTF_ENABLE_CPP_MODULES OFF CACHE BOOL "" FORCE)
+set(FASTGLTF_ENABLE_CPP_MODULES ON CACHE BOOL "" FORCE)
 set(FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES ON)
 
 FetchContent_MakeAvailable(fastgltf)
@@ -457,7 +462,8 @@ Slang::slang
 SDL3_image::SDL3_image
 SDL3_ttf::SDL3_ttf
 stb_image
-fastgltf::fastgltf 
+fastgltf::fastgltf
+fastgltf::module
 glm::glm 
 Jolt
 OptickCore
@@ -473,6 +479,7 @@ target_precompile_headers(Synthwave PRIVATE
     "${CMAKE_SOURCE_DIR}/core/src/pch.h"
 )
 
+#This prvents modules from including PCH
 #Without this modules have access to the PCH without having to include the file, which also cause intellisense issues.
 foreach(MODULE_FILE ${MODULE_INTERFACE_UNITS})
     set_source_files_properties(${MODULE_FILE}

@@ -1,6 +1,7 @@
 module;
 
 #include <string>
+#include <vector>
 #include <format>
 #include <filesystem>
 #include <unordered_map>
@@ -11,10 +12,9 @@ module;
 
 export module AssetManager;
 
-namespace fs = std::filesystem;
-
 import Logger;
 import Mesh;
+import Texture;
 import Material;
 import Manifest;
 import GeometryPool;
@@ -23,6 +23,7 @@ import RenderUtil;
 import Util;
 import PhysicsAnimation;
 
+namespace fs = std::filesystem;
 
 export enum class DefaultAssets {
 

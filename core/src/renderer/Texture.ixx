@@ -12,14 +12,11 @@ module;
 
 #include <SDL3/SDL_gpu.h>
 
-#include "fastgltf/core.hpp"
-//#include "fastgltf/util.hpp"
-//#include "fastgltf/math.hpp"
-//#include "fastgltf/tools.hpp"
 
 export module Texture;
 
 import Logger;
+import fastgltf;
 
 export struct StbImageDelete {
 	void operator()(void* data) const {

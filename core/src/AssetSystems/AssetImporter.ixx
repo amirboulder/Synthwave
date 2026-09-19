@@ -4,11 +4,6 @@ module;
 #include <string>
 #include <filesystem>
 
-//fastgltf
-#include "fastgltf/core.hpp"
-#include "fastgltf/util.hpp"
-#include "fastgltf/math.hpp"
-#include "fastgltf/tools.hpp"
 
 #include "stb_image.h"
 
@@ -21,6 +16,8 @@ import Util;
 import Manifest;
 import Texture;
 import RenderUtil;
+import Material;
+import fastgltf;
 
 namespace fs = std::filesystem;
 

@@ -6,6 +6,7 @@ export module Camera;
 
 import GLM;
 import Mesh;
+import GraphicsComponents;
 import RenderConfig;
 
 export class Camera {

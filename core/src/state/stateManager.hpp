@@ -302,7 +302,7 @@ public:
 	// PlayState and EditorState react to GameLoadedState and MenuState reacts to them
 	void startGame() {
 
-		CMN::flushMouseMovement();
+		util::flushMouseMovement();
 
 		time.startGameTime();
 
@@ -456,7 +456,7 @@ public:
 				scene.aiUpdatePhase.enable();
 				scene.playerPhase.enable();
 
-				CMN::flushMouseMovement();
+				util::flushMouseMovement();
 				SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "PlayState::play");
 
 				SDL_SetWindowRelativeMouseMode(renderContext.window, true);

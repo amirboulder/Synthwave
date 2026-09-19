@@ -23,11 +23,12 @@ import AssetLibrary;
 import EntityFactory;
 import Ragdoll;
 import Player;
-import PhysicsUtil;
+import InputManager;
+import InputComponents;
 
 import Manifest;
 
-//The following should only be needed in renderer module
+//The following should only be needed in renderer module (once there is a render module)
 import Mesh;
 import GeometryPool;
 import RenderConfig;
@@ -36,8 +37,6 @@ import Pipeline;
 import ShaderReflection;
 
 #include "core/src/pch.h"
-
-#include "core/src/common.hpp"
 
 #include "core/src/renderer/renderer.hpp"
 
@@ -51,10 +50,7 @@ import ShaderReflection;
 
 #include "core/src/Registery/registry.hpp"
 
-#include "core/src/InputSystem/InputManager.hpp"
-
 #include "core/src/MenuSystem/MenuSystem.hpp"
-
 
 #include "Editor/src/editor.hpp"
 

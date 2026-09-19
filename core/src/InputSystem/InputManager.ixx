@@ -1,17 +1,44 @@
-#pragma once
+module;
 
-enum class ControlMode {
+#include <cstdint>
+#include <vector>
+#include <string>
+
+#include <flecs.h>
+
+#include <SDL3/SDL_keyboard.h>
+#include <SDL3/SDL_mouse.h>
+#include <SDL3/SDL_gamepad.h>
+#include <SDL3/SDL_Events.h>
+
+#include "imgui_impl_sdl3.h"
+
+//magic_enum
+#include <magic_enum/magic_enum.hpp>
+
+export module InputManager;
+
+import Logger;
+import EventComponents;
+import Components;
+import InputComponents;
+import Util;
+import RenderUtil;
+import TimeManager;
+
+
+export enum class ControlMode {
 	KBM,
 	GAMEPAD
 };
 
-enum class InputContext : std::uint16_t {
+export enum class InputContext : std::uint16_t {
 	
 	MOVEMENT,
 	COMBAT,
 };
 
-enum class MouseButtons {
+export enum class MouseButtons {
 
 	BUTTON_INVALID,
 	BUTTON_LEFT,
@@ -21,18 +48,18 @@ enum class MouseButtons {
 	BUTTON_X2,
 };
 
-struct KeyboardBinding {
+export struct KeyboardBinding {
 	flecs::entity entity;
 	SDL_Scancode key;
 };
 
-struct MouseBinding {
+export struct MouseBinding {
 	flecs::entity entity;
 	MouseButtons button;
 
 };
 
-struct GamepadBinding {
+export struct GamepadBinding {
 	flecs::entity entity;
 	SDL_GamepadButton button;
 };
@@ -52,7 +79,7 @@ struct GamepadBinding {
 /// Allows for input to be remapped to any key/button
 /// An input cannot be mapped to a keyboard key and mouse button at the same time.
 /// </summary>
-class InputManager {
+export class InputManager {
 
 	flecs::world& ecs;
 
@@ -524,7 +551,7 @@ public:
 				
 				state->locked = false;
 				SDL_SetWindowRelativeMouseMode(renderContext.window, true);
-				CMN::flushMouseMovement();
+				util::flushMouseMovement();
 			
 			}
 			else if(event.type == SDL_EVENT_MOUSE_BUTTON_UP && event.button.button == SDL_BUTTON_MIDDLE) {
