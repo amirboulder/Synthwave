@@ -1300,7 +1300,7 @@ public:
 
 		if (axis == 0) {return Vec3::sAxisX();}
 		if (axis == 1) {return Vec3::sAxisY();}
-		if (axis == 2) { return Vec3::sAxisZ();}
+		return Vec3::sAxisZ();
 	}
 
 	static JPH::Vec3 getAttachmentPos(const BodyPart* parent, const JPH::Shape* childShape,

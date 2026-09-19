@@ -2,7 +2,7 @@
 
 namespace ImGui
 {
-    // Combo box — works for any enum, no boilerplate needed.
+    // Combo box - works for any enum, no boilerplate needed.
     template <typename EnumT>
     std::optional<EnumT> EnumCombo(const char* label, EnumT* value)
     {

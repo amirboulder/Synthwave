@@ -69,7 +69,7 @@ namespace Utils::Phys {
 
         if (physicsSystem->GetNarrowPhaseQuery().CastRay(ray, hit, {}, {}, bodyFilter))
         {
-            // Hit something — check if it's the player
+            // Hit something - check if it's the player
             return hit.mBodyID == playerBodyID;
         }
 
@@ -94,7 +94,7 @@ namespace Utils::Phys {
 
         if (physicsSystem.GetNarrowPhaseQuery().CastRay(ray, hit, {}, {}, bodyFilter))
         {
-            // Hit something — check if it's the player
+            // Hit something - check if it's the player
             return hit.mBodyID == targetBody;
         }
 

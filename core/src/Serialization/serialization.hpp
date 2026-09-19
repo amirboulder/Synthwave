@@ -84,7 +84,7 @@ public:
 
         activeGameQuery.each([&](flecs::entity e) {
 
-            if (!e.is_alive()) return false;
+            if (!e.is_alive()) return;
 
             flecs::string entityJson = e.to_json();
 

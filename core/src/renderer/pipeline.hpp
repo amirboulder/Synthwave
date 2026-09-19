@@ -119,7 +119,7 @@ public:
 			if (!pipelineMS)
 			{
 				LogError(LOG_RENDER, "Failed to create MSAA pipeline %s: %s", pipelineName.c_str(), SDL_GetError());
-				// Non-fatal — single sampled pipeline still valid
+				// Non-fatal - single sampled pipeline still valid
 			}
 		}
 

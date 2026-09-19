@@ -97,17 +97,17 @@ public:
 		mat.metallicFactor = 0.0f;   // generated meshes are dielectric, not metal
 		mat.roughnessFactor = 0.6f;   // matte-to-semigloss; not 1.0 (kills specular) or 0 (mirror)
 
-		// Diffuse layer 0 — white 
+		// Diffuse layer 0 - white 
 		SDLSurface diffuse0 = RenderUtil::makeSolidSurface(255, 255, 255, 255);
 		if (!RenderUtil::uploadToTextureArray(device, textureArrays.diffuseTextures, diffuse0)) return mat;
 		diffuseTextureIdToIndex[0] = 0;
 
-		// MetallicRoughness layer 0 — white factors determine metallicRoughness
+		// MetallicRoughness layer 0 - white factors determine metallicRoughness
 		SDLSurface mr0 = RenderUtil::makeSolidSurface(255, 255, 255, 255);
 		if (!RenderUtil::uploadToTextureArray(device, textureArrays.metallicRoughnessTextures, mr0)) return mat;
 		MRTextureIdToIndex[0] = 0;
 
-		// Normal layer 0 — flat normal (0,0,1)
+		// Normal layer 0 - flat normal (0,0,1)
 		SDLSurface normal0 = RenderUtil::makeSolidSurface(128, 128, 255, 255);
 		if (!RenderUtil::uploadToTextureArray(device, textureArrays.normalTextures, normal0)) return mat;
 		NormalTextureIdToIndex[0] = 0;

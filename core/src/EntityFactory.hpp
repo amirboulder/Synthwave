@@ -1854,6 +1854,8 @@ public:
 			LogError(LOG_ECS, "Pipeline entity does not exist : %s", pipelineName.c_str());
 			return false;
 		}
+
+		return true;
 	}
 	static bool validateEntityCreation(flecs::entity entity, std::string_view name) {
 		if (!entity.is_valid()) {
