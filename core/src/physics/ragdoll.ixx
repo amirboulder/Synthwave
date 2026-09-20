@@ -5,7 +5,11 @@ module;
 #include <cstdint>
 #include <queue>
 
-//#include "Biped.hpp"
+// IntelliSense only; cl.exe never sees this. Module units skip the PCH, so they
+// get JPH types solely from the import, which IntelliSense reports as incomplete.
+#ifdef __INTELLISENSE__
+#include <Jolt/Jolt.h>
+#endif
 
 export module Ragdoll;
 

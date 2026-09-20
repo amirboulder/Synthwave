@@ -222,9 +222,13 @@ set(FASTGLTF_ENABLE_KHR_PHYSICS_RIGID_BODIES ON)
 
 FetchContent_MakeAvailable(fastgltf)
 
+# fastgltf_module is a separate target, so it doesn't inherit Synthwave's
+# /utf-8. MSVC compares the macro environment of a module against each
+# importing TU, and _UTF8 (set by /utf-8) differing trips C5050.
+if(MSVC AND TARGET fastgltf_module)
+    target_compile_options(fastgltf_module PRIVATE /utf-8)
+endif()
 
-#get_property(all_targets DIRECTORY ${fastgltf_SOURCE_DIR} PROPERTY BUILDSYSTEM_TARGETS)
-#message(STATUS "fastgltf targets: ${all_targets}")
 
 #=============================================
 #glm

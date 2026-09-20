@@ -7,6 +7,7 @@
 #include <string>
 #include <thread>
 #include <fstream>
+#include <sstream>
 #include <filesystem>
 #include <queue>
 #include <chrono>

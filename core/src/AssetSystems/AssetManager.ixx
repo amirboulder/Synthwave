@@ -6,6 +6,13 @@ module;
 #include <filesystem>
 #include <unordered_map>
 
+// IntelliSense only; cl.exe never sees this. Module units skip the PCH, so they
+// get JPH types solely from the import, which IntelliSense reports as incomplete.
+//Maybe not need in this file but is ok to have it
+#ifdef __INTELLISENSE__
+#include <Jolt/Jolt.h>
+#endif
+
 #include <flecs.h>
 
 #include <SDL3/SDL_gpu.h>

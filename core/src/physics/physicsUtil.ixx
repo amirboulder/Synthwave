@@ -4,6 +4,13 @@ module;
 #include <cmath>
 #include <algorithm>
 
+// IntelliSense only; cl.exe never sees this. Module units skip the PCH, so they
+// get JPH types solely from the import, which IntelliSense reports as incomplete.
+#ifdef __INTELLISENSE__
+#include <Jolt/Jolt.h>
+#include <Jolt/Physics/Collision/RayCast.h>
+#endif
+
 export module PhysicsUtil;
 
 import Jolt;

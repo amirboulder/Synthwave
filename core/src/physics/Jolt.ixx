@@ -52,6 +52,8 @@ module;
 #include <Jolt/Core/Color.h>
 #include <Jolt/Core/IssueReporting.h>
 #include <Jolt/Core/RTTI.h>
+#include <Jolt/Core/NonCopyable.h>
+#include <Jolt/Core/JobSystemWithBarrier.h>
 #include <Jolt/Core/TempAllocator.h>
 #include <Jolt/Core/JobSystemThreadPool.h>
 #include <Jolt/Core/StreamWrapper.h>
@@ -62,7 +64,11 @@ module;
 #include <Jolt/Math/Float2.h>
 #include <Jolt/Math/Float3.h>
 #include <Jolt/Math/Float4.h>
+#include <Jolt/Math/UVec4.h>
 #include <Jolt/Math/Vec3.h>
+#include <Jolt/Math/Vec4.h>
+#include <Jolt/Math/Quat.h>
+#include <Jolt/Math/Mat44.h>
 #include <Jolt/Geometry/AABox.h>
 #include <Jolt/Geometry/Plane.h>
 #include <Jolt/Geometry/Triangle.h>
@@ -93,6 +99,9 @@ module;
 #include <Jolt/Physics/Collision/Shape/SubShapeIDPair.h>
 
 // --- Shapes -----------------------------------------------------------------
+#include <Jolt/Physics/Collision/Shape/ConvexShape.h>
+#include <Jolt/Physics/Collision/Shape/DecoratedShape.h>
+#include <Jolt/Physics/Collision/Shape/CompoundShape.h>
 #include <Jolt/Physics/Collision/Shape/BoxShape.h>
 #include <Jolt/Physics/Collision/Shape/SphereShape.h>
 #include <Jolt/Physics/Collision/Shape/CapsuleShape.h>
@@ -199,6 +208,12 @@ export namespace JPH {
 	using JPH::operator&=;
 	using JPH::operator^=;
 
+	//--- Intermediate base classes -------------------------------------------
+	// A class is only complete if its bases are. These are never named by the
+	// project directly, but every derived type exported below needs them, so
+	// they must appear here or the derived type arrives incomplete.
+	using JPH::NonCopyable;
+
 	//--- Core containers / smart pointers ------------------------------------
 	using JPH::Array;
 	using JPH::Ref;
@@ -220,6 +235,7 @@ export namespace JPH {
 	using JPH::TempAllocatorImpl;
 	using JPH::TempAllocatorMalloc;
 	using JPH::JobSystem;
+	using JPH::JobSystemWithBarrier;   // base of JobSystemThreadPool
 	using JPH::JobSystemThreadPool;
 
 	using JPH::StreamIn;
@@ -347,6 +363,8 @@ export namespace JPH {
 
 	//--- Shapes --------------------------------------------------------------
 	using JPH::Shape;
+	using JPH::ConvexShape;
+	using JPH::DecoratedShape;
 	using JPH::ShapeSettings;
 	using JPH::ShapeRefC;
 	using JPH::PhysicsMaterial;

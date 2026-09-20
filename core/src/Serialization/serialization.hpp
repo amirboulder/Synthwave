@@ -118,9 +118,17 @@ public:
 			return false;
 		}
 
-		rapidjson::IStreamWrapper isw(file);
+		// Read the whole file and Parse() rather than ParseStream(IStreamWrapper).
+		// IStreamWrapper instantiates std::istream::read here, and MSVC compiles
+		// that body at end of TU -- after the `import`s in Synthwave.h -- where it
+		// has lost the definition of basic_istream<char>::sentry (C2079 at
+		// istream(535)). Same pattern as Manifest::Load.
+		std::ostringstream ss;
+		ss << file.rdbuf();
+		const std::string raw = ss.str();
+
 		rapidjson::Document doc;
-		doc.ParseStream(isw);
+		doc.Parse(raw.c_str());
 
 		if (doc.HasParseError()) {
 			LogError(LOG_APP, "JSON parse error: %s at offset %s in file", doc.GetParseError(), doc.GetErrorOffset(), path.c_str());

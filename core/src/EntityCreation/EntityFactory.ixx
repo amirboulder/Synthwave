@@ -8,6 +8,12 @@ module;
 #include <fstream>
 #include <format>
 
+// IntelliSense only; cl.exe never sees this. Module units skip the PCH, so they
+// get JPH types solely from the import, which IntelliSense reports as incomplete.
+#ifdef __INTELLISENSE__
+#include <Jolt/Jolt.h>
+#endif
+
 #include <flecs.h>
 
 export module EntityFactory;
@@ -28,7 +34,7 @@ import PhysicsAnimation;
 import RenderConfig;
 import Camera;
 import Pipeline;
-import Player;
+import PlayerComponents;
 
 
 //Maybe Use this everywhere
