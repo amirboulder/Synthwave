@@ -443,9 +443,6 @@ public:
 	flecs::system syncSys;
 	flecs::system removeStaleContactsSys;
 
-	flecs::entity physicsPhase;
-
-
 
 	Physics(flecs::world& ecs, const float timeStep)
 		: broad_phase_layer_interface(),
@@ -527,7 +524,6 @@ public:
 	void init() {
 
 		registerComponents();
-		registerPhase();
 		registerSystems();
 
 		LogSuccess(LOG_PHYSICS, "Physics Initialized");
@@ -550,29 +546,11 @@ public:
 
 	}
 
-	void registerPhase() {
-
-		// Each phase has its own dependency, it ensures that
-		// 1.phases can be disabled without affecting other phases (disabling is transitive in flecs)
-		// 2.Phases can run in the order we want regardless of creation order 
-		//PhaseDependencies depend on each other, that's handled in StateManager.RegisterPhaseDependencies()
-		// that way phases created earlier in initialization can depend on phases created after them
-		flecs::entity physicsPhaseDependency = ecs.entity("PhysicsPhaseDependency");
-
-		physicsPhase = ecs.entity("PhysicsPhase")
-			.add(flecs::Phase)
-			.depends_on(physicsPhaseDependency);
-
-		// disabled by default so that we don't start simulating physics until a level is loaded
-		physicsPhase.disable();
-
-
-	}
-
+	
 	void updateSystem() {
 
 		updateSys = ecs.system("PhysicsUpdateSys")
-			.kind(physicsPhase)
+			.kind<PhysicsPhase>()
 			.immediate()
 			.run([&](flecs::iter& it) {
 
@@ -621,7 +599,7 @@ public:
 	void removeStaleContactsSystem() {
 
 		removeStaleContactsSys = ecs.system<ContactDataList>("RemoveStaleContactsSys")
-			.kind(physicsPhase)
+			.kind<PhysicsPhase>()
 			.each([&](flecs::entity ent , ContactDataList & contactDataList) {
 
 			std::vector<ContactData>& contacts = contactDataList.contacts;
@@ -647,7 +625,7 @@ public:
 	void syncSystem() {
 
 		syncSys = ecs.system<Transform, JPH::BodyID, DynamicEnt>("PhysicsSyncSys")
-			.kind(physicsPhase)
+			.kind<PhysicsPhase>()
 			.each([&](flecs::entity e, Transform& transform, JPH::BodyID& physicsBody, DynamicEnt) {
 
 			JPH::Vec3 pos;

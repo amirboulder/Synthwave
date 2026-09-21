@@ -1,37 +1,5 @@
 #pragma once
 
-#include "../../core/src/Registery/registry.hpp"
-
-
-
-/*
-struct GameModule {
-
-	GameModule(flecs::world& world) {
-		world.module<GameModule>("GameModule");
-	}
-};
-*/
-
-
-void RegisterPlayerSystems(flecs::world& ecs) {
-	
-	//ecs.component<EnemyState>()
-	//	.on_set([](EnemyState& newState) {
-	//	LogInfo(LOG_APP, "new State %s", magic_enum::enum_name(newState).data());
-	//});
-
-	/*ecs.component<EnemyState>()
-		.on_replace([](EnemyState& prev, EnemyState& next) {
-
-		LogInfo(LOG_APP, "%s replace with %s", magic_enum::enum_name(prev).data(), magic_enum::enum_name(next).data());
-	});*/
-
-
-}
-//REGISTER_GAME_MODULE(RegisterPlayerSystems)
-
-
 namespace Scripts {
 
 	void actor1Update(flecs::world& ecs, flecs::entity self) {
@@ -729,8 +697,8 @@ namespace Scripts {
 		});
 
 	}
-	REGISTER_GAME_MODULE(RegisterRagdollObserver)
 
+	const AutoRegister registerRagdollObserver{ &RegisterRagdollObserver };
 
 	void updateRagdollForce(flecs::world& ecs, flecs::entity self) {
 

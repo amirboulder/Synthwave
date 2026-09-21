@@ -19,6 +19,7 @@ module;
 export module InputManager;
 
 import Logger;
+import Phases;
 import EventComponents;
 import Components;
 import InputComponents;
@@ -96,7 +97,6 @@ public:
 	uint16_t leftClickKey = SDL_BUTTON_LEFT;
 	uint16_t rightClickKey = SDL_BUTTON_RIGHT;
 
-	flecs::entity inputPhase;
 	flecs::system clearInputSys;
 	flecs::system postInputSys;
 
@@ -110,7 +110,6 @@ public:
 		: ecs(ecs)
 	{
 
-		registerPhase();
 		registerSystems();
 
 		ecs.component<Direction>().add(flecs::Singleton);
@@ -150,18 +149,6 @@ public:
 		ecs.set<MouseMovementState>({});
 
 		LogSuccess(LOG_APP, "InputManager Initialized");
-	}
-
-	void registerPhase() {
-
-		// Each phase has its own dependency, it ensures that
-		// 1.phases can be disabled without affecting other phases (disabling is transitive in flecs)
-		// 2.Phases can run in the order we want regardless of creation order 
-		//PhaseDependencies depend on each other, that's handled in StateManager.RegisterPhaseDependencies()
-		// that way phases created earlier in initialization can depend on phases created after them
-		flecs::entity inputPhaseDependency = ecs.entity("InputPhaseDependency");
-		inputPhase = ecs.entity("InputPhase").add(flecs::Phase).depends_on(inputPhaseDependency);
-
 	}
 
 	void registerSystems() {
@@ -291,7 +278,7 @@ public:
 
 		//Happens first thing in the frame after input has been polled
 		postInputSys = ecs.system("PostInputSys")
-			.kind(inputPhase)
+			.kind<InputPhase>()
 			.run([&](flecs::iter& it) {
 
 			const float timeStep = ecs.get<TimeStep>().step;

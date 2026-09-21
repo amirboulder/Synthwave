@@ -45,7 +45,7 @@ struct PipelineBatch {
 	uint32_t drawCommandCount;
 };
 
-//TODO move to its own file
+//TODO move to its own file.
 struct GrowableGPUBuffer {
 	SDL_GPUBuffer* buffer = nullptr;
 	size_t capacity = 0;      // bytes currently allocated on GPU
@@ -177,8 +177,6 @@ struct Renderer {
 
 	flecs::system createDrawBatchesSys;
 
-	flecs::entity renderPhase;
-
 	flecs::query<Transform, MeshComponent>queryEntID;
 
 	flecs::query<Light, DirectionalLight>dirLightQuery;
@@ -210,7 +208,6 @@ struct Renderer {
 
 		buildRenderQueries();
 
-		registerPhase();
 		registerSystems();
 
 		pipelineLib.init();
@@ -371,18 +368,7 @@ struct Renderer {
 		return true;
 	}
 
-	void registerPhase() {
-
-		// Each phase has its own dependency, it ensures that
-		// 1.phases can be disabled without affecting other phases (disabling is transitive in flecs)
-		// 2.Phases can run in the order we want regardless of creation order 
-		//PhaseDependencies depend on each other, that's handled in StateManager.RegisterPhaseDependencies()
-		// that way phases created earlier in initialization can depend on phases created after them
-		flecs::entity renderPhaseDependency = ecs.entity("RenderPhaseDependency");
-
-		renderPhase = ecs.entity("RenderPhase").add(flecs::Phase).depends_on(renderPhaseDependency);
-	}
-
+	
 	void registerSystems() {
 
 		createDrawBatchesSystem();
@@ -698,7 +684,7 @@ struct Renderer {
 	void createDrawBatchesSystem() {
 
 		ecs.system<SubMeshComponent, flecs::Parent>("CreateDrawBatchesSys")
-			.kind(renderPhase)
+			.kind<RenderPhase>()
 			.run([&](flecs::iter& it) {
 
 			const RenderContext& renderContext = ecs.get<RenderContext>();
@@ -1028,14 +1014,10 @@ struct Renderer {
 
 #ifdef	JPH_DEBUG_RENDERER
 
-		//This system is Part of physics phase because it happens first
-		//allows systems to push data to the batches without them being cleared before rendering
-		flecs::entity physicsPhase = ecs.lookup("PhysicsPhase");
-
 		flecs::system createPhysicsBatchesSys = ecs.system<fisiksDebugRenderer>("CreatePhysicsBatchesSys")
 			//.with<fisiksDebugRenderer>()
 			.term_at(0).src<fisiksDebugRenderer>()
-			.kind(physicsPhase)
+			.kind<PhysicsPhase>()
 			.each([&](fisiksDebugRenderer& fisiksRenderer) {
 
 			//Clear all the old data

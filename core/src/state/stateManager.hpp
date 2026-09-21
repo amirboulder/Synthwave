@@ -38,9 +38,6 @@ public:
 
 		RegisterSystems();
 		
-		RegisterCustomPhaseDeps();
-
-		disableDefaultPhases();
 
 		LogSuccess(LOG_APP, "StateManager Initialized");
 
@@ -172,72 +169,6 @@ public:
 	}
 
 
-	//sets the order of execution for systems
-	void RegisterCustomPhaseDeps() {
-
-		flecs::entity inputPhaseDependency = ecs.lookup("InputPhaseDependency");
-		if (!inputPhaseDependency)
-			LogError(LOG_APP, "StateManager::RegisterCustomPhaseDeps inputPhaseDependency does not exist");
-
-		/*flecs::entity editorPhaseDependency = ecs.lookup("EditorPhaseDependency");
-		if (!editorPhaseDependency)
-			LogError(LOG_APP, "StateManager::RegisterCustomPhaseDeps editorPhaseDependency does not exist");*/
-
-		flecs::entity physicsPhaseDependency = ecs.lookup("PhysicsPhaseDependency").depends_on(inputPhaseDependency);
-		if (!physicsPhaseDependency)
-			LogError(LOG_APP, "StateManager::RegisterCustomPhaseDeps physicsPhaseDependency does not exist");
-
-		flecs::entity aiPhaseDependency = ecs.lookup("AIPhaseDependency").depends_on(physicsPhaseDependency);
-		if (!aiPhaseDependency)
-			LogError(LOG_APP, "StateManager::RegisterCustomPhaseDeps aiPhaseDependency does not exist");
-
-
-		//TODO Audio phase
-		//TODO maybe gameState phase
-
-		flecs::entity playerPhaseDependency = ecs.lookup("PlayerPhaseDependency").depends_on(aiPhaseDependency);
-		if (!playerPhaseDependency)
-			LogError(LOG_APP, "StateManager::RegisterCustomPhaseDeps playerPhaseDependency does not exist");
-
-		flecs::entity transformPropPhaseDependency = ecs.lookup("TransformPropagationPhaseDependency").depends_on(playerPhaseDependency);
-		if (!transformPropPhaseDependency)
-			LogError(LOG_APP, "StateManager::RegisterCustomPhaseDeps TransformPropagationPhaseDependency does not exist");
-
-		flecs::entity renderPhaseDependency = ecs.lookup("RenderPhaseDependency").depends_on(transformPropPhaseDependency);
-		if (!renderPhaseDependency)
-			LogError(LOG_APP, "StateManager::RegisterCustomPhaseDeps renderPhaseDependency does not exist");
-
-		ecs.entity(flecs::PostFrame).depends_on(renderPhaseDependency);
-
-		/* This still works with flecs builtin pipeline query :
-		world.pipeline()
-		  .with(flecs::System)
-		  .with(flecs::Phase).cascade(flecs::DependsOn)
-		  .without(flecs::Disabled).up(flecs::DependsOn)
-		  .without(flecs::Disabled).up(flecs::ChildOf)
-		  .build();
-		*/
-	}
-
-	void disableDefaultPhases() {
-
-		// Disable most the default phases so we don't see them
-
-		//ecs.entity(flecs::PreFrame).disable();
-		ecs.entity(flecs::OnLoad).disable();
-		ecs.entity(flecs::PostLoad).disable();
-		ecs.entity(flecs::PreUpdate).disable();
-		ecs.entity(flecs::OnUpdate).disable();
-		ecs.entity(flecs::OnValidate).disable();
-		ecs.entity(flecs::PostUpdate).disable();
-		ecs.entity(flecs::PreStore).disable();
-		ecs.entity(flecs::OnStore).disable();
-		//ecs.entity(flecs::PostFrame).disable();
-
-	}
-
-
-	
 	void RegisterSystems() {
 
 		processUICommandsSystem();
@@ -309,9 +240,7 @@ public:
 		ecs.set<GameLoadedState>({ GameLoadedState::Loaded });
 		ecs.set<CameraState>({ CameraState::PLAYER });
 
-		physics.physicsPhase.enable();
-		scene.aiUpdatePhase.enable();
-		scene.playerPhase.enable();
+		Phases::enableGameplayPhases(ecs);
 
 		LogSuccess(LOG_APP, "🚀 Game started");
 	}
@@ -452,9 +381,7 @@ public:
 			switch (newState) {
 			case PlayState::PLAY:
 
-				physics.physicsPhase.enable();
-				scene.aiUpdatePhase.enable();
-				scene.playerPhase.enable();
+				Phases::enableGameplayPhases(ecs);
 
 				util::flushMouseMovement();
 				SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "PlayState::play");
@@ -463,9 +390,7 @@ public:
 				break;
 			case PlayState::PAUSE:
 
-				physics.physicsPhase.disable();
-				scene.aiUpdatePhase.disable();
-				scene.playerPhase.disable();
+				Phases::disableGameplayPhases(ecs);
 				
 				SDL_SetWindowRelativeMouseMode(renderContext.window, false);
 				SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "PlayState::pause");

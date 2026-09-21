@@ -1,40 +1,52 @@
 ﻿#pragma once
 
 import Logger;
-import ShaderCompiler;
+
 import TimeManager;
-import Jolt;
+
 import GLM;
-import PhysicsComponents;
 import MathComponents;
-import GraphicsComponents;
+
 import Components;
 import EventComponents;
+
+import Phases;
+
 import Util;
-import Texture;
-import Material;
-import RenderUtil;
+
 import AssetImporter;
 import AssetManager;
+import AssetLibrary;
+import Manifest;
+
+import EntityFactory;
+
+import Jolt;
+import PhysicsComponents;
 import JoltAssetStream;
 import PhysicsAnimation;
 import PhysicsUtil;
-import AssetLibrary;
-import EntityFactory;
 import Ragdoll;
+
+import PlayerComponents;
 import Player;
+
 import InputManager;
 import InputComponents;
 
-import Manifest;
+import Registry;
 
-//The following should only be needed in renderer module (once there is a render module)
 import Mesh;
 import GeometryPool;
 import RenderConfig;
 import Camera;
 import Pipeline;
+import ShaderCompiler;
 import ShaderReflection;
+import GraphicsComponents;
+import Texture;
+import Material;
+import RenderUtil;
 
 #include "core/src/pch.h"
 
@@ -47,8 +59,6 @@ import ShaderReflection;
 #include "core/src/physics/physics.hpp"
 
 #include "core/src/AI/AI.hpp"
-
-#include "core/src/Registery/registry.hpp"
 
 #include "core/src/MenuSystem/MenuSystem.hpp"
 

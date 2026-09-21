@@ -12,6 +12,8 @@ int main(int argc, char* argv[])
 
 	Logger logger; //sets all log categories to SDL_LOG_PRIORITY_INFO.
 
+	Phases phases(ecs);
+
 	TimeManager time(ecs, timeStep);
 
 	InputManager inputManager(ecs);
