@@ -316,6 +316,8 @@ public:
 			else {
 				state.justPressed = true;
 				state.occurredLast = false;
+				state.heldTime = 0.0f;
+
 			}
 
 			state.heldTime += timeStep;
@@ -333,7 +335,6 @@ public:
 				state.justReleased = false;
 			}
 
-			state.heldTime = 0.0f;
 			state.justPressed = false;
 		}
 

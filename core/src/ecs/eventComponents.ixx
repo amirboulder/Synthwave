@@ -6,7 +6,7 @@ export module EventComponents;
 
 export struct ActionState {
 	int64_t frameStamp = 0;
-	float heldTime = 0.0f;   // accumulates while down, useful for charge-up
+	float heldTime = 0.0f;   // hold the last held duration, resets when new event occurs.
 	bool occurred = false;   // currently held
 	bool latch = false;   //  triggered by sdlEvents,used for missed events
 	bool occurredLast = false;   // held last frame / persisted

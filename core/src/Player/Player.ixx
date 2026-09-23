@@ -2,6 +2,7 @@ module;
 
 #include <string>
 #include <format>
+#include <algorithm>
 
 // IntelliSense only; cl.exe never sees this. Module units skip the PCH, so they
 // get JPH types solely from the import, which IntelliSense reports as incomplete.
@@ -23,278 +24,37 @@ import Components;
 import EventComponents;
 import GraphicsComponents;
 import InputComponents;
+import PlayerComponents;
+import EntityCreator;
+import Util;
+
+import Phases;
+import Registry;
+
+	
+export struct PlayerSystems {
 
 
+	PlayerSystems(flecs::world& ecs) {
 
-//TODO create class PlayerContactListener : public JPH::CharacterContactListener 
-export class Player : public JPH::CharacterContactListener {
+		//Create PlayerSystems module which will later be imported by Registry
+		// must be first
+		ecs.module<PlayerSystems>("PlayerSystems"); 
 
+		flecs::system playerUpdateSys = ecs.system<Player>("PlayerUpdateSys")
+			.kind<PlayerPhase>()
+			.each([&](flecs::entity e, Player& p) {
 
-public:
-
-	JPH::TempAllocatorImpl* temp_allocator;
-
-	//Maybe not needed
-	//CharacterVsCharacterCollisionSimple mCharacterVsCharacterCollision;
-
-	flecs::world& ecs;
-
-	JPH::Ref<JPH::CharacterVirtual>	mCharacter;
-	JPH::Vec3					mDesiredVelocity = JPH::Vec3::sZero();
-	JPH::BodyID innerBodyID;
-	JPH::Ref<JPH::Shape> bodyShape = new JPH::CapsuleShape(2.0f, 1.0f);
-
-	JPH::Vec3 position = JPH::Vec3(1.0f, 15.0f, 0.0f);
-	JPH::Quat rotation = JPH::Quat(0.0f, 0.0f, 0.0f, 1.0f);
-
-	// Movement state
-	JPH::Vec3 mVerticalVelocity = JPH::Vec3::sZero();
-	float moveSpeed = 16.0f;
-	float jumpSpeed = 8.0f;
-	float terminalVelocity = -50.0f;
-	JPH::Vec3 gravity = JPH::Vec3(0, -20.0f, 0);
-
-	float timeStep = 1.0f / 60.0f;
-
-	glm::vec3 cameraOffset = glm::vec3(0.0f, 2.0f, 0.0f);
-
-	// Input state
-	JPH::Vec3 movementDirection = JPH::Vec3::sZero();
-	bool mJumpPressed = false;
-
-
-	uint32_t ballCounter = 0;
-
-	flecs::entity interactEventEnt;
-	flecs::entity attackEventEnt;
-	flecs::entity forwardMVMTEnt;
-	flecs::entity backwardMVMTEnt;
-	flecs::entity leftMVMTEnt;
-	flecs::entity rightMVMTEnt;
-	flecs::entity jumpMVMTEnt;
-
-	UserInput input;
-
-	Player(flecs::world& ecs)
-		:ecs(ecs)
-	{
-		//TODO Player can create it own phase here
-
-		timeStep = ecs.get<TimeStep>().step;
-
-		temp_allocator = new JPH::TempAllocatorImpl(1 * 1024 * 1024);
-
+			update(ecs,e, p);
+		});
 	}
 
-	Player(flecs::world& ecs, JPH::Vec3Arg position, JPH::QuatArg rotation, float height, float radius, uint64_t entityID, bool sCreateInnerBody = false)
-		:ecs(ecs)
-	{
 
-		temp_allocator = new JPH::TempAllocatorImpl(1 * 1024 * 1024);
-
-		init(position, rotation, height, radius, entityID, sCreateInnerBody);
-
-	}
-
-	~Player() {
-
-		// Clean up custom allocator
-		if (temp_allocator != nullptr) {
-			delete temp_allocator;
-			temp_allocator = nullptr;
-		}
-	}
-
-	void init(JPH::Vec3Arg position, JPH::QuatArg rotation, float height, float radius, uint64_t entityID, bool sCreateInnerBody = false) {
+	void update(flecs::world& ecs, flecs::entity playerEntity, Player& player) {
 
 
-		JPH::EBackFaceMode sBackFaceMode = JPH::EBackFaceMode::CollideWithBackFaces;
-		//float		sUpRotationX = 0;
-		//float		sUpRotationZ = 0;
-		float		sMaxSlopeAngle = JPH::DegreesToRadians(45.0f);
-		float		sMaxStrength = 10000.0f;
-		float		sMass = 70;
-		float		sCharacterPadding = 0.02f;
-		float		sPenetrationRecoverySpeed = 1.0f;
-		float		sPredictiveContactDistance = 0.1f;
-		//bool		sEnableWalkStairs = true;
-		//bool		sEnableStickToFloor = true;
-		bool		sEnhancedInternalEdgeRemoval = false;
-		//bool		sCreateInnerBody = true;
-		//bool		sPlayerCanPushOtherCharacters = true;
-		//bool		sOtherCharactersCanPushPlayer = true;
 
-		// Create 'player' character
-		JPH::Ref<JPH::CharacterVirtualSettings> settings = new JPH::CharacterVirtualSettings();
-		settings->mMaxSlopeAngle = sMaxSlopeAngle;
-		settings->mMaxStrength = sMaxStrength;
-		settings->mMass = sMass;
-		settings->mShape = bodyShape;
-		settings->mBackFaceMode = sBackFaceMode;
-		settings->mCharacterPadding = sCharacterPadding;
-		settings->mPenetrationRecoverySpeed = sPenetrationRecoverySpeed;
-		settings->mPredictiveContactDistance = sPredictiveContactDistance;
-
-		settings->mSupportingVolume = JPH::Plane(JPH::Vec3::sAxisY(), -radius); // Accept contacts that touch the lower sphere of the capsule
-		settings->mEnhancedInternalEdgeRemoval = sEnhancedInternalEdgeRemoval;
-		settings->mInnerBodyShape = sCreateInnerBody ? bodyShape : nullptr;
-		settings->mInnerBodyLayer = Layers::MOVING;
-
-		JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
-
-		mCharacter = new JPH::CharacterVirtual(settings, position, rotation, entityID, &physicsSystem);
-		//mCharacter->SetCharacterVsCharacterCollision(&mCharacterVsCharacterCollision);
-		//mCharacterVsCharacterCollision.Add(mCharacter);
-
-		innerBodyID = mCharacter->GetInnerBodyID();
-
-		mCharacter->SetListener(this);
-
-		lookupEventEnts();
-	}
-
-	bool lookupEventEnts() {
-
-		//Get the required Event entities.
-
-		interactEventEnt = ecs.lookup("InteractEvent");
-		if (!interactEventEnt) {
-			LogError(LOG_APP, "interactEventEnt is null");
-			return false;
-		}
-
-		attackEventEnt = ecs.lookup("Attack1EventEnt");
-		if (!interactEventEnt) {
-			LogError(LOG_APP, "Attack1EventEnt is null");
-			return false;
-		}
-
-
-		forwardMVMTEnt = ecs.lookup("forwardMVMTEnt");
-		if (!forwardMVMTEnt) {
-			LogError(LOG_APP, "forwardMVMTEnt is null");
-			return false;
-		}
-
-		backwardMVMTEnt = ecs.lookup("backwardMVMTEnt");
-		if (!backwardMVMTEnt) {
-			LogError(LOG_APP, "backwardMVMTEnt is null");
-			return false;
-		}
-
-		leftMVMTEnt = ecs.lookup("leftMVMTEnt");
-		if (!leftMVMTEnt) {
-			LogError(LOG_APP, "leftMVMTEnt is null");
-			return false;
-		}
-
-		rightMVMTEnt = ecs.lookup("rightMVMTEnt");
-		if (!rightMVMTEnt) {
-			LogError(LOG_APP, "rightMVMTEnt is null");
-			return false;
-		}
-
-		jumpMVMTEnt = ecs.lookup("jumpMVMTEnt");
-		if (!jumpMVMTEnt) {
-			LogError(LOG_APP, "jumpMVMTEnt is null");
-			return false;
-		}
-
-
-		return true;
-	}
-
-	void reset() {
-
-	}
-
-	// Callback to adjust the velocity of a body as seen by the character.
-	virtual void OnAdjustBodyVelocity(const JPH::CharacterVirtual* inCharacter, const JPH::Body& inBody2,
-		JPH::Vec3& ioLinearVelocity,
-		JPH::Vec3& ioAngularVelocity) override {
-
-		//	cout << "player2:: OnAdjustBodyVelocity\n";
-
-	};
-
-
-	// Called whenever the character collides with a body.
-	virtual void			OnContactAdded(const JPH::CharacterVirtual* inCharacter, const JPH::BodyID& inBodyID2, const JPH::SubShapeID& inSubShapeID2,
-		JPH::RVec3Arg inContactPosition, JPH::Vec3Arg inContactNormal, JPH::CharacterContactSettings& ioSettings) override {
-
-		//cout << "player2:: OnContactAdded \n";
-
-		//ioSettings.mCanReceiveImpulses = true;
-		//fisiks.physicsSystem.GetBodyInterface().AddImpulse(inBodyID2, Vec3(0, 20.0f, 0));
-
-		JPH::BodyInterface& bodyInterface = ecs.get<PhysicsSystemRef>().physicsSystem.GetBodyInterface();
-
-		bodyInterface.SetLinearVelocity(inBodyID2, inContactNormal * 10);
-
-
-	};
-
-	// Called whenever the character persists colliding with a body.
-	virtual void			OnContactPersisted(const JPH::CharacterVirtual* inCharacter, const JPH::BodyID& inBodyID2,
-		const JPH::SubShapeID& inSubShapeID2, JPH::RVec3Arg inContactPosition, JPH::Vec3Arg inContactNormal, JPH::CharacterContactSettings& ioSettings) override {
-
-		//cout << "player2:: OnContactPersisted \n";
-	};
-
-	// Called whenever the character loses contact with a body.
-	virtual void			OnContactRemoved(const JPH::CharacterVirtual* inCharacter, const JPH::BodyID& inBodyID2,
-		const JPH::SubShapeID& inSubShapeID2) override {
-
-		//cout << "player2:: OnContactRemoved \n";
-	};
-
-	// Called whenever the character collides with a virtual character.
-	virtual void			OnCharacterContactAdded(const JPH::CharacterVirtual* inCharacter,
-		const JPH::CharacterVirtual* inOtherCharacter,
-		const JPH::SubShapeID& inSubShapeID2, JPH::RVec3Arg inContactPosition, JPH::Vec3Arg inContactNormal,
-		JPH::CharacterContactSettings& ioSettings) override {
-
-		//cout << "player2:: OnCharacterContactAdded \n";
-
-	};
-
-	// Called whenever the character persists colliding with a virtual character.
-	virtual void			OnCharacterContactPersisted(const JPH::CharacterVirtual* inCharacter,
-		const JPH::CharacterVirtual* inOtherCharacter,
-		const JPH::SubShapeID& inSubShapeID2, JPH::RVec3Arg inContactPosition, JPH::Vec3Arg inContactNormal,
-		JPH::CharacterContactSettings& ioSettings) override {
-
-		//cout << "player2:: OnCharacterContactAdded \n";
-
-	};
-
-	// Called whenever the character loses contact with a virtual character.
-	virtual void			OnCharacterContactRemoved(const JPH::CharacterVirtual* inCharacter,
-		const JPH::CharacterID& inOtherCharacterID,
-		const JPH::SubShapeID& inSubShapeID2) override {
-
-		//cout << "player2:: OnCharacterContactRemoved \n";
-
-	};
-
-	// Called whenever the character movement is solved and a constraint is hit. Allows the listener to override the resulting character velocity (e.g. by preventing sliding along certain surfaces).
-	virtual void			OnContactSolve(const JPH::CharacterVirtual* inCharacter,
-		const JPH::BodyID& inBodyID2, const JPH::SubShapeID& inSubShapeID2,
-		JPH::RVec3Arg inContactPosition, JPH::Vec3Arg inContactNormal, JPH::Vec3Arg inContactVelocity,
-		const JPH::PhysicsMaterial* inContactMaterial,
-		JPH::Vec3Arg inCharacterVelocity, JPH::Vec3& ioNewCharacterVelocity) override {
-
-
-		//cout << "player2:: OnContactSolve \n";
-
-
-	};
-
-	void update() {
-
-		if (ecs.get<CameraState>() != CameraState::PLAYER) return;
-
-		getMovementState();
+		getMovementState(ecs, player);
 
 		flecs::entity cameraEnt = ecs.get<PlayerCamRef>().value;
 		Camera& camera = cameraEnt.get_mut<Camera>();
@@ -303,75 +63,78 @@ public:
 		glm::vec3 right = glm::normalize(glm::vec3(camera.right.x, 0.0f, camera.right.z));
 
 
-		input.offsetX;
-		input.offsetY;
+		player.input.offsetX;
+		player.input.offsetY;
 
-		forward *= input.direction.y;
-		right *= input.direction.x;
+		forward *= player.input.direction.y;
+		right *= player.input.direction.x;
 
 		glm::vec3 playerInput = glm::vec3(0);
 
 		playerInput += forward;
 		playerInput += right;
 
-		movementDirection.SetX(playerInput.x);
-		movementDirection.SetY(playerInput.y);
-		movementDirection.SetZ(playerInput.z);
+		player.movementDirection.SetX(playerInput.x);
+		player.movementDirection.SetY(playerInput.y);
+		player.movementDirection.SetZ(playerInput.z);
 
-		if (input.jump) {
+		if (player.input.jump) {
 			//attempts jump if player is grounded.
-			mJumpPressed = true;
+			player.mJumpPressed = true;
 		}
 
-		UpdateVelocity();
-		UpdateCharacter();
-		updatePlayerCam();
+		UpdateVelocity(ecs, player);
+		UpdateCharacter(ecs, player);
+		updatePlayerCam(ecs, player);
 
-		shootBall();
+		shootBall(ecs, playerEntity, player);
 	}
 
-	void getMovementState() {
+	void getMovementState(flecs::world& ecs, Player& player) {
 
-		const ActionState& forwardState = forwardMVMTEnt.get<ActionState>();
-		const ActionState& backwardState = backwardMVMTEnt.get<ActionState>();
-		const ActionState& leftState = leftMVMTEnt.get<ActionState>();
-		const ActionState& rightState = rightMVMTEnt.get<ActionState>();
-		const ActionState& jumpState = jumpMVMTEnt.get<ActionState>();
+		if (ecs.get<CameraState>() != CameraState::PLAYER) return;
+
+
+		const ActionState& forwardState = player.forwardMVMTEnt.get<ActionState>();
+		const ActionState& backwardState = player.backwardMVMTEnt.get<ActionState>();
+		const ActionState& leftState = player.leftMVMTEnt.get<ActionState>();
+		const ActionState& rightState = player.rightMVMTEnt.get<ActionState>();
+		const ActionState& jumpState = player.jumpMVMTEnt.get<ActionState>();
 
 		const MouseMovementState& mouseMovement = ecs.get<MouseMovementState>();
 
 		// Reset each frame before accumulating
-		input.direction = glm::vec2(0);
-		input.jump = false;
+		player.input.direction = glm::vec2(0);
+		player.input.jump = false;
 
 		if (forwardState.occurred) {
 
-			input.direction.y += 1;
+			player.input.direction.y += 1;
 		}
 		if (backwardState.occurred) {
 
-			input.direction.y -= 1;
+			player.input.direction.y -= 1;
 		}
 		if (leftState.occurred) {
 
-			input.direction.x -= 1;
+			player.input.direction.x -= 1;
 		}
 		if (rightState.occurred) {
 
-			input.direction.x += 1;
+			player.input.direction.x += 1;
 		}
 
 		//cannot jump again until jump is consumed,prevents bunny hopping.
-		if (jumpState.occurred && input.jumpConsumed) {
-			input.jump = true;
-			input.jumpConsumed = false;
+		if (jumpState.occurred && player.input.jumpConsumed) {
+			player.input.jump = true;
+			player.input.jumpConsumed = false;
 		}
 		if (!jumpState.occurred)
-			input.jumpConsumed = true; // ready to jump again
+			player.input.jumpConsumed = true; // ready to jump again
 
 		// Normalize direction to prevent faster diagonal movement
-		if (glm::length2(input.direction) > 0.0f) {
-			input.direction = glm::normalize(input.direction);
+		if (glm::length2(player.input.direction) > 0.0f) {
+			player.input.direction = glm::normalize(player.input.direction);
 		}
 
 		//TODO parameterize
@@ -382,51 +145,52 @@ public:
 		smoothedXOffset = smoothedXOffset * (1.0f - smoothingFactor) + mouseMovement.deltaX * smoothingFactor;
 		smoothedYOffset = smoothedYOffset * (1.0f - smoothingFactor) + mouseMovement.deltaY * smoothingFactor;
 
-		input.offsetX = smoothedXOffset;
-		input.offsetY = smoothedYOffset;
+		player.input.offsetX = smoothedXOffset;
+		player.input.offsetY = smoothedYOffset;
 
 	}
 
-	void UpdateVelocity() {
-		JPH::CharacterVirtual::EGroundState groundState = mCharacter->GetGroundState();
+	void UpdateVelocity(flecs::world& ecs, Player& player) {
+		JPH::CharacterVirtual::EGroundState groundState = player.mCharacter->GetGroundState();
 
 		if (groundState == JPH::CharacterVirtual::EGroundState::OnGround) {
 			// On ground
-			mVerticalVelocity = JPH::Vec3::sZero();
+			player.mVerticalVelocity = JPH::Vec3::sZero();
 
 			// Jump
-			if (mJumpPressed) {
-				if (mCharacter->GetGroundState() == JPH::CharacterVirtual::EGroundState::OnGround) {
-					mVerticalVelocity = JPH::Vec3(0, jumpSpeed, 0);
-					mJumpPressed = false;  // Consume jump input
+			if (player.mJumpPressed) {
+				if (player.mCharacter->GetGroundState() == JPH::CharacterVirtual::EGroundState::OnGround) {
+					player.mVerticalVelocity = JPH::Vec3(0, player.jumpSpeed, 0);
+					player.mJumpPressed = false;  // Consume jump input
 				}
 			}
 		}
 		else {
 			// In air: Apply gravity manually
-			mVerticalVelocity += gravity * timeStep;
+			player.mVerticalVelocity += player.gravity * player.timeStep;
 
 			// Clamp to terminal velocity
-			if (mVerticalVelocity.GetY() < terminalVelocity) {
-				mVerticalVelocity.SetY(terminalVelocity);
+			if (player.mVerticalVelocity.GetY() < player.terminalVelocity) {
+				player.mVerticalVelocity.SetY(player.terminalVelocity);
 			}
 		}
 	}
 
 
-	void UpdateCharacter() {
+	void UpdateCharacter(flecs::world& ecs, Player& player) {
 
 		// Horizontal movement (player controlled)
-		JPH::Vec3 horizontalVelocity = movementDirection * moveSpeed;
+		JPH::Vec3 horizontalVelocity = player.movementDirection * player.moveSpeed;
 		horizontalVelocity.SetY(0);  // Keep horizontal only
 
 		// Combine with vertical velocity (gravity/jump)
-		JPH::Vec3 totalVelocity = horizontalVelocity + mVerticalVelocity;
+		JPH::Vec3 totalVelocity = horizontalVelocity + player.mVerticalVelocity;
 
-		mCharacter->SetLinearVelocity(totalVelocity);
+		player.mCharacter->SetLinearVelocity(totalVelocity);
 
 		JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
 
+		//TODO create all of these filters just once
 		const JPH::DefaultBroadPhaseLayerFilter default_broadphase_layer_filter = physicsSystem.GetDefaultBroadPhaseLayerFilter(1);
 		const JPH::BroadPhaseLayerFilter& broadphase_layer_filter = default_broadphase_layer_filter;
 
@@ -437,16 +201,16 @@ public:
 		const JPH::ShapeFilter shapeFilter;
 
 
-		mCharacter->Update(timeStep, gravity, broadphase_layer_filter, object_layer_filter, body_filter, shapeFilter, *temp_allocator);
+		player.mCharacter->Update(player.timeStep, player.gravity, broadphase_layer_filter, object_layer_filter, body_filter, shapeFilter, *player.temp_allocator);
 
 		//mCharacter->ExtendedUpdate(physicsTickRate, gravity, broadphase_layer_filter, object_layer_filter, body_filter, shapeFilter, *fisiks.temp_allocator);
 
-		position = mCharacter->GetPosition();
-		rotation = mCharacter->GetRotation();
+		player.position = player.mCharacter->GetPosition();
+		player.rotation = player.mCharacter->GetRotation();
 
 	}
 
-	void updatePlayerCam() {
+	void updatePlayerCam(flecs::world& ecs, Player& player) {
 
 		// TODO keep a ref instead
 		flecs::entity cameraEnt = ecs.get<PlayerCamRef>().value;
@@ -457,69 +221,67 @@ public:
 
 		Camera& camera = cameraEnt.get_mut<Camera>();
 
-		position = mCharacter->GetPosition();
+		player.position = player.mCharacter->GetPosition();
 
-		camera.rotateCamera(input.offsetX, input.offsetY);
+		camera.rotateCamera(player.input.offsetX, player.input.offsetY);
 
-		glm::vec3 characterPosGLM = glm::vec3(position.GetX(), position.GetY(), position.GetZ());
-		camera.position = characterPosGLM + glm::vec3(cameraOffset.x, cameraOffset.y, cameraOffset.z);
+		glm::vec3 characterPosGLM = glm::vec3(player.position.GetX(), player.position.GetY(), player.position.GetZ());
+		camera.position = characterPosGLM + glm::vec3(player.cameraOffset.x, player.cameraOffset.y, player.cameraOffset.z);
 
 
 		//Rotate player's physics body based on the camera Yaw.
-		float cameraYaw = glm::radians(camera.yaw);
-		rotation = JPH::Quat::sRotation(JPH::Vec3::sAxisY(), cameraYaw);
-		mCharacter->SetRotation(rotation);
-
+		float cameraYaw = -glm::radians(camera.yaw + 90.0f);
+		player.rotation = JPH::Quat::sRotation(JPH::Vec3::sAxisY(), cameraYaw);
+		player.mCharacter->SetRotation(player.rotation);
 
 		camera.updateVectors();
 
 	}
 
-	void shootBall() {
+	void shootBall(flecs::world& ecs,flecs::entity playerEnt, Player& player) {
 
-		const ActionState& interactEventState = interactEventEnt.get<ActionState>();
+		const ActionState & interactEvent = player.interactEventEnt.get<ActionState>();
 
-		const ecs_world_info_t* info = ecs.get_info();
-		int64_t current_frame = info->frame_count_total;
+		if (interactEvent.justReleased) {
+			Camera& camera = ecs.get<PlayerCamRef>().value.get_mut<Camera>();
+			glm::vec3 playerCamDir = camera.front;
+			glm::vec3 playerCamPos = camera.position;
 
-		if (interactEventState.occurred && interactEventState.justPressed) {
+			// Camera is inside the capsule; step out past its surface plus the ball's radius.
+			const float capsuleDiameter = player.bodyShape->GetInnerRadius() * 2;  
+			const float ballRadius = 1.0f;  
+			const float margin = 0.1f; //TODO should account for current speed
 
-			std::string ballName = std::format("Ball {} ", ballCounter);
-			ballCounter++;
+			float spawnDist = capsuleDiameter + ballRadius + margin;
 
-			Transform ballTransform;
+			std::string ballName = std::format("Ball {}", player.ballCounter);
+			player.ballCounter++;
 
-			flecs::entity parent = ecs.get<PlayerRef>().value.parent();
+			Transform ballTransform = {
+				.position = (playerCamDir * spawnDist) + playerCamPos,
+				.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f),
+				.scale = glm::vec3(ballRadius)
+			};
 
-			//LogInfo(LOG_APP, "Interact NEW Event occurred in frame %d", current_frame);
-			//LogInfo(LOG_APP, "LastOccurred :  %s", interactEventState.occurredLast ? "true" : "false");
-			//LogInfo(LOG_APP, "justPressed :  %s", interactEventState.justPressed ? "true" : "false");
-			//LogInfo(LOG_APP, "heldTime :  %f", interactEventState.heldTime);
-			//LogInfo(LOG_APP, "---------------------");
-			//EntityFactory::createSphereEntity(ecs, parent, ballName, ballTransform);
-		}
+			flecs::entity parent = playerEnt.parent();
 
-		const ActionState& atttackEventState = attackEventEnt.get<ActionState>();
+			float multiplier = 20.0f;
 
-		//Single fire
-		if (atttackEventState.occurred && atttackEventState.justPressed) {
+			multiplier = multiplier * interactEvent.heldTime * 3.33;
 
-			std::string ballName = std::format("Ball {} ", ballCounter);
-			ballCounter++;
+			multiplier = std::clamp(multiplier, 25.0f, 100.0f);
 
-			Transform ballTransform;
+			LogInfo(LOG_APP, "Shot a ball with velocity %f", multiplier);
 
-			flecs::entity parent = ecs.get<PlayerRef>().value.parent();
-			//EntityFactory::createSphereEntity(ecs, parent, ballName, ballTransform);
-		}
-		// Auto fire
-		if (atttackEventState.occurred) {
-			//LogInfo(LOG_APP, "heldTime :  %f", atttackEventState.heldTime);
+			glm::vec3 linearVelocity = playerCamDir * multiplier;
+			glm::vec3 angularVelocity = glm::vec3(0);
+			EntityType entityType = EntityType::Sphere;
+
+			ecs.get_mut<EntityCreationQueue>()
+				.queue.emplace_back(ballName, parent, ballTransform, linearVelocity, angularVelocity, entityType);
 		}
 
 	}
 };
 
-
-
-
+const RegisterModule<PlayerSystems> registerPlayerSystems;

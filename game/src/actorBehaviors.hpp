@@ -218,7 +218,7 @@ namespace Scripts {
 			EConstraintSubType sub_type = ragdoll->GetConstraint(i)->GetSubType();
 			if (sub_type == EConstraintSubType::SwingTwist)
 			{
-				SwingTwistConstraint* st_constraint = static_cast<SwingTwistConstraint*>(hipConstraint);
+				SwingTwistConstraint* st_constraint = static_cast<SwingTwistConstraint*>(ragdoll->GetConstraint(i));
 				st_constraint->SetSwingMotorState(JPH::EMotorState::Off);
 				st_constraint->SetTwistMotorState(JPH::EMotorState::Off);
 			}
@@ -568,6 +568,20 @@ namespace Scripts {
 
 	}
 
+	void onEnterCorpse(JPH::Ragdoll* ragdoll, JPH::TwoBodyConstraint* hipConstraint, const JoltAnimationList& joltAnimationList, JoltAnimation& animation) {
+		releasePose(ragdoll, hipConstraint);
+		disableConstraint(ragdoll, hipConstraint);
+	}
+
+	void onExitCorpse() {
+
+
+	}
+
+	void corpseUpdate() {
+		
+	}
+
 	void updateRagdollMotor(flecs::world& ecs, flecs::entity self) {
 
 		JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
@@ -581,7 +595,7 @@ namespace Scripts {
 		JPH::SkeletalAnimation* animation = self.get<JoltAnimation>().animationPtr;
 		JPH::IgnoreMultipleBodiesFilter* ragdollFilter = self.get_mut<JoltRagdollFilter>().filter;
 		JPH::SkeletonPose& pose = self.get_mut<JoltPose>().pose;
-		EnemyState& state = self.get_mut<EnemyState>();
+		const EnemyState& state = self.get_mut<EnemyState>();
 		float& animTime = self.get_mut<AnimationTime>().time;
 		const Player& player = ecs.get<PlayerRef>().value.get<Player>();
 		const std::vector<ContactData> & contactList = self.get<ContactDataList>().contacts;
@@ -595,7 +609,11 @@ namespace Scripts {
 			totalImpulse += contactData.impulse;
 		}
 
-		LogInfo(LOG_APP, "Total Impulse for %s : %f", self.name().c_str(), totalImpulse);
+
+		if (totalImpulse >= 1000.0f) {
+			LogInfo(LOG_APP, "Total Impulse for %s : %f", self.name().c_str(), totalImpulse);
+			self.set<EnemyState>(EnemyState::CORPSE);
+		}
 
 		switch (state)
 		{
@@ -684,7 +702,9 @@ namespace Scripts {
 
 			case EnemyState::CORPSE:
 
-				return;
+				onEnterCorpse(ragdoll, hipConstraint, animationList, animation);
+
+				break;
 			case EnemyState::DISABLED:
 
 				return;
