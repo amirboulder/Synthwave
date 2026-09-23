@@ -484,7 +484,7 @@ public:
 	}
 
 	static void createSphereChild(flecs::world& ecs) {
-		EntityFactory::createSphereEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, buildChildTransform());
+		EntityFactory::createSphereEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, buildChildTransform(), glm::vec3(0), glm::vec3(0));
 	}
 
 	static void createCylinderChild(flecs::world& ecs) {

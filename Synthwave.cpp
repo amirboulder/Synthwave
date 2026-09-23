@@ -39,6 +39,8 @@ int main(int argc, char* argv[])
 
 	StateManager stateManager(ecs, renderer, physics, serializer, menuSys, editor, time, scene, running);
 
+	EntityCreator entityCreator(ecs);
+
 	stateManager.init();
 
 	//Keeps track of all rendered frames (separate from ecs frame)

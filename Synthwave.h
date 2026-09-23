@@ -20,6 +20,7 @@ import AssetLibrary;
 import Manifest;
 
 import EntityFactory;
+import EntityCreator;
 
 import Jolt;
 import PhysicsComponents;

@@ -198,8 +198,14 @@ public:
 
 	}
 
-	static bool createSphereEntity(flecs::world& ecs, const flecs::entity parent, std::string_view name,
-		const Transform transform) {
+	static bool createSphereEntity(
+		flecs::world& ecs,
+		const flecs::entity parent,
+		std::string_view name,
+		const Transform transform,
+		const glm::vec3 linearVelocity,
+		const glm::vec3 angularVelocity
+	) {
 
 		if (!validateName(ecs, parent, name.data())) return false;
 		if (!validateTransform(transform, name.data())) return false;
@@ -229,6 +235,8 @@ public:
 
 		bodySettings.mOverrideMassProperties = JPH::EOverrideMassProperties::CalculateInertia;
 		bodySettings.mMassPropertiesOverride.mMass = 50.1f;
+		bodySettings.mLinearVelocity = GLMVec3ToJPH(linearVelocity);
+		bodySettings.mAngularVelocity = GLMVec3ToJPH(angularVelocity);
 
 		JPH::BodyInterface& bodyInterface = ecs.get<PhysicsSystemRef>().physicsSystem.GetBodyInterface();
 
