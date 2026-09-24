@@ -80,22 +80,6 @@ public:
 };
 
 
-class ExcludeObjectLayerFilter : public ObjectLayerFilter
-{
-public:
-	explicit ExcludeObjectLayerFilter(ObjectLayer excluded) : mExcluded(excluded) {}
-
-	virtual bool ShouldCollide(ObjectLayer inLayer) const override
-	{
-		return inLayer != mExcluded;
-	}
-
-private:
-	ObjectLayer mExcluded;
-};
-
-
-ExcludeObjectLayerFilter layerFilter(Layers::Sensors); //?
 
 
 

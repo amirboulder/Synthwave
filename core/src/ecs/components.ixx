@@ -166,9 +166,6 @@ export struct Render {
 };
 
 
-export struct PlayerRef { flecs::entity value = flecs::entity::null(); };
-export struct PlayerCamRef { flecs::entity value = flecs::entity::null(); };
-
 
 //TODO MOVE THIS
 export struct HighlightedEntRef {

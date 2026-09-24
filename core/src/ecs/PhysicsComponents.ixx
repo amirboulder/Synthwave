@@ -144,3 +144,21 @@ export using ContactFunction = std::function<void(const ContactData& contactData
 export struct ContactDataList {
 	std::vector<ContactData> contacts;
 };
+
+
+export class ExcludeObjectLayerFilter : public JPH::ObjectLayerFilter
+{
+public:
+	explicit ExcludeObjectLayerFilter(JPH::ObjectLayer excluded) : mExcluded(excluded) {}
+
+	virtual bool ShouldCollide(JPH::ObjectLayer inLayer) const override
+	{
+		return inLayer != mExcluded;
+	}
+
+private:
+	JPH::ObjectLayer mExcluded;
+};
+
+
+ExcludeObjectLayerFilter layerFilter(Layers::Sensors);

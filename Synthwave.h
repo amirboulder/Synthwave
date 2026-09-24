@@ -49,6 +49,8 @@ import Texture;
 import Material;
 import RenderUtil;
 
+import GameMain;
+
 #include "core/src/pch.h"
 
 #include "core/src/renderer/renderer.hpp"

@@ -1,8 +1,32 @@
-#pragma once
+module;
 
-namespace Scripts {
+#include <flecs.h>
 
-	void actor1Update(flecs::world& ecs, flecs::entity self) {
+// IntelliSense only; cl.exe never sees this. Module units skip the PCH, so they
+// get JPH types solely from the import, which IntelliSense reports as incomplete.
+#ifdef __INTELLISENSE__
+#include <Jolt/Jolt.h>
+#endif
+
+#include <magic_enum\magic_enum.hpp>
+
+export module ActorBehaviors;
+
+import Logger;
+import Jolt;
+import PhysicsComponents;
+import GraphicsComponents;
+import PhysicsAnimation;
+import PhysicsUtil;
+import GLM;
+import Components;
+import PlayerComponents;
+import Util;
+import Registry;
+
+export namespace Scripts {
+
+	export void actor1Update(flecs::world& ecs, flecs::entity self) {
 
 		JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
 		JPH::Character* joltCharacter = self.get<JoltCharacter>().characterPtr;
@@ -163,7 +187,7 @@ namespace Scripts {
 	void ragdollUpdate(flecs::world& ecs, flecs::entity self) {
 
 		JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
-		BodyInterface& bi = physicsSystem.GetBodyInterface();
+		JPH::BodyInterface& bi = physicsSystem.GetBodyInterface();
 
 		JPH::Ragdoll* ragdoll = self.get<JoltRagdoll>().ragdollPtr;
 		JPH::SkeletalAnimation* animation = self.get<JoltAnimation>().animationPtr;
@@ -189,10 +213,10 @@ namespace Scripts {
 		animation->Sample(animTime, pose);
 
 		//Place the root joint on the first body so that we draw the pose in the right place
-		RVec3 root_offset;
-		SkeletonPose::JointState& joint = pose.GetJoint(0);
+		JPH::RVec3 root_offset;
+		JPH::SkeletonPose::JointState& joint = pose.GetJoint(0);
 
-		joint.mTranslation = Vec3::sZero(); // All the translation goes into the root offset
+		joint.mTranslation = JPH::Vec3::sZero(); // All the translation goes into the root offset
 		ragdoll->GetRootTransform(root_offset, joint.mRotation);
 
 
@@ -215,10 +239,10 @@ namespace Scripts {
 		for (int i = 0; i < ragdoll->GetConstraintCount(); ++i)
 		{
 			//TODO handle other types of constraints
-			EConstraintSubType sub_type = ragdoll->GetConstraint(i)->GetSubType();
-			if (sub_type == EConstraintSubType::SwingTwist)
+			JPH::EConstraintSubType sub_type = ragdoll->GetConstraint(i)->GetSubType();
+			if (sub_type == JPH::EConstraintSubType::SwingTwist)
 			{
-				SwingTwistConstraint* st_constraint = static_cast<SwingTwistConstraint*>(ragdoll->GetConstraint(i));
+				JPH::SwingTwistConstraint* st_constraint = static_cast<JPH::SwingTwistConstraint*>(ragdoll->GetConstraint(i));
 				st_constraint->SetSwingMotorState(JPH::EMotorState::Off);
 				st_constraint->SetTwistMotorState(JPH::EMotorState::Off);
 			}
@@ -234,10 +258,10 @@ namespace Scripts {
 		for (int i = 0; i < ragdoll->GetConstraintCount(); ++i)
 		{
 			//TODO handle oth
-			EConstraintSubType sub_type = ragdoll->GetConstraint(i)->GetSubType();
-			if (sub_type == EConstraintSubType::SwingTwist)
+			JPH::EConstraintSubType sub_type = ragdoll->GetConstraint(i)->GetSubType();
+			if (sub_type == JPH::EConstraintSubType::SwingTwist)
 			{
-				SwingTwistConstraint* st_constraint = static_cast<SwingTwistConstraint*>(hipConstraint);
+				JPH::SwingTwistConstraint* st_constraint = static_cast<JPH::SwingTwistConstraint*>(hipConstraint);
 				st_constraint->SetSwingMotorState(JPH::EMotorState::Position);
 				st_constraint->SetTwistMotorState(JPH::EMotorState::Position);
 			}
@@ -251,19 +275,19 @@ namespace Scripts {
 	//TODO if we just want to disabled the constraint then maybe we don't need to cast it to sub_type.
 	void disableConstraint(JPH::Ragdoll* ragdoll, JPH::TwoBodyConstraint* constraint) {
 
-		EConstraintSubType sub_type = constraint->GetSubType();
+		JPH::EConstraintSubType sub_type = constraint->GetSubType();
 
-		if (sub_type != EConstraintSubType::SixDOF) {
+		if (sub_type != JPH::EConstraintSubType::SixDOF) {
 			LogError(LOG_PHYSICS, "Expected SixDOF constraint here but got : %s ", magic_enum::enum_name(sub_type).data());
 			return;
 		}
 
-		SixDOFConstraint* st_constraint = static_cast<SixDOFConstraint*>(constraint);
+		JPH::SixDOFConstraint* st_constraint = static_cast<JPH::SixDOFConstraint*>(constraint);
 
 		for (int i = 0; i < 3; ++i)
 		{
-			auto axisRot = SixDOFConstraintSettings::EAxis(SixDOFConstraintSettings::EAxis::RotationX + i);
-			st_constraint->SetMotorState(axisRot, EMotorState::Off);
+			auto axisRot = JPH::SixDOFConstraintSettings::EAxis(JPH::SixDOFConstraintSettings::EAxis::RotationX + i);
+			st_constraint->SetMotorState(axisRot, JPH::EMotorState::Off);
 		}
 
 		st_constraint->SetEnabled(false);
@@ -272,19 +296,19 @@ namespace Scripts {
 
 	void enableConstraint(JPH::Ragdoll* ragdoll, JPH::TwoBodyConstraint* constraint) {
 
-		EConstraintSubType sub_type = constraint->GetSubType();
+		JPH::EConstraintSubType sub_type = constraint->GetSubType();
 
-		if (sub_type != EConstraintSubType::SixDOF) {
+		if (sub_type != JPH::EConstraintSubType::SixDOF) {
 			LogError(LOG_PHYSICS, "Expected SixDOF constraint here but got : %s ", magic_enum::enum_name(sub_type).data());
 			return;
 		}
 
-		SixDOFConstraint* st_constraint = static_cast<SixDOFConstraint*>(constraint);
+		JPH::SixDOFConstraint* st_constraint = static_cast<JPH::SixDOFConstraint*>(constraint);
 
 		for (int i = 0; i < 3; ++i)
 		{
-			auto axisRot = SixDOFConstraintSettings::EAxis(SixDOFConstraintSettings::EAxis::RotationX + i);
-			st_constraint->SetMotorState(axisRot, EMotorState::Position);
+			auto axisRot = JPH::SixDOFConstraintSettings::EAxis(JPH::SixDOFConstraintSettings::EAxis::RotationX + i);
+			st_constraint->SetMotorState(axisRot, JPH::EMotorState::Position);
 		}
 
 		st_constraint->SetEnabled(true);
@@ -303,9 +327,9 @@ namespace Scripts {
 
 		animation->Sample(animTime, pose);
 
-		RVec3 root_offset;
-		SkeletonPose::JointState& joint = pose.GetJoint(0);
-		joint.mTranslation = Vec3::sZero();
+		JPH::RVec3 root_offset;
+		JPH::SkeletonPose::JointState& joint = pose.GetJoint(0);
+		joint.mTranslation = JPH::Vec3::sZero();
 		ragdoll->GetRootTransform(root_offset, joint.mRotation);
 
 		joint.mRotation = characterRot;
@@ -342,9 +366,9 @@ namespace Scripts {
 
 		animation->Sample(animTime, pose);
 
-		RVec3 root_offset;
-		SkeletonPose::JointState& joint = pose.GetJoint(0);
-		joint.mTranslation = Vec3::sZero();
+		JPH::RVec3 root_offset;
+		JPH::SkeletonPose::JointState& joint = pose.GetJoint(0);
+		joint.mTranslation = JPH::Vec3::sZero();
 		ragdoll->GetRootTransform(root_offset, joint.mRotation);
 
 		JPH::BodyID rootID = ragdoll->GetBodyID(0);
@@ -679,7 +703,7 @@ namespace Scripts {
 	void updateRagdollMotor(flecs::world& ecs, flecs::entity self) {
 
 		JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
-		BodyInterface& bi = physicsSystem.GetBodyInterface();
+		JPH::BodyInterface& bi = physicsSystem.GetBodyInterface();
 
 		JPH::Character* joltCharacter = self.get<JoltCharacter>().characterPtr;
 		JPH::Ragdoll* ragdoll = self.get<JoltRagdoll>().ragdollPtr;
@@ -704,7 +728,7 @@ namespace Scripts {
 		}
 
 
-		if (totalImpulse >= 1200.0f) {
+		if (totalImpulse >= 1800.0f) {
 			LogInfo(LOG_APP, "Total Impulse for %s : %f", self.name().c_str(), totalImpulse);
 			self.set<EnemyState>(EnemyState::BROKEN);
 		}
@@ -826,7 +850,7 @@ namespace Scripts {
 	void updateRagdollForce(flecs::world& ecs, flecs::entity self) {
 
 		JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
-		BodyInterface& bi = physicsSystem.GetBodyInterface();
+		JPH::BodyInterface& bi = physicsSystem.GetBodyInterface();
 
 		JPH::Ragdoll* ragdoll = self.get<JoltRagdoll>().ragdollPtr;
 		JPH::IgnoreMultipleBodiesFilter* ragdollFilter = self.get<JoltRagdollFilter>().filter;
@@ -850,14 +874,14 @@ namespace Scripts {
 		//Just getting the first key frame of the animation
 		animation->Sample(0.0f, pose);
 		
-		SkeletonPose::JointState& hipJoint = pose.GetJoint(0);
+		JPH::SkeletonPose::JointState& hipJoint = pose.GetJoint(0);
 
 		//Place the root joint on the first body so that we draw the pose in the right place
-		RVec3 root_offset;
+		JPH::RVec3 root_offset;
 		JPH::BodyID rootID = ragdoll->GetBodyID(0);
 		ragdoll->GetRootTransform(root_offset, hipJoint.mRotation); //Try using a different rot 
 
-		hipJoint.mTranslation = Vec3::sZero(); // strip baked root translation
+		hipJoint.mTranslation = JPH::Vec3::sZero(); // strip baked root translation
 		pose.SetRootOffset(root_offset);
 		pose.CalculateJointMatrices();
 
@@ -908,7 +932,7 @@ namespace Scripts {
 	void updateRagdollPD(flecs::world& ecs, flecs::entity self) {
 
 		JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
-		BodyInterface& bi = physicsSystem.GetBodyInterface();
+		JPH::BodyInterface& bi = physicsSystem.GetBodyInterface();
 
 		JPH::Ragdoll* ragdoll = self.get<JoltRagdoll>().ragdollPtr;
 		JPH::SkeletalAnimation* animation = self.get<JoltAnimation>().animationPtr;
@@ -932,7 +956,7 @@ namespace Scripts {
 		animation->Sample(0.0f, pose);
 
 
-		SkeletonPose::JointState& joint = pose.GetJoint(0);
+		JPH::SkeletonPose::JointState& joint = pose.GetJoint(0);
 
 
 		JPH::BodyID rootID = ragdoll->GetBodyID(0);
@@ -953,7 +977,7 @@ namespace Scripts {
 	void updateRagdollNoAnim(flecs::world& ecs, flecs::entity self) {
 
 		JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
-		BodyInterface& bi = physicsSystem.GetBodyInterface();
+		JPH::BodyInterface& bi = physicsSystem.GetBodyInterface();
 
 		JPH::Ragdoll* ragdoll = self.get<JoltRagdoll>().ragdollPtr;
 		JPH::SkeletalAnimation* animation = self.get<JoltAnimation>().animationPtr;
@@ -967,7 +991,7 @@ namespace Scripts {
 	void updateRagdollKinematic(flecs::world& ecs, flecs::entity self) {
 
 		JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
-		BodyInterface& bi = physicsSystem.GetBodyInterface();
+		JPH::BodyInterface& bi = physicsSystem.GetBodyInterface();
 
 		JPH::Ragdoll* ragdoll = self.get<JoltRagdoll>().ragdollPtr;
 		JPH::SkeletalAnimation* animation = self.get<JoltAnimation>().animationPtr;
@@ -987,11 +1011,11 @@ namespace Scripts {
 		animTime += dt;
 		animation->Sample(animTime, pose);
 
-		SkeletonPose::JointState& joint = pose.GetJoint(0);
-		joint.mTranslation = Vec3::sZero(); // strip baked root translation
+		JPH::SkeletonPose::JointState& joint = pose.GetJoint(0);
+		joint.mTranslation = JPH::Vec3::sZero(); // strip baked root translation
 
 		//Sync world root 
-		Quat physicsRootRot;
+		JPH::Quat physicsRootRot;
 		ragdoll->GetRootTransform(root_offset, physicsRootRot);
 		joint.mRotation = physicsRootRot;
 
@@ -1011,7 +1035,7 @@ namespace Scripts {
 
 		float moveSpeed = 5.0f;
 
-		Vec3 dir = -quatToDirection(physicsRootRot);
+		JPH::Vec3 dir = -quatToDirection(physicsRootRot);
 		//Vec3 dir = Vec3(0.0f, 0.0f, -1.0f);
 
 		root_offset += dir * moveSpeed * dt;
@@ -1033,19 +1057,19 @@ namespace Scripts {
 
 		JPH::Ragdoll* ragdoll = self.get<JoltRagdoll>().ragdollPtr;
 		JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
-		BodyInterface& bi = physicsSystem.GetBodyInterface();
+		JPH::BodyInterface& bi = physicsSystem.GetBodyInterface();
 
 		// Get snake head (first body)
-		BodyID headID = ragdoll->GetBodyID(0);
-		Vec3 headPos = bi.GetPosition(headID);
-		Quat headRot = bi.GetRotation(headID);
+		JPH::BodyID headID = ragdoll->GetBodyID(0);
+		JPH::Vec3 headPos = bi.GetPosition(headID);
+		JPH::Quat headRot = bi.GetRotation(headID);
 
-		Vec3 playerPos = ecs.get<PlayerRef>().value.get_mut<Player>().position;
+		JPH::Vec3 playerPos = ecs.get<PlayerRef>().value.get_mut<Player>().position;
 
 
-		Vec3 toPlayer = playerPos - headPos;
+		JPH::Vec3 toPlayer = playerPos - headPos;
 		float distance = toPlayer.Length();
-		Vec3 dirToPlayer = toPlayer / distance;
+		JPH::Vec3 dirToPlayer = toPlayer / distance;
 
 		//Apply force to head
 		float chaseForce = 50000.0f;  // Tune this value
@@ -1064,9 +1088,9 @@ namespace Scripts {
 
 		JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
 
-		physicsSystem.GetBodyInterface().SetRotation(ragdoll->GetBodyID(0), Quat::sIdentity(), EActivation::Activate);
-		TwoBodyConstraint* constraint0 = ragdoll->GetConstraint(1);
-		HingeConstraint* hinge = static_cast<HingeConstraint*>(constraint0);
+		physicsSystem.GetBodyInterface().SetRotation(ragdoll->GetBodyID(0), JPH::Quat::sIdentity(), JPH::EActivation::Activate);
+		JPH::TwoBodyConstraint* constraint0 = ragdoll->GetConstraint(1);
+		JPH::HingeConstraint* hinge = static_cast<JPH::HingeConstraint*>(constraint0);
 
 		Direction& direction = ecs.get_mut<Direction>();
 
@@ -1076,7 +1100,7 @@ namespace Scripts {
 
 		float range = abs(max - min);
 
-		for (BodyID id : ragdoll->GetBodyIDs()) {
+		for (JPH::BodyID id : ragdoll->GetBodyIDs()) {
 
 			if (!physicsSystem.GetBodyInterface().IsActive(id)) {
 
@@ -1085,19 +1109,19 @@ namespace Scripts {
 			}
 		}
 
-		MotorSettings& motor = hinge->GetMotorSettings();
+		JPH::MotorSettings& motor = hinge->GetMotorSettings();
 
-		EMotorState motorState = hinge->GetMotorState();
+		JPH::EMotorState motorState = hinge->GetMotorState();
 
 		// Check if the hinge is already at the limit
-		constexpr float tolerance = DegreesToRadians(1.0f);
+		constexpr float tolerance = JPH::DegreesToRadians(1.0f);
 
 		if (direction == Direction::forward) {
 			float targetAngle = min;
 
 			// Only set motor if we're not already there
 			if (abs(angle - targetAngle) > tolerance) {
-				hinge->SetMotorState(EMotorState::Position);
+				hinge->SetMotorState(JPH::EMotorState::Position);
 				hinge->SetTargetAngle(targetAngle);
 			}
 			else {
@@ -1111,7 +1135,7 @@ namespace Scripts {
 			float targetAngle = max;
 
 			if (abs(angle - targetAngle) > tolerance) {
-				hinge->SetMotorState(EMotorState::Position);
+				hinge->SetMotorState(JPH::EMotorState::Position);
 				hinge->SetTargetAngle(targetAngle);
 			}
 			else {
@@ -1123,11 +1147,11 @@ namespace Scripts {
 		}
 
 
-		cout << "Hinge angle : " << RadiansToDegrees(angle) << "\n";
-		cout << "Hinge min : " << RadiansToDegrees(min) << "\n";
-		cout << "Hinge max : " << RadiansToDegrees(max) << "\n";
-		cout << "Motor State  : " << int(motorState) << "\n";
-		cout << "  " << "\n";
+		//cout << "Hinge angle : " << JPH::RadiansToDegrees(angle) << "\n";
+		//cout << "Hinge min : " << JPH::RadiansToDegrees(min) << "\n";
+		//cout << "Hinge max : " << JPH::RadiansToDegrees(max) << "\n";
+		//cout << "Motor State  : " << int(motorState) << "\n";
+		//cout << "  " << "\n";
 
 	}
 

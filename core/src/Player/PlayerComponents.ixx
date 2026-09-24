@@ -279,3 +279,7 @@ public:
 
 };
 
+
+export struct PlayerRef { flecs::entity value = flecs::entity::null(); };
+export struct PlayerCamRef { flecs::entity value = flecs::entity::null(); };
+
