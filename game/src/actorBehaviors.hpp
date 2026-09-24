@@ -312,9 +312,7 @@ namespace Scripts {
 
 		JPH::BodyID rootID = ragdoll->GetBodyID(0);
 
-
 		physicsSystem.GetBodyInterface().SetRotation(rootID, characterRot, JPH::EActivation::Activate);
-
 
 		pose.SetRootOffset(root_offset);
 		pose.CalculateJointMatrices();
@@ -326,6 +324,37 @@ namespace Scripts {
 
 		//hipConstraint->SetTargetPositionCS(Vec3::sZero());
 		//hipConstraint->SetTargetOrientationCS(characterRot);
+
+	}
+
+	void driveToPose2(JPH::PhysicsSystem& physicsSystem,
+		JPH::Ragdoll* ragdoll,
+		const JPH::SkeletalAnimation* animation,
+		JPH::SkeletonPose& pose,
+		float& animTime) {
+
+		float animDuration = animation->GetDuration();
+
+		//TODO dt should not be hardcoded but also should not be gotten from ecs.delta_time either
+		//Since physics runs at a fixed timestep we should get that value once use its
+		const float dt = 1.0f / 60.0f;
+		animTime += dt;// Advance animation time
+
+		animation->Sample(animTime, pose);
+
+		RVec3 root_offset;
+		SkeletonPose::JointState& joint = pose.GetJoint(0);
+		joint.mTranslation = Vec3::sZero();
+		ragdoll->GetRootTransform(root_offset, joint.mRotation);
+
+		JPH::BodyID rootID = ragdoll->GetBodyID(0);
+
+		pose.SetRootOffset(root_offset);
+		pose.CalculateJointMatrices();
+
+		pose.CalculateJointStates();
+
+		ragdoll->DriveToPoseUsingMotors(pose); //This will active motors
 
 	}
 
@@ -423,7 +452,9 @@ namespace Scripts {
 			return;
 		}
 
+
 		animation.animationPtr = newAnimPtr;
+		LogInfo(LOG_APP, "Switched to animation %s ", newAnimationName.c_str());
 	}
 
 	void updateSleep() {
@@ -557,7 +588,6 @@ namespace Scripts {
 
 	void OnEnterChase(JPH::Ragdoll* ragdoll, JPH::TwoBodyConstraint* hipConstraint, const JoltAnimationList& joltAnimationList, JoltAnimation& animation) {
 
-		
 		switchAnimation(joltAnimationList, animation, "sprint");
 		enableConstraint(ragdoll, hipConstraint);
 
@@ -580,6 +610,70 @@ namespace Scripts {
 
 	void corpseUpdate() {
 		
+	}
+
+	void onEnterBroken(JPH::Ragdoll* ragdoll, JPH::TwoBodyConstraint* hipConstraint, const JoltAnimationList& joltAnimationList, JoltAnimation& animation) {
+		//releasePose(ragdoll, hipConstraint);
+		//switchAnimation(joltAnimationList, animation, "sprint");
+		disableConstraint(ragdoll, hipConstraint);
+	}
+
+	void onExitBroken() {
+
+
+	}
+
+	void updateBroken(JPH::PhysicsSystem& physicsSystem,
+		flecs::entity self,
+		JPH::SixDOFConstraint* hipConstraint,
+		const JPH::Quat& characterRot,
+		JPH::IgnoreMultipleBodiesFilter* ragdollFilter,
+		JPH::Character* joltCharacter,
+		const Player& player, JPH::Ragdoll* ragdoll,
+		JPH::SkeletalAnimation* animation,
+		JPH::SkeletonPose& pose,
+		float& animTime) {
+
+		//Check Visibility
+		// IF visible then rotateTowards player and chase
+		//IF not visible then transition to 'ToLastKnownLocation'
+
+		
+		//get all the actor info
+		JPH::Vec3 actorPos = joltCharacter->GetPosition();
+		JPH::Quat actorRot = joltCharacter->GetRotation();
+		float actorEyeHeight = 1.3f;
+		JPH::Vec3 actorEyePos = actorPos + JPH::Vec3(0.0f, actorEyeHeight, 0.0f);
+
+		JPH::Vec3 playerPos = player.position;
+		JPH::Vec3 toPlayer = playerPos - actorEyePos;
+
+		float distanceToPlayer = toPlayer.Length();
+		float maxVisibilityRange = 50.0f; //TODO parameterize
+		JPH::Vec3 dirToPlayer = toPlayer / distanceToPlayer; // Normalized
+
+		JPH::IgnoreSingleBodyFilterChained bodyFilter(joltCharacter->GetBodyID(), *ragdollFilter);
+
+		/*
+		if (!checkVisibility(
+			physicsSystem,
+			bodyFilter,
+			maxVisibilityRange,
+			actorEyePos,
+			actorRot,
+			playerPos,
+			joltCharacter->GetBodyID(),
+			player.innerBodyID))
+		{
+			self.set<EnemyState>(EnemyState::IDLE);
+			return;
+		}
+		*/
+
+		//rotateCharacterTowardsTarget(joltCharacter, actorRot, dirToPlayer);
+
+		driveToPose2(physicsSystem, ragdoll, animation, pose, animTime);
+
 	}
 
 	void updateRagdollMotor(flecs::world& ecs, flecs::entity self) {
@@ -610,9 +704,9 @@ namespace Scripts {
 		}
 
 
-		if (totalImpulse >= 1000.0f) {
+		if (totalImpulse >= 1200.0f) {
 			LogInfo(LOG_APP, "Total Impulse for %s : %f", self.name().c_str(), totalImpulse);
-			self.set<EnemyState>(EnemyState::CORPSE);
+			self.set<EnemyState>(EnemyState::BROKEN);
 		}
 
 		switch (state)
@@ -642,6 +736,11 @@ namespace Scripts {
 			case EnemyState::CORPSE:
 			{	
 				
+				return;
+			}
+			case EnemyState::BROKEN:
+			{
+				updateBroken(physicsSystem, self, hipConstraint, characterRot, ragdollFilter, joltCharacter, player, ragdoll, animation, pose, animTime);
 				return;
 			}
 			default:
@@ -707,7 +806,11 @@ namespace Scripts {
 				break;
 			case EnemyState::DISABLED:
 
-				return;
+				break;
+
+			case EnemyState::BROKEN:
+				onEnterBroken(ragdoll, hipConstraint, animationList, animation);
+				break;
 
 			default:
 

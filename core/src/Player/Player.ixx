@@ -88,6 +88,7 @@ export struct PlayerSystems {
 		updatePlayerCam(ecs, player);
 
 		shootBall(ecs, playerEntity, player);
+		//spawnRobot(ecs, playerEntity, player);
 	}
 
 	void getMovementState(flecs::world& ecs, Player& player) {
@@ -276,6 +277,52 @@ export struct PlayerSystems {
 			glm::vec3 linearVelocity = playerCamDir * multiplier;
 			glm::vec3 angularVelocity = glm::vec3(0);
 			EntityType entityType = EntityType::Sphere;
+
+			ecs.get_mut<EntityCreationQueue>()
+				.queue.emplace_back(ballName, parent, ballTransform, linearVelocity, angularVelocity, entityType);
+		}
+
+	}
+
+
+	void spawnRobot(flecs::world& ecs, flecs::entity playerEnt, Player& player) {
+
+		const ActionState& interactEvent = player.interactEventEnt.get<ActionState>();
+
+		if (interactEvent.justReleased) {
+			Camera& camera = ecs.get<PlayerCamRef>().value.get_mut<Camera>();
+			glm::vec3 playerCamDir = camera.front;
+			glm::vec3 playerCamPos = camera.position;
+
+			// Camera is inside the capsule; step out past its surface plus the ball's radius.
+			const float capsuleDiameter = player.bodyShape->GetInnerRadius() * 2;
+			const float ballRadius = 1.0f;
+			const float margin = 0.1f; //TODO should account for current speed
+
+			float spawnDist = capsuleDiameter + ballRadius + margin;
+
+			std::string ballName = std::format("Ball {}", player.ballCounter);
+			player.ballCounter++;
+
+			Transform ballTransform = {
+				.position = (playerCamDir * spawnDist) + playerCamPos,
+				.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f),
+				.scale = glm::vec3(ballRadius)
+			};
+
+			flecs::entity parent = playerEnt.parent();
+
+			float multiplier = 20.0f;
+
+			multiplier = multiplier * interactEvent.heldTime * 3.33;
+
+			multiplier = std::clamp(multiplier, 25.0f, 100.0f);
+
+			LogInfo(LOG_APP, "Shot a ball with velocity %f", multiplier);
+
+			glm::vec3 linearVelocity = playerCamDir * multiplier;
+			glm::vec3 angularVelocity = glm::vec3(0);
+			EntityType entityType = EntityType::Ragdoll;
 
 			ecs.get_mut<EntityCreationQueue>()
 				.queue.emplace_back(ballName, parent, ballTransform, linearVelocity, angularVelocity, entityType);

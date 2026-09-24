@@ -139,6 +139,7 @@ export enum class EnemyState {
 	CHASE, //know player location and is running towards out of punching range
 	FIGHT, //Withing punching range of player engaging in combat
 	DISABLED, //The AI system for this robot is temporarily turned off
+	BROKEN, //The robot is disconnected from it character controller but still performing its animation.
 	CRAWLING, //(MAYBE) The robots legs are blown of but it will still chase slowly using arms
 	PARALYSED, // The robot cannot chase but can still spot the player
 	CORPSE, // Enough damage is taken to destroy the Robot
