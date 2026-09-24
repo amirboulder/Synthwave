@@ -11,6 +11,7 @@ import GLM;
 import Components;
 import GraphicsComponents;
 import EntityFactory;
+import ActorBehaviors;
 
 export struct EntityCreationCommand {
 
@@ -101,6 +102,8 @@ public:
 				case EntityType::RobotArm:
 					break;
 				case EntityType::JoltRagdollExample:
+					EntityFactory::createHumanTOFRagdollEntity(ecs, command.entityParent, command.entityName, command.transform, Scripts::updateRagdollMotor);
+
 					break;
 				case EntityType::RagdollKinematic:
 					break;

@@ -453,7 +453,8 @@ public:
 		return true;
 	}
 
-	//creates jolts Human.tof 
+	//creates jolts Human.tof
+	//This is our maim ragdoll creator for now
 	static bool createHumanTOFRagdollEntity(
 		flecs::world& ecs,
 		const flecs::entity parent, 
@@ -991,7 +992,7 @@ public:
 
 		entity.set<JoltRagdoll>({ ragdoll });
 		entity.set<JoltPose>({ mPose });
-		entity.set<JoltAnimation>({ walkAnimation }); //this can be relationship eventually once we want animation blending 
+		entity.set<JoltAnimation>({ sprintAnimation }); //this can be relationship eventually once we want animation blending 
 		entity.set<JoltAnimationList>(std::move(animationList));
 
 		return true;

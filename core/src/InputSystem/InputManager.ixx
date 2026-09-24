@@ -121,6 +121,10 @@ public:
 			.set<ActionState>({});
 		bindInputToKeyboard(SDL_SCANCODE_E, interactEventEnt);
 
+		flecs::entity useEventEnt = ecs.entity("UseEventEnt")
+			.set<ActionState>({});
+		bindInputToKeyboard(SDL_SCANCODE_F, useEventEnt);
+
 		flecs::entity Attack1EventEnt = ecs.entity("Attack1EventEnt")
 			.set<ActionState>({});
 		bindInputToMouse(MouseButtons::BUTTON_LEFT, Attack1EventEnt);

@@ -88,7 +88,7 @@ export struct PlayerSystems {
 		updatePlayerCam(ecs, player);
 
 		shootBall(ecs, playerEntity, player);
-		//spawnRobot(ecs, playerEntity, player);
+		spawnRobot(ecs, playerEntity, player);
 	}
 
 	void getMovementState(flecs::world& ecs, Player& player) {
@@ -287,7 +287,7 @@ export struct PlayerSystems {
 
 	void spawnRobot(flecs::world& ecs, flecs::entity playerEnt, Player& player) {
 
-		const ActionState& interactEvent = player.interactEventEnt.get<ActionState>();
+		const ActionState& interactEvent = player.useEventEnt.get<ActionState>();
 
 		if (interactEvent.justReleased) {
 			Camera& camera = ecs.get<PlayerCamRef>().value.get_mut<Camera>();
@@ -318,11 +318,11 @@ export struct PlayerSystems {
 
 			multiplier = std::clamp(multiplier, 25.0f, 100.0f);
 
-			LogInfo(LOG_APP, "Shot a ball with velocity %f", multiplier);
+			LogInfo(LOG_APP, "Spawned a robot %f", multiplier);
 
 			glm::vec3 linearVelocity = playerCamDir * multiplier;
 			glm::vec3 angularVelocity = glm::vec3(0);
-			EntityType entityType = EntityType::Ragdoll;
+			EntityType entityType = EntityType::JoltRagdollExample;
 
 			ecs.get_mut<EntityCreationQueue>()
 				.queue.emplace_back(ballName, parent, ballTransform, linearVelocity, angularVelocity, entityType);

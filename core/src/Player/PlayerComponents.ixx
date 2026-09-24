@@ -159,7 +159,10 @@ public:
 	uint32_t ballCounter = 0;
 
 	flecs::entity interactEventEnt;
+	flecs::entity useEventEnt;
+
 	flecs::entity attackEventEnt;
+
 	flecs::entity forwardMVMTEnt;
 	flecs::entity backwardMVMTEnt;
 	flecs::entity leftMVMTEnt;
@@ -232,6 +235,12 @@ public:
 
 		interactEventEnt = ecs.lookup("InteractEvent");
 		if (!interactEventEnt) {
+			LogError(LOG_APP, "interactEventEnt is null");
+			return false;
+		}
+
+		useEventEnt = ecs.lookup("UseEventEnt");
+		if (!useEventEnt) {
 			LogError(LOG_APP, "interactEventEnt is null");
 			return false;
 		}
