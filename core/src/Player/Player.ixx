@@ -301,8 +301,8 @@ export struct PlayerSystems {
 
 			float spawnDist = capsuleDiameter + ballRadius + margin;
 
-			std::string ballName = std::format("Ball {}", player.ballCounter);
-			player.ballCounter++;
+			std::string ballName = std::format("Robot {}", player.ballCounter);
+			player.ballCounter++; //Yes using ball counter here is incorrect but we don't care.
 
 			Transform ballTransform = {
 				.position = (playerCamDir * spawnDist) + playerCamPos,
@@ -322,7 +322,7 @@ export struct PlayerSystems {
 
 			glm::vec3 linearVelocity = playerCamDir * multiplier;
 			glm::vec3 angularVelocity = glm::vec3(0);
-			EntityType entityType = EntityType::JoltRagdollExample;
+			EntityType entityType = EntityType::RagdollCharacterController;
 
 			ecs.get_mut<EntityCreationQueue>()
 				.queue.emplace_back(ballName, parent, ballTransform, linearVelocity, angularVelocity, entityType);

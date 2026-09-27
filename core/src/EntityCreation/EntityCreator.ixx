@@ -101,17 +101,16 @@ public:
 					break;
 				case EntityType::RobotArm:
 					break;
-				case EntityType::JoltRagdollExample:
-					EntityFactory::createHumanTOFRagdollEntity(ecs, command.entityParent, command.entityName, command.transform, Scripts::updateRagdollMotor);
-
+				case EntityType::RagdollCharacterController:
+					EntityFactory::createRagdollCharacterControllerEntity(ecs, command.entityParent, command.entityName, command.transform, Scripts::updateRagdollMotor);
 					break;
 				case EntityType::RagdollKinematic:
 					break;
 				case EntityType::RagdollForce:
 					break;
-				case EntityType::Ragdoll:
+				case EntityType::BuiltRagdoll:
 					break;
-				case EntityType::Humanoid:
+				case EntityType::ProgrammaticRagdoll:
 					break;
 				case EntityType::Player:
 					break;

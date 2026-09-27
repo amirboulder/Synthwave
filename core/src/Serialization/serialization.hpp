@@ -199,6 +199,10 @@ public:
 					}
 					else if (entType == "Mountain") {
 
+						createMountainEntFromJson(item, path);
+					}
+					else if (entType == "StaticEnt") {
+
 						createStaticMountainEntFromJson(item, path);
 					}
 					else if (entType == "Camera") {
@@ -408,7 +412,7 @@ public:
 		return true;
 	}
 
-	bool createStaticMeshEntFromJson(const rapidjson::Value& item, const std::string& filename) {
+	bool createMountainEntFromJson(const rapidjson::Value& item, const std::string& filename) {
 
 		std::string name;
 		std::string parentName;
@@ -432,7 +436,38 @@ public:
 		transform = optTransform.value();
 
 		flecs::entity parentEnt = ecs.lookup(parentName.c_str(), ".");
-		if (!EntityFactory::createStaticMeshEntity(ecs, parentEnt, name, transform, 2337188011122585679)) {
+		if (!EntityFactory::createMTNEntity(ecs, parentEnt, name, transform)) {
+			return false;
+		}
+
+		return true;
+	}
+
+	bool createStaticMeshEntFromJson(const rapidjson::Value& item, const std::string& filename, EntityType entityType = EntityType::StaticMesh) {
+
+		std::string name;
+		std::string parentName;
+		std::string modelSrcName;
+		Transform transform;
+
+		if (!validateName(item, filename)) return false;
+		if (!validateTransform(item, filename)) return false;
+		if (!validateParent(item, filename)) return false;
+		if (!validateModelSrc(item, filename)) return false;
+
+		//TODO entityFactory validate Name 
+
+		name = item["name"].GetString();
+		parentName = item["parent"].GetString();
+		modelSrcName = item["components"]["ModelSourceRef"]["name"].GetString();
+
+
+		std::optional<Transform> optTransform = deserTransform(item["components"]["Transform"]);
+		if (!optTransform) return false;
+		transform = optTransform.value();
+
+		flecs::entity parentEnt = ecs.lookup(parentName.c_str(), ".");
+		if (!EntityFactory::createStaticMeshEntity(ecs, parentEnt, name, transform, entityType, 2337188011122585679)) {
 			return false;
 		}
 

@@ -97,28 +97,43 @@ export struct ObjectType {
 export enum class EntityType {
 	Empty,
 	Generic,
+
 	Game,
 	Scene,
-	BoxCar,
 	Player,
-	Humanoid,
-	Ragdoll,
-	RagdollForce,
-	RagdollKinematic,
-	JoltRagdollExample,
-	RobotArm,
-	Snake,
-	Actor,
+	Camera,
+
+	//Generated Meshes
+	Cube,
 	Capsule,
-	Grid,
-	StaticMesh,
-	Mountain,
 	Sphere,
 	Cylinder,
+
+	ProgrammaticRagdoll,
+	BuiltRagdoll,
+
+	Ragdoll,
+	RagdollStatic,
+	RagdollDynamic,
+	RagdollKinematic,
+
+	RagdollForce,
+	RagdollCharacterController,
+
+	RobotArm,
+	Snake,
+
+	Actor,
+	
+	Grid,
+	StaticMesh,
+	BoxCar, // For testing Mesh hierarchy 
+	Mountain,
+
 	Sensor,
-	Cube,
+	
 	Light,
-	Camera,
+
 	COUNT
 };
 
@@ -133,10 +148,10 @@ export struct EntityTypeComponent {
 
 export enum class EnemyState {
 
-	SLEEP, //UnAware the player exits Standing Pose
+	SLEEP, 
 	IDLE,
 	SEARCH, //Know the player exists but unaware of the location looks/walks around randomly
-	CHASE, //know player location and is running towards out of punching range
+	CHASE, //knows player location and is running towards but out of punching range
 	FIGHT, //Withing punching range of player engaging in combat
 	DISABLED, //The AI system for this robot is temporarily turned off
 	BROKEN, //The robot is disconnected from it character controller but still performing its animation.
@@ -145,9 +160,6 @@ export enum class EnemyState {
 	CORPSE, // Enough damage is taken to destroy the Robot
 
 };
-
-
-
 
 
 export struct ActorBehavior {

@@ -2,42 +2,30 @@
 
 namespace ImGui
 {
-    // Combo box - works for any enum, no boilerplate needed.
-    template <typename EnumT>
-    std::optional<EnumT> EnumCombo(const char* label, EnumT* value)
+    template <typename EnumT, typename Filter>
+    bool EnumCombo(const char* label, EnumT* value, Filter&& isVisible)
     {
         static_assert(std::is_enum_v<EnumT>, "EnumCombo requires an enum type");
-
-        constexpr auto entries = magic_enum::enum_entries<EnumT>();
         bool changed = false;
-        EnumT newValue;
-
-        const char* previewName = magic_enum::enum_name(*value).data();
-
-        if (ImGui::BeginCombo(label, previewName))
-        {
-            for (auto [enumValue, name] : entries)
-            {
+        if (ImGui::BeginCombo(label, magic_enum::enum_name(*value).data())) {
+            for (auto [enumValue, name] : magic_enum::enum_entries<EnumT>()) {
+                if (!isVisible(enumValue)) continue;
                 bool selected = (*value == enumValue);
-                if (ImGui::Selectable(name.data(), selected))
-                {
-                    newValue = enumValue;
+                if (ImGui::Selectable(name.data(), selected) && !selected) {
+                    *value = enumValue;
                     changed = true;
                 }
-                if (selected)
-                    ImGui::SetItemDefaultFocus();
+                if (selected) ImGui::SetItemDefaultFocus();
             }
             ImGui::EndCombo();
         }
-
-        if (changed) {
-            return newValue;
-        }
-        else {
-            return std::nullopt;
-        }
-   
+        return changed;
     }
 
+    template <typename EnumT>
+    bool EnumCombo(const char* label, EnumT* value)
+    {
+        return EnumCombo(label, value, [](EnumT) { return true; });
+    }
 
 }

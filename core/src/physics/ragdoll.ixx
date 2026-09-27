@@ -156,9 +156,6 @@ public:
 		uint32_t lower_leg_l = skeleton->AddJoint("LowerLegL", upper_leg_l);
 		uint32_t lower_leg_r = skeleton->AddJoint("LowerLegR", upper_leg_r);
 
-		uint32_t foot_l = skeleton->AddJoint("FootL", lower_leg_l);
-		uint32_t foot_R = skeleton->AddJoint("FootR", lower_leg_r);
-
 		// Create shapes for limbs (scaled)
 		JPH::Ref<JPH::Shape> shapes[] = {
 			new JPH::CapsuleShape(0.15f * scale, 0.10f * scale),
@@ -173,9 +170,6 @@ public:
 			new JPH::CapsuleShape(0.2f * scale, 0.075f * scale),		// Upper Leg R
 			new JPH::CapsuleShape(0.2f * scale, 0.06f * scale),		// Lower Leg L
 			new JPH::CapsuleShape(0.2f * scale, 0.06f * scale),		// Lower Leg R
-
-			new JPH::BoxShape(JPH::Vec3(0.0444f, 0.0361f, 0.1125f) * scale,0.00361290015f),		// LEFT FOOT
-			new JPH::BoxShape(JPH::Vec3(0.0444f, 0.0361f, 0.1125f) * scale,0.00361290015f),		// RIGHT FOOT
 		};
 
 		// Positions of body parts in world space (scaled)
@@ -192,8 +186,6 @@ public:
 			JPH::RVec3(0.15f * scale, 0.8f * scale, 0),		// Upper Leg R
 			JPH::RVec3(-0.15f * scale, 0.3f * scale, 0),		// Lower Leg L
 			JPH::RVec3(0.15f * scale, 0.3f * scale, 0),		// Lower Leg R
-			JPH::RVec3(0.145158f * scale, 0.083797f * scale, 0.0027870f * scale),
-			JPH::RVec3(-0.145157f * scale, 0.083798f * scale, 0.0027870f * scale),
 		};
 
 		// Rotations of body parts in world space (unchanged)
@@ -210,8 +202,6 @@ public:
 			JPH::Quat::sIdentity(),									 // Upper Leg R
 			JPH::Quat::sIdentity(),									 // Lower Leg L
 			JPH::Quat::sIdentity(),									 // Lower Leg R
-			JPH::Quat(0, -0.506379f, 0.862311f, 0),
-			JPH::Quat(0, 0.862311f, 0.506379f, 0),
 		};
 
 		// World space constraint positions (scaled)
@@ -228,8 +218,6 @@ public:
 			JPH::RVec3(0.15f * scale, 1.05f * scale, 0),		// Upper Leg R
 			JPH::RVec3(-0.15f * scale, 0.55f * scale, 0),	// Lower Leg L
 			JPH::RVec3(0.15f * scale, 0.55f * scale, 0),		// Lower Leg R
-			JPH::RVec3(0.145158f * scale, 0.083797f * scale, 0.0027870f * scale),			// 3: R Foot
-			JPH::RVec3(-0.145157f * scale, 0.083798f * scale, 0.0027870f * scale),			// 6: L Foot
 		};
 
 		// World space twist axis directions (unchanged - these are normalized directions)
@@ -244,8 +232,6 @@ public:
 			JPH::Vec3::sAxisX(),				// Lower Arm R
 			-JPH::Vec3::sAxisY(),			// Upper Leg L
 			-JPH::Vec3::sAxisY(),			// Upper Leg R
-			-JPH::Vec3::sAxisY(),			// Lower Leg L
-			-JPH::Vec3::sAxisY(),			// Lower Leg R
 			-JPH::Vec3::sAxisY(),			// Lower Leg L
 			-JPH::Vec3::sAxisY(),			// Lower Leg R
 		};
@@ -264,8 +250,6 @@ public:
 			45.0f,		// Upper Leg R
 			45.0f,		// Lower Leg L
 			45.0f,		// Lower Leg R
-			45.1f,		// R Foot
-			45.1f,		// R Foot
 		};
 
 		float normal_angle[] = {
@@ -281,8 +265,6 @@ public:
 			45.0f,		// Upper Leg R
 			0.0f,		// Lower Leg L
 			0.0f,		// Lower Leg R
-			59.6f,		// R Foot
-			59.6f,		// R Foot
 		};
 
 		float plane_angle[] = {
@@ -298,8 +280,6 @@ public:
 			45.0f,		// Upper Leg R
 			60.0f,		// Lower Leg L (cheating here, a knee is not symmetric, we should have rotated the twist axis)
 			60.0f,		// Lower Leg R
-			28.5f,		// R Foot
-			28.5f,		// R Foot
 		};
 
 		// Create ragdoll settings

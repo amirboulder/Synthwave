@@ -88,8 +88,8 @@ public:
         actorDebugInfo = ecs.query_builder<ActorDebugInfo>()
             .build();
 
-        ragdollquery = ecs.query_builder<JoltRagdoll>()
-            .build();
+        //ragdollquery = ecs.query_builder<JoltRagdoll>()
+        //    .build();
 
         enemyStateQuery = ecs.query_builder<EnemyState>()
             .build();
@@ -127,7 +127,7 @@ public:
 
         });
 
-
+        /*
         ragdollquery.each([&](flecs::entity entity, JoltRagdoll joltRagdoll) {
 
             ImGui::NewLine();
@@ -141,6 +141,7 @@ public:
            // iterateConstraints(joltRagdoll.ragdollPtr);
 
         });
+        */
 
         ImGui::End();
     }
@@ -157,11 +158,11 @@ public:
 
             name.append(" State : ");
 
-            std::optional<EnemyState> newState = ImGui::EnumCombo(name.c_str(), &state);
+            EnemyState newState = state;
 
-            if (newState.has_value()) {
+            if (ImGui::EnumCombo(name.c_str(), &newState)) {
 
-                entity.set<EnemyState>(newState.value());
+                entity.set<EnemyState>(newState);
             }
 
         });

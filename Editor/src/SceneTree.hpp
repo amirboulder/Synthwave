@@ -1,12 +1,22 @@
 ﻿#pragma once
 
+//TODO this class should only issue Entity creation commands instead of calling EntityFactory directly
+//We should do that before we convert this to a module
+//Also it should use UI templates instead of hand rolling all the dropdowns.
 
 std::unordered_map<std::string, entUpdateFn> updateFunctions{
-	{"ragdollUpdate", Scripts::ragdollUpdate},
-	{"updateRagdollNoAnim", Scripts::updateRagdollNoAnim},
-	{"updateRagdollKinematic", Scripts::updateRagdollKinematic},
+
+	{"ragdollUpdateUsingMotors", Scripts::ragdollUpdateUsingMotors},
+
 	{"updateRagdollMotor", Scripts::updateRagdollMotor},
 	{"updateRagdollForce", Scripts::updateRagdollForce},
+
+	{"updateRagdollKinematicRootMotionLoop", Scripts::updateRagdollKinematicRootMotionLoop},
+
+	{"updateRagdollInPlaceKinematicPinned", Scripts::updateRagdollInPlaceKinematicPinned},
+	{"updateRagdollInPlaceKinematicPinnedNoRot", Scripts::updateRagdollInPlaceKinematicPinnedNoRot},
+
+	{"updateRagdollSetPoseRootMotionLoop", Scripts::updateRagdollSetPoseRootMotionLoop},
 	{"empty", Scripts::empty},
 
 };
@@ -34,12 +44,40 @@ public:
 		glm::vec3 childPositionDefault = { -3.f, 5.f, -3.f };
 
 		string selectedUpdatefuncName;
+		JPH::EMotionType selectedMotionType;
 		entUpdateFn selectedUpdatefunc;
 
 		string selectedRagdoll;
 	};
 
 	static State s_state;
+
+
+	static constexpr bool isEditorCreatable(EntityType type) {
+		switch (type) {
+		case EntityType::Player:
+		case EntityType::Actor:
+		case EntityType::Cube:
+		case EntityType::Capsule:
+		case EntityType::Sphere:
+		case EntityType::Cylinder:
+		case EntityType::ProgrammaticRagdoll:
+		case EntityType::BuiltRagdoll:
+		case EntityType::Ragdoll:          // Static/Dynamic/Kinematic come from the motion type option
+		case EntityType::RagdollForce:
+		case EntityType::RagdollCharacterController:
+		case EntityType::RobotArm:
+		case EntityType::Snake:
+		case EntityType::Grid:
+		case EntityType::BoxCar:
+		case EntityType::Mountain:
+		case EntityType::Light:
+			return true;
+		default:
+			return false;
+		}
+	}
+
 
 	// Adds emojis to each entity
 	static const char* GetEntityIcon(flecs::entity entity) {
@@ -51,15 +89,25 @@ public:
 		if (type == EntityType::Game) return "🌎";
 		if (type == EntityType::Scene) return "🎬";
 		if (type == EntityType::Cube) return "📦";
+		if (type == EntityType::Sphere) return "🟣";
 		if (type == EntityType::Capsule) return "💊";
-		if (type == EntityType::Humanoid) return "🧍";
+		if (type == EntityType::Mountain) return "🌋";
+		if (type == EntityType::ProgrammaticRagdoll) return "🧍";
 		if (type == EntityType::Player) return "👤";
 		if (type == EntityType::Camera) return "🎥";
 		if (type == EntityType::Grid) return "🟪";
-		if (type == EntityType::StaticMesh) return "⛰️";
-		if (type == EntityType::Actor) return "🎭";
+		if (type == EntityType::StaticMesh) return "⬛";
+		if (type == EntityType::Actor) return "🤖";
 		if (type == EntityType::Sensor) return "📡";
 		if (type == EntityType::Light) return "💡";
+
+		if (type == EntityType::Ragdoll ||
+			type == EntityType::RagdollDynamic ||
+			type == EntityType::RagdollKinematic ||
+			type == EntityType::RagdollStatic ||
+			type == EntityType::RagdollForce ||
+			type == EntityType::RagdollCharacterController
+			) return "🦿";
 
 		return "  ";
 	}
@@ -225,6 +273,7 @@ public:
 		s_state.childScale = glm::vec3(1.f);
 
 		s_state.selectedUpdatefunc = Scripts::empty;
+		s_state.selectedMotionType = JPH::EMotionType::Kinematic;
 		s_state.selectedUpdatefuncName.clear();
 
 	}
@@ -263,28 +312,7 @@ public:
 			ImGui::SetCursorPosX((windowWidth - comboWidth) * 0.5f);
 			ImGui::SetNextItemWidth(comboWidth);
 
-			// Get the Ent type name safely
-			//std::string_view currentName = magic_enum::enum_name(s_state.selectedType);
-
-			const char* preview = magic_enum::enum_name(s_state.selectedType).data();
-
-
-			// Dropdown for entity Type
-			if (ImGui::BeginCombo("##Entity Type", preview)) {
-				for (auto entType : magic_enum::enum_values<EntityType>()) {
-
-					bool isSelected = (s_state.selectedType == entType);
-					const char* label = magic_enum::enum_name(entType).data();
-
-					if (ImGui::Selectable(label, isSelected)) {
-						s_state.selectedType = entType;
-					}
-					if (isSelected) {
-						ImGui::SetItemDefaultFocus();
-					}
-				}
-				ImGui::EndCombo();
-			}
+			ImGui::EnumCombo("##Entity Type", &s_state.selectedType, isEditorCreatable);
 
 			// if no entity type is selected disable the create button
 			if (s_state.selectedType == EntityType::Empty) {
@@ -370,71 +398,167 @@ public:
 						break;
 					case EntityType::Player:
 
-						//TODO move creation to under Game
-						createPlayerChild(ecs);
+						EntityFactory::createPlayerEntity(ecs,
+							s_state.contextEntity,
+							buildChildTransform(),
+							"pipelineUnlit");
+
 						break;
 					case EntityType::Actor:
 
-						createActorChild(ecs);
+					{
+						Transform actorTransform = buildChildTransform();
+
+						JPH::CharacterSettings settings;
+						settings.mShape = new CapsuleShape(2.0f, 1.0f);
+						settings.mMass = 2000.0f;
+						settings.mMaxSlopeAngle = DegreesToRadians(20.0f);
+						settings.mLayer = Layers::MOVING;
+						settings.mGravityFactor = 1;
+						EntityFactory::createActorEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, actorTransform, settings, Scripts::enemyUpdate);
+
 						break;
+					}
+
 					case EntityType::BoxCar:
-						createBoxCarChild(ecs);
-						break;
-					case EntityType::Humanoid:
 
-						createHumanoidChild(ecs);
-						break;
-					case EntityType::Ragdoll:
+						EntityFactory::createBoxCarEntity(ecs,
+							s_state.contextEntity,
+							s_state.childNameBuffer,
+							buildChildTransform());
 
-						createRagdollChild(ecs);
+						break;
+					case EntityType::ProgrammaticRagdoll:
+
+						EntityFactory::createProgrammaticRagdollEntity(ecs,
+							s_state.contextEntity,
+							s_state.childNameBuffer,
+							buildChildTransform());
+
+						break;
+					case EntityType::BuiltRagdoll:
+
+						EntityFactory::createBuiltRagdollEntity(ecs,
+							s_state.contextEntity,
+							s_state.childNameBuffer,
+							buildChildTransform(),
+							s_state.selectedRagdoll, Scripts::empty);
+
 						break;
 					case EntityType::RagdollForce:
 
-						createRagdollForceChild(ecs);
-						break;
-					case EntityType::JoltRagdollExample:
-
-						createTOFRagdollChild(ecs);
-						break;
-					case EntityType::RagdollKinematic:
-
-						EntityFactory::createRagdollEntityKinematic(ecs,
+						EntityFactory::createRagdollForceEntity(ecs,
 							s_state.contextEntity,
 							s_state.childNameBuffer,
 							buildChildTransform(),
 							s_state.selectedUpdatefunc);
+
+						break;
+					case EntityType::RagdollCharacterController:
+
+						EntityFactory::createRagdollCharacterControllerEntity(
+							ecs, s_state.contextEntity,
+							s_state.childNameBuffer,
+							buildChildTransform(),
+							s_state.selectedUpdatefunc);
+
+						break;
+					case EntityType::Ragdoll:
+
+						EntityFactory::createRagdollEntity(ecs,
+							s_state.contextEntity,
+							s_state.childNameBuffer,
+							buildChildTransform(),
+							s_state.selectedMotionType,
+							s_state.selectedUpdatefunc);
 						break;
 
 					case EntityType::RobotArm:
-						createRobotArmChild(ecs);
+
+						EntityFactory::createRobotArmEntity(ecs,
+							s_state.contextEntity,
+							s_state.childNameBuffer,
+							"capsule4",
+							buildChildTransform(),
+							Scripts::armUpdate,
+							"pipelineUnlit");
+
 						break;
 					case EntityType::Snake:
-						createSnakeChild(ecs);
+
+						EntityFactory::createSnakeEntity(ecs,
+							s_state.contextEntity,
+							s_state.childNameBuffer,
+							"Capsule4",
+							buildChildTransform(),
+							Scripts::SnakeUpdate,
+							"pipelineUnlit");
+
 						break;
 					case EntityType::Capsule:
 
-						createCapsuleChild(ecs);
+						EntityFactory::createCapsuleEntity(ecs,
+							s_state.contextEntity,
+							s_state.childNameBuffer,
+							buildChildTransform());
+
 						break;
 					case EntityType::Grid:
 
-						createGridChild(ecs);
+						EntityFactory::createGridEntity(ecs,
+							s_state.contextEntity,
+							s_state.childNameBuffer,
+							buildChildTransform(), 256);
+
 						break;
 					case EntityType::Mountain:
 
-						createMountainChild(ecs);
+						EntityFactory::createMTNEntity(ecs,
+							s_state.contextEntity,
+							s_state.childNameBuffer,
+							buildChildTransform());
+
 						break;
 					case EntityType::Sphere:
-						createSphereChild(ecs);
+
+						EntityFactory::createSphereEntity(ecs,
+							s_state.contextEntity,
+							s_state.childNameBuffer,
+							buildChildTransform(),
+							glm::vec3(0),
+							glm::vec3(0));
+
 						break;
 					case EntityType::Cylinder:
-						createCylinderChild(ecs);
+
+						EntityFactory::createCylinderEntity(ecs,
+							s_state.contextEntity,
+							s_state.childNameBuffer,
+							buildChildTransform());
+
 						break;
 					case EntityType::Cube:
-						createCubeChild(ecs);
+
+						EntityFactory::createCubeEntity(ecs,
+							s_state.contextEntity,
+							s_state.childNameBuffer,
+							buildChildTransform());
+
 						break;
 					case EntityType::Light:
-						createDirLightChild(ecs);
+
+					{
+						DirectionalLight directionalLight;
+						directionalLight.direction = quatToDirection(rotationFromEulerDegrees(s_state.childRotation));
+
+						EntityFactory::createDirectionalLightEntity(ecs,
+							s_state.contextEntity,
+							s_state.childNameBuffer,
+							directionalLight);
 						break;
+					}
+
+
 					case EntityType::Camera:
 						SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, " Adding Camera not yet implemented");
 						break;
@@ -464,89 +588,6 @@ public:
 		}
 	}
 
-	static void createSceneChild(flecs::world& ecs) {
-
-
-
-
-	}
-
-	static void createPlayerChild(flecs::world& ecs) {
-		EntityFactory::createPlayerEntity(ecs, s_state.contextEntity, buildChildTransform(), "pipelineUnlit");
-	}
-
-	static void createCapsuleChild(flecs::world& ecs) {
-		EntityFactory::createCapsuleEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, buildChildTransform());
-	}
-
-	static void createCubeChild(flecs::world& ecs) {
-		EntityFactory::createCubeEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, buildChildTransform());
-	}
-
-	static void createSphereChild(flecs::world& ecs) {
-		EntityFactory::createSphereEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, buildChildTransform(), glm::vec3(0), glm::vec3(0));
-	}
-
-	static void createCylinderChild(flecs::world& ecs) {
-		EntityFactory::createCylinderEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, buildChildTransform());
-	}
-
-	static void createBoxCarChild(flecs::world& ecs) {
-		EntityFactory::createBoxCarEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, buildChildTransform());
-	}
-
-	static void createActorChild(flecs::world& ecs) {
-		Transform actorTransform = buildChildTransform();
-
-		// Character settings
-		JPH::CharacterSettings settings;
-		settings.mShape = new CapsuleShape(2.0f, 1.0f);
-		settings.mMass = 2000.0f;
-		settings.mMaxSlopeAngle = DegreesToRadians(20.0f); // Max walkable slope
-		settings.mLayer = Layers::MOVING;
-		settings.mGravityFactor = 1;
-		EntityFactory::createActorEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, actorTransform, settings, Scripts::enemyUpdate);
-
-	}
-
-	static void createGridChild(flecs::world& ecs) {
-		EntityFactory::createGridEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, buildChildTransform(), 256);
-	}
-
-
-	static void createMountainChild(flecs::world& ecs) {
-		EntityFactory::createMTNEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, buildChildTransform());
-	}
-
-	static void createHumanoidChild(flecs::world& ecs) {
-		EntityFactory::createHumanRagdollEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, buildChildTransform(), Scripts::empty);
-	}
-
-	static void createRagdollChild(flecs::world& ecs) {
-		EntityFactory::createRagdollEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, buildChildTransform(), s_state.selectedRagdoll, Scripts::ragdollUpdate);
-	}
-
-	static void createTOFRagdollChild(flecs::world& ecs) {
-		EntityFactory::createHumanTOFRagdollEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, buildChildTransform(), s_state.selectedUpdatefunc);
-	}
-
-	static void createRagdollForceChild(flecs::world& ecs) {
-		EntityFactory::createRagdollEntityForce(ecs, s_state.contextEntity, s_state.childNameBuffer, buildChildTransform(), s_state.selectedUpdatefunc);
-	}
-
-	static void createRobotArmChild(flecs::world& ecs) {
-		EntityFactory::createRobotArmEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, "capsule4", buildChildTransform(), Scripts::armUpdate, "pipelineUnlit");
-	}
-
-	static void createSnakeChild(flecs::world& ecs) {
-		EntityFactory::createSnakeEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, "Capsule4", buildChildTransform(), Scripts::SnakeUpdate, "pipelineUnlit");
-	}
-
-	static void createDirLightChild(flecs::world& ecs) {
-		DirectionalLight directionalLight;
-		directionalLight.direction = quatToDirection(rotationFromEulerDegrees(s_state.childRotation));
-		EntityFactory::createDirectionalLightEntity(ecs, s_state.contextEntity, s_state.childNameBuffer, directionalLight);
-	}
 
 	static bool drawEntSpecificOptions(flecs::world& ecs) {
 
@@ -554,34 +595,31 @@ public:
 
 		switch (s_state.selectedType) {
 
-		case EntityType::Ragdoll:
+		case EntityType::BuiltRagdoll:
 
-			//TODO move creation to under Game
 			isValid = drawRagdollEntOptions(ecs);
 			break;
 
-		case EntityType::JoltRagdollExample:
+		case EntityType::RagdollCharacterController:
 
-			//TODO move creation to under Game
 			isValid = drawRagdollUpdateOptions(ecs);
 			break;
 
 		case EntityType::RagdollForce:
 
-			//TODO move creation to under Game
-			isValid = drawRagdollUpdateOptions(ecs);
-			break;
-
-		case EntityType::RagdollKinematic:
-
-			//TODO move creation to under Game
 			isValid = drawRagdollUpdateOptions(ecs);
 			break;
 
 		case EntityType::Light:
 
 			break;
+
+		case EntityType::Ragdoll:
+			isValid &= drawRagdollMotionTypeOptions();
+			isValid &= drawRagdollUpdateOptions(ecs);
+			break;
 		}
+		
 
 
 		return isValid;
@@ -623,10 +661,8 @@ public:
 	//If a ragdoll is selected from the dropdown return true,
 	static bool drawRagdollUpdateOptions(flecs::world& ecs) {
 
-		
 		auto it = updateFunctions.find(s_state.selectedUpdatefuncName);
 		const char* selectedName = (it != updateFunctions.end()) ? it->first.c_str() : " ";
-
 
 		if (ImGui::BeginCombo("RagdollUpdateFunctions", selectedName)) {
 			for (const auto& [name, function] : updateFunctions) {
@@ -650,6 +686,12 @@ public:
 		}
 
 		return false;
+	}
+
+	static bool drawRagdollMotionTypeOptions() {
+		ImGui::EnumCombo("RagdollMotionType", &s_state.selectedMotionType);
+		// An enum always holds a valid value, so this option never blocks creation.
+		return true;
 	}
 
 	static void LoadScene(flecs::entity sceneEntity) {
