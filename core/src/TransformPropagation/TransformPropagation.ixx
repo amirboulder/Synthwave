@@ -1,6 +1,16 @@
-#pragma once 
+module;
 
-class TransformPropagation {
+#include <flecs.h>
+
+export module TransformPropagation;
+
+import Logger;
+import GLM;
+import Phases;
+import Mesh;
+import GraphicsComponents;
+
+export class TransformPropagation {
 
 public:
 

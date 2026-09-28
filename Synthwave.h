@@ -19,6 +19,8 @@ import AssetManager;
 import AssetLibrary;
 import Manifest;
 
+import TransformPropagation;
+
 import EntityFactory;
 import EntityCreator;
 
@@ -54,8 +56,6 @@ import GameMain;
 #include "core/src/pch.h"
 
 #include "core/src/renderer/renderer.hpp"
-
-#include "core/src/TransformPropagation/TransformPropagation.hpp"
 
 #include "game/src/gameObjects.hpp"
 

@@ -173,7 +173,7 @@ public:
 
         SDL_EndGPURenderPass(renderPass);
 
-        //Needeed for multiview ports
+        //Needed for Multiview ports
          ImGuiIO& io = ImGui::GetIO();
         if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
             ImGui::UpdatePlatformWindows();
