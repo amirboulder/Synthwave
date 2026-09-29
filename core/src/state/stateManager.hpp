@@ -2,9 +2,6 @@
 
 #include "../renderer/renderer.hpp"
 
-#include "../Serialization/serialization.hpp"
-
-
 //TODO separate all event based systems into their own class
 
 class StateManager {

@@ -274,12 +274,15 @@ export struct PlayerSystems {
 
 			LogInfo(LOG_APP, "Shot a ball with velocity %f", multiplier);
 
-			glm::vec3 linearVelocity = playerCamDir * multiplier;
-			glm::vec3 angularVelocity = glm::vec3(0);
 			EntityType entityType = EntityType::Sphere;
 
+			RigidBodyDesc desc;
+
+			desc.linearVelocity = playerCamDir * multiplier;
+			desc.angularVelocity = glm::vec3(0);
+
 			ecs.get_mut<EntityCreationQueue>()
-				.queue.emplace_back(ballName, parent, ballTransform, linearVelocity, angularVelocity, entityType);
+				.queue.emplace_back(ballName, parent, ballTransform, entityType, desc);
 		}
 
 	}
@@ -320,12 +323,10 @@ export struct PlayerSystems {
 
 			LogInfo(LOG_APP, "Spawned a robot %f", multiplier);
 
-			glm::vec3 linearVelocity = playerCamDir * multiplier;
-			glm::vec3 angularVelocity = glm::vec3(0);
 			EntityType entityType = EntityType::RagdollCharacterController;
 
 			ecs.get_mut<EntityCreationQueue>()
-				.queue.emplace_back(ballName, parent, ballTransform, linearVelocity, angularVelocity, entityType);
+				.queue.emplace_back(ballName, parent, ballTransform, entityType);
 		}
 
 	}

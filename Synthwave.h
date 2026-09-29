@@ -39,6 +39,8 @@ import InputComponents;
 
 import Registry;
 
+import Serialization;
+
 import Mesh;
 import GeometryPool;
 import RenderConfig;

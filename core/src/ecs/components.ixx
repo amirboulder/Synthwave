@@ -138,13 +138,6 @@ export enum class EntityType {
 };
 
 
-// This exists to keep entities of different EntityType in the same table ie prevent fragmentation,
-// but is that even desirable ???
-// TODO verify this behaves as expected using flecs api
-export struct EntityTypeComponent {
-	EntityType type;
-};
-
 
 export enum class EnemyState {
 
@@ -178,8 +171,12 @@ export struct Render {
 };
 
 
-
 //TODO MOVE THIS
 export struct HighlightedEntRef {
 	flecs::entity ent;
 };
+
+
+// Added to a component's entity (not to game entities) to keep that component out of save files.
+// For runtime-only or derived data that the factory rebuilds on load.
+export struct DontSerialize {};

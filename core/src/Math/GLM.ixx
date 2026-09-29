@@ -29,6 +29,7 @@ module;
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/quaternion.hpp>
 #include <glm/gtx/matrix_decompose.hpp>
+#include <glm/gtx/compatibility.hpp>
 #include <glm/gtx/norm.hpp>        // length2 - reached only transitively today
 
 export module GLM;
@@ -104,6 +105,7 @@ export namespace glm {
 	using glm::min;    using glm::max;    using glm::clamp;
 	using glm::mix;    using glm::step;   using glm::smoothstep;
 	using glm::isnan;  using glm::isinf;
+	using glm::isfinite;
 
 	//--- Geometric -----------------------------------------------------------
 	using glm::length;

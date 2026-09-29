@@ -82,9 +82,9 @@ public:
 	// Adds emojis to each entity
 	static const char* GetEntityIcon(flecs::entity entity) {
 
-		if (!entity.has<EntityTypeComponent>()) return " ";
+		if (!entity.has<EntityType>()) return " ";
 
-		EntityType type = entity.get<EntityTypeComponent>().type;
+		EntityType type = entity.get<EntityType>();
 
 		if (type == EntityType::Game) return "🌎";
 		if (type == EntityType::Scene) return "🎬";
@@ -144,9 +144,8 @@ public:
 			ImGui::Separator();
 
 			std::string entityTypeName;
-			auto entTypeComp = s_state.selectedEntity.try_get<EntityTypeComponent>();
-			if (entTypeComp) {
-				entityTypeName = magic_enum::enum_name(entTypeComp->type);
+			if (const EntityType* entType = s_state.selectedEntity.try_get<EntityType>()) {
+				entityTypeName = magic_enum::enum_name(*entType);
 			}
 
 			ImGui::Text("Selected: %s %s", entityTypeName.c_str(),  s_state.selectedEntity.name().c_str());
@@ -497,11 +496,12 @@ public:
 						break;
 					case EntityType::Capsule:
 
+					{
 						EntityFactory::createCapsuleEntity(ecs,
 							s_state.contextEntity,
 							s_state.childNameBuffer,
 							buildChildTransform());
-
+					}
 						break;
 					case EntityType::Grid:
 
@@ -520,31 +520,38 @@ public:
 
 						break;
 					case EntityType::Sphere:
-
+						
+					{
 						EntityFactory::createSphereEntity(ecs,
 							s_state.contextEntity,
 							s_state.childNameBuffer,
-							buildChildTransform(),
-							glm::vec3(0),
-							glm::vec3(0));
+							buildChildTransform());
 
 						break;
+					}
+						
 					case EntityType::Cylinder:
 
+					{
 						EntityFactory::createCylinderEntity(ecs,
 							s_state.contextEntity,
 							s_state.childNameBuffer,
 							buildChildTransform());
 
 						break;
+					}
+						
 					case EntityType::Cube:
 
+					{
 						EntityFactory::createCubeEntity(ecs,
 							s_state.contextEntity,
 							s_state.childNameBuffer,
 							buildChildTransform());
 
 						break;
+					}
+					
 					case EntityType::Light:
 
 					{

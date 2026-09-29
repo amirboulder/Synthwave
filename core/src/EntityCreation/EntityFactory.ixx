@@ -22,11 +22,11 @@ import Logger;
 import GLM;
 import Jolt;
 import Mesh;
+import Components;
 import GraphicsComponents;
 import PhysicsComponents;
 import AssetManager;
 import AssetLibrary;
-import Components;
 import Ragdoll;
 import Util;
 import PhysicsUtil;
@@ -50,10 +50,13 @@ void emptyUpdateFunction(flecs::world& ecs, flecs::entity self) {
 
 }
 
+
+
 /// <summary>
 /// All member functions are static so other systems don't need to instantiate the class in order to use them.
 /// Used for creating various entity types that the engine supports,
 /// does a lot of error handling since we getting input from the user and users can't be trusted!
+/// TODO only entity creator should use call this directly.
 /// </summary>
 export class EntityFactory {
 
@@ -65,9 +68,118 @@ private:
 
 public:
 
-	//Creates a capsule shaped entity
-	static bool createCapsuleEntity(flecs::world& ecs, const flecs::entity parent,
-		std::string_view name, const Transform transform) {
+	/*
+	//General function for Creating an entity
+	//TODO we should eventually just this one function and branch as needed
+	static bool createEntity(
+		flecs::world& ecs,
+		const flecs::entity parent,
+		std::string_view name,
+		const Transform& transform,
+		const EntityType& entityType,
+		uint64_t meshID,
+		const bool dynamicEnt,
+		JPH::EShapeSubType = JPH::EShapeSubType::Empty, //Create physics body based on this
+		uint64_t pipelineID = 0,
+		const RigidBodyDesc & desc = {}) {
+
+		if (!validateName(ecs, parent, name.data())) return false;
+		if (!validateTransform(transform, name.data())) return false;
+
+		JPH::BodyInterface& bodyInterface = ecs.get<PhysicsSystemRef>().physicsSystem.GetBodyInterface();
+
+		AssetManager* assetManger = ecs.get<AssetManagerRef>().assetManager;
+		MeshComponent meshComp = assetManger->requestMeshComponent(meshID);
+
+		Mesh meshSrc = assetManger->requestMesh(meshID);
+		if (meshSrc.vertices.size() == 0) {
+			LogError(LOG_ERR, "Mesh is empty");
+			return false;
+		}
+
+		//TODO move this to a createTriangleList function
+
+		//Create physics body from mesh data
+		// Scale vertices
+		JPH::VertexList scaledVertexList;
+		for (const Vertex& vertexData : meshSrc.vertices) {
+			glm::vec3 scaledVertex = vertexData.position * transform.scale; // Apply scale
+			scaledVertexList.push_back(JPH::Float3(scaledVertex.x, scaledVertex.y, scaledVertex.z));
+		}
+
+		// Create triangle list
+		JPH::IndexedTriangleList triangleList;
+		for (size_t i = 0; i < meshSrc.indices.size(); i += 3) {
+			triangleList.push_back(JPH::IndexedTriangle(
+				meshSrc.indices[i],
+				meshSrc.indices[i + 1],
+				meshSrc.indices[i + 2]
+			));
+		}
+
+
+
+		// Create MeshShapeSettings
+		JPH::MeshShapeSettings meshSettings(scaledVertexList, triangleList);
+		// Create MeshShape
+		JPH::Ref<JPH::Shape> meshShape = meshSettings.Create().Get();
+
+		JPH::BodyCreationSettings bodyCreationSettings(
+			meshShape,
+			GLMVec3ToJPH(transform.position),
+			GLMQuatToJPH(transform.rotation).Normalized(),
+			desc.motionType,
+			desc.layer
+		);
+
+
+
+		// Create and add body
+		JPH::BodyID physicsID = bodyInterface.CreateAndAddBody(
+			bodyCreationSettings,
+			JPH::EActivation::DontActivate
+		);
+
+		if (!validatePhysicsBodyCreation(physicsID, name.data())) return false;
+
+		
+		const flecs::entity entity = ecs.entity(name.data())
+			.set<EntityType>(entityType)
+			.set<Transform>(transform)
+			.set<WorldMatrix>({})
+			.add<Renderable>()
+			.set<JPH::BodyID>(physicsID)
+			//for secondary pipelines create a tag which will be used in the query for that renderQuery
+			//.add<RenderPipeline>( ecs.lookup(pipelineName.c_str())) 
+			.child_of(parent);
+
+		if (dynamicEnt) {
+			entity.add<DynamicEnt>();
+		}
+		else {
+			entity.add<StaticEnt>();
+
+		}
+
+
+		// Store the entity ID in the physics body which gives us a two way mapping between entity and bodyId
+		bodyInterface.SetUserData(physicsID, entity.id());
+
+		if (!validateEntityCreation(entity, name.data())) return false;
+
+		//Create a child entity for mesh and a grandchild entity for each submesh.
+		if (!createMeshEntity(ecs, assetManger, entity, meshComp, name, transform, pipelineID)) return false;
+
+		return true;
+	}
+			*/
+
+	static bool createCapsuleEntity(
+		flecs::world& ecs,
+		const flecs::entity parent,
+		std::string_view name,
+		const Transform& transform,
+		const RigidBodyDesc& desc = {}) {
 
 		if (!validateName(ecs, parent, name.data())) return false;
 		if (!validateTransform(transform, name.data())) return false;
@@ -77,6 +189,9 @@ public:
 
 		MeshComponent meshComp = assetManager->requestMeshComponent(assetManager->defaultAssetsMap.at(DefaultAssets::CAPSULE));
 		glm::vec3 scaledSize = meshComp.aabb.extents * transform.scale;
+
+		JPH::BodyInterface& bodyInterface = ecs.get<PhysicsSystemRef>().physicsSystem.GetBodyInterface();
+
 
 		float physicsRadius = scaledSize.x;
 		float physicsHalfHeight = scaledSize.y;
@@ -89,38 +204,28 @@ public:
 			return false;
 		}
 
-		// Ref<> manages reference counting - no manual cleanup needed
+		// Ref<> manages reference counting, no manual cleanup needed
 		JPH::Ref<JPH::Shape> capsuleShape = new JPH::CapsuleShape(physicsCylHalf, physicsRadius);
 
-		JPH::Vec3 joltPosition(transform.position.x, transform.position.y, transform.position.z);
-		JPH::Quat joltRotation(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
-		if (!joltRotation.IsNormalized()) {
-			joltRotation = joltRotation.Normalized();
-		}
-
-		JPH::BodyCreationSettings pillSettings(
+		JPH::BodyCreationSettings bodyCreationSettings(
 			capsuleShape,
-			joltPosition,
-			joltRotation,
-			JPH::EMotionType::Dynamic,
-			Layers::MOVING
+			GLMVec3ToJPH(transform.position),
+			GLMQuatToJPH(transform.rotation).Normalized(),
+			desc.motionType,
+			desc.layer
 		);
 
-		// bounciness
-		pillSettings.mRestitution = 0.5f;
+		applyRigidBodyDesc(bodyCreationSettings, desc);
+		JPH::EActivation activation = (desc.activation) ? JPH::EActivation::Activate : JPH::EActivation::DontActivate;
 
-		pillSettings.mOverrideMassProperties = JPH::EOverrideMassProperties::CalculateInertia;
-		pillSettings.mMassPropertiesOverride.mMass = 50.1f;
-
-		JPH::BodyInterface& bodyInterface = ecs.get<PhysicsSystemRef>().physicsSystem.GetBodyInterface();
 
 		// Create and add body
-		const JPH::BodyID physicsID = bodyInterface.CreateAndAddBody(pillSettings, JPH::EActivation::Activate);
+		const JPH::BodyID physicsID = bodyInterface.CreateAndAddBody(bodyCreationSettings, activation);
 
 		if (!validatePhysicsBodyCreation(physicsID, name.data())) return false;
 
 		flecs::entity entity = ecs.entity(name.data())
-			.set<EntityTypeComponent>({ EntityType::Capsule })
+			.set<EntityType>(EntityType::Capsule)
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
 			.set<WorldMatrix>({})
@@ -141,50 +246,46 @@ public:
 		return true;
 	}
 
-	static bool createCubeEntity(flecs::world& ecs, const flecs::entity parent, std::string_view name,
-		const Transform transform) {
+	static bool createCubeEntity(
+		flecs::world& ecs,
+		const flecs::entity parent,
+		std::string_view name,
+		const Transform transform,
+		const RigidBodyDesc& desc = {}) {
 
 		if (!validateName(ecs, parent, name.data())) return false;
 		if (!validateTransform(transform, name.data())) return false;
 
-		//Get MeshComponent from AssetManager
 		AssetManager* assetManager = ecs.get<AssetManagerRef>().assetManager;
 		
 		//Assuming default asset exists
 		MeshComponent meshComp = assetManager->requestMeshComponent(assetManager->defaultAssetsMap.at(DefaultAssets::CUBE));
 
 		glm::vec3 scaledSize = meshComp.aabb.extents * transform.scale;
-
 		JPH::Vec3 boxHalfExtents(scaledSize.x , scaledSize.y, scaledSize.z );
+
+		JPH::BodyInterface& bodyInterface = ecs.get<PhysicsSystemRef>().physicsSystem.GetBodyInterface();
+
 
 		// Ref<> manages reference counting - no manual cleanup needed
 		JPH::Ref<JPH::Shape> boxShape = new JPH::BoxShape(boxHalfExtents);
 
-		// Convert GLM to Jolt types
-		JPH::Vec3 joltPos(transform.position.x, transform.position.y, transform.position.z);
-		JPH::Quat joltRot(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
-		if (!joltRot.IsNormalized()) {
-			joltRot = joltRot.Normalized();
-		}
+		JPH::BodyCreationSettings bodyCreationSettings(boxShape,
+			GLMVec3ToJPH(transform.position),
+			GLMQuatToJPH(transform.rotation).Normalized(),
+			desc.motionType,
+			desc.layer);
 
-		JPH::BodyCreationSettings bodySettings(boxShape, joltPos, joltRot,JPH::EMotionType::Dynamic,Layers::MOVING);
+		applyRigidBodyDesc(bodyCreationSettings, desc);
+		JPH::EActivation activation = (desc.activation) ? JPH::EActivation::Activate : JPH::EActivation::DontActivate;
 
-		// bounciness
-		bodySettings.mRestitution = 0.5f;
 
-		bodySettings.mOverrideMassProperties = JPH::EOverrideMassProperties::CalculateInertia;
-		bodySettings.mMassPropertiesOverride.mMass = 50.1f;
-
-		JPH::BodyInterface& bodyInterface = ecs.get<PhysicsSystemRef>().physicsSystem.GetBodyInterface();
-
-		// Create and add body
-		const JPH::BodyID physicsID = bodyInterface.CreateAndAddBody(bodySettings, JPH::EActivation::Activate);
+		const JPH::BodyID physicsID = bodyInterface.CreateAndAddBody(bodyCreationSettings, activation);
 
 		if (!validatePhysicsBodyCreation(physicsID, name.data())) return false;
 
-
 		const flecs::entity entity = ecs.entity(name.data())
-			.set<EntityTypeComponent>({ EntityType::Cube })
+			.set<EntityType>(EntityType::Cube)
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
 			.set<WorldMatrix>({})
@@ -203,7 +304,6 @@ public:
 		if (!createMeshEntity(ecs, assetManager, entity, meshComp, name)) return false;
 
 		return true;
-
 	}
 
 	static bool createSphereEntity(
@@ -211,12 +311,13 @@ public:
 		const flecs::entity parent,
 		std::string_view name,
 		const Transform transform,
-		const glm::vec3 linearVelocity,
-		const glm::vec3 angularVelocity
+		const RigidBodyDesc& desc = {}
 	) {
 
 		if (!validateName(ecs, parent, name.data())) return false;
 		if (!validateTransform(transform, name.data())) return false;
+
+		JPH::BodyInterface& bodyInterface = ecs.get<PhysicsSystemRef>().physicsSystem.GetBodyInterface();
 
 		//Get MeshComponent from AssetManager
 		AssetManager* assetManager = ecs.get<AssetManagerRef>().assetManager;
@@ -229,33 +330,24 @@ public:
 		// Ref<> manages reference counting - no manual cleanup needed
 		JPH::Ref<JPH::Shape> shape = new JPH::SphereShape(scaledSize.x); //Assuming uniform scaling
 
-		// Convert GLM to Jolt types
-		JPH::Vec3 joltPos(transform.position.x, transform.position.y, transform.position.z);
-		JPH::Quat joltRot(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
-		if (!joltRot.IsNormalized()) {
-			joltRot = joltRot.Normalized();
-		}
+		JPH::BodyCreationSettings bodyCreationSettings(
+			shape,
+			GLMVec3ToJPH(transform.position),
+			GLMQuatToJPH(transform.rotation).Normalized(),
+			desc.motionType,
+			desc.layer);
 
-		JPH::BodyCreationSettings bodySettings(shape, joltPos, joltRot, JPH::EMotionType::Dynamic, Layers::MOVING);
-
-		// bounciness
-		bodySettings.mRestitution = 0.5f;
-
-		bodySettings.mOverrideMassProperties = JPH::EOverrideMassProperties::CalculateInertia;
-		bodySettings.mMassPropertiesOverride.mMass = 50.1f;
-		bodySettings.mLinearVelocity = GLMVec3ToJPH(linearVelocity);
-		bodySettings.mAngularVelocity = GLMVec3ToJPH(angularVelocity);
-
-		JPH::BodyInterface& bodyInterface = ecs.get<PhysicsSystemRef>().physicsSystem.GetBodyInterface();
+		applyRigidBodyDesc(bodyCreationSettings, desc);
+		JPH::EActivation activation = (desc.activation) ? JPH::EActivation::Activate : JPH::EActivation::DontActivate;
 
 		// Create and add body
-		const JPH::BodyID physicsID = bodyInterface.CreateAndAddBody(bodySettings, JPH::EActivation::Activate);
+		const JPH::BodyID physicsID = bodyInterface.CreateAndAddBody(bodyCreationSettings, activation);
 
 		if (!validatePhysicsBodyCreation(physicsID, name.data())) return false;
 
 
 		const flecs::entity entity = ecs.entity(name.data())
-			.set<EntityTypeComponent>({ EntityType::Sphere })
+			.set<EntityType>(EntityType::Sphere)
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
 			.set<WorldMatrix>({})
@@ -275,11 +367,17 @@ public:
 		return true;
 	}
 
-	static bool createCylinderEntity(flecs::world& ecs, const flecs::entity parent, std::string_view name,
-		const Transform transform) {
+	static bool createCylinderEntity(
+		flecs::world& ecs,
+		const flecs::entity parent,
+		std::string_view name,
+		const Transform transform,
+		const RigidBodyDesc& desc = {}) {
 
 		if (!validateName(ecs, parent, name.data())) return false;
 		if (!validateTransform(transform, name.data())) return false;
+		
+		JPH::BodyInterface& bodyInterface = ecs.get<PhysicsSystemRef>().physicsSystem.GetBodyInterface();
 
 		//Get MeshComponent from AssetManager
 		AssetManager* assetManager = ecs.get<AssetManagerRef>().assetManager;
@@ -294,30 +392,23 @@ public:
 		// Ref<> manages reference counting - no manual cleanup needed
 		JPH::Ref<JPH::Shape> shape = new JPH::CylinderShape(physicsHalfHeight, physicsRadius);
 
-		// Convert GLM to Jolt types
-		JPH::Vec3 joltPos(transform.position.x, transform.position.y, transform.position.z);
-		JPH::Quat joltRot(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
-		if (!joltRot.IsNormalized()) {
-			joltRot = joltRot.Normalized();
-		}
+		JPH::BodyCreationSettings bodyCreationSettings(
+			shape,
+			GLMVec3ToJPH(transform.position),
+			GLMQuatToJPH(transform.rotation).Normalized(),
+			desc.motionType,
+			desc.layer);
 
-		JPH::BodyCreationSettings bodySettings(shape, joltPos, joltRot, JPH::EMotionType::Dynamic, Layers::MOVING);
-
-		// bounciness
-		bodySettings.mRestitution = 0.5f;
-
-		bodySettings.mOverrideMassProperties = JPH::EOverrideMassProperties::CalculateInertia;
-		bodySettings.mMassPropertiesOverride.mMass = 100.0f;
-
-		JPH::BodyInterface& bodyInterface = ecs.get<PhysicsSystemRef>().physicsSystem.GetBodyInterface();
+		applyRigidBodyDesc(bodyCreationSettings, desc);
+		JPH::EActivation activation = (desc.activation) ? JPH::EActivation::Activate : JPH::EActivation::DontActivate;
 
 		// Create and add body
-		const JPH::BodyID physicsID = bodyInterface.CreateAndAddBody(bodySettings, JPH::EActivation::Activate);
+		const JPH::BodyID physicsID = bodyInterface.CreateAndAddBody(bodyCreationSettings, activation);
 
 		if (!validatePhysicsBodyCreation(physicsID, name.data())) return false;
 
 		const flecs::entity entity = ecs.entity(name.data())
-			.set<EntityTypeComponent>({ EntityType::Cylinder })
+			.set<EntityType>(EntityType::Cylinder)
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
 			.set<WorldMatrix>({})
@@ -337,7 +428,10 @@ public:
 		return true;
 	}
 
-	static bool createBoxCarEntity(flecs::world& ecs, const flecs::entity parent, std::string_view name,
+	static bool createBoxCarEntity(
+		flecs::world& ecs,
+		const flecs::entity parent,
+		std::string_view name,
 		const Transform transform) {
 
 		if (!validateName(ecs, parent, name.data())) return false;
@@ -351,7 +445,7 @@ public:
 		JPH::BodyInterface& bodyInterface = ecs.get<PhysicsSystemRef>().physicsSystem.GetBodyInterface();
 
 		flecs::entity  rootEntity= ecs.entity(name.data())
-			.set<EntityTypeComponent>({ EntityType::BoxCar })
+			.set<EntityType>(EntityType::BoxCar)
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
 			.set<WorldMatrix>({})
@@ -366,51 +460,6 @@ public:
 		MeshNode rootNode = assetManager->requestMeshNode(model.rootNodeID);
 
 		if (!createMeshHierarchy(ecs, rootEntity, rootNode, name, assetManager)) return false;
-
-		/*
-		 StaticCompoundShapeSettings settings;
-
-		
-		for (const Mesh& mesh : modelSource->meshes) {
-
-			Mesh::calculateMeshSize(mesh.vertices);
-
-			Vec3 boxHalfExtents(meshX * 0.5, meshY * 0.5, meshZ * 0.5);
-			
-			//For now just use a box for everything
-			Ref<BoxShapeSettings> boxShapeSettings = new BoxShapeSettings(boxHalfExtents);
-
-			JPH::Vec3 joltPos(mesh.transform.position.x, mesh.transform.position.y, mesh.transform.position.z);
-			JPH::Quat joltRot(mesh.transform.rotation.x, mesh.transform.rotation.y, mesh.transform.rotation.z, mesh.transform.rotation.w);
-			if (!joltRot.IsNormalized()) {
-				joltRot = joltRot.Normalized();
-			}
-
-			settings.AddShape(joltPos, joltRot, boxShapeSettings, (uint32_t)entity.id());
-
-		}
-		
-
-
-		Result<Ref<Shape>> shapeResult = settings.Create();
-
-		// Convert GLM to Jolt types
-		JPH::Vec3 joltPos(transform.position.x, transform.position.y, transform.position.z);
-		JPH::Quat joltRot(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
-
-		BodyCreationSettings bodySettings(
-			shapeResult.Get(),
-			joltPos,
-			joltRot,
-			EMotionType::Dynamic,
-			Layers::MOVING
-		);
-
-		const BodyID physicsID = bodyInterface.CreateAndAddBody(bodySettings, JPH::EActivation::Activate);
-
-		rootEntity.set<JPH::BodyID>(physicsID);
-
-		*/
 
 		return true;
 	}
@@ -435,7 +484,7 @@ public:
 		}
 
 		const flecs::entity entity = ecs.entity(name.c_str())
-			.set<EntityTypeComponent>({ EntityType::ProgrammaticRagdoll })
+			.set<EntityType>(EntityType::ProgrammaticRagdoll)
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
 			.set<AnimationTime>({})
@@ -487,7 +536,7 @@ public:
 		}
 
 		const flecs::entity entity = ecs.entity(name.c_str())
-			.set<EntityTypeComponent>({ EntityType::RagdollCharacterController })
+			.set<EntityType>(EntityType::RagdollCharacterController)
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
 			.set<EnemyState>({ EnemyState::IDLE})
@@ -662,7 +711,7 @@ public:
 		}
 
 		const flecs::entity entity = ecs.entity(name.c_str())
-			.set<EntityTypeComponent>({ EntityType::RagdollForce })
+			.set<EntityType>(EntityType::RagdollForce)
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
 			.set<AnimationTime>({})
@@ -801,7 +850,7 @@ public:
 		}
 
 		const flecs::entity entity = ecs.entity(name.c_str())
-			.set<EntityTypeComponent>({ EntityType::RagdollForce })
+			.set<EntityType>(EntityType::RagdollForce)
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
 			.set<AnimationTime>({})
@@ -891,7 +940,8 @@ public:
 		return true;
 	}
 
-	static bool createRagdollEntity(flecs::world& ecs,
+	static bool createRagdollEntity(
+		flecs::world& ecs,
 		const flecs::entity parent,
 		const std::string name,
 		const Transform transform,
@@ -936,7 +986,7 @@ public:
 		}
 
 		const flecs::entity entity = ecs.entity(name.c_str())
-			.set<EntityTypeComponent>({ entityType })
+			.set<EntityType>(entityType)
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
 			.set<AnimationTime>({})
@@ -974,8 +1024,13 @@ public:
 
 
 	//Ragdoll Build Using RagdollBuilder
-	static bool createBuiltRagdollEntity(flecs::world& ecs, const flecs::entity parent, const std::string name,
-		 const Transform transform, const std::string ragdollFilename, entUpdateFn updateFunction) {
+	static bool createBuiltRagdollEntity(
+		flecs::world& ecs,
+		const flecs::entity parent,
+		const std::string name,
+		const Transform transform,
+		const std::string ragdollFilename,
+		entUpdateFn updateFunction) {
 
 		if (!validateName(ecs, parent, name)) return false;
 		if (!validateTransform(transform, name.c_str())) return false;
@@ -1013,7 +1068,7 @@ public:
 		ragdoll->AddToPhysicsSystem(JPH::EActivation::Activate);
 
 		const flecs::entity entity = ecs.entity(name.c_str())
-			.set<EntityTypeComponent>({ EntityType::BuiltRagdoll })
+			.set<EntityType>(EntityType::BuiltRagdoll)
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
 			.set<AnimationTime>({})
@@ -1031,8 +1086,14 @@ public:
 		return true;
 	}
 
-	static bool createRobotArmEntity(flecs::world& ecs, const flecs::entity parent, const std::string name,
-		const std::string ModelSrcName, const Transform transform, entUpdateFn updateFunction, const std::string pipelineName) {
+	static bool createRobotArmEntity(
+		flecs::world& ecs,
+		const flecs::entity parent,
+		const std::string name,
+		const std::string ModelSrcName,
+		const Transform transform,
+		entUpdateFn updateFunction,
+		const std::string pipelineName) {
 
 		if (!validateName(ecs, parent, name)) return false;
 		if (!validateTransform(transform, name.c_str())) return false;
@@ -1045,7 +1106,7 @@ public:
 		JPH::Ref<JPH::RagdollSettings> mRagdollSettings = RagdollLoader::createArm(pos,1.0f);
 
 		const flecs::entity entity = ecs.entity(name.c_str())
-			.set<EntityTypeComponent>({ EntityType::RobotArm })
+			.set<EntityType>(EntityType::RobotArm)
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
 			.add<RenderPipeline>(ecs.lookup(pipelineName.c_str()))
@@ -1078,8 +1139,14 @@ public:
 
 	}
 
-	static bool createSnakeEntity(flecs::world& ecs, const flecs::entity parent, const std::string name,
-		const std::string ModelSrcName, const Transform transform, entUpdateFn updateFunction, const std::string pipelineName) {
+	static bool createSnakeEntity(
+		flecs::world& ecs,
+		const flecs::entity parent,
+		const std::string name,
+		const std::string ModelSrcName,
+		const Transform transform,
+		entUpdateFn updateFunction,
+		const std::string pipelineName) {
 
 		if (!validateName(ecs, parent, name)) return false;
 		if (!validateTransform(transform, name.c_str())) return false;
@@ -1092,7 +1159,7 @@ public:
 		JPH::Ref<JPH::RagdollSettings> mRagdollSettings = RagdollLoader::createSnake(pos, 1.0f);
 
 		const flecs::entity entity = ecs.entity(name.c_str())
-			.set<EntityTypeComponent>({ EntityType::Snake })
+			.set<EntityType>(EntityType::Snake)
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
 			.add<RenderPipeline>(ecs.lookup(pipelineName.c_str()))
@@ -1118,8 +1185,12 @@ public:
 	}
 
 	// create a static box shaped sensor
-	static bool createBoxSensorEntity(flecs::world& ecs, const flecs::entity parent, const std::string name,
-		Transform transform, JPH::Vec3Arg size,
+	static bool createBoxSensorEntity(
+		flecs::world& ecs,
+		const flecs::entity parent,
+		const std::string name,
+		Transform transform,
+		JPH::Vec3Arg size,
 		ContactFunction onContactAdded) {
 
 		if (!EntityFactory::validateName(ecs, parent, name)) return false;
@@ -1157,7 +1228,7 @@ public:
 		if (!validatePhysicsBodyCreation(physicsID, name)) return false;
 
 		const flecs::entity entity = ecs.entity(name.c_str())
-			.set<EntityTypeComponent>({ EntityType::Sensor })
+			.set<EntityType>(EntityType::Sensor)
 			.add<StaticEnt>()
 			.add<Sensor>()
 			.set<Transform>(transform)
@@ -1175,8 +1246,12 @@ public:
 	}
 
 
-	static bool createActorEntity(flecs::world& ecs, flecs::entity parent, std::string_view name,
-		Transform transform, JPH::CharacterSettings settings,
+	static bool createActorEntity(
+		flecs::world& ecs,
+		flecs::entity parent,
+		std::string_view name,
+		Transform transform,
+		JPH::CharacterSettings settings,
 		entUpdateFn actorUpdate) {
 
 		if (!validateName(ecs, parent, name.data())) return false;
@@ -1232,7 +1307,7 @@ public:
 		}
 
 		flecs::entity entity = ecs.entity(name.data())
-			.set<EntityTypeComponent>({ EntityType::Actor})
+			.set<EntityType>(EntityType::Actor)
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
 			.set<WorldMatrix>({})
@@ -1257,8 +1332,12 @@ public:
 	}
 
 	// A Renderable is just a model and a transform no physics body
-	static bool createRenderableEntity(flecs::world& ecs, flecs::entity parent,
-		std::string name, Transform transform, const uint64_t& meshID) {
+	static bool createRenderableEntity(
+		flecs::world& ecs,
+		flecs::entity parent,
+		std::string name,
+		Transform transform, 
+		const uint64_t& meshID) {
 
 		if (!EntityFactory::validateName(ecs, parent, name)) return false;
 		if (!EntityFactory::validateTransform(transform, name.c_str())) return false;
@@ -1286,12 +1365,16 @@ public:
 	/// <summary>
 	/// Infinitely far away, parallel rays ? sun, moon .Has no position, only direction.
 	/// </summary>
-	static bool createDirectionalLightEntity(flecs::world& ecs, flecs::entity parent, std::string name, const DirectionalLight& directionalLight) {
+	static bool createDirectionalLightEntity(
+		flecs::world& ecs,
+		flecs::entity parent,
+		std::string name,
+		const DirectionalLight& directionalLight) {
 
 		if (!EntityFactory::validateName(ecs, parent, name)) return false;
 
 		const flecs::entity entity = ecs.entity(name.c_str())
-			.set<EntityTypeComponent>({ EntityType::Light })
+			.set<EntityType>(EntityType::Light)
 			.add<Light>()
 			.set<DirectionalLight>({ directionalLight })
 			.child_of(parent);
@@ -1304,13 +1387,17 @@ public:
 	/// <summary>
 	/// A point light radiates in all directions from a point, fades with distance
 	/// </summary>
-	static bool createPointLightEntity(flecs::world& ecs, flecs::entity parent, std::string name, const PointLight& pointLight) {
+	static bool createPointLightEntity(
+		flecs::world& ecs,
+		flecs::entity parent,
+		std::string name,
+		const PointLight& pointLight) {
 
 		if (!EntityFactory::validateName(ecs, parent, name)) return false;
 
 
 		const flecs::entity entity = ecs.entity(name.c_str())
-			.set<EntityTypeComponent>({ EntityType::Light })
+			.set<EntityType>(EntityType::Light)
 			.add<Light>()
 			.set<PointLight>({ pointLight })
 			.child_of(parent);
@@ -1321,7 +1408,12 @@ public:
 	}
 
 
-	static bool createAreaLightEntity(flecs::world& ecs, flecs::entity parent, std::string name, const AreaLight& areaLight, Transform& transform) {
+	static bool createAreaLightEntity(
+		flecs::world& ecs,
+		flecs::entity parent,
+		std::string name,
+		const AreaLight& areaLight,
+		Transform& transform) {
 
 		if (!EntityFactory::validateName(ecs, parent, name)) return false;
 		if (!EntityFactory::validateTransform(transform, name.c_str())) return false;
@@ -1337,8 +1429,11 @@ public:
 
 	}
 
-	static bool createMTNEntity(flecs::world& ecs, const flecs::entity parent,
-		const std::string name, Transform transform) {
+	static bool createMTNEntity(
+		flecs::world& ecs,
+		const flecs::entity parent,
+		const std::string name,
+		Transform transform) {
 
 		AssetManager* assetManger = ecs.get<AssetManagerRef>().assetManager;
 
@@ -1433,7 +1528,7 @@ public:
 		if (!validatePhysicsBodyCreation(physicsID, name.data())) return false;
 
 		const flecs::entity entity = ecs.entity(name.data())
-			.set<EntityTypeComponent>({ entityType })
+			.set<EntityType>(entityType)
 			.add<StaticEnt>()
 			.set<Transform>(transform)
 			.set<WorldMatrix>({})
@@ -1455,7 +1550,12 @@ public:
 		return true;
 	}
 
-	static bool createGridEntity(flecs::world& ecs, const flecs::entity parent, std::string_view name, Transform transform, uint32_t size) {
+	static bool createGridEntity(
+		flecs::world& ecs,
+		const flecs::entity parent,
+		std::string_view name,
+		Transform transform,
+		uint32_t size) {
 
 		if (!validateName(ecs, parent, name.data())) return false;
 		if (!validateTransform(transform, name.data())) return false;
@@ -1512,7 +1612,7 @@ public:
 		if (!validatePhysicsBodyCreation(physicsID, name.data())) return false;
 
 		const flecs::entity entity = ecs.entity(name.data())
-			.set<EntityTypeComponent>({ EntityType::Grid })
+			.set<EntityType>(EntityType::Grid)
 			.add<StaticEnt>()
 			.set<Transform>(transform)
 			.set<WorldMatrix>({})
@@ -1541,7 +1641,12 @@ public:
 	}
 
 	//TODO use transform
-	static bool createPlayerEntity(flecs::world& ecs, const flecs::entity parent, Transform transform, const std::string pipelineName, bool sCreateInnerBody = true) {
+	static bool createPlayerEntity(
+		flecs::world& ecs,
+		const flecs::entity parent,
+		Transform transform,
+		const std::string pipelineName,
+		bool sCreateInnerBody = true) {
 
 		const RenderConfig& config = ecs.get<RenderConfig>();
 
@@ -1552,9 +1657,10 @@ public:
 		if (!validateName(ecs, parent, playerCamName)) return false;
 
 		flecs::entity playerEntity = ecs.entity(playerName.c_str())
-			.set<EntityTypeComponent>({ EntityType::Player })
+			.set<EntityType>(EntityType::Player)
+			.set<Transform>(transform)
 			.child_of(parent);
-		playerEntity.emplace<Player>(ecs, JPH::Vec3(1.0f, 15.0f, 0.0f), JPH::Quat(0.0f, 0.0f, 0.0f, 1.0f), 3.0f, 1.0f, playerEntity.id(), sCreateInnerBody);
+		playerEntity.emplace<Player>(ecs, GLMVec3ToJPH(transform.position), GLMQuatToJPH(transform.rotation), 3.0f, 1.0f, playerEntity.id(), sCreateInnerBody);
 
 		ecs.set<PlayerRef>({ playerEntity });
 
@@ -1562,7 +1668,7 @@ public:
 
 
 		flecs::entity playerCam = ecs.entity(playerCamName.c_str())
-			.set<EntityTypeComponent>({ EntityType::Camera })
+			.set<EntityType>(EntityType::Camera)
 			.emplace<Camera>(config)
 			.child_of(parent);
 
@@ -1745,6 +1851,25 @@ public:
 			return false;
 		}
 		animationList.animations.emplace_back("walk", walkAnimation);
+
+		return true;
+	}
+
+	static bool applyRigidBodyDesc(JPH::BodyCreationSettings& settings, RigidBodyDesc desc) {
+
+		settings.mMotionType = desc.motionType;
+		settings.mMassPropertiesOverride.mMass = desc.mass;
+		settings.mOverrideMassProperties = JPH::EOverrideMassProperties::CalculateInertia;
+		settings.mFriction = desc.friction;   
+		settings.mRestitution = desc.restitution;
+		settings.mLinearDamping = desc.linearDamping;
+		settings.mAngularDamping = desc.angularDamping;
+		settings.mGravityFactor = desc.gravityFactor;
+		settings.mMotionQuality = desc.motionQuality;
+		settings.mAllowedDOFs = desc.allowedDOFs;
+		settings.mAllowSleeping = desc.allowSleeping;
+		settings.mLinearVelocity = GLMVec3ToJPH(desc.linearVelocity);
+		settings.mAngularVelocity = GLMVec3ToJPH(desc.angularVelocity);
 
 		return true;
 	}

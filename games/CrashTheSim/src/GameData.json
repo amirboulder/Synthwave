@@ -26,11 +26,9 @@
     "parent": "Game1.Scene1",
     "name": "GridChunk1",
     "tags": [
-      "StaticEnt"
+      "StaticEnt",
+      "Renderable"
     ],
-    "pairs": {
-      "RenderPipeline": "pipelineGrid-Wireframe"
-    },
     "components": {
       "Transform": {
         "position": {
@@ -50,10 +48,29 @@
           "z": 1
         }
       },
-      "ModelInstance": null,
-      "JPH.BodyID": null,
-      "ModelSourceRef": {
-        "name": "Grid256"
+      "JPH.BodyID": {
+        "mass": 50,
+        "friction": 1,
+        "restitution": 0.1000000015,
+        "linearDamping": 0.0500000007,
+        "angularDamping": 0.0500000007,
+        "gravityFactor": 1,
+        "linearVelocity": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "angularVelocity": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "motionQuality": 0,
+        "allowedDOFs": 63,
+        "motionType": 0,
+        "layer": 0,
+        "activation": false,
+        "allowSleeping": true
       },
       "EntityType": "Grid"
     }
@@ -62,11 +79,9 @@
     "parent": "Game1.Scene1",
     "name": "Mountains",
     "tags": [
-      "StaticEnt"
+      "StaticEnt",
+      "Renderable"
     ],
-    "pairs": {
-      "RenderPipeline": "pipelineSolid-Wireframe"
-    },
     "components": {
       "Transform": {
         "position": {
@@ -86,10 +101,29 @@
           "z": 1
         }
       },
-      "ModelInstance": null,
-      "JPH.BodyID": null,
-      "ModelSourceRef": {
-        "name": "Mountains"
+      "JPH.BodyID": {
+        "mass": 50,
+        "friction": 0.200000003,
+        "restitution": 0,
+        "linearDamping": 0.0500000007,
+        "angularDamping": 0.0500000007,
+        "gravityFactor": 1,
+        "linearVelocity": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "angularVelocity": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "motionQuality": 0,
+        "allowedDOFs": 63,
+        "motionType": 0,
+        "layer": 0,
+        "activation": false,
+        "allowSleeping": true
       },
       "EntityType": "Mountain"
     }
@@ -120,25 +154,46 @@
           "z": 1
         }
       },
-      "JPH.BodyID": null,
+      "JPH.BodyID": {
+        "mass": 50,
+        "friction": 0.200000003,
+        "restitution": 0,
+        "linearDamping": 0.0500000007,
+        "angularDamping": 0.0500000007,
+        "gravityFactor": 1,
+        "linearVelocity": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "angularVelocity": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "motionQuality": 0,
+        "allowedDOFs": 63,
+        "motionType": 0,
+        "layer": 2,
+        "activation": false,
+        "allowSleeping": true
+      },
       "EntityType": "Sensor",
-      "SensorBehavior": null
+      "(HasContactScript,std.function<void __cdecl(struct ContactData const &)>)": null
     }
   },
   {
     "parent": "Game1.Scene1",
     "name": "Actor1",
     "tags": [
-      "DynamicEnt"
+      "DynamicEnt",
+      "Renderable"
     ],
-    "pairs": {
-      "RenderPipeline": "pipelinePhong"
-    },
     "components": {
       "Transform": {
         "position": {
           "x": -2.8305690289,
-          "y": 2,
+          "y": 2.4799995422,
           "z": -3.8533146381
         },
         "rotation": {
@@ -153,37 +208,53 @@
           "z": 1
         }
       },
-      "ModelInstance": null,
-      "JPH.BodyID": null,
-      "ActorBehavior": null,
-      "ModelSourceRef": {
-        "name": "ActorModel"
+      "JPH.BodyID": {
+        "mass": 1999.9998779297,
+        "friction": 0.200000003,
+        "restitution": 0,
+        "linearDamping": 0.0500000007,
+        "angularDamping": 0.0500000007,
+        "gravityFactor": 1,
+        "linearVelocity": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "angularVelocity": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "motionQuality": 0,
+        "allowedDOFs": 7,
+        "motionType": 2,
+        "layer": 1,
+        "activation": false,
+        "allowSleeping": true
       },
-      "EntityType": "Actor",
-      "JoltCharacter": null
+      "ActorBehavior": null,
+      "EntityType": "Actor"
     }
   },
   {
     "parent": "Game1.Scene1",
     "name": "Capsule1",
     "tags": [
-      "DynamicEnt"
+      "DynamicEnt",
+      "Renderable"
     ],
-    "pairs": {
-      "RenderPipeline": "pipelineUnlit"
-    },
     "components": {
       "Transform": {
         "position": {
-          "x": 27.7658958435,
-          "y": 14.8511285782,
-          "z": -8.4368858337
+          "x": 27.7658424377,
+          "y": 0.9999998808,
+          "z": -8.4368600845
         },
         "rotation": {
-          "x": -0.4148294032,
-          "y": -0.1473751813,
-          "z": -0.572640121,
-          "w": 0.6915782094
+          "x": -0.4148238003,
+          "y": -0.1473867446,
+          "z": -0.5726440549,
+          "w": 0.6915758848
         },
         "scale": {
           "x": 1,
@@ -191,10 +262,29 @@
           "z": 1
         }
       },
-      "ModelInstance": null,
-      "JPH.BodyID": null,
-      "ModelSourceRef": {
-        "name": "CapsuleModel"
+      "JPH.BodyID": {
+        "mass": 50,
+        "friction": 0.200000003,
+        "restitution": 0,
+        "linearDamping": 0.0500000007,
+        "angularDamping": 0.0500000007,
+        "gravityFactor": 1,
+        "linearVelocity": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "angularVelocity": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "motionQuality": 0,
+        "allowedDOFs": 63,
+        "motionType": 2,
+        "layer": 1,
+        "activation": false,
+        "allowSleeping": true
       },
       "EntityType": "Capsule"
     }
@@ -203,23 +293,21 @@
     "parent": "Game1.Scene1",
     "name": "Capsule2",
     "tags": [
-      "DynamicEnt"
+      "DynamicEnt",
+      "Renderable"
     ],
-    "pairs": {
-      "RenderPipeline": "pipelineUnlit"
-    },
     "components": {
       "Transform": {
         "position": {
           "x": -53.4476242065,
-          "y": 14.1681289673,
-          "z": 6.9404273033
+          "y": 0.9904917479,
+          "z": 6.940448761
         },
         "rotation": {
-          "x": 0.1495347917,
-          "y": -0.0737410709,
-          "z": 0.6911144853,
-          "w": -0.7032513022
+          "x": 0.1495451778,
+          "y": -0.0737350732,
+          "z": 0.6911128163,
+          "w": -0.7032514215
         },
         "scale": {
           "x": 1,
@@ -227,10 +315,29 @@
           "z": 1
         }
       },
-      "ModelInstance": null,
-      "JPH.BodyID": null,
-      "ModelSourceRef": {
-        "name": "CapsuleModel"
+      "JPH.BodyID": {
+        "mass": 50,
+        "friction": 0.200000003,
+        "restitution": 0,
+        "linearDamping": 0.0500000007,
+        "angularDamping": 0.0500000007,
+        "gravityFactor": 1,
+        "linearVelocity": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "angularVelocity": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "motionQuality": 0,
+        "allowedDOFs": 63,
+        "motionType": 2,
+        "layer": 1,
+        "activation": false,
+        "allowSleeping": true
       },
       "EntityType": "Capsule"
     }
@@ -239,23 +346,21 @@
     "parent": "Game1.Scene1",
     "name": "Capsule3",
     "tags": [
-      "DynamicEnt"
+      "DynamicEnt",
+      "Renderable"
     ],
-    "pairs": {
-      "RenderPipeline": "pipelineUnlit"
-    },
     "components": {
       "Transform": {
         "position": {
-          "x": 11.4319419861,
-          "y": 12.4801311493,
-          "z": -10.1494483948
+          "x": 1.9258389473,
+          "y": 0.9798209071,
+          "z": -7.4259724617
         },
         "rotation": {
-          "x": 0.0050552012,
-          "y": 0.997477293,
-          "z": 0.0499803126,
-          "w": -0.0501533188
+          "x": 0.7004652023,
+          "y": 0.0875504538,
+          "z": 0.0966867432,
+          "w": 0.7016659379
         },
         "scale": {
           "x": 1,
@@ -263,10 +368,29 @@
           "z": 1
         }
       },
-      "ModelInstance": null,
-      "JPH.BodyID": null,
-      "ModelSourceRef": {
-        "name": "CapsuleModel"
+      "JPH.BodyID": {
+        "mass": 50,
+        "friction": 0.200000003,
+        "restitution": 0,
+        "linearDamping": 0.0500000007,
+        "angularDamping": 0.0500000007,
+        "gravityFactor": 1,
+        "linearVelocity": {
+          "x": -1.1221234798,
+          "y": 1.29e-8,
+          "z": -0.0146241551
+        },
+        "angularVelocity": {
+          "x": -0.0147732263,
+          "y": 2.099e-7,
+          "z": 1.1335605383
+        },
+        "motionQuality": 0,
+        "allowedDOFs": 63,
+        "motionType": 2,
+        "layer": 1,
+        "activation": true,
+        "allowSleeping": true
       },
       "EntityType": "Capsule"
     }
@@ -275,29 +399,36 @@
     "parent": "Game1.Scene1",
     "name": "player",
     "components": {
-      "Player": {
+      "Transform": {
         "position": {
-          "x": 0,
-          "y": 0,
-          "z": 0
+          "x": -5,
+          "y": 5,
+          "z": -5
         },
         "rotation": {
-          "x": "-.1079493855461653504e37",
+          "x": 0,
           "y": 0,
           "z": 0,
-          "w": 0
+          "w": 1
         },
-        "moveSpeed": 0,
-        "jumpSpeed": 0,
-        "terminalVelocity": 0,
-        "gravity": {
+        "scale": {
           "x": 1,
-          "y": 14.1500005722,
+          "y": 1,
+          "z": 1
+        }
+      },
+      "Player": {
+        "moveSpeed": 16,
+        "jumpSpeed": 8,
+        "terminalVelocity": -50,
+        "gravity": {
+          "x": 0,
+          "y": -20,
           "z": 0
         },
         "cameraOffset": {
           "x": 0,
-          "y": 0.5707501173,
+          "y": 2,
           "z": 0
         }
       },
@@ -313,8 +444,8 @@
     "components": {
       "EntityType": "Camera",
       "Camera": {
-        "yaw": 1,
-        "pitch": 16.1500015259
+        "yaw": -2.3479540348,
+        "pitch": 5
       }
     }
   }

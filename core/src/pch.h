@@ -31,7 +31,6 @@ namespace fs = std::filesystem;
 //#include <SDL3_ttf/SDL_ttf.h>
 
 
-
 //Flecs 
 #include <flecs.h>
 
@@ -40,23 +39,11 @@ namespace fs = std::filesystem;
 #include <Jolt/Jolt.h>
 
 
-
-
-
 //IMGUI
 #include "imgui.h"
 #include "imgui_impl_sdl3.h"
 #include "imgui_impl_sdlgpu3.h"
 #include "imgui_freetype.h"
-
-
-//rapidjson
-#include "rapidjson/document.h"
-#include "rapidjson/writer.h"
-#include "rapidjson/stringbuffer.h"
-#include "rapidjson/prettywriter.h"
-#include "rapidjson/istreamwrapper.h"
-
 
 
 //meshoptimizer

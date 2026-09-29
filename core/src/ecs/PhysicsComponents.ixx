@@ -12,6 +12,7 @@ module;
 
 export module PhysicsComponents;
 
+import GLM;
 import Jolt;
 import Flecs;
 
@@ -162,3 +163,25 @@ private:
 
 
 ExcludeObjectLayerFilter layerFilter(Layers::Sensors);
+
+
+export struct RigidBodyDesc {
+
+	float               mass = 50.0f;
+	float               friction = 0.2f;   // Jolt default
+	float               restitution = 0.0f;
+	float               linearDamping = 0.05f;
+	float               angularDamping = 0.05f;
+	float               gravityFactor = 1.0f;
+
+	glm::vec3           linearVelocity{ 0.0f }; //Maybe use JPH here ?
+	glm::vec3           angularVelocity{ 0.0f }; //Maybe use JPH here ?
+
+	JPH::EMotionQuality motionQuality = JPH::EMotionQuality::Discrete;
+	JPH::EAllowedDOFs   allowedDOFs = JPH::EAllowedDOFs::All;
+	JPH::EMotionType    motionType = JPH::EMotionType::Dynamic;
+	JPH::ObjectLayer    layer = Layers::MOVING;
+	bool				activation = true;
+	bool                allowSleeping = true;
+};
+

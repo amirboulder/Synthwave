@@ -10,6 +10,7 @@ export module EntityCreator;
 import GLM;
 import Components;
 import GraphicsComponents;
+import PhysicsComponents;
 import EntityFactory;
 import ActorBehaviors;
 
@@ -18,9 +19,9 @@ export struct EntityCreationCommand {
 	std::string entityName;
 	flecs::entity entityParent;
 	Transform transform;
-	glm::vec3 linearVelocity = glm::vec3(0);
-	glm::vec3 angularVelocity = glm::vec3(0);
 	EntityType entityType = EntityType::Empty;
+	RigidBodyDesc rigidBodyDesc;
+
 
 };
 
@@ -85,7 +86,7 @@ public:
 				case EntityType::Cylinder:
 					break;
 				case EntityType::Sphere:
-					EntityFactory::createSphereEntity(ecs, command.entityParent, command.entityName, command.transform, command.linearVelocity, command.angularVelocity);
+					EntityFactory::createSphereEntity(ecs, command.entityParent, command.entityName, command.transform, command.rigidBodyDesc);
 					break;
 				case EntityType::Mountain:
 					break;

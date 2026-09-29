@@ -1,9 +1,5 @@
 #pragma once
 
-
-#include "../../core/src/Serialization/serialization.hpp"
-#include "../../core/src/ecs/RegisterReflectionData.hpp"
-
 #include "SceneTree.hpp"
 #include "RagdollBuilder.hpp"
 #include "editorMode.hpp"
@@ -36,8 +32,7 @@ public:
 	Editor(flecs::world& ecs)
 		: ecs(ecs)
 	{
-		registerReflectionData(ecs);
-
+		
 		registerFreeCam();
 
 		ecs.component<HighlightedEntRef>().add(flecs::Singleton);

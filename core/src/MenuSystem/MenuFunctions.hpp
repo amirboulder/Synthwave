@@ -47,7 +47,7 @@ namespace Menu {
         };
 
         // --- Buttons --- 
-        //Button clicks emitt commands  which will be processed next frame 
+        //Button clicks emit commands  which will be processed next frame 
         if (CenteredButton("New Game", 0.0f)) {
 
             ecs.entity().set<UICommand>({ UICommandType::NewGame });

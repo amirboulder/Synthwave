@@ -39,7 +39,7 @@ export enum class DefaultAssets {
 	CAPSULE,
 	CYLINDER,
 	BOXCAR,
-	ROBOT,	//TODO This should be a game asset
+	ROBOT,	//TODO humanoid robot
 	MOUNTAIN, //TODO This should be a game asset
 };
 
