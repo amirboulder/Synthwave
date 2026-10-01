@@ -15,15 +15,14 @@ public:
 	Serializer& serde;
 	MenuSystem& menuSys;
 	Editor& editor;
-	Scene& scene;
 	TimeManager& time;
 
 	flecs::system processUICommandsSys;
 
 	bool & running ;
 
-	StateManager(flecs::world& ecs,Renderer& renderer, Physics& physics,Serializer & serde ,MenuSystem & menuSys,Editor & editor ,TimeManager & time,Scene& scene ,bool& running)
-		: ecs(ecs), renderer(renderer), physics(physics), serde(serde), menuSys(menuSys), editor(editor), time(time), scene(scene), running(running)
+	StateManager(flecs::world& ecs,Renderer& renderer, Physics& physics,Serializer & serde ,MenuSystem & menuSys,Editor & editor ,TimeManager & time, bool& running)
+		: ecs(ecs), renderer(renderer), physics(physics), serde(serde), menuSys(menuSys), editor(editor), time(time), running(running)
 	{
 		registerHooks();
 

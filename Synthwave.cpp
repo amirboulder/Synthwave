@@ -24,6 +24,8 @@ int main(int argc, char* argv[])
 
 	TransformPropagation transformPropagation(ecs);
 
+	AiSystems aiSystems(ecs);
+
 	AssetLibrary assetLib(ecs);
 	AssetManager assetManager(ecs, assetLib.manifest);
 
@@ -31,13 +33,11 @@ int main(int argc, char* argv[])
 
 	MenuSystem menuSys(ecs);
 
-	Scene scene(ecs);
-
 	Serializer serializer(ecs);
 
 	Editor editor(ecs);
 
-	StateManager stateManager(ecs, renderer, physics, serializer, menuSys, editor, time, scene, running);
+	StateManager stateManager(ecs, renderer, physics, serializer, menuSys, editor, time, running);
 
 	EntityCreator entityCreator(ecs);
 

@@ -53,17 +53,15 @@ import Texture;
 import Material;
 import RenderUtil;
 
+import AiSystems;
+
 import GameMain;
 
 #include "core/src/pch.h"
 
 #include "core/src/renderer/renderer.hpp"
 
-#include "game/src/gameObjects.hpp"
-
 #include "core/src/physics/physics.hpp"
-
-#include "core/src/AI/AI.hpp"
 
 #include "core/src/MenuSystem/MenuSystem.hpp"
 
