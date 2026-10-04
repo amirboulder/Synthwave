@@ -1438,9 +1438,7 @@ public:
 		AssetManager* assetManger = ecs.get<AssetManagerRef>().assetManager;
 
 		uint64_t pipelineID = getPipelineEntityId(ecs, "pipelineSolid-Wireframe");
-
 		if (pipelineID == 0) {
-
 			LogWarn(LOG_APP, "Mountain will be created with default pipeline because pipelineID is zero");
 		}
 

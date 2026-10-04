@@ -52,7 +52,7 @@ struct VertexOutput
     float3 worldPos : WORLD_Position;
     float3 normal : NORMAL;
     float2 texCoords : TextureCoords;
-    float3 barycentric : BARYCENTRIC;
+  //  float3 barycentric : BARYCENTRIC;
     nointerpolation uint32_t materialIndex;
 };
 
@@ -65,8 +65,8 @@ VertexOutput vertexMain(VertexInput input, uint vertexID: SV_VertexID, uint inst
     float3x3 normalMat = (float3x3)perMeshData[globalInstanceID].normalMatrix;
 
     // Derive barycentric from vertex index within triangle
-    uint localID = vertexID % 3;
-    float3 bary = float3(float(localID == 0), float(localID == 1), float(localID == 2));
+   // uint localID = vertexID % 3;
+   // float3 bary = float3(float(localID == 0), float(localID == 1), float(localID == 2));
 
     VertexOutput output;
 
@@ -79,7 +79,7 @@ VertexOutput vertexMain(VertexInput input, uint vertexID: SV_VertexID, uint inst
 
     output.texCoords = input.texCoords;
     output.materialIndex = perSubmeshData[subMeshIndex].materialIndex;
-    output.barycentric = bary;
+    //output.barycentric = 0;
     return output;
 }
 
@@ -126,7 +126,7 @@ layout(set = 2, binding = 4) StructuredBuffer<DirectionalLight> directionalLight
 layout(set = 2, binding = 5) StructuredBuffer<DirectionalLight> pointLights;
 
 [shader("fragment")]
-float4 fragmentMain(VertexOutput fragInput) : SV_Target
+float4 fragmentMain(VertexOutput fragInput, float3 bary: SV_Barycentrics) : SV_Target
 {
 
     // Hardcoded visual parameters
@@ -135,7 +135,7 @@ float4 fragmentMain(VertexOutput fragInput) : SV_Target
     float lineWidth = 1.8;
     // float fillOpacity = 1.0;
 
-    float3 bary = fragInput.barycentric;
+   // float3 bary = fragInput.barycentric;
 
     // Calculate screen-space derivatives to get actual pixel distances
     float3 dBary = fwidth(bary);

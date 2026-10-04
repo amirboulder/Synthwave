@@ -296,10 +296,15 @@ struct Renderer {
 		//TODO debug mode should come from a config file
 		bool debugMode = true;
 
+		VkPhysicalDeviceFragmentShaderBarycentricFeaturesKHR baryFeatures = {};
+		baryFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADER_BARYCENTRIC_FEATURES_KHR;
+		baryFeatures.pNext = NULL;
+		baryFeatures.fragmentShaderBarycentric = VK_TRUE;
+
 		// Enable shaderDrawParameters via Vulkan 1.1 features struct.
 		VkPhysicalDeviceVulkan11Features features11 = {};
 		features11.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES;
-		features11.pNext = NULL;
+		features11.pNext = &baryFeatures;
 		features11.shaderDrawParameters = VK_TRUE;
 
 		const char* requiredDeviceExtensions[] = {
