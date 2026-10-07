@@ -9,6 +9,7 @@ std::unordered_map<std::string, entUpdateFn> updateFunctions{
 	{"ragdollUpdateUsingMotors", Scripts::ragdollUpdateUsingMotors},
 
 	{"updateRagdollMotor", Scripts::updateRagdollMotor},
+	{"updateRagdollInPlaceMotorPinned", Scripts::updateRagdollInPlaceMotorPinned},
 	{"updateRagdollForce", Scripts::updateRagdollForce},
 
 	{"updateRagdollKinematicRootMotionLoop", Scripts::updateRagdollKinematicRootMotionLoop},

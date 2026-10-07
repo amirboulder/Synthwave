@@ -291,15 +291,8 @@ export namespace Scripts {
 		physicsSystem.GetBodyInterface().SetRotation(rootID, characterRot, JPH::EActivation::Activate);
 
 		pose.SetRootOffset(root_offset);
-		pose.CalculateJointMatrices();
-
-
-		pose.CalculateJointStates();
 
 		ragdoll->DriveToPoseUsingMotors(pose); //This will active motors
-
-		//hipConstraint->SetTargetPositionCS(Vec3::sZero());
-		//hipConstraint->SetTargetOrientationCS(characterRot);
 
 	}
 
@@ -326,9 +319,6 @@ export namespace Scripts {
 		JPH::BodyID rootID = ragdoll->GetBodyID(0);
 
 		pose.SetRootOffset(root_offset);
-		pose.CalculateJointMatrices();
-
-		pose.CalculateJointStates();
 
 		ragdoll->DriveToPoseUsingMotors(pose); //This will active motors
 
@@ -813,12 +803,6 @@ export namespace Scripts {
 		// Advance animation time
 		animTime += dt;
 
-		//// Loop animation if needed
-		//float animDuration = animation->GetDuration();
-		//if (animTime > animDuration) {
-		//	animTime = fmod(animTime, animDuration);
-		//}
-		
 		//Just getting the first key frame of the animation
 		animation->Sample(0.0f, pose);
 		
@@ -879,8 +863,6 @@ export namespace Scripts {
 
 	void updateRagdollPD(flecs::world& ecs, flecs::entity self) {
 
-		JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
-		JPH::BodyInterface& bi = physicsSystem.GetBodyInterface();
 
 		JPH::Ragdoll* ragdoll = self.get<JoltRagdoll>().ragdollPtr;
 		JPH::SkeletalAnimation* animation = self.get<JoltAnimation>().animationPtr;
@@ -888,24 +870,13 @@ export namespace Scripts {
 		JPH::Vec3& root_offset = self.get_mut<JoltPose>().root_offset;
 
 		float& animTime = self.get_mut<AnimationTime>().time;
-		float dt = ecs.delta_time();
-
-		// Advance animation time
+	
+		const float dt = 1.0f / 60.0f;
 		animTime += dt;
 
-		// Loop animation if needed
-		float animDuration = animation->GetDuration();
-		if (animTime > animDuration) {
-			animTime = fmod(animTime, animDuration);
-			return;
-		}
-		// Position ragdoll
-		//animation->Sample(animTime, pose);
-		animation->Sample(0.0f, pose);
-
+		animation->Sample(animTime, pose);
 
 		JPH::SkeletonPose::JointState& joint = pose.GetJoint(0);
-
 
 		JPH::BodyID rootID = ragdoll->GetBodyID(0);
 
@@ -940,12 +911,13 @@ export namespace Scripts {
 		JPH::RVec3 root_offset;
 		JPH::SkeletonPose::JointState& joint = pose.GetJoint(0);
 
-		joint.mTranslation = JPH::Vec3::sZero(); // All the translation goes into the root offset
+		joint.mTranslation = JPH::Vec3::sZero();
 		ragdoll->GetRootTransform(root_offset, joint.mRotation);
 
 		pose.SetRootOffset(root_offset);
-		pose.CalculateJointMatrices();
+
 #ifdef JPH_DEBUG_RENDERER
+		pose.CalculateJointMatrices();
 		pose.Draw({}, JPH::DebugRenderer::sInstance);
 #endif 
 		ragdoll->DriveToPoseUsingMotors(pose);
@@ -1020,7 +992,7 @@ export namespace Scripts {
 		ragdoll->DriveToPoseUsingKinematics(pose, dt);
 	}
 
-	// Ragdoll runs in place, driven to pose using Kenematics
+	// Ragdoll runs in place, driven to pose using Kinematics
 	//This overwrites the root position
 	void updateRagdollInPlaceKinematicPinned(flecs::world& ecs, flecs::entity self) {
 
@@ -1051,6 +1023,42 @@ export namespace Scripts {
 #endif
 
 		ragdoll->DriveToPoseUsingKinematics(pose, dt);
+	}
+
+	// Ragdoll runs in place, driven to pose using Motors
+	//This overwrites the root position
+	void updateRagdollInPlaceMotorPinned(flecs::world& ecs, flecs::entity self) {
+
+		JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
+		JPH::BodyInterface& bi = physicsSystem.GetBodyInterface();
+
+		JPH::Ragdoll* ragdoll = self.get<JoltRagdoll>().ragdollPtr;
+		JPH::SkeletalAnimation* animation = self.get<JoltAnimation>().animationPtr;
+		JPH::SkeletonPose& pose = self.get_mut<JoltPose>().pose;
+		JPH::Vec3& root_offset = self.get_mut<JoltPose>().root_offset;
+
+		float& animTime = self.get_mut<AnimationTime>().time;
+		const float dt = 1.0f / 60.0f;
+
+		animTime += dt;
+		animation->Sample(animTime, pose);
+
+		JPH::SkeletonPose::JointState& joint = pose.GetJoint(0);
+		joint.mTranslation = JPH::Vec3::sZero(); // strip baked root translation
+		pose.SetRootOffset(root_offset);
+
+		//bi.SetPosition(ragdoll->GetBodyID(0), root_offset, JPH::EActivation::Activate);
+
+		bi.AddForce(ragdoll->GetBodyID(0), root_offset, JPH::EActivation::Activate);
+
+
+
+#ifdef JPH_DEBUG_RENDERER
+		pose.CalculateJointMatrices();
+		pose.Draw({}, JPH::DebugRenderer::sInstance);
+#endif
+
+		ragdoll->DriveToPoseUsingMotors(pose);
 	}
 
 	//Updates ragdoll using sePosition allowing the ragdoll to move in the world using animationData,
