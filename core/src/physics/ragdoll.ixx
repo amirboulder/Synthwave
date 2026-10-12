@@ -36,6 +36,47 @@ export enum class Attachment
 };
 
 
+export struct RagdollInertia {
+	JPH::Mat44 inertia;   // world space, about pivot (only 3x3 part is meaningful)
+	JPH::Vec3  com;       // whole-body center of mass
+	float      totalMass;
+};
+
+// Indices into the Human.tof skeleton. -1 means the joint was not resolved.
+// spine4 is C_Spine_sjnt_4; the asset has no spine joint 3.
+export struct HumanoidJointIndices {
+
+	int8_t hips = -1;
+
+	int8_t upperLegR = -1;
+	int8_t lowerLegR = -1;
+	int8_t ankleR = -1;
+
+	int8_t upperLegL = -1;
+	int8_t lowerLegL = -1;
+	int8_t ankleL = -1;
+
+	int8_t spine0 = -1;
+	int8_t spine1 = -1;
+	int8_t spine2 = -1;
+	int8_t spine4 = -1;
+
+	int8_t clavicleL = -1;
+	int8_t upperArmL = -1;
+	int8_t lowerArmL = -1;
+	int8_t wristL = -1;
+
+	int8_t clavicleR = -1;
+	int8_t upperArmR = -1;
+	int8_t lowerArmR = -1;
+	int8_t wristR = -1;
+
+	int8_t neck0 = -1;
+	int8_t neck1 = -1;
+	int8_t neck2 = -1;
+	int8_t head = -1;
+};
+
 
 export class RagdollLoader {
 
@@ -1081,5 +1122,142 @@ export namespace ragdoll {
 		return settings;
 
 	}
+
+	//export int8_t findJointIndexByName(JPH::Skeleton* skeleton, std::string_view name) {
+
+	//	for (int i = 0; i < skeleton->GetJointCount() ; ++i)
+	//	{
+	//		if (std::strcmp(skeleton->GetJoint(i).mName.c_str(), name.data()) == 0) return i;
+	//		return -1;
+	//	}
+	//}
+
+	//Only works for Human.tof for now
+	export HumanoidJointIndices buildHumanoidJointIndices(JPH::Skeleton* skeleton) {
+
+		HumanoidJointIndices joints;
+
+		joints.hips = skeleton->GetJointIndex("hipsBone");
+
+		joints.upperLegR = skeleton->GetJointIndex("R_Leg_sjnt_0");
+		joints.lowerLegR = skeleton->GetJointIndex("R_Leg_sjnt_1");
+		joints.ankleR = skeleton->GetJointIndex("R_Foot_sjnt_0");
+
+		joints.upperLegL = skeleton->GetJointIndex("L_Leg_sjnt_0");
+		joints.lowerLegL = skeleton->GetJointIndex("L_Leg_sjnt_1");
+		joints.ankleL = skeleton->GetJointIndex("L_Foot_sjnt_0");
+
+		joints.spine0 = skeleton->GetJointIndex("C_Spine_sjnt_0");
+		joints.spine1 = skeleton->GetJointIndex("C_Spine_sjnt_1");
+		joints.spine2 = skeleton->GetJointIndex("C_Spine_sjnt_2");
+		joints.spine4 = skeleton->GetJointIndex("C_Spine_sjnt_4");
+
+		joints.clavicleL = skeleton->GetJointIndex("L_Clavicle_sjnt_0");
+		joints.upperArmL = skeleton->GetJointIndex("L_Arm_sjnt_0");
+		joints.lowerArmL = skeleton->GetJointIndex("L_Arm_sjnt_1");
+		joints.wristL = skeleton->GetJointIndex("L_Wrist_sjnt_0");
+
+		joints.clavicleR = skeleton->GetJointIndex("R_Clavicle_sjnt_0");
+		joints.upperArmR = skeleton->GetJointIndex("R_Arm_sjnt_0");
+		joints.lowerArmR = skeleton->GetJointIndex("R_Arm_sjnt_1");
+		joints.wristR = skeleton->GetJointIndex("R_Wrist_sjnt_0");
+
+		joints.neck0 = skeleton->GetJointIndex("C_Neck_sjnt_0");
+		joints.neck1 = skeleton->GetJointIndex("C_Neck_sjnt_1");
+		joints.neck2 = skeleton->GetJointIndex("C_Neck_sjnt_2");
+		joints.head = skeleton->GetJointIndex("C_Head_sjnt_0");
+
+		return joints;
+	}
+
+	export float getHipsFromSolesDist(JPH::Ragdoll* ragdoll,
+		const HumanoidJointIndices joints,
+		JPH::BodyInterface& bi) {
+
+		float minSoleY = FLT_MAX;
+		for (int fi : { joints.ankleL, joints.ankleR }) {
+			if (fi < 0) continue;
+			JPH::BodyID footID = ragdoll->GetBodyID(fi);
+			JPH::AABox wb = bi.GetTransformedShape(footID).GetWorldSpaceBounds();
+			minSoleY = std::min(minSoleY, wb.mMin.GetY());
+		}
+
+		float hipComY = bi.GetCenterOfMassPosition(ragdoll->GetBodyID(0)).GetY();
+
+		return hipComY - minSoleY;
+	}
+
+	export RagdollInertia computeRagdollInertia(
+		JPH::Ragdoll* ragdoll,
+		const JPH::BodyLockInterface& lockInterface,
+		JPH::Vec3 pivot)
+	{
+		RagdollInertia result{ JPH::Mat44::sZero(), JPH::Vec3::sZero(), 0.0f };
+
+		for (JPH::BodyID id : ragdoll->GetBodyIDs())
+		{
+			const JPH::Body* body = lockInterface.TryGetBody(id);
+			if (!body || !body->IsDynamic()) continue;
+
+			float m = 1.0f / body->GetMotionProperties()->GetInverseMass();
+			JPH::Vec3 bodyCom = JPH::Vec3(body->GetCenterOfMassPosition());
+
+			// Spin about its own center of mass (world space)
+			JPH::Mat44 inertiaBody = body->GetInverseInertia().Inversed3x3();
+
+			// Swing about the pivot (parallel axis term)
+			JPH::Vec3 r = bodyCom - pivot;
+			JPH::Mat44 outer(
+				JPH::Vec4(r * r.GetX(), 0.0f),
+				JPH::Vec4(r * r.GetY(), 0.0f),
+				JPH::Vec4(r * r.GetZ(), 0.0f),
+				JPH::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
+			JPH::Mat44 swing = (JPH::Mat44::sScale(r.LengthSq()) - outer) * m;
+			result.inertia = result.inertia + inertiaBody + swing;
+			result.totalMass += m;
+			result.com += bodyCom * m;
+		}
+		if (result.totalMass > 0.0f)
+			result.com /= result.totalMass;
+		return result;
+	}
+
+
+	export void MoveAndRotateRagdoll(JPH::Ragdoll* ragdoll, JPH::BodyInterface& bi, const JPH::Vec3& desiredPos, const JPH::Quat& desiredRot, const JPH::EActivation& activation) {
+
+		JPH::BodyID rootID = ragdoll->GetBodyID(0);
+		JPH::Vec3  currentRoot = bi.GetPosition(rootID);
+		JPH::RVec3  delta = desiredPos - currentRoot;
+		for (JPH::BodyID id : ragdoll->GetBodyIDs()) {
+			JPH::RVec3 p = bi.GetPosition(id);
+			JPH::Quat  q = bi.GetRotation(id);
+			bi.SetPositionAndRotation(id, p + delta,
+				desiredRot * q,
+				activation);
+		}
+	}
+
+
+	export JPH::AABox getRagdollBoundingBox(JPH::Ragdoll* ragdoll, JPH::BodyInterface& bi) {
+		JPH::AABox boundingBox; // starts invalid: mMin = FLT_MAX, mMax = -FLT_MAX
+
+		for (JPH::BodyID id : ragdoll->GetBodyIDs()) {
+			JPH::AABox wb = bi.GetTransformedShape(id).GetWorldSpaceBounds();
+			boundingBox.Encapsulate(wb);
+		}
+
+		return boundingBox;
+	}
+
+	export void buildRagdollFilter(JPH::Ragdoll* ragdoll, JPH::IgnoreMultipleBodiesFilter& filter) {
+
+		filter.Reserve(ragdoll->GetBodyCount());
+		for (JPH::BodyID id : ragdoll->GetBodyIDs()) {
+
+			filter.IgnoreBody(id);
+
+		}
+	}
+
 
 }

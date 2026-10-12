@@ -552,7 +552,7 @@ public:
 		ragdoll->AddToPhysicsSystem(JPH::EActivation::Activate);
 		ragdoll->SetGroupID(static_cast<uint32_t>(entity.id()));
 
-		JPH::AABox ragdollAABox = Utils::Phys::getRagdollBoundingBox(ragdoll, bi);
+		JPH::AABox ragdollAABox = ragdoll::getRagdollBoundingBox(ragdoll, bi);
 
 		
 		// Initialize pose
@@ -562,8 +562,10 @@ public:
 		JPH::RVec3 desiredPos(transform.position.x, transform.position.y, transform.position.z);
 		JPH::Quat   desiredRot = JPH::Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
 
-		Utils::Phys::MoveAndRotateRagdoll(ragdoll, bi, desiredPos, desiredRot, JPH::EActivation::Activate);
-		float HipsFromSolesDist = Utils::Phys::getHipsFromSolesDist(ragdoll, ragdollSettings->GetSkeleton(), bi);
+		HumanoidJointIndices jointIndices = ragdoll::buildHumanoidJointIndices(ragdollSettings->GetSkeleton());
+
+		ragdoll::MoveAndRotateRagdoll(ragdoll, bi, desiredPos, desiredRot, JPH::EActivation::Activate);
+		float HipsFromSolesDist = ragdoll::getHipsFromSolesDist(ragdoll, jointIndices, bi);
 
 
 		for (JPH::BodyID id : ragdoll->GetBodyIDs()) {
@@ -670,7 +672,7 @@ public:
 		JPH::IgnoreMultipleBodiesFilter* filter = new JPH::IgnoreMultipleBodiesFilter;
 
 		entity.set<JoltRagdollFilter>({ filter });
-		Utils::Phys::buildRagdollFilter(ragdoll, *filter);
+		ragdoll::buildRagdollFilter(ragdoll, *filter);
 
 		JPH::Ref<JPH::SixDOFConstraint> hipConstraint = dynamic_cast<JPH::SixDOFConstraint*>(bi.CreateConstraint(&settings, characterBodyID, hipBodyID));
 
@@ -678,6 +680,7 @@ public:
 
 		entity.set<PhysicsConstraint>({ hipConstraint });
 		entity.set<JoltRagdoll>({ ragdoll });
+		entity.set<HumanoidJointIndices>(jointIndices);
 		entity.set<JoltPose>({ mPose, GLMVec3ToJPH(transform.position)});
 		entity.set<JoltAnimation>({ animationList.find("idle")}); //this can be relationship eventually once we want animation blending 
 		entity.set<JoltAnimationList>(std::move(animationList));
@@ -688,7 +691,7 @@ public:
 
 
 	//creates jolts Human.tof 
-	static bool createRagdollForceEntity(
+	static bool createRagdollEntityPD(
 		flecs::world& ecs,
 		const flecs::entity parent,
 		const std::string name,
@@ -697,6 +700,8 @@ public:
 
 		if (!validateName(ecs, parent, name)) return false;
 		if (!validateTransform(transform, name.c_str())) return false;
+
+		AssetManager* assetManager = ecs.get<AssetManagerRef>().assetManager;
 
 		JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
 		JPH::BodyInterface& bi = physicsSystem.GetBodyInterface();
@@ -705,13 +710,19 @@ public:
 			RagdollLoader::load("assets/ragdolls/Human.tof", JPH::EMotionType::Dynamic, ragdollScaleDefault);
 
 		if (!ragdollSettings) {
-
 			LogError(LOG_PHYSICS, "ragdollSettings is null for entity %s", name.c_str());
 			return false;
 		}
 
+		//TODO animation List could be shared among ragdolls.
+		JoltAnimationList animationList;
+		if (!loadPhysicsAnimations(assetManager, animationList, name)) {
+			LogError(LOG_APP, "Failed to load animations for entity %s", name.c_str());
+			return false;
+		}
+
 		const flecs::entity entity = ecs.entity(name.c_str())
-			.set<EntityType>(EntityType::RagdollForce)
+			.set<EntityType>(EntityType::RagdollPD)
 			.add<DynamicEnt>()
 			.set<Transform>(transform)
 			.set<AnimationTime>({})
@@ -720,42 +731,25 @@ public:
 
 		if (!validateEntityCreation(entity, name)) return false;
 
-		JPH::SkeletonPose mPose;
+		
 
 		JPH::Ragdoll* ragdoll = ragdollSettings->CreateRagdoll(0, entity.id(), &physicsSystem);
 		ragdoll->AddToPhysicsSystem(JPH::EActivation::Activate);
 		ragdoll->SetGroupID(static_cast<uint32_t>(entity.id()));
+		JPH::BodyID ragdollRootId = ragdoll->GetBodyID(0);
 
-		LogDebug(LOG_APP, "Human.tof Ragdoll body part count : %zu", ragdoll->GetBodyCount());
-		LogDebug(LOG_APP, "Human.tof Ragdoll GetConstraintCount :  : %zu", ragdoll->GetConstraintCount());
-		LogDebug(LOG_APP, "Human.tof GetJointCount : %d", ragdollSettings->GetSkeleton()->GetJointCount());
-
-		// Load animation (same scale as ragdoll so pose bone offsets match body positions)
-		JPH::SkeletalAnimation* neutralAnimation =
-			AnimationLoader::load("assets/ragdolls/neutral.tof", ragdollScaleDefault);
-		if (!neutralAnimation) {
-			LogError(LOG_PHYSICS, "failed loading animation for entity %s", name.c_str());
-			return false;
-		}
-
-		// Initialize pose
-		mPose.SetSkeleton(ragdollSettings->GetSkeleton());
-		neutralAnimation->Sample(0.0f, mPose); //Setting the pose to this makes it a valid pose
-		JPH::Vec3 rootOffset = mPose.GetRootOffset();
+		JPH::SkeletonPose mPose;
+		JPH::Skeleton* skel = ragdollSettings->GetSkeleton();
+		mPose.SetSkeleton(skel); // Initialize pose
 
 		JPH::RVec3 desiredPos(transform.position.x, transform.position.y, transform.position.z);
 		JPH::Quat   desiredRot = JPH::Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
 
-		JPH::BodyID rootID = ragdoll->GetBodyID(0);
-		JPH::RVec3  currentRoot = bi.GetPosition(rootID);
-		JPH::RVec3  delta = desiredPos - currentRoot;
-		for (JPH::BodyID id : ragdoll->GetBodyIDs()) {
-			JPH::RVec3 p = bi.GetPosition(id);
-			JPH::Quat  q = bi.GetRotation(id);
-			bi.SetPositionAndRotation(id, p + delta,
-				desiredRot * q,
-				JPH::EActivation::Activate);
-		}
+		
+		HumanoidJointIndices jointIndices = ragdoll::buildHumanoidJointIndices(skel);
+
+		ragdoll::MoveAndRotateRagdoll(ragdoll, bi, desiredPos, desiredRot, JPH::EActivation::Activate);
+		float HipsFromSolesDist = ragdoll::getHipsFromSolesDist(ragdoll, jointIndices, bi);
 		
 		for (JPH::BodyID id : ragdoll->GetBodyIDs()) {
 
@@ -763,182 +757,19 @@ public:
 
 		}
 
-		/////////////////////////////////////
-		// 	//TOOD extract this pattern
-		//Find the distance from hipToSoles
-		JPH::Skeleton* skel = ragdollSettings->GetSkeleton();
-		auto findJoint = [&](const char* name) -> int {
-			for (int i = 0, n = (int)skel->GetJointCount(); i < n; ++i)
-				if (std::strcmp(skel->GetJoint(i).mName.c_str(), name) == 0) return i;
-			return -1;
-		};
-
-		int footL = findJoint("L_Foot_sjnt_0");
-		int footR = findJoint("R_Foot_sjnt_0");
-
-		float minSoleY = FLT_MAX;
-		for (int fi : { footL, footR }) {
-			if (fi < 0) continue;
-			JPH::BodyID footID = ragdoll->GetBodyID(fi);
-			JPH::AABox wb = bi.GetTransformedShape(footID).GetWorldSpaceBounds();
-			minSoleY = std::min(minSoleY, wb.mMin.GetY());
-		}
-
-		float hipComY = desiredPos.GetY();                 // hip COM after the move
-		float hipsFromSoles = hipComY - minSoleY;          // > 0
-		
-	
-
 		JPH::IgnoreMultipleBodiesFilter* filter = new JPH::IgnoreMultipleBodiesFilter;
+		ragdoll::buildRagdollFilter(ragdoll, *filter);
 
 		entity.set<JoltRagdollFilter>({ filter });
-		Utils::Phys::buildRagdollFilter(ragdoll, *filter);
-
-		JPH::BodyID hipID = ragdoll->GetBodyID(0);
-		
-		////Create an Anchor Body and constrain it to the hip
-		//JPH::BodyCreationSettings anchorSettings;
-		//anchorSettings.SetShape(new JPH::SphereShape(0.1f));
-		//anchorSettings.mMotionType = JPH::EMotionType::Dynamic;
-		//anchorSettings.mObjectLayer = Layers::CHARACTER_ANCHOR;
-		//anchorSettings.mIsSensor = true;
-		//anchorSettings.mPosition = bi.GetPosition(hipID);
-
-		//JPH::BodyID anchorBodyID = bi.CreateAndAddBody(anchorSettings, JPH::EActivation::Activate);
-
-		//JPH::FixedConstraintSettings hipConstraintSettings;
-		//hipConstraintSettings.mSpace = EConstraintSpace::LocalToBodyCOM;
-		//hipConstraintSettings.mPoint1 = JPH::Vec3::sZero();
-		//hipConstraintSettings.mPoint2 = JPH::Vec3::sZero();
-
-		//Ref<FixedConstraint> hipConstraint = dynamic_cast<FixedConstraint*>(bi.CreateConstraint(&hipConstraintSettings, anchorBodyID, hipID));
-		//physicsSystem.AddConstraint(hipConstraint);
-
 		entity.set<JoltRagdoll>({ ragdoll});
-		
-		entity.set<JoltPose2>({ mPose, hipsFromSoles });
-		entity.set<JoltAnimation>({ neutralAnimation });
-		//entity.set<JoltAnchorBody>({ anchorBodyID, hipConstraint });
+		entity.set<HumanoidJointIndices>(jointIndices);
+		entity.set<JoltPose2>({ mPose, bi.GetRotation(ragdollRootId), HipsFromSolesDist });
+		entity.set<JoltAnimation>({ animationList.find("idle") }); //this can be relationship eventually once we want animation blending 
+		entity.set<JoltAnimationList>(std::move(animationList));
 
 		return true;
 	}
 
-	//creates jolts Human.tof 
-	static bool createRagdollEntityPID(
-		flecs::world& ecs,
-		const flecs::entity parent,
-		const std::string name,
-		const Transform transform,
-		entUpdateFn updateFunction) {
-
-		if (!validateName(ecs, parent, name)) return false;
-		if (!validateTransform(transform, name.c_str())) return false;
-
-		JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
-		JPH::BodyInterface& bi = physicsSystem.GetBodyInterface();
-
-
-		constexpr float ragdollScale = 3.0f;
-
-		JPH::Ref<JPH::RagdollSettings> ragdollSettings =
-			RagdollLoader::load("assets/ragdolls/Human.tof", JPH::EMotionType::Dynamic, ragdollScale);
-
-		if (!ragdollSettings) {
-
-			LogError(LOG_PHYSICS, "ragdollSettings is null for entity %s", name.c_str());
-			return false;
-		}
-
-		const flecs::entity entity = ecs.entity(name.c_str())
-			.set<EntityType>(EntityType::RagdollForce)
-			.add<DynamicEnt>()
-			.set<Transform>(transform)
-			.set<AnimationTime>({})
-			.emplace<ActorBehavior>(updateFunction)
-			.child_of(parent);
-
-		if (!validateEntityCreation(entity, name)) return false;
-
-		JPH::SkeletonPose mPose;
-
-		JPH::Ragdoll* ragdoll = ragdollSettings->CreateRagdoll(0, entity.id(), &physicsSystem);
-		ragdoll->AddToPhysicsSystem(JPH::EActivation::Activate);
-		ragdoll->SetGroupID(static_cast<uint32_t>(entity.id()));
-
-		LogDebug(LOG_APP, "Ragdoll PID body part count : %zu", ragdoll->GetBodyCount());
-		LogDebug(LOG_APP, "Ragdoll PID GetConstraintCount :  : %zu", ragdoll->GetConstraintCount());
-		LogDebug(LOG_APP, "Ragdoll PID GetJointCount : %d", ragdollSettings->GetSkeleton()->GetJointCount());
-
-		// Load animation (same scale as ragdoll so pose bone offsets match body positions)
-		JPH::SkeletalAnimation* mAnimation =
-			AnimationLoader::load("assets/ragdolls/neutral.tof", ragdollScale);
-		if (!mAnimation) {
-			LogError(LOG_PHYSICS, "failed loading animation for entity %s", name.c_str());
-			return false;
-		}
-
-		// Initialize pose
-		mPose.SetSkeleton(ragdollSettings->GetSkeleton());
-		mAnimation->Sample(0.0f, mPose); //Setting the pose to this makes it a valid pose
-		JPH::Vec3 rootOffset = mPose.GetRootOffset();
-
-
-
-		JPH::RVec3  desiredPos(transform.position.x, transform.position.y, transform.position.z);
-		JPH::Quat   desiredRot = JPH::Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
-
-		JPH::BodyID rootID = ragdoll->GetBodyID(0);
-		JPH::RVec3  currentRoot = bi.GetPosition(rootID);
-		JPH::RVec3  delta = desiredPos - currentRoot;
-		for (JPH::BodyID id : ragdoll->GetBodyIDs()) {
-			JPH::RVec3 p = bi.GetPosition(id);
-			JPH::Quat  q = bi.GetRotation(id);
-			bi.SetPositionAndRotation(id, p + delta,
-				desiredRot * q,
-				JPH::EActivation::Activate);
-		}
-
-		for (JPH::BodyID id : ragdoll->GetBodyIDs()) {
-
-			if (!validatePhysicsBodyCreation(id, name)) return false;
-
-		}
-
-		/////////////////////////////////////
-		//Find the distance from hipToSoles
-		JPH::Skeleton* skel = ragdollSettings->GetSkeleton();
-
-		int footL = Utils::Phys::findJoint(ragdoll, skel, "L_Foot_sjnt_0");
-		int footR = Utils::Phys::findJoint(ragdoll, skel, "R_Foot_sjnt_0");
-
-
-		float minSoleY = FLT_MAX;
-		for (int fi : { footL, footR }) {
-			if (fi < 0) continue;
-			JPH::BodyID footID = ragdoll->GetBodyID(fi);
-			JPH::AABox wb = bi.GetTransformedShape(footID).GetWorldSpaceBounds();
-			minSoleY = std::min(minSoleY, wb.mMin.GetY());
-		}
-
-		float hipComY = desiredPos.GetY();                 // hip COM after the move
-		float hipsFromSoles = hipComY - minSoleY;          // > 0
-
-		
-
-		JPH::IgnoreMultipleBodiesFilter* filter = new JPH::IgnoreMultipleBodiesFilter;
-
-		entity.set<JoltRagdollFilter>({ filter });
-		Utils::Phys::buildRagdollFilter(ragdoll, *filter);
-
-		JPH::BodyID hipID = ragdoll->GetBodyID(0);
-
-		entity.set<JoltRagdoll>({ ragdoll });
-
-		entity.set<JoltPose2>({ mPose, hipsFromSoles });
-		entity.set<JoltAnimation>({ mAnimation });
-
-		return true;
-	}
 
 	static bool createRagdollEntity(
 		flecs::world& ecs,
@@ -1007,14 +838,17 @@ public:
 		JPH::RVec3 desiredPos(transform.position.x, transform.position.y, transform.position.z);
 		JPH::Quat   desiredRot = JPH::Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
 
-		Utils::Phys::MoveAndRotateRagdoll(ragdoll, bi, desiredPos, desiredRot, JPH::EActivation::Activate);
-		float HipsFromSolesDist = Utils::Phys::getHipsFromSolesDist(ragdoll, ragdollSettings->GetSkeleton(), bi);
+		HumanoidJointIndices jointIndices = ragdoll::buildHumanoidJointIndices(ragdollSettings->GetSkeleton());
+
+		ragdoll::MoveAndRotateRagdoll(ragdoll, bi, desiredPos, desiredRot, JPH::EActivation::Activate);
+		float HipsFromSolesDist = ragdoll::getHipsFromSolesDist(ragdoll, jointIndices, bi);
 
 		for (JPH::BodyID id : ragdoll->GetBodyIDs()) {
 			if (!validatePhysicsBodyCreation(id, name)) return false;
 		}
 
 		entity.set<JoltRagdoll>({ ragdoll });
+		entity.set<HumanoidJointIndices>(jointIndices);
 		entity.set<JoltPose>({ mPose, GLMVec3ToJPH(transform.position)});
 		entity.set<JoltAnimation>({ animationList.find("sprint")}); //this can be relationship eventually once we want animation blending 
 		entity.set<JoltAnimationList>(std::move(animationList));

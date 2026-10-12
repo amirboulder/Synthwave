@@ -10,7 +10,6 @@ std::unordered_map<std::string, entUpdateFn> updateFunctions{
 
 	{"updateRagdollMotor", Scripts::updateRagdollMotor},
 	{"updateRagdollInPlaceMotorPinned", Scripts::updateRagdollInPlaceMotorPinned},
-	{"updateRagdollForce", Scripts::updateRagdollForce},
 
 	{"updateRagdollKinematicRootMotionLoop", Scripts::updateRagdollKinematicRootMotionLoop},
 
@@ -65,7 +64,7 @@ public:
 		case EntityType::ProgrammaticRagdoll:
 		case EntityType::BuiltRagdoll:
 		case EntityType::Ragdoll:          // Static/Dynamic/Kinematic come from the motion type option
-		case EntityType::RagdollForce:
+		case EntityType::RagdollPD:
 		case EntityType::RagdollCharacterController:
 		case EntityType::RobotArm:
 		case EntityType::Snake:
@@ -106,7 +105,7 @@ public:
 			type == EntityType::RagdollDynamic ||
 			type == EntityType::RagdollKinematic ||
 			type == EntityType::RagdollStatic ||
-			type == EntityType::RagdollForce ||
+			type == EntityType::RagdollPD ||
 			type == EntityType::RagdollCharacterController
 			) return "🦿";
 
@@ -445,15 +444,16 @@ public:
 							s_state.selectedRagdoll, Scripts::empty);
 
 						break;
-					case EntityType::RagdollForce:
+					case EntityType::RagdollPD:
 
-						EntityFactory::createRagdollForceEntity(ecs,
+						EntityFactory::createRagdollEntityPD(ecs,
 							s_state.contextEntity,
 							s_state.childNameBuffer,
 							buildChildTransform(),
-							s_state.selectedUpdatefunc);
+							Scripts::updateRagdollPD);
 
 						break;
+
 					case EntityType::RagdollCharacterController:
 
 						EntityFactory::createRagdollCharacterControllerEntity(
@@ -609,11 +609,6 @@ public:
 			break;
 
 		case EntityType::RagdollCharacterController:
-
-			isValid = drawRagdollUpdateOptions(ecs);
-			break;
-
-		case EntityType::RagdollForce:
 
 			isValid = drawRagdollUpdateOptions(ecs);
 			break;

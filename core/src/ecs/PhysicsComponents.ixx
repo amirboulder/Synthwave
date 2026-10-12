@@ -91,6 +91,7 @@ export struct JoltPose {
 //TDO delete
 export struct JoltPose2 {
 	JPH::SkeletonPose pose;
+	JPH::Quat targetOrientation = JPH::Quat::sIdentity();
 	float hipsFromSoles = 0.0f;
 };
 
@@ -162,7 +163,7 @@ private:
 };
 
 
-ExcludeObjectLayerFilter layerFilter(Layers::Sensors);
+export ExcludeObjectLayerFilter excludeSensors(Layers::Sensors);
 
 
 export struct RigidBodyDesc {

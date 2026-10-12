@@ -103,11 +103,7 @@ public:
 				case EntityType::RobotArm:
 					break;
 				case EntityType::RagdollCharacterController:
-
 					EntityFactory::createRagdollCharacterControllerEntity(ecs, command.entityParent, command.entityName, command.transform, Scripts::updateRagdollMotor);
-
-					break;
-				case EntityType::RagdollForce:
 					break;
 				case EntityType::BuiltRagdoll:
 					break;

@@ -18,6 +18,7 @@ import PhysicsComponents;
 import GraphicsComponents;
 import PhysicsAnimation;
 import PhysicsUtil;
+import Ragdoll;
 import GLM;
 import Components;
 import PlayerComponents;
@@ -713,6 +714,7 @@ export namespace Scripts {
 		}
 
 #ifdef JPH_DEBUG_RENDERER
+		pose.CalculateJointMatrices();
 		pose.Draw({}, JPH::DebugRenderer::sInstance);
 
 		hipConstraint->DrawConstraint(JPH::DebugRenderer::sInstance);
@@ -785,109 +787,113 @@ export namespace Scripts {
 
 	const AutoRegister registerRagdollObserver{ &RegisterRagdollObserver };
 
-	void updateRagdollForce(flecs::world& ecs, flecs::entity self) {
+	//In this approach we apply force to ragdoll root to keep it standing
+	// We get the ragdoll to stay upright by applying force relative to the error targetHeight, more error = more force
+	//Similarly we apply torque to maintain the target orientation, more error  = more torque.
+	//This approach also locks the yaw for the ragdoll which is not correct but this was just an experiment
+	void updateRagdollPD(flecs::world& ecs, flecs::entity self) {
 
 		JPH::PhysicsSystem& physicsSystem = ecs.get<PhysicsSystemRef>().physicsSystem;
 		JPH::BodyInterface& bi = physicsSystem.GetBodyInterface();
+		const JPH::BodyLockInterface& biLock = physicsSystem.GetBodyLockInterface();
 
 		JPH::Ragdoll* ragdoll = self.get<JoltRagdoll>().ragdollPtr;
 		JPH::IgnoreMultipleBodiesFilter* ragdollFilter = self.get<JoltRagdollFilter>().filter;
 		JPH::SkeletalAnimation* animation = self.get<JoltAnimation>().animationPtr;
 		JPH::SkeletonPose& pose = self.get_mut<JoltPose2>().pose;
-		//JoltAnchorBody& anchor = self.get_mut<JoltAnchorBody>();
+		JPH::Quat& targetOrientation = self.get_mut<JoltPose2>().targetOrientation;
 		float hipsFromSoles = self.get_mut<JoltPose2>().hipsFromSoles;
 
 		float& animTime = self.get_mut<AnimationTime>().time;
-		float dt = ecs.delta_time();
-
-		// Advance animation time
+		const float dt = 1.0f / 60.0f;
 		animTime += dt;
-
-		//Just getting the first key frame of the animation
-		animation->Sample(0.0f, pose);
+		animation->Sample(animTime, pose);
 		
 		JPH::SkeletonPose::JointState& hipJoint = pose.GetJoint(0);
 
-		//Place the root joint on the first body so that we draw the pose in the right place
+		//Place the skeletons root joint on the ragdolls first body so that we draw the pose in the right place
 		JPH::RVec3 root_offset;
-		JPH::BodyID rootID = ragdoll->GetBodyID(0);
-		ragdoll->GetRootTransform(root_offset, hipJoint.mRotation); //Try using a different rot 
-
+		ragdoll->GetRootTransform(root_offset, hipJoint.mRotation);
 		hipJoint.mTranslation = JPH::Vec3::sZero(); // strip baked root translation
 		pose.SetRootOffset(root_offset);
-		pose.CalculateJointMatrices();
 
+		JPH::BodyID rootID = ragdoll->GetBodyID(0);
 
 		JPH::Vec3 rootPos = bi.GetPosition(rootID);
 		JPH::Quat rootRot = bi.GetRotation(rootID);
-
-		ragdoll->DriveToPoseUsingMotors(pose);
-
-
-		//Set position to distance from the ground
-		GroundInfo groundInfo = Utils::Phys::CheckGround(physicsSystem, rootPos, *ragdollFilter);
-
-		//RefConst<Shape> groundShape =  bi.GetShape(groundInfo.groundBodyID);
-
-		if (groundInfo.distanceToGround < hipsFromSoles) {
-
-			float forceMult = 50000.0f;
-
-			JPH::Vec3 toTarget = JPH::Vec3(0.0f,1.0f,0.0f);
-
-			//bi.AddForce(rootID, toTarget * forceMult);
-		}
-
-		//cout << "target Height " << targetHeight << std::endl;
-
-		//Vec3 CurrentPos = bi.GetPosition(anchor.bodyID);
-		//Vec3 targetPos = Vec3(CurrentPos.GetX(), targetHeight, CurrentPos.GetZ());
-
-		//JPH::Vec3 toTarget = targetPos - rootPos;
-		//JPH::Vec3 dirToTarget = toTarget.Normalized();
-
-		//JPH::Quat qDiff = targetRot * rootRot.Inversed();
-		//JPH::Vec3 targetDir = quatToDirection(qDiff);
+		JPH::Vec3 rootLinearVelocity = bi.GetLinearVelocity(rootID);
+		JPH::Vec3 rootAngularVelocity = bi.GetAngularVelocity(rootID);
 
 		
-
-		//bi.AddForceAndTorque(anchor.bodyID, dirToTarget * forceMult, targetDir * forceMult);
-		//bi.AddForce(anchor.bodyID, dirToTarget * forceMult);
-
-#ifdef JPH_DEBUG_RENDERER
-		pose.Draw({}, JPH::DebugRenderer::sInstance);
-
-#endif
-
-	}
-
-	void updateRagdollPD(flecs::world& ecs, flecs::entity self) {
-
-
-		JPH::Ragdoll* ragdoll = self.get<JoltRagdoll>().ragdollPtr;
-		JPH::SkeletalAnimation* animation = self.get<JoltAnimation>().animationPtr;
-		JPH::SkeletonPose& pose = self.get_mut<JoltPose>().pose;
-		JPH::Vec3& root_offset = self.get_mut<JoltPose>().root_offset;
-
-		float& animTime = self.get_mut<AnimationTime>().time;
-	
-		const float dt = 1.0f / 60.0f;
-		animTime += dt;
-
-		animation->Sample(animTime, pose);
-
-		JPH::SkeletonPose::JointState& joint = pose.GetJoint(0);
-
-		JPH::BodyID rootID = ragdoll->GetBodyID(0);
-
-		pose.SetRootOffset(root_offset);
-		pose.CalculateJointMatrices();
-
 		ragdoll->DriveToPoseUsingMotors(pose);
 
 
+		JPH::Body* rootBody = biLock.TryGetBody(rootID);
+		if (!rootBody)
+		{
+			LogError(LOG_APP, "Failed to get ragdoll root body ptr in ActorBehaviors::updateRagdollForce()");
+			return;
+		}
+
+		GroundInfo groundInfo = Utils::Phys::CheckGround(physicsSystem, rootPos, excludeSensors, *ragdollFilter);
+
+		float targetHeight = groundInfo.groundPoint.GetY() + hipsFromSoles;
+
+		JPH::Vec3 targetPos = JPH::Vec3(rootPos.GetX(), targetHeight, rootPos.GetZ());
+
+		JPH::Vec3 error = targetPos - rootPos;
+
+		const JPH::MotionProperties* mp = rootBody->GetMotionProperties();
+		float mass = 1.0f / mp->GetInverseMass();
+
+		float maxForce = 50000.0f;
+		float freqency = 3.0f;
+		float omega = 2.0f * JPH::JPH_PI * freqency;
+		float stiffness = mass * omega * omega;
+		float dampeningRatio = 0.7f;
+		float dampening = 2.0f * mass * dampeningRatio * omega;
+
+		JPH::Vec3 force = stiffness * error - dampening * rootLinearVelocity;
+
+		//This caps the force to max force
+		if (force.Length() > maxForce) {
+			force = force.Normalized() * maxForce;
+		}
+
+
+		JPH::Quat rotationError = (targetOrientation * rootRot.Conjugated()).Normalized();
+
+		JPH::Vec3 axis;
+		float angle;
+		rotationError.GetAxisAngle(axis, angle);
+		JPH::Vec3 rotError = axis * angle;
+
+		JPH::Vec3 angularVelocity = rootAngularVelocity;
+
+		float angFrequency = 2.0f;
+		float angularOmega = 2.0f * JPH::JPH_PI * angFrequency;
+		float angDampeningRatio = 0.7f;
+
+		JPH::Vec3 angularAcceleration = (angularOmega * angularOmega) * rotError
+										- (2.0f * angDampeningRatio * angularOmega) * angularVelocity;
+		//Calculate the ragdolls inertia
+		RagdollInertia ragdollInertia = ragdoll::computeRagdollInertia(ragdoll, biLock, groundInfo.groundPoint);
+
+		JPH::Vec3 torque = ragdollInertia.inertia.Multiply3x3(angularAcceleration);
+
+		float maxTorque = 50000.0f;
+		if (torque.Length() > maxTorque) {
+			torque = torque.Normalized() * maxTorque;
+		}
+
+		
+		bi.AddForceAndTorque(rootID, force, torque);
+
+
 #ifdef JPH_DEBUG_RENDERER
+		pose.CalculateJointMatrices();
 		pose.Draw({}, JPH::DebugRenderer::sInstance);
+
 #endif
 
 	}

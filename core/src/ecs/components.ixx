@@ -117,7 +117,7 @@ export enum class EntityType {
 	RagdollDynamic,
 	RagdollKinematic,
 
-	RagdollForce,
+	RagdollPD, // createRagdollEntityPD1
 	RagdollCharacterController,
 
 	RobotArm,

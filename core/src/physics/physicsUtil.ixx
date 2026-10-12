@@ -25,7 +25,11 @@ export struct GroundInfo {
 
 export namespace Utils::Phys {
 
-    export GroundInfo CheckGround(JPH::PhysicsSystem& physicsSystem,const JPH::Vec3& rayStart,const JPH::BodyFilter& filter) {
+    export GroundInfo CheckGround(
+        JPH::PhysicsSystem& physicsSystem, 
+        const JPH::Vec3& rayStart, 
+        const JPH::ObjectLayerFilter& inObjectLayerFilter, 
+        const JPH::BodyFilter& filter) {
         GroundInfo info;
 
         JPH::BodyInterface& bodyInterface = physicsSystem.GetBodyInterface();
@@ -38,7 +42,7 @@ export namespace Utils::Phys {
         JPH::RRayCast ray(rayStart, rayDirection);
         JPH::RayCastResult result;
 
-        bool didHit = physicsSystem.GetNarrowPhaseQuery().CastRay(ray, result, {}, {}, filter);
+        bool didHit = physicsSystem.GetNarrowPhaseQuery().CastRay(ray, result, {}, inObjectLayerFilter, filter);
 
         if (didHit) {
             info.groundPoint = ray.mOrigin + ray.mDirection * result.mFraction;
@@ -136,79 +140,4 @@ export namespace Utils::Phys {
         bi.SetCollisionGroup(bodyID2, characterCollisionGroup);
 
     }
-
-
-
-    export void buildRagdollFilter(JPH::Ragdoll* ragdoll, JPH::IgnoreMultipleBodiesFilter& filter) {
-
-        filter.Reserve(ragdoll->GetBodyCount());
-        for (JPH::BodyID id : ragdoll->GetBodyIDs()) {
-
-            filter.IgnoreBody(id);
-
-        }
-    }
-
-    export float getHipsFromSolesDist(JPH::Ragdoll* ragdoll, JPH::Skeleton* skel, JPH::BodyInterface& bi) {
-        
-        //Find joint by name
-        auto findJoint = [&](const char* name) -> int {
-            for (int i = 0, n = (int)skel->GetJointCount(); i < n; ++i)
-                if (std::strcmp(skel->GetJoint(i).mName.c_str(), name) == 0) return i;
-            return -1;
-        };
-
-        int footL = findJoint("L_Foot_sjnt_0");
-        int footR = findJoint("R_Foot_sjnt_0");
-
-        skel->GetJoint(footL).mParentJointIndex;
-
-        float minSoleY = FLT_MAX;
-        for (int fi : { footL, footR }) {
-            if (fi < 0) continue;
-            JPH::BodyID footID = ragdoll->GetBodyID(fi);
-            JPH::AABox wb = bi.GetTransformedShape(footID).GetWorldSpaceBounds();
-            minSoleY = std::min(minSoleY, wb.mMin.GetY());
-        }
-
-        float hipComY = bi.GetCenterOfMassPosition(ragdoll->GetBodyID(0)).GetY();
-
-        return hipComY - minSoleY;       
-    }
-
-    export uint32_t findJoint(JPH::Ragdoll* ragdoll, JPH::Skeleton* skel, std::string_view jointName) {
-
-        for (int i = 0, n = (int)skel->GetJointCount(); i < n; ++i)
-            if (std::strcmp(skel->GetJoint(i).mName.c_str(), jointName.data()) == 0) return i;
-        return -1;
-
-    }
-
-    export void MoveAndRotateRagdoll(JPH::Ragdoll* ragdoll, JPH::BodyInterface& bi, const JPH::Vec3& desiredPos, const JPH::Quat& desiredRot, const JPH::EActivation& activation) {
-
-        JPH::BodyID rootID = ragdoll->GetBodyID(0);
-        JPH::Vec3  currentRoot = bi.GetPosition(rootID);
-        JPH::RVec3  delta = desiredPos - currentRoot;
-        for (JPH::BodyID id : ragdoll->GetBodyIDs()) {
-            JPH::RVec3 p = bi.GetPosition(id);
-            JPH::Quat  q = bi.GetRotation(id);
-            bi.SetPositionAndRotation(id, p + delta,
-                desiredRot * q,
-                activation);
-        }
-    }
-
-    export JPH::AABox getRagdollBoundingBox(JPH::Ragdoll* ragdoll, JPH::BodyInterface& bi) {
-        JPH::AABox boundingBox; // starts invalid: mMin = FLT_MAX, mMax = -FLT_MAX
-
-        for (JPH::BodyID id : ragdoll->GetBodyIDs()) {
-            JPH::AABox wb = bi.GetTransformedShape(id).GetWorldSpaceBounds();
-            boundingBox.Encapsulate(wb);
-        }
-
-        return boundingBox;
-    }
-
- 
-
 }
