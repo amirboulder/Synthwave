@@ -529,6 +529,13 @@ public:
 			return false;
 		}
 
+		std::optional<HumanoidJointIndices> jointIndices = ragdoll::buildHumanoidJointIndices(ragdollSettings->GetSkeleton());
+
+		if (!jointIndices.has_value()) {
+			LogError(LOG_APP, "-1 found in jointIndices data FIX IT in createRagdollCharacterControllerEntity  when creating entity %s", name.c_str());
+			return false;
+		}
+
 		JoltAnimationList animationList;
 		if (!loadPhysicsAnimations(assetManager, animationList, name)) {
 			LogError(LOG_APP, "Failed to load animations for entity %s", name.c_str());
@@ -562,10 +569,10 @@ public:
 		JPH::RVec3 desiredPos(transform.position.x, transform.position.y, transform.position.z);
 		JPH::Quat   desiredRot = JPH::Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
 
-		HumanoidJointIndices jointIndices = ragdoll::buildHumanoidJointIndices(ragdollSettings->GetSkeleton());
+	
 
 		ragdoll::MoveAndRotateRagdoll(ragdoll, bi, desiredPos, desiredRot, JPH::EActivation::Activate);
-		float HipsFromSolesDist = ragdoll::getHipsFromSolesDist(ragdoll, jointIndices, bi);
+		float HipsFromSolesDist = ragdoll::getHipsFromSolesDist(ragdoll, jointIndices.value(), bi);
 
 
 		for (JPH::BodyID id : ragdoll->GetBodyIDs()) {
@@ -680,7 +687,7 @@ public:
 
 		entity.set<PhysicsConstraint>({ hipConstraint });
 		entity.set<JoltRagdoll>({ ragdoll });
-		entity.set<HumanoidJointIndices>(jointIndices);
+		entity.set<HumanoidJointIndices>(jointIndices.value());
 		entity.set<JoltPose>({ mPose, GLMVec3ToJPH(transform.position)});
 		entity.set<JoltAnimation>({ animationList.find("idle")}); //this can be relationship eventually once we want animation blending 
 		entity.set<JoltAnimationList>(std::move(animationList));
@@ -709,8 +716,17 @@ public:
 		JPH::Ref<JPH::RagdollSettings> ragdollSettings =
 			RagdollLoader::load("assets/ragdolls/Human.tof", JPH::EMotionType::Dynamic, ragdollScaleDefault);
 
+		JPH::Skeleton* skel = ragdollSettings->GetSkeleton();
+
 		if (!ragdollSettings) {
 			LogError(LOG_PHYSICS, "ragdollSettings is null for entity %s", name.c_str());
+			return false;
+		}
+
+		std::optional<HumanoidJointIndices> jointIndices = ragdoll::buildHumanoidJointIndices(skel);
+
+		if (!jointIndices.has_value()) {
+			LogError(LOG_APP, "-1 found in jointIndices data FIX IT in createRagdollEntityPD when creating entity %s", name.c_str());
 			return false;
 		}
 
@@ -731,7 +747,6 @@ public:
 
 		if (!validateEntityCreation(entity, name)) return false;
 
-		
 
 		JPH::Ragdoll* ragdoll = ragdollSettings->CreateRagdoll(0, entity.id(), &physicsSystem);
 		ragdoll->AddToPhysicsSystem(JPH::EActivation::Activate);
@@ -739,17 +754,17 @@ public:
 		JPH::BodyID ragdollRootId = ragdoll->GetBodyID(0);
 
 		JPH::SkeletonPose mPose;
-		JPH::Skeleton* skel = ragdollSettings->GetSkeleton();
+		
 		mPose.SetSkeleton(skel); // Initialize pose
 
 		JPH::RVec3 desiredPos(transform.position.x, transform.position.y, transform.position.z);
 		JPH::Quat   desiredRot = JPH::Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
 
 		
-		HumanoidJointIndices jointIndices = ragdoll::buildHumanoidJointIndices(skel);
+		assert(skel->GetJoint(jointIndices.value().spine0).mParentJointIndex == jointIndices.value().hips);
 
 		ragdoll::MoveAndRotateRagdoll(ragdoll, bi, desiredPos, desiredRot, JPH::EActivation::Activate);
-		float HipsFromSolesDist = ragdoll::getHipsFromSolesDist(ragdoll, jointIndices, bi);
+		float HipsFromSolesDist = ragdoll::getHipsFromSolesDist(ragdoll, jointIndices.value(), bi);
 		
 		for (JPH::BodyID id : ragdoll->GetBodyIDs()) {
 
@@ -762,7 +777,7 @@ public:
 
 		entity.set<JoltRagdollFilter>({ filter });
 		entity.set<JoltRagdoll>({ ragdoll});
-		entity.set<HumanoidJointIndices>(jointIndices);
+		entity.set<HumanoidJointIndices>(jointIndices.value());
 		entity.set<JoltPose2>({ mPose, bi.GetRotation(ragdollRootId), HipsFromSolesDist });
 		entity.set<JoltAnimation>({ animationList.find("idle") }); //this can be relationship eventually once we want animation blending 
 		entity.set<JoltAnimationList>(std::move(animationList));
@@ -789,6 +804,13 @@ public:
 
 		JPH::Ref<JPH::RagdollSettings> ragdollSettings =
 			RagdollLoader::load("assets/ragdolls/Human.tof", motionType, ragdollScaleDefault);
+
+		std::optional<HumanoidJointIndices> jointIndices = ragdoll::buildHumanoidJointIndices(ragdollSettings->GetSkeleton());
+
+		if (!jointIndices.has_value()) {
+			LogError(LOG_APP, "-1 found in jointIndices data FIX IT in createRagdollEntity when creating entity %s", name.c_str());
+			return false;
+		}
 
 		if (!ragdollSettings) {
 			LogError(LOG_PHYSICS, "ragdollSettings is null for entity %s", name.c_str());
@@ -838,17 +860,16 @@ public:
 		JPH::RVec3 desiredPos(transform.position.x, transform.position.y, transform.position.z);
 		JPH::Quat   desiredRot = JPH::Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
 
-		HumanoidJointIndices jointIndices = ragdoll::buildHumanoidJointIndices(ragdollSettings->GetSkeleton());
-
+		
 		ragdoll::MoveAndRotateRagdoll(ragdoll, bi, desiredPos, desiredRot, JPH::EActivation::Activate);
-		float HipsFromSolesDist = ragdoll::getHipsFromSolesDist(ragdoll, jointIndices, bi);
+		float HipsFromSolesDist = ragdoll::getHipsFromSolesDist(ragdoll, jointIndices.value(), bi);
 
 		for (JPH::BodyID id : ragdoll->GetBodyIDs()) {
 			if (!validatePhysicsBodyCreation(id, name)) return false;
 		}
 
 		entity.set<JoltRagdoll>({ ragdoll });
-		entity.set<HumanoidJointIndices>(jointIndices);
+		entity.set<HumanoidJointIndices>(jointIndices.value());
 		entity.set<JoltPose>({ mPose, GLMVec3ToJPH(transform.position)});
 		entity.set<JoltAnimation>({ animationList.find("sprint")}); //this can be relationship eventually once we want animation blending 
 		entity.set<JoltAnimationList>(std::move(animationList));

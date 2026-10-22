@@ -4,6 +4,7 @@ module;
 #include <iostream>
 #include <cstdint>
 #include <queue>
+#include <optional>
 
 // IntelliSense only; cl.exe never sees this. Module units skip the PCH, so they
 // get JPH types solely from the import, which IntelliSense reports as incomplete.
@@ -17,6 +18,7 @@ export module Ragdoll;
 import Logger;
 import Jolt;
 import PhysicsComponents;
+import PhysicsUtil;
 import JoltAssetStream;
 
 namespace JPH {
@@ -37,9 +39,17 @@ export enum class Attachment
 
 
 export struct RagdollInertia {
-	JPH::Mat44 inertia;   // world space, about pivot (only 3x3 part is meaningful)
-	JPH::Vec3  com;       // whole-body center of mass
-	float      totalMass;
+	JPH::Mat44 inertia = JPH::Mat44::sZero();   // world space, about pivot (only 3x3 part is meaningful)
+	JPH::Vec3  com = JPH::Vec3::sZero();     // whole-body center of mass
+	JPH::Vec3  comVelocity = JPH::Vec3::sZero();
+	float      totalMass = 0;
+};
+
+export struct FootContact {
+
+	JPH::Vec3 groundPoint = JPH::Vec3::sZero();
+	float gap = FLT_MAX;
+	bool grounded = false;
 };
 
 // Indices into the Human.tof skeleton. -1 means the joint was not resolved.
@@ -1133,7 +1143,7 @@ export namespace ragdoll {
 	//}
 
 	//Only works for Human.tof for now
-	export HumanoidJointIndices buildHumanoidJointIndices(JPH::Skeleton* skeleton) {
+	export std::optional<HumanoidJointIndices> buildHumanoidJointIndices(JPH::Skeleton* skeleton) {
 
 		HumanoidJointIndices joints;
 
@@ -1167,6 +1177,43 @@ export namespace ragdoll {
 		joints.neck2 = skeleton->GetJointIndex("C_Neck_sjnt_2");
 		joints.head = skeleton->GetJointIndex("C_Head_sjnt_0");
 
+		//Very manual way to check very bad and probe to breaking very bad!
+		bool hasError = false;
+
+		hasError |= (joints.hips == -1);
+
+		hasError |= (joints.upperLegR == -1);
+		hasError |= (joints.lowerLegR == -1);
+		hasError |= (joints.ankleR == -1);
+
+		hasError |= (joints.upperLegL == -1);
+		hasError |= (joints.lowerLegL == -1);
+		hasError |= (joints.ankleL == -1);
+
+		hasError |= (joints.spine0 == -1);
+		hasError |= (joints.spine1 == -1);
+		hasError |= (joints.spine2 == -1);
+		hasError |= (joints.spine4 == -1);
+
+		hasError |= (joints.clavicleL == -1);
+		hasError |= (joints.upperArmL == -1);
+		hasError |= (joints.lowerArmL == -1);
+		hasError |= (joints.wristL == -1);
+
+		hasError |= (joints.clavicleR == -1);
+		hasError |= (joints.upperArmR == -1);
+		hasError |= (joints.lowerArmR == -1);
+		hasError |= (joints.wristR == -1);
+
+		hasError |= (joints.neck0 == -1);
+		hasError |= (joints.neck1 == -1);
+		hasError |= (joints.neck2 == -1);
+		hasError |= (joints.head == -1);
+
+		if (hasError) {
+			return std::nullopt;
+		}
+
 		return joints;
 	}
 
@@ -1192,7 +1239,7 @@ export namespace ragdoll {
 		const JPH::BodyLockInterface& lockInterface,
 		JPH::Vec3 pivot)
 	{
-		RagdollInertia result{ JPH::Mat44::sZero(), JPH::Vec3::sZero(), 0.0f };
+		RagdollInertia result;
 
 		for (JPH::BodyID id : ragdoll->GetBodyIDs())
 		{
@@ -1201,6 +1248,8 @@ export namespace ragdoll {
 
 			float m = 1.0f / body->GetMotionProperties()->GetInverseMass();
 			JPH::Vec3 bodyCom = JPH::Vec3(body->GetCenterOfMassPosition());
+
+			JPH::Vec3 bodyLinearVelocity = body->GetLinearVelocity();
 
 			// Spin about its own center of mass (world space)
 			JPH::Mat44 inertiaBody = body->GetInverseInertia().Inversed3x3();
@@ -1213,13 +1262,43 @@ export namespace ragdoll {
 				JPH::Vec4(r * r.GetZ(), 0.0f),
 				JPH::Vec4(0.0f, 0.0f, 0.0f, 0.0f));
 			JPH::Mat44 swing = (JPH::Mat44::sScale(r.LengthSq()) - outer) * m;
+
 			result.inertia = result.inertia + inertiaBody + swing;
 			result.totalMass += m;
 			result.com += bodyCom * m;
+			result.comVelocity += m * bodyLinearVelocity;
 		}
-		if (result.totalMass > 0.0f)
+		if (result.totalMass > 0.0f) {
 			result.com /= result.totalMass;
+			result.comVelocity /= result.totalMass;
+		}
 		return result;
+	}
+
+	export FootContact checkFootContact(
+		JPH::PhysicsSystem& physicsSystem,
+		JPH::BodyInterface& bi,
+		JPH::BodyID footID,
+		const JPH::BodyFilter& ragdollFilter,
+		float contactMargin = 0.03f)
+	{
+		FootContact footContact;
+		
+		JPH::Vec3 footCom = bi.GetCenterOfMassPosition(footID);
+		GroundInfo groundInfo = Utils::Phys::CheckGround(physicsSystem, footCom, excludeSensors, ragdollFilter);
+
+		if (groundInfo.distanceToGround > 10.0f) {
+			return footContact; // Ray hit nothing
+		}
+
+		JPH::AABox footBounds = bi.GetTransformedShape(footID).GetWorldSpaceBounds();
+		float soleY = footBounds.mMin.GetY();
+
+		footContact.groundPoint = groundInfo.groundPoint;
+		footContact.gap = soleY - groundInfo.groundPoint.GetY();
+		footContact.grounded = footContact.gap < contactMargin;
+
+		return footContact;
 	}
 
 
