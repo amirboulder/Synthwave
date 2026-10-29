@@ -323,6 +323,7 @@ export struct PlayerSystems {
 
 			LogInfo(LOG_APP, "Spawned a robot %f", multiplier);
 
+			//EntityType entityType = EntityType::RagdollPD;
 			EntityType entityType = EntityType::RagdollCharacterController;
 
 			ecs.get_mut<EntityCreationQueue>()

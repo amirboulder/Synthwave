@@ -105,6 +105,9 @@ public:
 				case EntityType::RagdollCharacterController:
 					EntityFactory::createRagdollCharacterControllerEntity(ecs, command.entityParent, command.entityName, command.transform, Scripts::updateRagdollMotor);
 					break;
+				case EntityType::RagdollPD:
+					EntityFactory::createRagdollEntityPD(ecs, command.entityParent, command.entityName, command.transform, Scripts::updateRagdollPD);
+					break;
 				case EntityType::BuiltRagdoll:
 					break;
 				case EntityType::ProgrammaticRagdoll:

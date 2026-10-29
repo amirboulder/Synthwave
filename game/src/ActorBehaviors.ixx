@@ -841,28 +841,39 @@ export namespace Scripts {
 		JPH::BodyID	ankleLBodyID = ragdoll->GetBodyID(jointIndices.ankleL);
 		JPH::BodyID	ankleRBodyID = ragdoll->GetBodyID(jointIndices.ankleR);
 
-		JPH::Vec3 ankleLBodyCOM = bi.GetCenterOfMassPosition(ankleLBodyID);
-		JPH::Vec3 ankleRBodyCOM = bi.GetCenterOfMassPosition(ankleRBodyID);
+		
+		//NOTE: we're fetching this twice, once inside checkFootContact as well so maybe fix???
+		JPH::AABox footBoundsL = bi.GetTransformedShape(ankleLBodyID).GetWorldSpaceBounds();
+		JPH::AABox footBoundsR = bi.GetTransformedShape(ankleRBodyID).GetWorldSpaceBounds();
 
-		JPH::Vec3 supportCenter;
+		JPH::AABox baseOfSupport;
 
+
+	//	JPH::Vec3 supportCenter;
+
+		//Check is either foot is touching the ground.
 		FootContact footContactL = ragdoll::checkFootContact(physicsSystem, bi, ankleLBodyID, *ragdollFilter);
 		FootContact footContactR = ragdoll::checkFootContact(physicsSystem, bi, ankleRBodyID, *ragdollFilter);
 
 		JPH::Vec3 supportVelocity = JPH::Vec3::sZero();
 
 		if (footContactL.grounded && footContactR.grounded) {
-			supportCenter = (ankleLBodyCOM + ankleRBodyCOM) * 0.5f;
+
+			//STD::min/max does not work for JPH::Vec3 TODO FIX FIX FIX!!!
+			//baseOfSupport.mMin = std::min(footBoundsL.mMin, footBoundsR.mMin);
+			//baseOfSupport.mMax = std::min(footBoundsL.mMax, footBoundsR.mMax);
 
 			supportVelocity = (bi.GetLinearVelocity(ankleLBodyID) + bi.GetLinearVelocity(ankleRBodyID)) * 0.5f;
 		}
 		else if (footContactL.grounded) {
-			supportCenter = ankleLBodyCOM;
+
+			baseOfSupport = footBoundsL;
 
 			supportVelocity += bi.GetLinearVelocity(ankleLBodyID);
 		}
 		else if (footContactR.grounded) {
-			supportCenter = ankleRBodyCOM;
+
+			baseOfSupport = footBoundsR;
 
 			supportVelocity += bi.GetLinearVelocity(ankleRBodyID);
 		}
@@ -876,26 +887,29 @@ export namespace Scripts {
 		JPH::Vec3 relativeVelocity = ragdollInertia.comVelocity - supportVelocity;
 		relativeVelocity.SetY(0.0f);
 
-		JPH::Vec3 balanceError = supportCenter - ragdollInertia.com;
+		//TODO FIX 
+
+		JPH::Vec3 balanceError = JPH::Vec3::sZero(); // WRONG FIX IT fix FIX IT!!!
 		balanceError.SetY(0.0f);
 
 		
 		//Turn the error into a lean angle(PD)
-		float kp = 2.0f;
-		float kd = 0.5f;
+		float positionGain = 2.0f; 
+		float velocityGain = 0.5f;
 		float maxAnkleLean = 0.3;
 
 		float torsoGain = 0.4f;
 		float maxTorsoLean = 0.5f;
 
-		JPH::Vec3 lean = kp * balanceError - kd * relativeVelocity;
+		//how much to correct described as a horizontal vector
+		JPH::Vec3 correctionVector = positionGain * balanceError - velocityGain * relativeVelocity;
 
-		//float angle = std::min(lean.Length(), maxLean);
-		JPH::Vec3 axisWorld = JPH::Vec3::sAxisY().Cross(lean).NormalizedOr(JPH::Vec3::sZero());
+		//Turn the correction vector into a hinge
+		JPH::Vec3 axisWorld = JPH::Vec3::sAxisY().Cross(correctionVector).NormalizedOr(JPH::Vec3::sZero());
 
-		float requestLean = lean.Length();
-		float ankleAngle = std::min(requestLean, maxAnkleLean);
-		float excessLean = std::max(requestLean - maxAnkleLean, 0.0f);
+		float correctionLength = correctionVector.Length();
+		float ankleAngle = std::min(correctionLength, maxAnkleLean);
+		float excessLean = std::max(correctionLength - maxAnkleLean, 0.0f);
 		float torsoAngle = std::min(excessLean * torsoGain, maxTorsoLean);
 
 		if (ankleAngle > 1e-4f)
@@ -913,22 +927,17 @@ export namespace Scripts {
 
 			if (footContactL.grounded) footL.mRotation = JPH::Quat::sRotation(axisLocalL, -ankleAngle) * footL.mRotation;
 			if (footContactR.grounded) footR.mRotation = JPH::Quat::sRotation(axisLocalR, -ankleAngle) * footR.mRotation;
+
 		}
 
 		if (torsoAngle > 1e-4f) {
 
 			JPH::Quat hipRot = bi.GetRotation(ragdoll->GetBodyID(jointIndices.hips));
 			JPH::Vec3 axisHipsLocal = (hipRot.Conjugated() * axisWorld).Normalized();
+			
 
-			JPH::SkeletonPose::JointState& spine0 = pose.GetJoint(jointIndices.spine0);
-			spine0.mRotation = JPH::Quat::sRotation(axisHipsLocal, torsoAngle) * spine0.mRotation;
-
-
-			/*JPH::SkeletonPose::JointState& upperLegL = pose.GetJoint(jointIndices.upperLegL);
-			upperLegL.mRotation = JPH::Quat::sRotation(axisHipsLocal, -torsoAngle) * upperLegL.mRotation;
-
-			JPH::SkeletonPose::JointState& upperLegR = pose.GetJoint(jointIndices.upperLegR);
-			upperLegR.mRotation = JPH::Quat::sRotation(axisHipsLocal, -torsoAngle) * upperLegR.mRotation;*/
+			//JPH::SkeletonPose::JointState& spine0 = pose.GetJoint(jointIndices.spine0);
+			//spine0.mRotation = JPH::Quat::sRotation(axisHipsLocal, torsoAngle) * spine0.mRotation;
 
 		}
 
@@ -936,30 +945,80 @@ export namespace Scripts {
 		//LogInfo(LOG_APP, "err %.3f  vel %.3f  ankle %.3f  torso %.3f",
 		//	balanceError.Length(), ragdollInertia.comVelocity.Length(), ankleAngle, torsoAngle);
 		
-		/*
+		
 		if (!ragdoll->IsActive()) {
 			LogInfo(LOG_APP, "Ragdoll is sleeping!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
 			ragdoll->Activate();
 		}
 
-		LogInfo(LOG_APP, "L grounded %d gap %.3f   R grounded %d gap %.3f",
-			footContactL.grounded, footContactL.gap,
-			footContactR.grounded, footContactR.gap);
+		//////////////////////////////////////////////////////////////////
+		// Balance debug logging (one line per frame)
 
-		LogInfo(LOG_APP, "err %.3f %.3f  relVel %.3f %.3f  supVel %.3f",
-			balanceError.GetX(), balanceError.GetZ(),
-			relativeVelocity.GetX(), relativeVelocity.GetZ(),
-			supportVelocity.Length());
+		auto motorTorque = [&](int bodyIndex) {
+			int constraintIndex = ragdoll->GetRagdollSettings()->GetConstraintIndexForBodyIndex(bodyIndex);
+			JPH::SwingTwistConstraint* constraint = static_cast<JPH::SwingTwistConstraint*>(ragdoll->GetConstraint(constraintIndex));
+			return constraint->GetTotalLambdaMotor() / (1.0f / 60.0f); // X = twist, Y/Z = swing
+		};
 
-		JPH::Vec3 footLUp = bi.GetRotation(ankleLBodyID) * JPH::Vec3::sAxisY();
-		float footTiltL = std::acos(std::clamp(footLUp.Dot(JPH::Vec3::sAxisY()), -1.0f, 1.0f));
+		// Unsigned: total tilt of the foot away from its standing orientation.
+		// Signed: tilt around the lean axis, positive = foot rotated the same way the ankle command rotates it.
+		auto footTilt = [&](int footIndex, float& outSigned) {
+			JPH::Quat restRot = ragdoll->GetRagdollSettings()->mParts[footIndex].mRotation;
+			JPH::Vec3 localUp = restRot.Conjugated() * JPH::Vec3::sAxisY();
+			JPH::Vec3 worldUp = bi.GetRotation(ragdoll->GetBodyID(footIndex)) * localUp;
+			outSigned = worldUp.Cross(JPH::Vec3::sAxisY()).Dot(axisWorld);
+			return std::acos(std::clamp(worldUp.Dot(JPH::Vec3::sAxisY()), -1.0f, 1.0f));
+		};
 
-		JPH::Vec3 footRUp = bi.GetRotation(ankleRBodyID) * JPH::Vec3::sAxisY();
-		float footTiltR = std::acos(std::clamp(footRUp.Dot(JPH::Vec3::sAxisY()), -1.0f, 1.0f));
+		auto quatAngle = [](JPH::Quat q) {
+			return 2.0f * std::acos(std::min(1.0f, std::abs(q.GetW())));
+		};
 
-		LogInfo(LOG_APP, "FootLTilt %.3f FootRTilt %.3f ", footTiltL, footTiltR);
+		auto trackingError = [&](int shinIndex, int footIndex) {
+			JPH::Quat target = pose.GetJoint(footIndex).mRotation;
+			JPH::Quat actual = bi.GetRotation(ragdoll->GetBodyID(shinIndex)).Conjugated()
+				* bi.GetRotation(ragdoll->GetBodyID(footIndex));
+			return quatAngle(target.Conjugated() * actual);
+		};
+
+		JPH::Vec3 torqueL = motorTorque(jointIndices.ankleL);
+		JPH::Vec3 torqueR = motorTorque(jointIndices.ankleR);
+		float swingTorqueL = JPH::Vec3(0.0f, torqueL.GetY(), torqueL.GetZ()).Length();
+		float swingTorqueR = JPH::Vec3(0.0f, torqueR.GetY(), torqueR.GetZ()).Length();
+
+		float signedTiltL, signedTiltR;
+		float tiltL = footTilt(jointIndices.ankleL, signedTiltL);
+		float tiltR = footTilt(jointIndices.ankleR, signedTiltR);
+
+		// Torque gravity creates about the support point: m * g * horizontal offset
+		//Gravity is 20.0f;
+		float expectedTorque = ragdollInertia.totalMass * 20.0f * balanceError.Length();
+
+		/*
+		LogInfo(LOG_APP,
+			"gnd %d%d | err %.3f %.3f (%.3f) | lean %.3f cmd %.3f | mass %.1f expT %.1f | "
+			"swingT L %.1f R %.1f sum %.1f twistT L %.1f R %.1f | "
+			"tilt L %.3f (s %.3f) R %.3f (s %.3f) | gap L %.3f R %.3f | trackErr L %.3f R %.3f",
+			footContactL.grounded, footContactR.grounded,
+			balanceError.GetX(), balanceError.GetZ(), balanceError.Length(),
+			requestLean, ankleAngle,
+			ragdollInertia.totalMass, expectedTorque,
+			swingTorqueL, swingTorqueR, swingTorqueL + swingTorqueR, torqueL.GetX(), torqueR.GetX(),
+			tiltL, signedTiltL, tiltR, signedTiltR,
+			footContactL.gap, footContactR.gap,
+			trackingError(jointIndices.lowerLegL, jointIndices.ankleL),
+			trackingError(jointIndices.lowerLegR, jointIndices.ankleR));
 		*/
 
+
+
+		//ankleLConstraint->GetSwingMotorSettings().mMaxTorqueLimit = 1000000;
+		//ankleLConstraint->GetSwingMotorSettings().mSpringSettings.mDamping = 0;
+
+		//ankleLConstraint->GetTwistMotorSettings().mMaxTorqueLimit = 1000000;
+		//ankleLConstraint->GetTwistMotorSettings().mSpringSettings.mDamping = 0;
+
+		
 
 		ragdoll->DriveToPoseUsingMotors(pose);
 
