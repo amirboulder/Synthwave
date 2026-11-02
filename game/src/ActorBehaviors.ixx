@@ -805,6 +805,8 @@ export namespace Scripts {
 
 		HumanoidJointIndices jointIndices = self.get<HumanoidJointIndices>();
 
+		const std::vector<ContactData>& contactDataList = self.get<ContactDataList>().contacts;
+
 		float hipsFromSoles = self.get_mut<JoltPose2>().hipsFromSoles;
 
 		float& animTime = self.get_mut<AnimationTime>().time;
@@ -848,8 +850,20 @@ export namespace Scripts {
 
 		JPH::AABox baseOfSupport;
 
+		for (const ContactData& contactData : contactDataList) {
 
-	//	JPH::Vec3 supportCenter;
+			if (contactData.selfBodyID != ankleLBodyID && contactData.selfBodyID != ankleRBodyID) {
+				return;
+			}
+
+			//Add up all the contact normals and average them ???
+			//TODO
+
+		}
+
+		//Base of support is really defined as the contact manifold between the feet (pluse whichever part of the body) and the ground,
+		// Keeping in mind that the ground is not just one physics body but can be made up of multiple bodies
+
 
 		//Check is either foot is touching the ground.
 		FootContact footContactL = ragdoll::checkFootContact(physicsSystem, bi, ankleLBodyID, *ragdollFilter);
@@ -859,9 +873,14 @@ export namespace Scripts {
 
 		if (footContactL.grounded && footContactR.grounded) {
 
-			//STD::min/max does not work for JPH::Vec3 TODO FIX FIX FIX!!!
-			//baseOfSupport.mMin = std::min(footBoundsL.mMin, footBoundsR.mMin);
-			//baseOfSupport.mMax = std::min(footBoundsL.mMax, footBoundsR.mMax);
+			//This is not nececerrliy base of support 
+			baseOfSupport.mMin.SetX(std::min(footBoundsL.mMin.GetX(), footBoundsR.mMin.GetX()));
+			baseOfSupport.mMin.SetY(std::min(footBoundsL.mMin.GetY(), footBoundsR.mMin.GetY()));
+			baseOfSupport.mMin.SetZ(std::min(footBoundsL.mMin.GetZ(), footBoundsR.mMin.GetZ()));
+
+			baseOfSupport.mMax.SetX(std::max(footBoundsL.mMax.GetX(), footBoundsR.mMax.GetX()));
+			baseOfSupport.mMax.SetY(std::max(footBoundsL.mMax.GetY(), footBoundsR.mMax.GetY()));
+			baseOfSupport.mMax.SetZ(std::max(footBoundsL.mMax.GetZ(), footBoundsR.mMax.GetZ()));
 
 			supportVelocity = (bi.GetLinearVelocity(ankleLBodyID) + bi.GetLinearVelocity(ankleRBodyID)) * 0.5f;
 		}
@@ -888,7 +907,7 @@ export namespace Scripts {
 		relativeVelocity.SetY(0.0f);
 
 		//TODO FIX 
-
+		//This should be the distance between ragdoll center of mass and 
 		JPH::Vec3 balanceError = JPH::Vec3::sZero(); // WRONG FIX IT fix FIX IT!!!
 		balanceError.SetY(0.0f);
 

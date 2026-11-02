@@ -2,6 +2,7 @@ module;
 
 #include <vector>
 #include <string>
+#include <array>
 #include <functional>
 
 // IntelliSense only; cl.exe never sees this. Module units skip the PCH, so they
@@ -117,14 +118,25 @@ export struct JoltAnchorBody {
 
 export enum class ContactPhase : std::uint8_t { Added, Persisted, Sleeping };
 
+export struct ContactPointsData {
+	std::array<JPH::Vec3, 4> points{};
+	JPH::Vec3 centroid{};
+	uint8_t numValidPoints = 0;
+};
+
 export struct ContactData {
 	flecs::entity self;
 	flecs::entity other;
 	JPH::BodyID selfBodyID;
 	JPH::BodyID otherBodyID;
+
+	float                    impulse;
+	float                    penetrationDepth;
+
+	ContactPointsData contactPointsData{};
+
 	JPH::RVec3               baseOffset;
 	JPH::Vec3                normal;
-	JPH::Vec3                centroid;
 
 	JPH::Vec3                selfLinearVelocity; // for ContactPhase::Added Velocity is for after collision
 	JPH::Vec3                otherLinearVelocity; // for ContactPhase::Added Velocity is for after collision
@@ -132,8 +144,6 @@ export struct ContactData {
 	JPH::Vec3                selfAngularVelocity; // for ContactPhase::Added Velocity is for after collision
 	JPH::Vec3                otherAngularVelocity; // for ContactPhase::Added Velocity is for after collision
 
-	float                    impulse;
-	float                    penetrationDepth;
 	ContactPhase             phase;
 	bool                     frameStamp; // used to remove stale contacts
 

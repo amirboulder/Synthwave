@@ -743,6 +743,7 @@ public:
 			.set<Transform>(transform)
 			.set<AnimationTime>({})
 			.emplace<ActorBehavior>(updateFunction)
+			.add<ContactDataList>()
 			.child_of(parent);
 
 		if (!validateEntityCreation(entity, name)) return false;

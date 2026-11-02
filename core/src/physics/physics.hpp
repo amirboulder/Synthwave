@@ -211,21 +211,22 @@ public:
 
 		if (e1Has)
 		{
+			
 
 			ContactData contactData = {
 				.self = e1,
 				.other = e2,
 				.selfBodyID = inBody1.GetID(),
 				.otherBodyID = inBody2.GetID(),
+				.impulse = impulse,
+				.penetrationDepth = inManifold.mPenetrationDepth,
+				.contactPointsData = populateContactPointsData(inManifold, true),
 				.baseOffset = inManifold.mBaseOffset,
 				.normal = inManifold.mWorldSpaceNormal,
-				.centroid = calculateContactCentroidPoint(inManifold, true),
 				.selfLinearVelocity = result.mLinearVelocity1,
 				.otherLinearVelocity = result.mLinearVelocity2,
 				.selfAngularVelocity = result.mAngularVelocity1,
 				.otherAngularVelocity = result.mAngularVelocity2,
-				.impulse = impulse,
-				.penetrationDepth = inManifold.mPenetrationDepth,
 				.phase = ContactPhase::Added,
 				.frameStamp = frameAlternator,
 			};
@@ -240,15 +241,15 @@ public:
 				.other = e1,
 				.selfBodyID = inBody2.GetID(),
 				.otherBodyID = inBody1.GetID(),
+				.impulse = impulse,
+				.penetrationDepth = inManifold.mPenetrationDepth,
+				.contactPointsData = populateContactPointsData(inManifold, false),
 				.baseOffset = inManifold.mBaseOffset,
 				.normal = -inManifold.mWorldSpaceNormal, // Negate the normal
-				.centroid = calculateContactCentroidPoint(inManifold, false),
 				.selfLinearVelocity = result.mLinearVelocity2,
 				.otherLinearVelocity = result.mLinearVelocity1,
 				.selfAngularVelocity = result.mAngularVelocity2,
 				.otherAngularVelocity = result.mAngularVelocity1,
-				.impulse = impulse,
-				.penetrationDepth = inManifold.mPenetrationDepth,
 				.phase = ContactPhase::Added,
 				.frameStamp = frameAlternator,
 			};
@@ -289,15 +290,15 @@ public:
 				.other = e2,
 				.selfBodyID = inBody1.GetID(),
 				.otherBodyID = inBody2.GetID(),
+				.impulse = 0.0f,
+				.penetrationDepth = inManifold.mPenetrationDepth,
+				.contactPointsData = populateContactPointsData(inManifold, true),
 				.baseOffset = inManifold.mBaseOffset,
 				.normal = inManifold.mWorldSpaceNormal,
-				.centroid = calculateContactCentroidPoint(inManifold, true),
 				.selfLinearVelocity = inBody1.GetLinearVelocity(), 
 				.otherLinearVelocity = inBody2.GetLinearVelocity(),
 				.selfAngularVelocity = inBody1.GetAngularVelocity(),
 				.otherAngularVelocity = inBody2.GetAngularVelocity(),
-				.impulse = 0.0f,
-				.penetrationDepth = inManifold.mPenetrationDepth,
 				.phase = ContactPhase::Persisted,
 				.frameStamp = frameAlternator,
 			};
@@ -313,15 +314,15 @@ public:
 				.other = e1,
 				.selfBodyID = inBody2.GetID(),
 				.otherBodyID = inBody1.GetID(),
+				.impulse = 0.0f,
+				.penetrationDepth = inManifold.mPenetrationDepth,
+				.contactPointsData = populateContactPointsData(inManifold, false),
 				.baseOffset = inManifold.mBaseOffset,
 				.normal = -inManifold.mWorldSpaceNormal, // Negate the normal
-				.centroid = calculateContactCentroidPoint(inManifold, false),
-				.selfLinearVelocity = inBody2.GetLinearVelocity(), 
-				.otherLinearVelocity = inBody1.GetLinearVelocity(), 
+				.selfLinearVelocity = inBody2.GetLinearVelocity(),
+				.otherLinearVelocity = inBody1.GetLinearVelocity(),
 				.selfAngularVelocity = inBody2.GetAngularVelocity(),
 				.otherAngularVelocity = inBody1.GetAngularVelocity(),
-				.impulse = 0.0f,
-				.penetrationDepth = inManifold.mPenetrationDepth, 
 				.phase = ContactPhase::Persisted,
 				.frameStamp = frameAlternator,
 			};
@@ -334,20 +335,29 @@ public:
 	virtual void			OnContactRemoved(const SubShapeIDPair& inSubShapePair) override {}
 
 
-	RVec3 calculateContactCentroidPoint(const ContactManifold& inManifold, bool bodyOne)
-	{
-		const ContactPoints& points = bodyOne ? inManifold.mRelativeContactPointsOn1: inManifold.mRelativeContactPointsOn2;
+	ContactPointsData populateContactPointsData(const ContactManifold& inManifold,const bool bodyOne) {
 
-		uint numPoints = points.size();
-		if (numPoints == 0)
-			return inManifold.mBaseOffset; 
+		const ContactPoints& contactPoints = bodyOne ? inManifold.mRelativeContactPointsOn1 : inManifold.mRelativeContactPointsOn2;
 
-		Vec3 centroid = Vec3::sZero();
-		for (uint i = 0; i < numPoints; i++)
-			centroid += points[i];
-		centroid /= float(numPoints);
+		//Making sure Jolt still reduces contactPoints to 4 points
+		assert(contactPoints.size() <= 4);
 
-		return inManifold.mBaseOffset + centroid; 
+		ContactPointsData result{};
+
+		result.numValidPoints = std::min<uint>(contactPoints.size(), 4);
+		if (result.numValidPoints == 0)
+			return result;
+
+		for (size_t i = 0; i < result.numValidPoints; i++) {
+
+			result.points[i] = inManifold.mBaseOffset + contactPoints[i];
+			result.centroid += result.points[i];
+
+		}
+
+		result.centroid /= float(result.numValidPoints);
+
+		return result;
 	}
 
 };
@@ -561,6 +571,14 @@ public:
 			for (ContactData& currentContact : contacts) {
 
 				//Checking against bodyID because one Entity can have multiple physics bodies such as ragdolls.
+
+				// TODO: The contact queue consumer matches contacts only by (selfBodyID, otherBodyID), so if one body pair
+				// produces several manifolds in the same step, only the last one is kept. This happens when the other body
+				// is a MeshShape, HeightFieldShape or compound shape and the touched sub-shapes have different normals, so
+				// Jolt's manifold reduction doesn't merge them (e.g. a foot on a stair edge, ridge, or floor-to-ramp seam in
+				// a single mesh). Flat floors, convex shapes and separate bodies are unaffected. On uneven terrain this
+				// shrinks the base of support. Fix: store mSubShapeID1/mSubShapeID2 in ContactData (swapped for the e2 side),
+				// include them in the match, and check that stale-contact cleanup.
 				if (currentContact.otherBodyID == contactData.otherBodyID && currentContact.selfBodyID == contactData.selfBodyID) {
 
 					currentContact = contactData;
