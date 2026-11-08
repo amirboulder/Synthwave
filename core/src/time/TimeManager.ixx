@@ -8,10 +8,6 @@ export module TimeManager;
 
 import Logger;
 
-export struct TimeStep {
-	float step = 0.0f;
-};
-
 
 /// <summary>
 /// Keeps track of how much times is consumed in every frame.
@@ -25,7 +21,6 @@ public:
 
 	flecs::world& ecs;
 
-	const float timeStep = 1.0f / 60.0f;
 	float accumulator = 0.0f;
 
 	uint64_t lastTime = 0;
@@ -33,13 +28,10 @@ public:
 
 	float deltaTime = 0.0f;
 
-	TimeManager(flecs::world& ecs, float timeStep)
-		: ecs(ecs), timeStep(timeStep)
+	TimeManager(flecs::world& ecs)
+		: ecs(ecs)
 	{
 		appStartTime = SDL_GetTicks();
-
-		ecs.component<TimeStep>();
-		ecs.set<TimeStep>({ timeStep });
 
 		LogSuccess(LOG_APP, "TimeManager Initialized");
 	}

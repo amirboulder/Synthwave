@@ -14,6 +14,7 @@ module;
 
 export module Player;
 
+import constants;
 import Logger;
 import Camera;
 import GLM;
@@ -168,7 +169,7 @@ export struct PlayerSystems {
 		}
 		else {
 			// In air: Apply gravity manually
-			player.mVerticalVelocity += player.gravity * player.timeStep;
+			player.mVerticalVelocity += player.gravity * timeStep;
 
 			// Clamp to terminal velocity
 			if (player.mVerticalVelocity.GetY() < player.terminalVelocity) {
@@ -202,7 +203,7 @@ export struct PlayerSystems {
 		const JPH::ShapeFilter shapeFilter;
 
 
-		player.mCharacter->Update(player.timeStep, player.gravity, broadphase_layer_filter, object_layer_filter, body_filter, shapeFilter, *player.temp_allocator);
+		player.mCharacter->Update(timeStep, player.gravity, broadphase_layer_filter, object_layer_filter, body_filter, shapeFilter, *player.temp_allocator);
 
 		//mCharacter->ExtendedUpdate(physicsTickRate, gravity, broadphase_layer_filter, object_layer_filter, body_filter, shapeFilter, *fisiks.temp_allocator);
 

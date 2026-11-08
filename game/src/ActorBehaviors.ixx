@@ -15,6 +15,7 @@ module;
 
 export module ActorBehaviors;
 
+import constants;
 import Logger;
 import Jolt;
 import PhysicsComponents;

@@ -20,6 +20,7 @@ export module InputManager;
 
 import Logger;
 import Phases;
+import constants;
 import EventComponents;
 import Components;
 import InputComponents;
@@ -285,8 +286,6 @@ public:
 			.kind<InputPhase>()
 			.run([&](flecs::iter& it) {
 
-			const float timeStep = ecs.get<TimeStep>().step;
-
 			const ecs_world_info_t* info = ecs.get_info();
 			int64_t currentFrame = info->frame_count_total;
 
@@ -294,14 +293,14 @@ public:
 
 				ActionState& state = keyBinding.entity.get_mut<ActionState>();
 
-				setActionState(state, currentFrame, timeStep);
+				setActionState(state, currentFrame);
 			}
 
 			for (MouseBinding& mouseBinding : mouseBindings) {
 
 				ActionState& state = mouseBinding.entity.get_mut<ActionState>();
 
-				setActionState(state, currentFrame, timeStep);
+				setActionState(state, currentFrame);
 			}
 
 			//TODO gamepad input
@@ -309,7 +308,7 @@ public:
 
 	}
 
-	void setActionState(ActionState& state, const int64_t& currentFrame, const float& timeStep) {
+	void setActionState(ActionState& state, const int64_t& currentFrame) {
 
 		if (state.occurred || state.latch) {
 

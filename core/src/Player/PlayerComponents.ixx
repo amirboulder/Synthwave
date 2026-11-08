@@ -148,8 +148,6 @@ public:
 	float terminalVelocity = -50.0f;
 	JPH::Vec3 gravity = JPH::Vec3(0, -20.0f, 0);
 
-	float timeStep = 1.0f / 60.0f;
-
 	glm::vec3 cameraOffset = glm::vec3(0.0f, 2.0f, 0.0f);
 
 	// Input state

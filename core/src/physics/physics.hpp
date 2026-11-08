@@ -416,8 +416,6 @@ public:
 	// If you take larger steps than 1 / 60th of a second you need to do multiple collision steps in order to keep the simulation stable. Do 1 collision step per 1 / 60th of a second (round up).
 	const int cCollisionSteps = 1;
 
-	const float timeStep = 1.0f / 60.0f;
-
 	// Alternates between true and false on everyPhysics step
 	//Used to remove ContactData from last frame
 	bool frameAlternator = true;
@@ -438,7 +436,7 @@ public:
 	flecs::system removeStaleContactsSys;
 
 
-	Physics(flecs::world& ecs, const float timeStep)
+	Physics(flecs::world& ecs)
 		: broad_phase_layer_interface(),
 		object_vs_broadphase_layer_filter(),
 		object_vs_object_layer_filter(),
@@ -446,8 +444,7 @@ public:
 		contact_listener(ecs, frameAlternator),
 		physicsSystem(),
 		bodyInterface(physicsSystem.GetBodyInterface()),
-		ecs(ecs),
-		timeStep(timeStep)
+		ecs(ecs)
 
 	{
 		// Register allocation hook. In this example we'll just let Jolt use 

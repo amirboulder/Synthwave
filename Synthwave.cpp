@@ -14,13 +14,13 @@ int main(int argc, char* argv[])
 
 	Phases phases(ecs);
 
-	TimeManager time(ecs, timeStep);
+	TimeManager time(ecs);
 
 	InputManager inputManager(ecs);
 
 	Renderer renderer(ecs);
 
-	Physics physics(ecs, timeStep);
+	Physics physics(ecs);
 
 	TransformPropagation transformPropagation(ecs);
 
@@ -57,12 +57,12 @@ int main(int argc, char* argv[])
 		inputManager.accumulateInput();
 
 		time.tick();
-		while (time.accumulator >= time.timeStep) {
+		while (time.accumulator >= timeStep) {
 
 			
 			ecs.progress(); //All systems except draw calls happen here.
 
-			time.accumulator -= time.timeStep;
+			time.accumulator -= timeStep;
 		}
 		
 		frameCounter++;
