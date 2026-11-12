@@ -390,7 +390,6 @@ export namespace Scripts {
 	//TODO parameterize this more
 	void rotateCharacterTowardsTarget(JPH::Character* joltCharacter, JPH::Quat currentRot, JPH::Vec3 dirToTarget) {
 
-		float deltaTime = 0.016666;//TODO Parameterize
 		//Turn towards the player
 		float turnSpeed = 1.0f;
 		JPH::Vec3 flatDir(dirToTarget.GetX(), 0.0f, dirToTarget.GetZ());
@@ -398,7 +397,7 @@ export namespace Scripts {
 		JPH::Quat targetRot = targetRot = dirToQuat(flatDir);
 
 		float t;
-		t = 1.0f - expf(-8.0f * deltaTime);
+		t = 1.0f - expf(-8.0f * timeStep);
 
 		JPH::Quat newRot = currentRot.SLERP(targetRot, t);
 		joltCharacter->SetRotation(newRot);
@@ -423,7 +422,6 @@ export namespace Scripts {
 	}
 
 	void updateSleep() {
-
 
 	}
 
@@ -855,7 +853,6 @@ export namespace Scripts {
 		JPH::Vec3 supportVelocity {};
 		size_t numValidContactsCounter { 0 };
 
-
 		contactPoints.clear();
 		for (const ContactData& contactData : contactDataList) {
 
@@ -995,12 +992,6 @@ export namespace Scripts {
 		float excessLean = std::max(rawCorrection.Length() - ankleAngle, 0.0f);
 		float torsoAngle = std::min(excessLean * torsoGain, maxTorsoLean);
 
-
-		
-
-
-
-
 		if (ankleAngle > 1e-4f)
 		{
 			if (numGroundContactsFootL > 0) {
@@ -1056,13 +1047,11 @@ export namespace Scripts {
 		if (torsoAngle > 1e-4f) {
 			
 			//Commented out on purpose for now We want ankle strategy to be good enough to hold up the ragdoll when no external force is applied
-			//JPH::Quat hipRot = bi.GetRotation(ragdoll->GetBodyID(jointIndices.hips));
-			//JPH::Vec3 axisHipsLocal = (hipRot.Conjugated() * axisWorld).Normalized();
-			
 
-			//JPH::SkeletonPose::JointState& spine0 = pose.GetJoint(jointIndices.spine0);
-			//spine0.mRotation = JPH::Quat::sRotation(axisHipsLocal, torsoAngle) * spine0.mRotation;
-
+			JPH::Quat hipRot = bi.GetRotation(ragdoll->GetBodyID(jointIndices.hips));
+			JPH::Vec3 axisHipsLocal = (hipRot.Conjugated() * axisWorld).Normalized();
+			JPH::SkeletonPose::JointState& spine0 = pose.GetJoint(jointIndices.spine0);
+			spine0.mRotation = JPH::Quat::sRotation(axisHipsLocal, torsoAngle) * spine0.mRotation;
 		}
 
 		
@@ -1078,7 +1067,7 @@ export namespace Scripts {
 		float actualLeanL = std::atan2(shinUpL.Dot(corrDir), shinUpL.GetY());
 		float actualLeanR = std::atan2(shinUpR.Dot(corrDir), shinUpR.GetY());
 
-		LogInfo(LOG_APP,
+		/*LogInfo(LOG_APP,
 			"pts %zu hull %zu (L%u R%u) | margin %.3f | off f %.3f s %.3f | vel f %.3f s %.3f | corr f %.3f s %.3f | lean cmd %.3f actL %.3f actR %.3f | torso %.3f",
 			contactPoints.size(), supportHull.size(),
 			(unsigned)numGroundContactsFootL, (unsigned)numGroundContactsFootR,
@@ -1087,7 +1076,7 @@ export namespace Scripts {
 			relativeVelocity.Dot(fwdAxis), relativeVelocity.Dot(sideAxis),
 			correctionVector.Dot(fwdAxis), correctionVector.Dot(sideAxis),
 			ankleAngle, actualLeanL, actualLeanR,
-			torsoAngle);
+			torsoAngle);*/
 		
 		
 		if (!ragdoll->IsActive()) {
@@ -1129,7 +1118,9 @@ export namespace Scripts {
 			}
 		}
 
-		
+		//TODO recalculate the area of supportHull as well as calculate the area centroid properly
+		//The ragdoll should also account for the area of the supportHull, since a smaller supportHull is weaker base of support.
+		//
 
 		ragdoll->DriveToPoseUsingMotors(pose);
 
@@ -1158,7 +1149,6 @@ export namespace Scripts {
 		dr->DrawLine(ragdollInertia.com, comGround, JPH::Color::sCyan);
 		// Where the controller is pushing
 		dr->DrawArrow(comGround + lift, comGround + lift + correctionVector, JPH::Color::sOrange, 0.05f);
-
 
 #endif
 

@@ -460,7 +460,7 @@ public:
 							ecs, s_state.contextEntity,
 							s_state.childNameBuffer,
 							buildChildTransform(),
-							s_state.selectedUpdatefunc);
+							Scripts::updateRagdollMotor);
 
 						break;
 					case EntityType::Ragdoll:
@@ -606,11 +606,6 @@ public:
 		case EntityType::BuiltRagdoll:
 
 			isValid = drawRagdollEntOptions(ecs);
-			break;
-
-		case EntityType::RagdollCharacterController:
-
-			isValid = drawRagdollUpdateOptions(ecs);
 			break;
 
 		case EntityType::Light:
