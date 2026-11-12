@@ -730,6 +730,8 @@ public:
 			return false;
 		}
 
+		
+
 		//TODO animation List could be shared among ragdolls.
 		JoltAnimationList animationList;
 		if (!loadPhysicsAnimations(assetManager, animationList, name)) {
@@ -758,10 +760,13 @@ public:
 		
 		mPose.SetSkeleton(skel); // Initialize pose
 
+
+		RagdollLocalUps localUps = ragdoll::buildRagdollLocalUps(bi, ragdoll, jointIndices.value());
+
+
 		JPH::RVec3 desiredPos(transform.position.x, transform.position.y, transform.position.z);
 		JPH::Quat   desiredRot = JPH::Quat(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
 
-		
 		assert(skel->GetJoint(jointIndices.value().spine0).mParentJointIndex == jointIndices.value().hips);
 
 		ragdoll::MoveAndRotateRagdoll(ragdoll, bi, desiredPos, desiredRot, JPH::EActivation::Activate);
@@ -779,7 +784,10 @@ public:
 		entity.set<JoltRagdollFilter>({ filter });
 		entity.set<JoltRagdoll>({ ragdoll});
 		entity.set<HumanoidJointIndices>(jointIndices.value());
-		entity.set<JoltPose2>({ mPose, bi.GetRotation(ragdollRootId), HipsFromSolesDist });
+		entity.set<RagdollLocalUps>({ localUps });
+		entity.set<GroundContactPoints>({});
+		entity.set<SupportHull>({});
+		entity.set<JPH::SkeletonPose>({ mPose });
 		entity.set<JoltAnimation>({ animationList.find("idle") }); //this can be relationship eventually once we want animation blending 
 		entity.set<JoltAnimationList>(std::move(animationList));
 

@@ -1,6 +1,7 @@
 module;
 
 #include <vector>
+#include <array>
 #include <iostream>
 #include <cstdint>
 #include <queue>
@@ -45,12 +46,7 @@ export struct RagdollInertia {
 	float      totalMass = 0;
 };
 
-export struct FootContact {
 
-	JPH::Vec3 groundPoint = JPH::Vec3::sZero();
-	float gap = FLT_MAX;
-	bool grounded = false;
-};
 
 // Indices into the Human.tof skeleton. -1 means the joint was not resolved.
 // spine4 is C_Spine_sjnt_4; the asset has no spine joint 3.
@@ -87,6 +83,32 @@ export struct HumanoidJointIndices {
 	int8_t head = -1;
 };
 
+//TODO complete
+//Based on jolts Human.tof structure
+export struct RagdollLocalUps {
+
+	JPH::Vec3 footL{};
+	JPH::Vec3 lowerLegL{};
+	JPH::Vec3 upperLegL{};
+
+	JPH::Vec3 footR{};
+	JPH::Vec3 lowerLegR{};
+	JPH::Vec3 upperLegR{};
+
+
+};
+
+
+export struct SupportHull {
+
+	std::vector<JPH::Vec3> hull;
+};
+
+export struct GroundContactPoints {
+
+	std::vector<JPH::Vec3> points;
+
+};
 
 export class RagdollLoader {
 
@@ -1217,6 +1239,32 @@ export namespace ragdoll {
 		return joints;
 	}
 
+	export RagdollLocalUps buildRagdollLocalUps(JPH::BodyInterface& bi, JPH::Ragdoll* ragdoll, const HumanoidJointIndices& jointIndices) {
+
+		RagdollLocalUps result{};
+
+		JPH::BodyID	footLBodyId = ragdoll->GetBodyID(jointIndices.ankleL);
+		result.footL = bi.GetRotation(footLBodyId).Conjugated() * JPH::Vec3::sAxisY();
+
+		JPH::BodyID	lowerLegLBodyId = ragdoll->GetBodyID(jointIndices.lowerLegL);
+		result.lowerLegL = bi.GetRotation(lowerLegLBodyId).Conjugated() * JPH::Vec3::sAxisY();
+
+		JPH::BodyID	upperLegL = ragdoll->GetBodyID(jointIndices.upperLegL);
+		result.upperLegL = bi.GetRotation(upperLegL).Conjugated() * JPH::Vec3::sAxisY();
+
+
+		JPH::BodyID	footRBodyId = ragdoll->GetBodyID(jointIndices.ankleR);
+		result.footR = bi.GetRotation(footRBodyId).Conjugated() * JPH::Vec3::sAxisY();
+
+		JPH::BodyID	lowerLegRBodyId = ragdoll->GetBodyID(jointIndices.lowerLegR);
+		result.lowerLegR = bi.GetRotation(lowerLegRBodyId).Conjugated() * JPH::Vec3::sAxisY();
+
+		JPH::BodyID	upperLegR = ragdoll->GetBodyID(jointIndices.upperLegR);
+		result.upperLegR = bi.GetRotation(upperLegR).Conjugated() * JPH::Vec3::sAxisY();
+
+		return result;
+	}
+
 	export float getHipsFromSolesDist(JPH::Ragdoll* ragdoll,
 		const HumanoidJointIndices joints,
 		JPH::BodyInterface& bi) {
@@ -1275,32 +1323,7 @@ export namespace ragdoll {
 		return result;
 	}
 
-	export FootContact checkFootContact(
-		JPH::PhysicsSystem& physicsSystem,
-		JPH::BodyInterface& bi,
-		JPH::BodyID footID,
-		const JPH::BodyFilter& ragdollFilter,
-		float contactMargin = 0.03f)
-	{
-		FootContact footContact;
-		
-		JPH::Vec3 footCom = bi.GetCenterOfMassPosition(footID);
-		GroundInfo groundInfo = Utils::Phys::CheckGround(physicsSystem, footCom, excludeSensors, ragdollFilter);
-
-		if (groundInfo.distanceToGround > 10.0f) {
-			return footContact; // Ray hit nothing
-		}
-
-		JPH::AABox footBounds = bi.GetTransformedShape(footID).GetWorldSpaceBounds();
-		float soleY = footBounds.mMin.GetY();
-
-		footContact.groundPoint = groundInfo.groundPoint;
-		footContact.gap = soleY - groundInfo.groundPoint.GetY();
-		footContact.grounded = footContact.gap < contactMargin;
-
-		return footContact;
-	}
-
+	
 
 	export void MoveAndRotateRagdoll(JPH::Ragdoll* ragdoll, JPH::BodyInterface& bi, const JPH::Vec3& desiredPos, const JPH::Quat& desiredRot, const JPH::EActivation& activation) {
 

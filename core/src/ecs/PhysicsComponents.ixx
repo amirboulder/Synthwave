@@ -89,12 +89,6 @@ export struct JoltPose {
 	JPH::Vec3 root_offset;
 };
 
-//TDO delete
-export struct JoltPose2 {
-	JPH::SkeletonPose pose;
-	JPH::Quat targetOrientation = JPH::Quat::sIdentity();
-	float hipsFromSoles = 0.0f;
-};
 
 
 export struct BipedalRagdollData {
@@ -125,8 +119,8 @@ export struct ContactPointsData {
 };
 
 export struct ContactData {
-	flecs::entity self;
-	flecs::entity other;
+	flecs::entity selfEntity;
+	flecs::entity otherEntity;
 	JPH::BodyID selfBodyID;
 	JPH::BodyID otherBodyID;
 

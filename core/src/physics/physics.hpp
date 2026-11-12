@@ -214,8 +214,8 @@ public:
 			
 
 			ContactData contactData = {
-				.self = e1,
-				.other = e2,
+				.selfEntity = e1,
+				.otherEntity = e2,
 				.selfBodyID = inBody1.GetID(),
 				.otherBodyID = inBody2.GetID(),
 				.impulse = impulse,
@@ -237,8 +237,8 @@ public:
 		if (e2Has)
 		{	
 			ContactData contactData = {
-				.self = e2,
-				.other = e1,
+				.selfEntity = e2,
+				.otherEntity = e1,
 				.selfBodyID = inBody2.GetID(),
 				.otherBodyID = inBody1.GetID(),
 				.impulse = impulse,
@@ -267,11 +267,6 @@ public:
 			return;
 		}
 
-		// Lets not keep track of different phyiscs bodies contacts with each other (FOR NOW)
-	/*	if (e1 == e2) {
-			return;
-		}*/
-
 		bool e1Has = e1.has<ContactDataList>();
 		bool e2Has = e2.has<ContactDataList>();
 
@@ -286,8 +281,8 @@ public:
 		if (e1Has)
 		{
 			ContactData contactData = {
-				.self = e1,
-				.other = e2,
+				.selfEntity = e1,
+				.otherEntity = e2,
 				.selfBodyID = inBody1.GetID(),
 				.otherBodyID = inBody2.GetID(),
 				.impulse = 0.0f,
@@ -310,8 +305,8 @@ public:
 		if (e2Has)
 		{
 			ContactData contactData = {
-				.self = e2,
-				.other = e1,
+				.selfEntity = e2,
+				.otherEntity = e1,
 				.selfBodyID = inBody2.GetID(),
 				.otherBodyID = inBody1.GetID(),
 				.impulse = 0.0f,
@@ -562,7 +557,7 @@ public:
 			const ContactData& contactData = contact_listener.contactQueue.front();
 
 			//Using get_mut without a try_get here because we already checked in contact Listener
-			std::vector<ContactData> & contacts = contactData.self.get_mut<ContactDataList>().contacts;
+			std::vector<ContactData> & contacts = contactData.selfEntity.get_mut<ContactDataList>().contacts;
 
 			bool updatedContact = false;
 			for (ContactData& currentContact : contacts) {
