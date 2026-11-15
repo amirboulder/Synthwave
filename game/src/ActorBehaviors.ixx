@@ -918,17 +918,18 @@ export namespace Scripts {
 
 		//LogInfo(LOG_APP, "Stability Margin : %f", stabilityMargin);
 
-		std::optional<JPH::Vec3> centroidOpt = Utils::Phys::calculateCentroid(supportHull);
+		std::optional<AreaAndCentroid> areaAndCentroidOpt = Utils::Phys::calculateAreaAndCentroid(supportHull);
 
 		//somewhat redundant because we already checked for supportHull.size() == 0.
-		if (!centroidOpt.has_value()) {
+		if (!areaAndCentroidOpt.has_value()) {
 
-			LogInfo(LOG_APP, "somehow centroidOpt has no value ¯\(ツ)/¯");
+			LogInfo(LOG_APP, "somehow areaAndCentroidOpt has no value ¯\(ツ)/¯");
 			return;
 		}
 
-		JPH::Vec3 centroid = centroidOpt.value();
-
+		float supportHullArea = areaAndCentroidOpt.value().area;
+		JPH::Vec3 centroid = areaAndCentroidOpt.value().centroid;
+			
 		JPH::Vec3 relativeVelocity = ragdollInertia.comVelocity - supportVelocity;
 		relativeVelocity.SetY(0.0f);
 
@@ -945,7 +946,7 @@ export namespace Scripts {
 		const float maxLeanForward = 0.12f;  // body leaning back    -> pressure moves to the heel (short lever)
 		const float maxLeanSide = 0.05f;     // pressure moves to the foot's side edge (shortest lever)
 
-		float torsoGain = 0.4f;
+		float torsoGain = 0.1f;
 		float maxTorsoLean = 0.5f;
 
 
@@ -972,6 +973,9 @@ export namespace Scripts {
 		// Capped correction, back in world space
 		JPH::Vec3 correctionVector = corrFwd * fwdAxis + corrSide * sideAxis;
 
+		JPH::Vec3 unmetCorrection = rawCorrection - correctionVector;
+		unmetCorrection.SetY(0.0f);
+
 		// Share of body weight on each foot (lever rule), 0..1
 		float stanceWidth = (footPosR - footPosL).Dot(sideAxis);
 		float loadR = 0.5f;
@@ -986,18 +990,17 @@ export namespace Scripts {
 
 		//Turn the correction vector into a hinge
 		JPH::Vec3 axisWorld = JPH::Vec3::sAxisY().Cross(correctionVector).NormalizedOr(JPH::Vec3::sZero());
+		JPH::Vec3 torsoAxisWorld = JPH::Vec3::sAxisY().Cross(unmetCorrection).NormalizedOr(JPH::Vec3::sZero());
 
 		// correctionVector is already capped per axis; the remainder is what the ankles could not cover
 		float ankleAngle = correctionVector.Length();
-		float excessLean = std::max(rawCorrection.Length() - ankleAngle, 0.0f);
-		float torsoAngle = std::min(excessLean * torsoGain, maxTorsoLean);
+		float torsoAngle = std::min(unmetCorrection.Length() * torsoGain, maxTorsoLean);
+
+
 
 		if (ankleAngle > 1e-4f)
 		{
 			if (numGroundContactsFootL > 0) {
-
-				JPH::Quat shinRotL = bi.GetRotation(ragdoll->GetBodyID(jointIndices.lowerLegL));
-				JPH::Vec3 axisLocalL = (shinRotL.Conjugated() * axisWorld).Normalized();
 
 				JPH::SkeletonPose::JointState& ankleJointL = pose.GetJoint(jointIndices.ankleL);
 
@@ -1019,9 +1022,6 @@ export namespace Scripts {
 			}
 
 			if (numGroundContactsFootR > 0) {
-
-				JPH::Quat shinRotR = bi.GetRotation(ragdoll->GetBodyID(jointIndices.lowerLegR));
-				JPH::Vec3 axisLocalR = (shinRotR.Conjugated() * axisWorld).Normalized();
 
 				JPH::SkeletonPose::JointState& ankleJointR = pose.GetJoint(jointIndices.ankleR);
 
@@ -1046,37 +1046,46 @@ export namespace Scripts {
 
 		if (torsoAngle > 1e-4f) {
 			
-			//Commented out on purpose for now We want ankle strategy to be good enough to hold up the ragdoll when no external force is applied
-
-			JPH::Quat hipRot = bi.GetRotation(ragdoll->GetBodyID(jointIndices.hips));
-			JPH::Vec3 axisHipsLocal = (hipRot.Conjugated() * axisWorld).Normalized();
+			JPH::Vec3 axisHipsLocal = (rootRot.Conjugated() * torsoAxisWorld).Normalized();
 			JPH::SkeletonPose::JointState& spine0 = pose.GetJoint(jointIndices.spine0);
 			spine0.mRotation = JPH::Quat::sRotation(axisHipsLocal, torsoAngle) * spine0.mRotation;
 		}
 
 		
-	// --- debug: express the controller's quantities in the ragdoll's own frame ---
-	// Sideways axis = left foot -> right foot, flattened. Forward = perpendicular to it.
-	// (sideAxis / fwdAxis are computed above, next to the correction.)
-
-		// Actual shin lean (rad), measured along the direction the controller is asking for,
-		// so it compares directly against ankleAngle.
-		JPH::Vec3 corrDir = correctionVector.NormalizedOr(JPH::Vec3::sZero());
+		// --- debug ---
 		JPH::Vec3 shinUpL = bi.GetRotation(lowerLegLBodyId) * localUps.lowerLegL;
 		JPH::Vec3 shinUpR = bi.GetRotation(lowerLegRBodyId) * localUps.lowerLegR;
-		float actualLeanL = std::atan2(shinUpL.Dot(corrDir), shinUpL.GetY());
-		float actualLeanR = std::atan2(shinUpR.Dot(corrDir), shinUpR.GetY());
+		JPH::Vec3 footUpL = bi.GetRotation(footLBodyId) * localUps.footL;
+		JPH::Vec3 footUpR = bi.GetRotation(footRBodyId) * localUps.footR;
 
-		/*LogInfo(LOG_APP,
-			"pts %zu hull %zu (L%u R%u) | margin %.3f | off f %.3f s %.3f | vel f %.3f s %.3f | corr f %.3f s %.3f | lean cmd %.3f actL %.3f actR %.3f | torso %.3f",
+		// Signed tilt from vertical (rad). f > 0: toward the front. s > 0: toward the right foot.
+		float shinFwdL = std::atan2(shinUpL.Dot(fwdAxis), shinUpL.GetY());
+		float shinFwdR = std::atan2(shinUpR.Dot(fwdAxis), shinUpR.GetY());
+		float shinSideL = std::atan2(shinUpL.Dot(sideAxis), shinUpL.GetY());
+		float shinSideR = std::atan2(shinUpR.Dot(sideAxis), shinUpR.GetY());
+
+		// Foot roll: sideways tilt of the sole (rad). Non-zero means the foot is on an edge.
+		float footRollL = std::atan2(footUpL.Dot(sideAxis), footUpL.GetY());
+		float footRollR = std::atan2(footUpR.Dot(sideAxis), footUpR.GetY());
+
+		// Foot slide: sideways speed of each foot (m/s). Should be ~0 for a planted foot.
+		float footSlideL = bi.GetLinearVelocity(footLBodyId).Dot(sideAxis);
+		float footSlideR = bi.GetLinearVelocity(footRBodyId).Dot(sideAxis);
+
+		LogInfo(LOG_APP,
+			"pts %zu hull %zu (L%u R%u) | area %.3f width %.3f margin %.3f | off f %.3f s %.3f | vel f %.3f s %.3f | cmd f %.3f s %.3f | load L %.2f R %.2f | shinF L %.3f R %.3f | shinS L %.3f R %.3f | roll L %.3f R %.3f | slide L %.3f R %.3f | torso %.3f",
 			contactPoints.size(), supportHull.size(),
 			(unsigned)numGroundContactsFootL, (unsigned)numGroundContactsFootR,
-			stabilityMargin,
+			supportHullArea, stanceWidth, stabilityMargin,
 			comOffset.Dot(fwdAxis), comOffset.Dot(sideAxis),
 			relativeVelocity.Dot(fwdAxis), relativeVelocity.Dot(sideAxis),
-			correctionVector.Dot(fwdAxis), correctionVector.Dot(sideAxis),
-			ankleAngle, actualLeanL, actualLeanR,
-			torsoAngle);*/
+			corrFwd, corrSide,
+			loadL, loadR,
+			shinFwdL, shinFwdR,
+			shinSideL, shinSideR,
+			footRollL, footRollR,
+			footSlideL, footSlideR,
+			torsoAngle);
 		
 		
 		if (!ragdoll->IsActive()) {
@@ -1118,9 +1127,7 @@ export namespace Scripts {
 			}
 		}
 
-		//TODO recalculate the area of supportHull as well as calculate the area centroid properly
-		//The ragdoll should also account for the area of the supportHull, since a smaller supportHull is weaker base of support.
-		//
+		// we're still not using margin of stability everywhere
 
 		ragdoll->DriveToPoseUsingMotors(pose);
 

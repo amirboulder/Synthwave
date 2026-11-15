@@ -16,6 +16,7 @@ module;
 export module PhysicsUtil;
 
 import Jolt;
+import PhysicsComponents;
 
 export struct GroundInfo {
     JPH::Vec3 groundPoint;
@@ -289,5 +290,50 @@ export namespace Utils::Phys {
         centroid /= hull.size();
 
         return centroid;
+    }
+
+    export std::optional<AreaAndCentroid> calculateAreaAndCentroid(const std::vector<JPH::Vec3>& hull) {
+
+        if (hull.size() == 0)
+            return std::nullopt;
+
+        if (hull.size() < 3)
+        {
+            // Technically unsafe but we already checked for empty vector.
+            // line or point have no area.
+            return AreaAndCentroid(calculateCentroid(hull).value(), 0.0f);
+        }
+
+        float area = 0.0f;
+        float sumX = 0.0f;
+        float sumY = 0.0f;
+        float sumZ = 0.0f;
+
+        for (size_t i = 0; i < hull.size(); i++) {
+
+            size_t iPlusOne = (i + 1) % hull.size();
+
+            float cross = hull[i].GetX() * hull[iPlusOne].GetZ() - hull[iPlusOne].GetX() * hull[i].GetZ();
+
+            area += cross;
+
+            sumX += (hull[i].GetX() + hull[iPlusOne].GetX()) * cross;
+            sumZ += (hull[i].GetZ() + hull[iPlusOne].GetZ()) * cross;
+
+            sumY += hull[i].GetY();
+        }
+
+        area *= 0.5f;
+
+        //If area is smaller than a 1e-5 fallback to plain vertex average to avoid division that produces huge values or NaN.
+        if (std::abs(area) <= 1e-5) {
+            return AreaAndCentroid(calculateCentroid(hull).value(), std::abs(area));
+        }
+
+        sumX /= 6.0f * area;
+        sumZ /= 6.0f * area;
+        sumY /= hull.size();
+
+        return AreaAndCentroid(JPH::Vec3(sumX, sumY, sumZ), std::abs(area));
     }
 }

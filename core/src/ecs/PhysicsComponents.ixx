@@ -190,3 +190,9 @@ export struct RigidBodyDesc {
 	bool                allowSleeping = true;
 };
 
+
+export struct AreaAndCentroid {
+
+	JPH::Vec3 centroid{};
+	float area{};
+};
