@@ -292,6 +292,7 @@ export namespace Utils::Phys {
         return centroid;
     }
 
+    //Note uses absolute coordinates which can be problematic if points are really far from the origin.
     export std::optional<AreaAndCentroid> calculateAreaAndCentroid(const std::vector<JPH::Vec3>& hull) {
 
         if (hull.size() == 0)

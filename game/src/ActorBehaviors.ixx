@@ -804,13 +804,13 @@ export namespace Scripts {
 
 		std::vector<JPH::Vec3>& supportHull = self.get_mut<SupportHull>().hull;
 		std::vector<JPH::Vec3>& contactPoints = self.get_mut<GroundContactPoints>().points;
-	
+
 		JPH::Vec3 gravity = physicsSystem.GetGravity();
 
 		float& animTime = self.get_mut<AnimationTime>().time;
 		animTime += timeStep;
 		animation->Sample(animTime, pose);
-		
+
 		JPH::SkeletonPose::JointState& hipJoint = pose.GetJoint(0);
 
 		//Place the skeletons root joint on the ragdolls first body so that we draw the pose in the right place
@@ -836,7 +836,7 @@ export namespace Scripts {
 		//Calculate the ragdolls inertia
 		RagdollInertia ragdollInertia = ragdoll::computeRagdollInertia(ragdoll, biLock, groundInfo.groundPoint);
 
-	
+
 		JPH::BodyID	footLBodyId = ragdoll->GetBodyID(jointIndices.ankleL);
 		JPH::BodyID	footRBodyId = ragdoll->GetBodyID(jointIndices.ankleR);
 
@@ -850,8 +850,8 @@ export namespace Scripts {
 		uint16_t numGroundContactsFootL{};
 		uint16_t numGroundContactsFootR{};
 
-		JPH::Vec3 supportVelocity {};
-		size_t numValidContactsCounter { 0 };
+		JPH::Vec3 supportVelocity{};
+		size_t numValidContactsCounter{ 0 };
 
 		contactPoints.clear();
 		for (const ContactData& contactData : contactDataList) {
@@ -898,7 +898,7 @@ export namespace Scripts {
 			groundNormalFootR /= numGroundContactsFootR;
 		}
 
-		
+
 		supportHull = Utils::Phys::buildConvexHull(contactPoints);
 
 		const flecs::world_info_t* info = ecs.get_info();
@@ -929,25 +929,25 @@ export namespace Scripts {
 
 		float supportHullArea = areaAndCentroidOpt.value().area;
 		JPH::Vec3 centroid = areaAndCentroidOpt.value().centroid;
-			
+
 		JPH::Vec3 relativeVelocity = ragdollInertia.comVelocity - supportVelocity;
 		relativeVelocity.SetY(0.0f);
 
-		
+
 		JPH::Vec3 comOffset = centroid - ragdollInertia.com;
 		comOffset.SetY(0.0f);
 
-		
+
 		//Turn the error into a lean angle(PD)
-		float positionGain = 1.1f; 
+		float positionGain = 1.1f;
 		float velocityGain = positionGain * std::sqrt((ragdollInertia.com.GetY() - centroid.GetY()) / gravity.Length());
 		// Ankle authority differs per direction (rad). Starting values, tune from the log.
 		const float maxLeanBackward = 0.25f; // body leaning forward -> pressure moves to the toes (long lever)
 		const float maxLeanForward = 0.12f;  // body leaning back    -> pressure moves to the heel (short lever)
-		const float maxLeanSide = 0.05f;     // pressure moves to the foot's side edge (shortest lever)
+		const float maxLeanSide = 0.0f;     // pressure moves to the foot's side edge (shortest lever)
 
-		float torsoGain = 0.1f;
-		float maxTorsoLean = 0.5f;
+		float hipGain = 0.1f;
+		float maxhipLean = 0.5f;
 
 
 
@@ -965,13 +965,13 @@ export namespace Scripts {
 
 		// Split into the ragdoll's axes and cap each direction separately
 		float corrFwd = rawCorrection.Dot(fwdAxis);   // > 0: CoM must move forward (body is leaning back)
-		float corrSide = rawCorrection.Dot(sideAxis); // > 0: CoM must move toward the right foot
+		float corrSide = rawCorrection.Dot(sideAxis); 
 
 		corrFwd = std::clamp(corrFwd, -maxLeanBackward, maxLeanForward);
-		corrSide = std::clamp(corrSide, -maxLeanSide, maxLeanSide);
+		//corrSide = std::clamp(corrSide, -maxLeanSide, maxLeanSide);
 
 		// Capped correction, back in world space
-		JPH::Vec3 correctionVector = corrFwd * fwdAxis + corrSide * sideAxis;
+		JPH::Vec3 correctionVector = corrFwd * fwdAxis; //removed corrSide and side axis from this 
 
 		JPH::Vec3 unmetCorrection = rawCorrection - correctionVector;
 		unmetCorrection.SetY(0.0f);
@@ -990,67 +990,91 @@ export namespace Scripts {
 
 		//Turn the correction vector into a hinge
 		JPH::Vec3 axisWorld = JPH::Vec3::sAxisY().Cross(correctionVector).NormalizedOr(JPH::Vec3::sZero());
-		JPH::Vec3 torsoAxisWorld = JPH::Vec3::sAxisY().Cross(unmetCorrection).NormalizedOr(JPH::Vec3::sZero());
+
+		JPH::Vec3 hipAxisWorld = JPH::Vec3::sAxisY().Cross(fwdAxis).NormalizedOr(JPH::Vec3::sZero());
 
 		// correctionVector is already capped per axis; the remainder is what the ankles could not cover
 		float ankleAngle = correctionVector.Length();
-		float torsoAngle = std::min(unmetCorrection.Length() * torsoGain, maxTorsoLean);
+		float hipAngle = std::min(unmetCorrection.Length() * hipGain, maxhipLean);
+
+		float legsAngle = std::clamp(hipGain * corrSide, -maxhipLean, maxhipLean);
 
 
+		if (numGroundContactsFootL > 0) {
 
-		if (ankleAngle > 1e-4f)
-		{
-			if (numGroundContactsFootL > 0) {
+			JPH::Quat footLActualRotation = bi.GetRotation(footLBodyId);
+			JPH::Quat LowerLegLActualRotation = bi.GetRotation(lowerLegLBodyId);
+			JPH::Vec3 footLWorldUp = footLActualRotation * localUps.footL;
+			JPH::Quat footLDesired = JPH::Quat::sFromTo(footLWorldUp, -groundNormalFootL) * footLActualRotation;
 
-				JPH::SkeletonPose::JointState& ankleJointL = pose.GetJoint(jointIndices.ankleL);
+			JPH::SkeletonPose::JointState& ankleJointL = pose.GetJoint(jointIndices.ankleL);
 
-				JPH::Quat footLActualRotation = bi.GetRotation(footLBodyId);
+			JPH::Vec3 lowerLegLWorldUp = bi.GetRotation(lowerLegLBodyId) * localUps.lowerLegL;
 
-				JPH::Quat LowerLegLActualRotation = bi.GetRotation(lowerLegLBodyId);
+			JPH::Vec3 shinLTargetUp = (lowerLegLWorldUp - lowerLegLWorldUp.Dot(fwdAxis) * fwdAxis).Normalized();
+			JPH::Quat shinLNoFwdTilt = JPH::Quat::sFromTo(lowerLegLWorldUp, shinLTargetUp) * LowerLegLActualRotation;
 
-				JPH::Vec3 footLWorldUp = footLActualRotation * localUps.footL;
+			JPH::Quat desiredShinL = shinLNoFwdTilt;
 
-				JPH::Vec3 lowerLegLWorldUp = bi.GetRotation(lowerLegLBodyId) * localUps.lowerLegL;
-
-				JPH::Quat footLDesired = JPH::Quat::sFromTo(footLWorldUp, -groundNormalFootL) * footLActualRotation;
-
-
-				JPH::Quat shinLUpright = JPH::Quat::sFromTo(lowerLegLWorldUp, JPH::Vec3::sAxisY()) * LowerLegLActualRotation;
-				JPH::Quat desiredShinL = JPH::Quat::sRotation(axisWorld, ankleAngle * ankleWeightL) * shinLUpright;
-
-				ankleJointL.mRotation = desiredShinL.Conjugated() * footLDesired;
+			if (ankleAngle > 1e-4f)
+			{
+				desiredShinL = JPH::Quat::sRotation(axisWorld, ankleAngle * ankleWeightL) * shinLNoFwdTilt;
 			}
 
-			if (numGroundContactsFootR > 0) {
-
-				JPH::SkeletonPose::JointState& ankleJointR = pose.GetJoint(jointIndices.ankleR);
-
-				JPH::Quat footRActualRotation = bi.GetRotation(footRBodyId);
-
-				JPH::Quat LowerLegRActualRotation = bi.GetRotation(lowerLegRBodyId);
-
-				JPH::Vec3 footRWorldUp = footRActualRotation * localUps.footR;
-
-				JPH::Vec3 lowerLegRWorldUp = bi.GetRotation(lowerLegRBodyId) * localUps.lowerLegR;
-
-				JPH::Quat footRDesired = JPH::Quat::sFromTo(footRWorldUp, -groundNormalFootR) * footRActualRotation;
-
-				JPH::Quat shinRUpright = JPH::Quat::sFromTo(lowerLegRWorldUp, JPH::Vec3::sAxisY()) * LowerLegRActualRotation;
-
-				JPH::Quat desiredShinR = JPH::Quat::sRotation(axisWorld, ankleAngle * ankleWeightR) * shinRUpright;
-
-				ankleJointR.mRotation = desiredShinR.Conjugated() * footRDesired;
-			}
-
+			ankleJointL.mRotation = desiredShinL.Conjugated() * footLDesired;
 		}
 
-		if (torsoAngle > 1e-4f) {
+
+		if (numGroundContactsFootR > 0) {
+
+			JPH::SkeletonPose::JointState& ankleJointR = pose.GetJoint(jointIndices.ankleR);
+
+			JPH::Quat footRActualRotation = bi.GetRotation(footRBodyId);
+
+			JPH::Quat LowerLegRActualRotation = bi.GetRotation(lowerLegRBodyId);
+
+			JPH::Vec3 footRWorldUp = footRActualRotation * localUps.footR;
+
+			JPH::Vec3 lowerLegRWorldUp = bi.GetRotation(lowerLegRBodyId) * localUps.lowerLegR;
+
+			JPH::Quat footRDesired = JPH::Quat::sFromTo(footRWorldUp, -groundNormalFootR) * footRActualRotation;
+
+			JPH::Vec3 shinRTargetUp = (lowerLegRWorldUp - lowerLegRWorldUp.Dot(fwdAxis) * fwdAxis).Normalized();
+			JPH::Quat shinRNoFwdTilt = JPH::Quat::sFromTo(lowerLegRWorldUp, shinRTargetUp) * LowerLegRActualRotation;
+
+			JPH::Quat desiredShinR = shinRNoFwdTilt;
+
+			if (ankleAngle > 1e-4f)
+			{
+				desiredShinR = JPH::Quat::sRotation(axisWorld, ankleAngle * ankleWeightR) * shinRNoFwdTilt;
+			}
+
+			ankleJointR.mRotation = desiredShinR.Conjugated() * footRDesired;
+		}
+
+		//TODO use for excess correction in FWD dir
+		/*
+		if (hipAngle > 1e-4f) {
 			
-			JPH::Vec3 axisHipsLocal = (rootRot.Conjugated() * torsoAxisWorld).Normalized();
-			JPH::SkeletonPose::JointState& spine0 = pose.GetJoint(jointIndices.spine0);
-			spine0.mRotation = JPH::Quat::sRotation(axisHipsLocal, torsoAngle) * spine0.mRotation;
-		}
+			//JPH::Vec3 axisHipsLocal = (rootRot.Conjugated() * hipAxisWorld).Normalized();
+			//JPH::SkeletonPose::JointState& hips = pose.GetJoint(jointIndices.hips);
+			//hips.mRotation = JPH::Quat::sRotation(axisHipsLocal, hipAngle) * hips.mRotation;
 
+		}
+		*/
+
+
+
+		JPH::Vec3 axisHipsLocal = (rootRot.Conjugated() * fwdAxis).Normalized();
+
+		//JPH::SkeletonPose::JointState& hips = pose.GetJoint(jointIndices.hips);
+		JPH::SkeletonPose::JointState& upperLegL = pose.GetJoint(jointIndices.upperLegL);
+		JPH::SkeletonPose::JointState& upperLegR = pose.GetJoint(jointIndices.upperLegR);
+
+		upperLegL.mRotation = JPH::Quat::sRotation(axisHipsLocal, legsAngle) * upperLegL.mRotation;
+		upperLegR.mRotation = JPH::Quat::sRotation(axisHipsLocal, legsAngle) * upperLegR.mRotation;
+
+		/*
 		
 		// --- debug ---
 		JPH::Vec3 shinUpL = bi.GetRotation(lowerLegLBodyId) * localUps.lowerLegL;
@@ -1072,8 +1096,53 @@ export namespace Scripts {
 		float footSlideL = bi.GetLinearVelocity(footLBodyId).Dot(sideAxis);
 		float footSlideR = bi.GetLinearVelocity(footRBodyId).Dot(sideAxis);
 
+		// Sideways position relative to the midpoint between the feet (m). > 0: toward the right foot.
+		// hips ~ com: the legs/pelvis carry the offset. hips << com: the upper body carries it.
+		JPH::Vec3 feetMid = 0.5f * (footPosL + footPosR);
+		float hipsSide = (rootPos - feetMid).Dot(sideAxis);
+		float comSide = (ragdollInertia.com - feetMid).Dot(sideAxis);
+
+		// Thigh sideways tilt from vertical (rad). s > 0: toward the right foot.
+		JPH::Vec3 thighUpL = bi.GetRotation(ragdoll->GetBodyID(jointIndices.upperLegL)) * localUps.upperLegL;
+		JPH::Vec3 thighUpR = bi.GetRotation(ragdoll->GetBodyID(jointIndices.upperLegR)) * localUps.upperLegR;
+		float thighSideL = std::atan2(thighUpL.Dot(sideAxis), thighUpL.GetY());
+		float thighSideR = std::atan2(thighUpR.Dot(sideAxis), thighUpR.GetY());
+
+		// Thigh forward tilt from vertical (rad). f > 0: toward the front.
+		float thighFwdL = std::atan2(thighUpL.Dot(fwdAxis), thighUpL.GetY());
+		float thighFwdR = std::atan2(thighUpR.Dot(fwdAxis), thighUpR.GetY());
+
+		// Pelvis roll (rad), from the line between the two thigh bodies. > 0: right hip higher than left.
+		JPH::Vec3 thighPosL = JPH::Vec3(bi.GetCenterOfMassPosition(ragdoll->GetBodyID(jointIndices.upperLegL)));
+		JPH::Vec3 thighPosR = JPH::Vec3(bi.GetCenterOfMassPosition(ragdoll->GetBodyID(jointIndices.upperLegR)));
+		JPH::Vec3 hipLine = thighPosR - thighPosL;
+		float pelvisRoll = std::atan2(hipLine.GetY(), hipLine.Dot(sideAxis));
+
+		// Ankle joint separation (m): foot-side anchor minus shin-side anchor. Should be ~0.
+// y < 0: the foot's anchor is below the shin's anchor (joint pulled apart vertically).
+		auto ankleGap = [&](int ankleBodyIndex) {
+			int idx = ragdoll->GetRagdollSettings()->GetConstraintIndexForBodyIndex(ankleBodyIndex);
+			if (idx < 0)
+				return JPH::Vec3::sZero();
+			const JPH::TwoBodyConstraint* c = ragdoll->GetConstraint(idx);
+			JPH::RVec3 anchor1 = bi.GetCenterOfMassTransform(c->GetBody1()->GetID()) * c->GetConstraintToBody1Matrix().GetTranslation();
+			JPH::RVec3 anchor2 = bi.GetCenterOfMassTransform(c->GetBody2()->GetID()) * c->GetConstraintToBody2Matrix().GetTranslation();
+			return JPH::Vec3(anchor2 - anchor1);
+		};
+		JPH::Vec3 ankleGapL = ankleGap(jointIndices.ankleL);
+		JPH::Vec3 ankleGapR = ankleGap(jointIndices.ankleR);
+
+		// Height of the left foot above the right foot (m). Should be ~0 on flat ground.
+		float footHeightDiff = footPosL.GetY() - footPosR.GetY();
+
+		// Per leg: straight-line distance and vertical distance from foot body to thigh body (m).
+		float legLengthL = (thighPosL - footPosL).Length();
+		float legLengthR = (thighPosR - footPosR).Length();
+		float legHeightL = thighPosL.GetY() - footPosL.GetY();
+		float legHeightR = thighPosR.GetY() - footPosR.GetY();
+
 		LogInfo(LOG_APP,
-			"pts %zu hull %zu (L%u R%u) | area %.3f width %.3f margin %.3f | off f %.3f s %.3f | vel f %.3f s %.3f | cmd f %.3f s %.3f | load L %.2f R %.2f | shinF L %.3f R %.3f | shinS L %.3f R %.3f | roll L %.3f R %.3f | slide L %.3f R %.3f | torso %.3f",
+			"pts %zu hull %zu (L%u R%u) | area %.3f width %.3f margin %.3f | off f %.3f s %.3f | vel f %.3f s %.3f | cmd f %.3f s %.3f | load L %.2f R %.2f | shinF L %.3f R %.3f | shinS L %.3f R %.3f | roll L %.3f R %.3f | slide L %.3f R %.3f | legs %.3f | midS hips %.3f com %.3f | thighS L %.3f R %.3f | thighF L %.3f R %.3f | pelvisRoll %.3f  | gap L %.3f (y %.3f) R %.3f (y %.3f)  | footDY %.3f | legLen L %.3f R %.3f | legH L %.3f R %.3f",
 			contactPoints.size(), supportHull.size(),
 			(unsigned)numGroundContactsFootL, (unsigned)numGroundContactsFootR,
 			supportHullArea, stanceWidth, stabilityMargin,
@@ -1085,13 +1154,26 @@ export namespace Scripts {
 			shinSideL, shinSideR,
 			footRollL, footRollR,
 			footSlideL, footSlideR,
-			torsoAngle);
+			legsAngle,
+			hipsSide, comSide,
+			thighSideL, thighSideR,
+			thighFwdL, thighFwdR,
+			pelvisRoll, ankleGapL.Length(), ankleGapL.GetY(),
+			ankleGapR.Length(), ankleGapR.GetY(), footHeightDiff,
+			legLengthL, legLengthR,
+			legHeightL, legHeightR);
+			
+			
+			*/
 		
 		
 		if (!ragdoll->IsActive()) {
-			LogInfo(LOG_APP, "Ragdoll is sleeping!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-			ragdoll->Activate();
+			//LogInfo(LOG_APP, "Ragdoll is sleeping!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+			//ragdoll->Activate();
 		}
+
+		
+
 
 		// --- ankle motor strength (experiment) ---
 		// Size the ankle springs from the load they carry, not from the foot's inertia.
@@ -1105,7 +1187,8 @@ export namespace Scripts {
 		const float ankleTorqueLimit = 10.0f * tippingStiffness;      // N*m
 
 		const JPH::RagdollSettings* ragdollSettings = ragdoll->GetRagdollSettings();
-		const int ankleBodies[] = { jointIndices.ankleL, jointIndices.ankleR };
+		const int ankleBodies[] = { jointIndices.ankleL, jointIndices.ankleR, jointIndices.upperLegL,
+			jointIndices.upperLegR, jointIndices.lowerLegL, jointIndices.lowerLegR };
 
 		for (int ankleBody : ankleBodies)
 		{
@@ -1130,6 +1213,7 @@ export namespace Scripts {
 		// we're still not using margin of stability everywhere
 
 		ragdoll->DriveToPoseUsingMotors(pose);
+		//LogInfo(LOG_APP, "BEEP  %llu ", frame);
 
 #ifdef JPH_DEBUG_RENDERER
 
