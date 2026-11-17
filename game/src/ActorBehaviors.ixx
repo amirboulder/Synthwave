@@ -824,25 +824,17 @@ export namespace Scripts {
 		JPH::Vec3 rootPos = bi.GetPosition(rootID);
 		JPH::Quat rootRot = bi.GetRotation(rootID);
 		JPH::Vec3 rootLinearVelocity = bi.GetLinearVelocity(rootID);
-		//JPH::Vec3 rootAngularVelocity = bi.GetAngularVelocity(rootID);
-
-
-		//////////////////////////////////////////////////////////////////
-		//////////////////////////////////////////////////////////////////
-		//////////////////////////////////////////////////////////////////
 
 		GroundInfo groundInfo = Utils::Phys::CheckGround(physicsSystem, rootPos, excludeSensors, *ragdollFilter);
 
 		//Calculate the ragdolls inertia
 		RagdollInertia ragdollInertia = ragdoll::computeRagdollInertia(ragdoll, biLock, groundInfo.groundPoint);
 
-
 		JPH::BodyID	footLBodyId = ragdoll->GetBodyID(jointIndices.ankleL);
 		JPH::BodyID	footRBodyId = ragdoll->GetBodyID(jointIndices.ankleR);
 
 		JPH::BodyID	lowerLegLBodyId = ragdoll->GetBodyID(jointIndices.lowerLegL);
 		JPH::BodyID	lowerLegRBodyId = ragdoll->GetBodyID(jointIndices.lowerLegR);
-
 
 		JPH::Vec3 groundNormalFootL{};
 		JPH::Vec3 groundNormalFootR{};
@@ -856,14 +848,11 @@ export namespace Scripts {
 		contactPoints.clear();
 		for (const ContactData& contactData : contactDataList) {
 
-			if (contactData.selfBodyID != footLBodyId && contactData.selfBodyID != footRBodyId) {
+			if (contactData.selfBodyID != footLBodyId && contactData.selfBodyID != footRBodyId) 
 				continue;
-			}
 
-			//remove contacts between ragdoll parts, Note parent to child contacts are already ignored
-			if (contactData.selfEntity == contactData.otherEntity) {
+			if (contactData.selfEntity == contactData.otherEntity) //remove contacts between ragdoll parts
 				continue;
-			}
 
 			if (contactData.selfBodyID == footLBodyId) {
 
@@ -890,14 +879,8 @@ export namespace Scripts {
 			supportVelocity /= numValidContactsCounter;
 		}
 
-		if (numGroundContactsFootL > 0) {
-			groundNormalFootL /= numGroundContactsFootL;
-		}
-
-		if (numGroundContactsFootR > 0) {
-			groundNormalFootR /= numGroundContactsFootR;
-		}
-
+		groundNormalFootL = groundNormalFootL.NormalizedOr(JPH::Vec3::sZero());
+		groundNormalFootR = groundNormalFootR.NormalizedOr(JPH::Vec3::sZero());
 
 		supportHull = Utils::Phys::buildConvexHull(contactPoints);
 
@@ -906,23 +889,16 @@ export namespace Scripts {
 
 		if (supportHull.size() == 0) {
 
-			//just hold the animation
 			//TODO switch to a falling animation if greater than X distance from the ground.
 			ragdoll->DriveToPoseUsingMotors(pose);
 			return;
 		}
 
-		float stabilityMargin = -FLT_MAX;
-
-		stabilityMargin = Utils::Phys::calculateStabilityMargin(supportHull, ragdollInertia.com);
-
-		//LogInfo(LOG_APP, "Stability Margin : %f", stabilityMargin);
 
 		std::optional<AreaAndCentroid> areaAndCentroidOpt = Utils::Phys::calculateAreaAndCentroid(supportHull);
 
 		//somewhat redundant because we already checked for supportHull.size() == 0.
 		if (!areaAndCentroidOpt.has_value()) {
-
 			LogInfo(LOG_APP, "somehow areaAndCentroidOpt has no value ¯\(ツ)/¯");
 			return;
 		}
@@ -937,19 +913,22 @@ export namespace Scripts {
 		JPH::Vec3 comOffset = centroid - ragdollInertia.com;
 		comOffset.SetY(0.0f);
 
+		const float bodyMass = ragdollInertia.totalMass; //TODO DON'T calculate every frame 
+		const float g = gravity.Length();    //TODO DON'T calculate every frame 
+		const float comHeight = std::max(ragdollInertia.com.GetY() - centroid.GetY(), 0.1f); // m
 
-		//Turn the error into a lean angle(PD)
-		float positionGain = 1.1f;
-		float velocityGain = positionGain * std::sqrt((ragdollInertia.com.GetY() - centroid.GetY()) / gravity.Length());
-		// Ankle authority differs per direction (rad). Starting values, tune from the log.
+		const float omegaNaught = std::sqrt(g / comHeight); // natural frequency of an inverted pendulum
+
+		float positionGain = 1.1f; // scales the velocityGain
+		float velocityGain = positionGain * (1 / omegaNaught);
+
+		// Ankle authority differs per direction (rad). Starting values
 		const float maxLeanBackward = 0.25f; // body leaning forward -> pressure moves to the toes (long lever)
 		const float maxLeanForward = 0.12f;  // body leaning back    -> pressure moves to the heel (short lever)
 		const float maxLeanSide = 0.0f;     // pressure moves to the foot's side edge (shortest lever)
 
 		float hipGain = 0.1f;
 		float maxhipLean = 0.5f;
-
-
 
 		//how much to correct described as a horizontal vector
 		// The ragdoll's own horizontal axes. Sideways = left foot -> right foot, flattened.
@@ -959,6 +938,13 @@ export namespace Scripts {
 		sideAxis.SetY(0.0f);
 		sideAxis = sideAxis.NormalizedOr(JPH::Vec3::sAxisX());
 		JPH::Vec3 fwdAxis = JPH::Vec3::sAxisY().Cross(sideAxis);
+
+		// XCoM = extrapolated center of mass
+		JPH::Vec3 XCoM = ragdollInertia.com + relativeVelocity / omegaNaught;
+
+		float stabilityMargin = -FLT_MAX;
+		stabilityMargin = Utils::Phys::calculateStabilityMargin(supportHull, XCoM);
+		//LogInfo(LOG_APP, "stabilityMargin :  %f", stabilityMargin);
 
 		// Uncapped PD output: the direction and amount the CoM should move
 		JPH::Vec3 rawCorrection = positionGain * comOffset - velocityGain * relativeVelocity;
@@ -1011,7 +997,7 @@ export namespace Scripts {
 
 			JPH::Vec3 lowerLegLWorldUp = bi.GetRotation(lowerLegLBodyId) * localUps.lowerLegL;
 
-			JPH::Vec3 shinLTargetUp = (lowerLegLWorldUp - lowerLegLWorldUp.Dot(fwdAxis) * fwdAxis).Normalized();
+			JPH::Vec3 shinLTargetUp = (lowerLegLWorldUp - lowerLegLWorldUp.Dot(fwdAxis) * fwdAxis).NormalizedOr(lowerLegLWorldUp);
 			JPH::Quat shinLNoFwdTilt = JPH::Quat::sFromTo(lowerLegLWorldUp, shinLTargetUp) * LowerLegLActualRotation;
 
 			JPH::Quat desiredShinL = shinLNoFwdTilt;
@@ -1039,7 +1025,7 @@ export namespace Scripts {
 
 			JPH::Quat footRDesired = JPH::Quat::sFromTo(footRWorldUp, -groundNormalFootR) * footRActualRotation;
 
-			JPH::Vec3 shinRTargetUp = (lowerLegRWorldUp - lowerLegRWorldUp.Dot(fwdAxis) * fwdAxis).Normalized();
+			JPH::Vec3 shinRTargetUp = (lowerLegRWorldUp - lowerLegRWorldUp.Dot(fwdAxis) * fwdAxis).NormalizedOr(lowerLegRWorldUp);
 			JPH::Quat shinRNoFwdTilt = JPH::Quat::sFromTo(lowerLegRWorldUp, shinRTargetUp) * LowerLegRActualRotation;
 
 			JPH::Quat desiredShinR = shinRNoFwdTilt;
@@ -1062,7 +1048,6 @@ export namespace Scripts {
 
 		}
 		*/
-
 
 
 		JPH::Vec3 axisHipsLocal = (rootRot.Conjugated() * fwdAxis).Normalized();
@@ -1172,25 +1157,38 @@ export namespace Scripts {
 			//ragdoll->Activate();
 		}
 
-		
 
-
-		// --- ankle motor strength (experiment) ---
-		// Size the ankle springs from the load they carry, not from the foot's inertia.
-		const float bodyMass = ragdollInertia.totalMass;                                   // kg
-		const float g = gravity.Length();                                           // m/s^2
-		const float comHeight = std::max(ragdollInertia.com.GetY() - centroid.GetY(), 0.1f); // m
-
+		// TODO Adjust motor stiffness to improve stability
 		const float tippingStiffness = bodyMass * g * comHeight;      // N*m/rad gravity "pulls" with per rad of lean
 		const float ankleStiffness = 2.0f * tippingStiffness;       // per ankle -> 4x the threshold in total
 		const float ankleDamping = 2.0f * bodyMass * comHeight * std::sqrt(g * comHeight); // per ankle, ~critical
 		const float ankleTorqueLimit = 10.0f * tippingStiffness;      // N*m
 
 		const JPH::RagdollSettings* ragdollSettings = ragdoll->GetRagdollSettings();
-		const int ankleBodies[] = { jointIndices.ankleL, jointIndices.ankleR, jointIndices.upperLegL,
-			jointIndices.upperLegR, jointIndices.lowerLegL, jointIndices.lowerLegR };
+		/*const int ankleBodies[] = { jointIndices.ankleL, jointIndices.ankleR, jointIndices.upperLegL,
+			jointIndices.upperLegR, jointIndices.lowerLegL, jointIndices.lowerLegR };*/
 
-		for (int ankleBody : ankleBodies)
+		/*
+		for (size_t i = 0; i < ragdoll->GetConstraintCount(); i++) {
+
+			JPH::SwingTwistConstraint* ankle =
+				static_cast<JPH::SwingTwistConstraint*>(ragdoll->GetConstraint(i));
+
+			JPH::MotorSettings* motors[] = { &ankle->GetSwingMotorSettings(), &ankle->GetTwistMotorSettings() };
+
+			for (JPH::MotorSettings* motor : motors)
+			{
+				motor->mSpringSettings.mMode = JPH::ESpringMode::StiffnessAndDamping;
+				motor->mSpringSettings.mStiffness = ankleStiffness;
+				motor->mSpringSettings.mDamping = ankleDamping;
+				motor->SetTorqueLimit(ankleTorqueLimit);
+			}
+		}
+		*/
+
+
+		/*
+		for (auto ankleBody : ragdoll->g)
 		{
 			int constraintIdx = ragdollSettings->GetConstraintIndexForBodyIndex(ankleBody);
 			if (constraintIdx < 0)
@@ -1209,11 +1207,9 @@ export namespace Scripts {
 				motor->SetTorqueLimit(ankleTorqueLimit);
 			}
 		}
-
-		// we're still not using margin of stability everywhere
+		*/
 
 		ragdoll->DriveToPoseUsingMotors(pose);
-		//LogInfo(LOG_APP, "BEEP  %llu ", frame);
 
 #ifdef JPH_DEBUG_RENDERER
 
